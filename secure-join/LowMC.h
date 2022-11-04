@@ -10,12 +10,12 @@
 #include <fstream>
 #include <cstdlib>
 #include <algorithm>
-
+#include "Defines.h"
 
 #include <cryptoTools/Circuit/CircuitLibrary.h>
 #include <cryptoTools/Crypto/PRNG.h>
 
-namespace osuCrypto
+namespace secJoin
 {
     template<typename block_type>
     u64 rank_of_Matrix(const std::vector<block_type>& matrix);
