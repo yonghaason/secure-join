@@ -1,6 +1,6 @@
 # these are just pass through config file for the ones that are placed in the build directory.
 
-
+message(FATAL_ERROR "fix me")
 include("${CMAKE_CURRENT_LIST_DIR}/preamble.cmake")
 
 if(NOT EXISTS "${VOLEPSI_BUILD_DIR}")

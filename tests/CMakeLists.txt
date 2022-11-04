@@ -6,7 +6,7 @@
 
 
 set(SRCS
-
+	UnitTests.cpp
 	)
 	
 

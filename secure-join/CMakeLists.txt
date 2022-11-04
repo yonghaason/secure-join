@@ -1,9 +1,9 @@
 
-configure_file(config.h.in "config.h" )
+#configure_file(config.h.in "config.h" )
 
 
 set(SRCS
-
+    "PaillierPerm.cpp"
     )
 
 add_library(secureJoin STATIC ${SRCS})

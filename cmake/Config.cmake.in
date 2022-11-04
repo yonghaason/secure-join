@@ -1,5 +1,8 @@
 @PACKAGE_INIT@
 
+
+message(FATAL_ERROR "fix me")
+
 include("${CMAKE_CURRENT_LIST_DIR}/volePSITargets.cmake")
 
 include("${CMAKE_CURRENT_LIST_DIR}/findDependancies.cmake")

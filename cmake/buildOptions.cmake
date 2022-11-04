@@ -17,7 +17,7 @@ EVAL(FETCH_LIBOTE_AUTO
 	((NOT DEFINED FETCH_LIBOTE) AND (FETCH_AUTO)))
 
 
-message(STATUS "vole-psi options\n=======================================================")
+message(STATUS "secure-join options\n=======================================================")
 
 message(STATUS "Option: FETCH_AUTO        = ${FETCH_AUTO}")
 message(STATUS "Option: FETCH_LIBOTE      = ${FETCH_LIBOTE}")

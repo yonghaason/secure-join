@@ -130,4 +130,5 @@ class PaillierPerm
     //         v(i) = out(i);
     //     }
     }
-}
+};
+
