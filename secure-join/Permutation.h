@@ -1,5 +1,6 @@
 #pragma once
 #include <cryptoTools/Common/Defines.h>
+#include <cryptoTools/Common/Matrix.h>
 #include <cryptoTools/Network/Channel.h>
 #include <cryptoTools/Crypto/PRNG.h>
 
@@ -189,17 +190,6 @@ namespace secJoin
 					}
 				}
 			}
-		}
-
-
-		template <typename T>
-		void apply(const eMatrix<T>& src, eMatrix<T>& dst, bool inverse = false) const
-		{
-			oc::MatrixView<const T> ss(src.data(), src.rows(), src.cols());
-			dst.resize(src.rows(), src.cols());
-			oc::MatrixView<T> dd(dst.data(), dst.rows(), dst.cols());
-
-			apply<T>(ss, dd, inverse);
 		}
 
 

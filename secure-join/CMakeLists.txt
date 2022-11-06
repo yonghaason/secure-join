@@ -4,6 +4,10 @@
 
 set(SRCS
     "PaillierPerm.cpp"
+    "Permutation.cpp"
+    "GMW/Circuit.cpp"
+    "GMW/Gmw.cpp"
+    "GMW/SilentTripleGen.cpp"
     )
 
 add_library(secureJoin STATIC ${SRCS})
