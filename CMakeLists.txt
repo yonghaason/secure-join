@@ -13,8 +13,11 @@ include(cmake/buildOptions.cmake)
 # find all the dependancies.
 include(cmake/findDependancies.cmake)
 
+add_subdirectory(Paillier)
+
 # build volePSI
 add_subdirectory(secure-join)
+
 
 # build the tests.
 add_subdirectory(tests)

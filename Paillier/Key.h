@@ -7,7 +7,7 @@
 #include "RNG.h"
 #include <cryptoTools/Crypto/PRNG.h>
 
-namespace bio
+namespace secJoin
 {
 
     namespace Paillier

@@ -3,7 +3,7 @@
 #include "Plaintext.h"
 #include "Integer.h"
 
-namespace bio
+namespace secJoin
 {
 
     namespace Paillier

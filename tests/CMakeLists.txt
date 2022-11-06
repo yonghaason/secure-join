@@ -7,6 +7,7 @@
 
 set(SRCS
 	UnitTests.cpp
+	PaillierPerm_Test.cpp
 	)
 	
 

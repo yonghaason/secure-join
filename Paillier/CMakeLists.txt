@@ -26,3 +26,5 @@ target_include_directories(gmp INTERFACE ${GMP_INCLUDE_DIRS})
 set_property(TARGET gmp PROPERTY IMPORTED_LOCATION ${GMP_LIBRARIES})
 
 target_link_libraries(Paillier  oc::cryptoTools gmp)
+
+target_compile_options(Paillier PUBLIC "-std=c++17")

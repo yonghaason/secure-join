@@ -7,7 +7,7 @@ set(SRCS
     )
 
 add_library(secureJoin STATIC ${SRCS})
-target_link_libraries(secureJoin oc::libOTe )
+target_link_libraries(secureJoin oc::libOTe Paillier)
 
 if(APPLE)
     target_compile_options(secureJoin PUBLIC

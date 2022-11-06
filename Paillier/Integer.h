@@ -5,7 +5,6 @@
 #include <iostream>
 #include "Defines.h"
 #include "RNG.h"
-#include <boost/algorithm/string.hpp>
 
 #ifdef BIO_ENABLE_RELIC
 #ifdef ERROR
@@ -20,7 +19,7 @@ extern "C" {
 #include <gmp.h>
 
 
-namespace bio
+namespace secJoin
 {
 
     namespace Paillier
@@ -113,17 +112,17 @@ namespace bio
             template<typename T>
             bool operator==(const IntBase<T>& v) const
             {
-                return boost::iequals(
-                    static_cast<std::string>(*this),
-                    static_cast<std::string>(v));
+                return 
+                    static_cast<std::string>(*this) ==
+                    static_cast<std::string>(v);
             }
 
             template<typename T>
             bool operator!=(const IntBase<T>& v) const
             {
-                return !boost::iequals(
-                    static_cast<std::string>(*this),
-                    static_cast<std::string>(v));
+                return 
+                    static_cast<std::string>(*this) !=
+                    static_cast<std::string>(v);
             }
 
             template<typename T>

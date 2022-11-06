@@ -2,7 +2,7 @@
 #include "Plaintext.h"
 #include "Ciphertext.h"
 
-namespace bio
+namespace secJoin
 {
 
     namespace Paillier

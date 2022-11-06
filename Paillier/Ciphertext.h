@@ -5,7 +5,7 @@
 #include <iostream>
 #include "Integer.h"
 
-namespace bio
+namespace secJoin
 {
 
     namespace Paillier

@@ -6,7 +6,7 @@
 #include <locale>
 // #include "InnerProd/util.h"
 
-namespace bio
+namespace secJoin
 {
 
     namespace Paillier

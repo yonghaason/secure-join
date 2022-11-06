@@ -7,7 +7,7 @@
 #include "Integer.h"
 #include "RNG.h"
 
-namespace bio
+namespace secJoin
 {
 
     namespace Paillier

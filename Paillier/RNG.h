@@ -7,7 +7,7 @@
 
 
 
-namespace bio
+namespace secJoin
 {
     namespace Paillier
     {
@@ -24,7 +24,12 @@ namespace bio
                 gmp_randinit_default(mState);
             }
             RNG(const RNG&) = delete;
-            RNG(RNG&&) = delete;
+            RNG(RNG&& o) 
+                {
+                gmp_randinit_default(mState);
+                setSeed(o.mPrng.get());
+
+                }
 
 
             //template<typename Seed,

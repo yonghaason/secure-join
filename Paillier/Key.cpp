@@ -1,7 +1,7 @@
 #include "Key.h"
 #include <cstring>
 
-namespace bio
+namespace secJoin
 {
     namespace Paillier
     {

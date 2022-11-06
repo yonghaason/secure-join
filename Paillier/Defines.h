@@ -7,7 +7,7 @@
 
 //#define BIO_ENABLE_RELIC
 
-namespace bio
+namespace secJoin
 {
     using u8  = oc::u8;
     using u16 = oc::u16;
