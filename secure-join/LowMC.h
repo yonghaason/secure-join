@@ -12,8 +12,11 @@
 #include <algorithm>
 #include "Defines.h"
 
-#include <cryptoTools/Circuit/CircuitLibrary.h>
+#include <cryptoTools/Circuit/BetaCircuit.h>
+// #include "CircuitLibrary.h"
 #include <cryptoTools/Crypto/PRNG.h>
+
+using namespace osuCrypto;
 
 namespace secJoin
 {
@@ -32,6 +35,13 @@ namespace secJoin
         class LowMC2 {
         public:
 
+
+            struct LowMCInputBetaBundle{
+
+                BetaBundle encryptMessage, state, temp, temp2, xorMessage;
+                
+                std::array<BetaBundle, rounds + 1> roundKeys;
+            };
 
             size_t getBlockSize() { return blocksize; };
 
@@ -101,6 +111,136 @@ namespace secJoin
             }
 
 
+            
+
+            void add_lowmc_gates(BetaCircuit& cir,LowMCInputBetaBundle bundle)
+            {
+                for (int i = 0; i < (int)blocksize; ++i)
+                {
+                    cir.addGate(bundle.encryptMessage[i], bundle.roundKeys[0][i], GateType::Xor, bundle.state[i]);
+                }
+
+                for (u64 r = 0; r < rounds; ++r)
+                {
+                    // SBOX
+                    for (int i = 0; i < (int)numofboxes; ++i)
+                    {
+                        auto& c = bundle.state[i * 3 + 0];
+                        auto& b = bundle.state[i * 3 + 1];
+                        auto& a = bundle.state[i * 3 + 2];
+                        auto& aa = bundle.temp[i * 3 + 0];
+                        auto& bb = bundle.temp[i * 3 + 1];
+                        auto& cc = bundle.temp[i * 3 + 2];
+                        auto& a_b = bundle.temp2[0];
+
+                        // a_b = a + b
+                        cir.addGate(a, b, GateType::Xor, a_b);
+
+                        cir.addGate(b, c, GateType::And, aa);
+
+                        cir.addGate(a, c, GateType::And, bb);
+
+                        cir.addGate(a, b, GateType::And, cc);
+                        cir.addGate(cc, c, GateType::Xor, cc);
+
+                        // a = a + bc
+                        cir.addGate(a, aa, GateType::Xor, a);
+                        // b = a + b + ac
+                        cir.addGate(a_b, bb, GateType::Xor, b);
+                        // c = a + b + c + ab
+                        cir.addGate(cc, a_b, GateType::Xor, c);
+                    }
+                  
+                    // multiply with linear matrix and add const
+                    auto& matrix = LinMatrices[r];
+                    for (int i = 0; i < (int)blocksize; ++i)
+                    {
+                        auto& t = bundle.temp[i];
+                        int j = -1, firstIdx, secondIdx;
+
+                        auto& row = matrix[i];
+
+                        while (row[++j] == 0);
+                        firstIdx = j;
+
+                        while (row[++j] == 0);
+                        secondIdx = j++;
+
+                        cir.addGate(bundle.state[firstIdx], bundle.state[secondIdx], GateType::Xor, t);
+
+                        for (; j < (int)blocksize; ++j)
+                        {
+                            if (row[j])
+                            {
+                                cir.addGate(t, bundle.state[j], GateType::Xor, t);
+                            }
+                        }
+                    }
+
+                    for (int i = 0; i < (int)blocksize; ++i)
+                    {
+
+                        if (roundconstants[r][i])
+                        {
+                            cir.addInvert(bundle.temp[i]);
+                        }
+                    }
+
+                    // add key
+                    for (int i = 0; i < (int)blocksize; ++i)
+                    {
+                        cir.addGate(bundle.temp[i], bundle.roundKeys[r + 1][i], GateType::Xor, bundle.state[i]);
+                    }
+
+
+                }
+            }
+
+
+            void to_enc_circuit(BetaCircuit& cir, bool isCounterModeEnabled)
+            {
+                LowMCInputBetaBundle bundle;
+                bundle.encryptMessage.mWires.resize(blocksize);
+                bundle.state.mWires.resize(blocksize);
+                bundle.temp.mWires.resize(blocksize);
+                bundle.temp2.mWires.resize(1);
+
+                cir.addInputBundle(bundle.encryptMessage);
+
+                if(isCounterModeEnabled)
+                {
+                    bundle.xorMessage.mWires.resize(blocksize);
+                    cir.addInputBundle(bundle.xorMessage);
+                }
+                    
+                
+                for (auto& key : bundle.roundKeys)
+                {
+                    key.mWires.resize(blocksize);
+                    cir.addInputBundle(key);
+                }
+                
+
+                cir.addOutputBundle(bundle.state);
+
+                cir.addTempWireBundle(bundle.temp);
+                cir.addTempWireBundle(bundle.temp2);
+
+                add_lowmc_gates(cir,bundle);
+
+
+                if(isCounterModeEnabled)
+                {
+                    for (int i = 0; i < (int)blocksize; ++i)
+                    {
+                        cir.addGate(bundle.xorMessage[i], bundle.state[i] , GateType::Xor, bundle.state[i]);
+                    }
+
+                }
+                
+            }
+
+            /*
             void to_enc_circuit(BetaCircuit& cir)
             {
                 BetaBundle message(blocksize), state(blocksize), temp(blocksize), temp2(1);
@@ -224,6 +364,8 @@ namespace secJoin
                     //cir.addPrint("\n");
                 }
             }
+
+            */
 
             void print_matrices()
             {
