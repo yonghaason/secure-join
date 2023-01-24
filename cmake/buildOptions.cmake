@@ -9,6 +9,7 @@ endmacro()
 
 option(FETCH_AUTO      "automaticly download and build dependancies" OFF)
 option(VERBOSE_FETCH    "Verbose fetch" ON)
+option(ENABLE_ASAN    "Enable Asan" OFF)
 
 
 #option(FETCH_LIBOTE		"download and build libOTe" OFF))
@@ -22,6 +23,7 @@ message(STATUS "secure-join options\n===========================================
 message(STATUS "Option: FETCH_AUTO        = ${FETCH_AUTO}")
 message(STATUS "Option: FETCH_LIBOTE      = ${FETCH_LIBOTE}")
 message(STATUS "Option: VERBOSE_FETCH     = ${VERBOSE_FETCH}")
+message(STATUS "Option: ENABLE_ASAN       = ${ENABLE_ASAN}")
 
 
 

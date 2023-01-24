@@ -241,6 +241,7 @@ namespace secJoin
             }
 
             /*
+    
             void to_enc_circuit(BetaCircuit& cir)
             {
                 BetaBundle message(blocksize), state(blocksize), temp(blocksize), temp2(1);

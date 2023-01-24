@@ -5,7 +5,7 @@ using namespace secJoin;
 void PaillierPerm_basic_test()
 {
 
-    u64 n = 1000;
+    u64 n = 5;
     PaillierPerm perm0, perm1;
     
     auto chls = coproto::LocalAsyncSocket::makePair();

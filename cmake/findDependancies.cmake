@@ -13,6 +13,10 @@ set(CMAKE_PREFIX_PATH "${SECUREJOIN_THIRDPARTY_DIR};${CMAKE_PREFIX_PATH}")
 macro(FIND_LIBOTE)
     set(ARGS ${ARGN})
 
+    if(ENABLE_ASAN)
+        set(ARGS ${ARGS} COMPONENTS asan)
+    endif()
+
     #explicitly asked to fetch libOTe
     if(FETCH_LIBOTE)
         list(APPEND ARGS NO_DEFAULT_PATH PATHS ${SECUREJOIN_THIRDPARTY_DIR})

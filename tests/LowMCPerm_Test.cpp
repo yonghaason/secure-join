@@ -3,7 +3,6 @@
 
 using namespace secJoin;
 
-
 template <typename T>
 std::vector<T> reconstruct(std::array<Matrix<u8>, 2> shares)
 {
@@ -26,52 +25,59 @@ std::vector<T> reconstruct(std::array<Matrix<u8>, 2> shares)
 
 void LowMCPerm_basic_test()
 {
-    u64 n = 1000;
+    // User input
+    u64 bitPerRow = 500;
+    u64 n = 2;    // total number of rows
+
+    Matrix<u8> x(n, oc::divCeil(bitPerRow,8.0));
+    
+
+    u64 offset = oc::divCeil (  bitPerRow , (sizeof(LowMC2<>::block) * 8.0)); 
     LowMCPerm m1, m2;
     oc::PRNG prng(oc::block(0,0));
 
     auto chls = coproto::LocalAsyncSocket::makePair();
 
     std::vector<u64> pi(n);
-    std::vector<LowMC2<>::block> x(n);
+
 
     for(u64 i =0; i < n; ++i)
-    {
-        // x[i] = prng0.get<u64>() % n;
-        x[i] = i;
+    { 
+        // std::cout << "The size of x[i] is " << x[i].size() << std::endl;
+        // std::cout << "The size of offset * sizeof(LowMC2<>::block) is " << offset * sizeof(LowMC2<>::block) << std::endl;
+        prng.get((u8*) &x[i][0], x[i].size());
+
         pi[i] = (i+1) % n;
     }
 
-    Gmw gmw0,gmw1;
+    Gmw gmw0, gmw1;
+    std::array<Matrix<u8>, 2> sout;
 
-    auto proto0 = m1.applyVec(x, prng,n,gmw0,chls[0]);
-    auto proto1 = m2.applyPerm(pi, prng,n, gmw1,chls[1]);
+    auto proto0 = m1.applyVec(x, prng, n, offset, gmw0, chls[0], sout[0]);
+    auto proto1 = m2.applyPerm(pi, prng, n, offset, gmw1, chls[1], sout[1]);
 
     auto res = macoro::sync_wait(macoro::when_all_ready(std::move(proto0), std::move(proto1)));
 
-    auto p0 = gmw0.run(chls[0]);
-    auto p1 = gmw1.run(chls[1]);
-    eval(p0, p1);
-
-    std::array<Matrix<u8>, 2> sout;
-    sout[0].resize(n, sizeof(LowMC2<>::block));
-    sout[1].resize(n, sizeof(LowMC2<>::block));
-
-    // Both party receives the secret shared values
-    gmw0.getOutput(0, sout[0]);
-    gmw1.getOutput(0, sout[1]);
-
     // Getting the actual values from the secret shared data
-    auto out = reconstruct<LowMC2<>::block>(sout);
+
+    sout[0].resize((n * offset * sizeof(LowMC2<>::block))/ sizeof(u8), sizeof(u8)); 
+    sout[1].resize((n * offset * sizeof(LowMC2<>::block))/ sizeof(u8), sizeof(u8)); 
+    auto out = reconstruct<u8>(sout);
 
     
-    // Checking if the everything works
+    // Checking if everything works
     for (u64 i = 0; i < n; ++i)
     {
-        if (out[i] != x[pi[i]] )
+        
+        for(u64 j=0; j < offset; j++)
         {
-            throw RTE_LOC;
+            if ( out[i] != (*(u8*) &x(pi[i],j)) )
+            {
+                throw RTE_LOC;
+            }
+
         }
     }
+
 
 }

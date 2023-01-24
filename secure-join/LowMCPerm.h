@@ -16,37 +16,58 @@ namespace secJoin
     {
         public:
 
-        macoro::task<> applyVec(std::vector<LowMC2<>::block>& x, oc::PRNG& prng, u64 n, Gmw &gmw0,coproto::Socket& chl)
+        macoro::task<> applyVec(Matrix<u8>& x, oc::PRNG& prng, u64 n, u64 offset, Gmw &gmw0, coproto::Socket& chl, Matrix<u8>& sout)
         {
           
             LowMC2<>::keyblock key;
             prng.get((u8*) &key, sizeof(key));
         
-            MC_BEGIN(macoro::task<>, &x, &chl, n, &gmw0,
+            MC_BEGIN(macoro::task<>, &x, &chl, n, offset, &gmw0, &sout, &prng,
             lowMc = LowMC2<>(false, key),
             roundkeys = std::vector<LowMC2<>::block>{},
             cir = oc::BetaCircuit(),
-            // xMatrix =  oc::Matrix<u8>{},
             xEncrypted = oc::Matrix<u8>{},
-            roundkeysMatrix = std::vector<Matrix<u8>>{}
+            roundkeysMatrix = std::vector<Matrix<u8>>{},
+            counterMode = u64()
+            // xEncrypted = oc::MatrixView<LowMC2<>::block>()
             );
+
+            
 
             roundkeys = lowMc.roundkeys;
         
-
-            xEncrypted.resize(x.size(),sizeof(LowMC2<>::block)); 
+            // xEncrypted.reshape(n,offset);
+            xEncrypted.resize(offset * n,sizeof(LowMC2<>::block)); 
+            // something = MatrixView<LowMC2<>::block>(  (LowMC2<>::block*) xEncrypted.data() , n, offset);
 
             // Encrypting the vector x
-            for(u64 i =0; i < x.size(); ++i)
+            counterMode = 0;
+            for(u64 i =0; i < n; ++i)
             {
-                LowMC2<>::block temp = lowMc.encrypt(i) ^ x[i] ;
-                memcpy(xEncrypted[i].data(), &temp , sizeof(LowMC2<>::block));
-
-                // auto& i0s0 = *(LowMC2<>::block*)xEncrypted[i].data();
-                // std::cout << "The encrypted value is " << i0s0 << std::endl;
                 
+                for(u64 j =0; j < offset; ++j)
+                {
+                    LowMC2<>::block temp;
+
+                    // Minimum between block and remaining size
+                    auto minSize = ( (x[i].size() - (j*sizeof(LowMC2<>::block))) > sizeof(LowMC2<>::block)) ?  sizeof(LowMC2<>::block) : (x[i].size() - (j*sizeof(LowMC2<>::block)));
+                    memcpy(&temp, &x(i,j*sizeof(LowMC2<>::block)) , minSize);
+
+                    temp = lowMc.encrypt(counterMode) ^ temp;
+
+                    memcpy(xEncrypted[counterMode].data(), &temp , sizeof(LowMC2<>::block));
+
+                
+                    // auto& i0s0 = *(LowMC2<>::block*)xEncrypted[counterMode].data();
+                    // std::cout << "xEncrypted at " << counterMode << " value is " << i0s0 << std::endl;
+                    
+                    counterMode++;
+                }
+
+
             }
 
+            
             MC_AWAIT(chl.send(std::move(xEncrypted)));
 
 
@@ -57,7 +78,7 @@ namespace secJoin
             // gmw0.mDebugPrintIdx = 1;
             
 
-            gmw0.init(n, cir, 1, 0, oc::ZeroBlock);
+            gmw0.init(n * offset, cir, 1, 0, prng.get());
 
             // Indexes are set by other party because they have the permutation pi
             gmw0.setZeroInput(0);
@@ -65,14 +86,14 @@ namespace secJoin
             // Encrypted x is set by other party because they have permuted the encrypted x
             gmw0.setZeroInput(1);
 
-            roundkeysMatrix.resize(roundkeys.size());
 
             // Setting up the lowmc round keys
+            roundkeysMatrix.resize(roundkeys.size());
             for(u64 i=0; i<roundkeysMatrix.size(); i++)
             {
-                roundkeysMatrix[i].resize(n, sizeof(roundkeys[i]));
+                roundkeysMatrix[i].resize( (n * offset), sizeof(roundkeys[i]));
 
-                for(u64 j=0; j<n ; j++)
+                for(u64 j=0; j< (n * offset) ; j++)
                 {
                     if(sizeof(roundkeys[i]) != roundkeysMatrix[i][j].size())
                         throw RTE_LOC;
@@ -84,6 +105,11 @@ namespace secJoin
                 gmw0.setInput(2+i, roundkeysMatrix[i]);
             }
 
+            MC_AWAIT(gmw0.run(chl));
+
+            sout.resize((n * offset * sizeof(LowMC2<>::block))/ sizeof(u8), sizeof(u8)); 
+            gmw0.getOutput(0, sout);
+
             MC_END();
 
 
@@ -92,47 +118,62 @@ namespace secJoin
 
 
 
-        macoro::task<> applyPerm(
-            std::vector<u64>& pi,
-            oc::PRNG& prng,          
-            u64 n,
-            Gmw &gmw1,
-            coproto::Socket& chl)
+        macoro::task<> applyPerm(std::vector<u64>& pi, oc::PRNG& prng, u64 n, u64 offset, Gmw &gmw1, coproto::Socket& chl, Matrix<u8>& sout)
         {
 
             LowMC2<>::keyblock key;
             prng.get((u8*) &key, sizeof(key));
 
 
-
-            MC_BEGIN(macoro::task<>, &pi, &chl,n,&gmw1,
+            MC_BEGIN(macoro::task<>, &pi, &chl, n, offset, &gmw1, &sout, &prng,
             xEncrypted = oc::Matrix<u8>{},
             xPermuted = oc::Matrix<u8>{},
             indexMatrix = oc::Matrix<u8>{},
             lowMc = secJoin::LowMC2<>(false,key),
-            totalNumberOfRounds = size_t(),
-            cir = oc::BetaCircuit()
+            cir = oc::BetaCircuit(),
+            counterMode = u64()
             );
-            totalNumberOfRounds = lowMc.roundkeys.size();
+            
 
-            xEncrypted.resize(pi.size(),sizeof(LowMC2<>::block));
-            xPermuted.resize(pi.size(),sizeof(LowMC2<>::block));
+            xEncrypted.resize(n * offset,sizeof(LowMC2<>::block));
+            // xPermuted.reshape(n*offset, 1);
+            // xEncrypted.reshape(n,offset);
+            
+            
             MC_AWAIT(chl.recv(xEncrypted));
+            indexMatrix.resize(n * offset,sizeof(LowMC2<>::block));
+            // indexMatrix.reshape(n*offset, 1);
 
-            // xEncrypted.resize(pi.size()); // --> Why do we need to do this? // Why is this not working
+            xPermuted.resize(n * offset,sizeof(LowMC2<>::block));
 
-
-            indexMatrix.resize(n, sizeof(LowMC2<>::block));
-
-            for(u64 i =0; i < pi.size(); ++i)
+            // xPermuted = MatrixView<LowMC2<>::block>{ (LowMC2<>::block*) xEncrypted.data() ,n * offset , 1 };
+            // xPermuted = MatrixView<LowMC2<>::block>{ (LowMC2<>::block*) something.data() ,n * offset , 1 };
+            
+            // indexMatrix = MatrixView<LowMC2<>::block>{ (LowMC2<>::block*) xEncrypted.data() ,n * offset , 1 };
+            counterMode = 0;
+            for(u64 i =0; i < n; ++i)
             {
-                memcpy(xPermuted[i].data(), xEncrypted[pi[i]].data() , sizeof(LowMC2<>::block));
 
-                LowMC2<>::block temp = pi[i];
-                memcpy(indexMatrix[i].data(), &temp , sizeof(temp));
+                for(u64 j=0; j<offset; ++j)
+                {
 
-                // auto& i0s0 = *(LowMC2<>::block*)indexMatrix[i].data();
-                // std::cout << "The encrypted value is " << i0s0 << std::endl;
+                    memcpy(xPermuted[counterMode].data(), xEncrypted[pi[i] * offset + j].data() , sizeof(LowMC2<>::block));
+                    // xPermuted[counterMode][0] = someMatrix[pi[i]*offset + j][0];
+
+                    LowMC2<>::block temp = pi[i] * offset + j;
+                    memcpy(indexMatrix[counterMode].data(), &temp , sizeof(temp));
+                    
+
+
+                    // std::cout << "xEncrypted at " << counterMode << " value is " << *(LowMC2<>::block*)xEncrypted[counterMode].data() << std::endl;
+                    // std::cout << "xPermuted at " << counterMode << " value is " << *(LowMC2<>::block*)xPermuted[counterMode].data() << std::endl;
+                    // std::cout << "indexMatrix at " << counterMode << " value is " << *(LowMC2<>::block*)indexMatrix[counterMode].data() << std::endl;
+
+
+                    counterMode++;
+                }
+
+
             }
     
             lowMc.to_enc_circuit(cir, true);
@@ -140,7 +181,8 @@ namespace secJoin
             // gmw1.mO.mDebug = true;
             // gmw1.mDebugPrintIdx = 1;
 
-            gmw1.init(n, cir, 1, 1, oc::OneBlock);
+
+            gmw1.init(n * offset, cir, 1, 1, prng.get());
 
             // Setting the permutated indexes (since we are using the counter mode)
             gmw1.setInput(0, indexMatrix);
@@ -149,10 +191,17 @@ namespace secJoin
             gmw1.setInput(1,xPermuted);
 
 
-            for(u8 i=0; i<totalNumberOfRounds; i++)
+            for(u8 i=0; i<lowMc.roundkeys.size(); i++)
             {
                 gmw1.setZeroInput(2+i);   
             }
+
+            MC_AWAIT(gmw1.run(chl));
+
+            sout.resize((n * offset * sizeof(LowMC2<>::block))/ sizeof(u8), sizeof(u8)); 
+
+            gmw1.getOutput(0, sout);
+            
 
             MC_END();
 

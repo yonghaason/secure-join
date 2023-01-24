@@ -44,6 +44,7 @@ if(NOT ${DEP_NAME}_FOUND OR LIBOTE_DEV)
                        #-DCOPROTO_ENABLE_OPENSSL=${COPROTO_ENABLE_OPENSSL}
                        #-DOC_PIC=${SECUREJOIN_PIC}
                        -DOC_THIRDPARTY_CLONE_DIR=${SECUREJOIN_THIRDPARTY_CLONE_DIR}
+                       -DENABLE_ASAN=${ENABLE_ASAN}
                        )
     set(BUILD_CMD     ${CMAKE_COMMAND} --build ${BUILD_DIR} --config ${CMAKE_BUILD_TYPE})
     set(INSTALL_CMD   ${CMAKE_COMMAND} --install ${BUILD_DIR} --config ${CMAKE_BUILD_TYPE} --prefix ${SECUREJOIN_THIRDPARTY_DIR})
