@@ -76,7 +76,7 @@
             "name": "osx",
             "displayName": "Custom configure preset",
             "description": "Sets Ninja generator, build and install directory",
-            "generator": "Xcode",
+            "generator": "Unix Makefiles",
             "binaryDir": "${sourceDir}/out/build/${presetName}",
             "cacheVariables": {
                 "FETCH_AUTO": true,
