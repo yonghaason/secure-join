@@ -152,104 +152,20 @@ namespace secJoin
             Matrix<u8>& sout)
         {
 
-            LowMC2<>::keyblock key;
-            prng.get((u8*) &key, sizeof(key));
-
             MC_BEGIN(macoro::task<>, &x2, &pi, &chl, n, bytesPerRow, &gmw1, &sout, &prng,
-            xEncrypted = oc::Matrix<u8>{},
-            x1EncPerm = oc::Matrix<u8>{},
             x2Perm = oc::Matrix<u8>{},
-            indexMatrix = oc::Matrix<u8>{},
-            lowMc = secJoin::LowMC2<>(false,key),
-            cir = oc::BetaCircuit(),
-            counterMode = u64(),
-            blocksPerRow = u64()
+            this
             );
-            
-            blocksPerRow = oc::divCeil(bytesPerRow, sizeof(LowMC2<>::block) );
-            xEncrypted.resize(n * blocksPerRow, sizeof(LowMC2<>::block));
+
+
+            MC_AWAIT(applyPerm(pi,prng,n,bytesPerRow,gmw1,chl,sout));
+           
             x2Perm.resize(x2.rows(), x2.cols());
-            // xPermuted.reshape(n*bytesPerRow, 1);
-            // xEncrypted.reshape(n,bytesPerRow);
-            
-            
-            MC_AWAIT(chl.recv(xEncrypted));
-            indexMatrix.resize(n * blocksPerRow,sizeof(LowMC2<>::block));
-            // indexMatrix.reshape(n*bytesPerRow, 1);
 
-            x1EncPerm.resize(n * blocksPerRow,sizeof(LowMC2<>::block));
-
-            // xPermuted = MatrixView<LowMC2<>::block>{ (LowMC2<>::block*) xEncrypted.data() ,n * bytesPerRow , 1 };
-            // xPermuted = MatrixView<LowMC2<>::block>{ (LowMC2<>::block*) something.data() ,n * bytesPerRow , 1 };
-            
-            // indexMatrix = MatrixView<LowMC2<>::block>{ (LowMC2<>::block*) xEncrypted.data() ,n * bytesPerRow , 1 };
-            counterMode = 0;
+            // Permuting the secret shares x2
             for(u64 i =0; i < n; ++i)
             {
-                // Permuting the x2
-                memcpy(x2Perm.data(i), x2.data(pi[i]), bytesPerRow);
-
-                for(u64 j=0; j<blocksPerRow; ++j)
-                {
-
-                    memcpy(x1EncPerm[counterMode].data(), xEncrypted[pi[i] * blocksPerRow + j].data() , sizeof(LowMC2<>::block));
-                    // xPermuted[counterMode][0] = someMatrix[pi[i]*bytesPerRow + j][0];
-
-                    LowMC2<>::block temp = pi[i] * blocksPerRow + j;
-                    memcpy(indexMatrix[counterMode].data(), &temp , sizeof(temp));
-                    
-
-
-                    // std::cout << "xEncrypted at " << counterMode << " value is " << *(LowMC2<>::block*)xEncrypted[counterMode].data() << std::endl;
-                    // std::cout << "xPermuted at " << counterMode << " value is " << *(LowMC2<>::block*)xPermuted[counterMode].data() << std::endl;
-                    // std::cout << "indexMatrix at " << counterMode << " value is " << *(LowMC2<>::block*)indexMatrix[counterMode].data() << std::endl;
-
-
-                    counterMode++;
-                }
-
-
-            }
-    
-            lowMc.to_enc_circuit(cir, true);
-
-            // gmw1.mO.mDebug = true;
-            // gmw1.mDebugPrintIdx = 1;
-
-
-            gmw1.init(n * blocksPerRow, cir, 1, 1, prng.get());
-
-            // Setting the permutated indexes (since we are using the counter mode)
-            gmw1.setInput(0, indexMatrix);
-
-            // Setting the permuatated vector
-            gmw1.setInput(1,x1EncPerm);
-
-
-            for(u8 i=0; i<lowMc.roundkeys.size(); i++)
-            {
-                gmw1.setZeroInput(2+i);   
-            }
-
-            MC_AWAIT(gmw1.run(chl));
-
-
-            if(bytesPerRow % sizeof(LowMC2<>::block) == 0)
-            {
-                sout.reshape(n * blocksPerRow, sizeof(LowMC2<>::block));
-                gmw1.getOutput(0, sout);
-                sout.reshape(n, bytesPerRow);
-            }
-            else
-            {
-                Matrix<u8> temp(n * blocksPerRow, sizeof(LowMC2<>::block), oc::AllocType::Uninitialized);
-                gmw1.getOutput(0, temp);
-
-                sout.resize(n,bytesPerRow, oc::AllocType::Uninitialized);
-                for(u64 i = 0; i < n;++i)
-                {
-                    memcpy(sout.data(i), temp.data(i), bytesPerRow);
-                }
+                memcpy(x2Perm.data(i), x2.data(pi[i]), bytesPerRow);       
             }
 
             for (u64 i = 0; i < sout.rows(); ++i)
@@ -261,7 +177,6 @@ namespace secJoin
                     sout(i,j) = sout(i,j) ^ x2Perm(i,j);
                 }
             }
-            
 
             MC_END();
 
