@@ -149,23 +149,28 @@ namespace secJoin
             u64 bytesPerRow, 
             Gmw &gmw1, 
             coproto::Socket& chl, 
-            Matrix<u8>& sout)
+            Matrix<u8>& sout,
+            bool invPerm)
         {
 
-            MC_BEGIN(macoro::task<>, &x2, &pi, &chl, n, bytesPerRow, &gmw1, &sout, &prng,
+            MC_BEGIN(macoro::task<>, &x2, &pi, &chl, n, bytesPerRow, &gmw1, &sout, &prng, invPerm,
             x2Perm = oc::Matrix<u8>{},
             this
             );
 
 
-            MC_AWAIT(applyPerm(pi,prng,n,bytesPerRow,gmw1,chl,sout));
+            MC_AWAIT(applyPerm(pi, prng, n, bytesPerRow, gmw1, chl, sout, invPerm));
            
             x2Perm.resize(x2.rows(), x2.cols());
 
             // Permuting the secret shares x2
             for(u64 i =0; i < n; ++i)
             {
-                memcpy(x2Perm.data(i), x2.data(pi[i]), bytesPerRow);       
+                
+                if(invPerm)
+                    memcpy(x2Perm.data(i), x2.data(pi[i]), bytesPerRow);    
+                else
+                    memcpy(x2Perm.data(pi[i]), x2.data(i) , bytesPerRow);       
             }
 
             for (u64 i = 0; i < sout.rows(); ++i)
@@ -191,14 +196,15 @@ namespace secJoin
             u64 bytesPerRow, 
             Gmw &gmw1, 
             coproto::Socket& chl, 
-            Matrix<u8>& sout)
+            Matrix<u8>& sout,
+            bool invPerm)
         {
 
             LowMC2<>::keyblock key;
             prng.get((u8*) &key, sizeof(key));
 
 
-            MC_BEGIN(macoro::task<>, &pi, &chl, n, bytesPerRow, &gmw1, &sout, &prng,
+            MC_BEGIN(macoro::task<>, &pi, &chl, n, bytesPerRow, &gmw1, &sout, &prng,invPerm,
             xEncrypted = oc::Matrix<u8>{},
             xPermuted = oc::Matrix<u8>{},
             indexMatrix = oc::Matrix<u8>{},
@@ -231,11 +237,23 @@ namespace secJoin
                 for(u64 j=0; j<blocksPerRow; ++j)
                 {
 
-                    memcpy(xPermuted[counterMode].data(), xEncrypted[pi[i] * blocksPerRow + j].data() , sizeof(LowMC2<>::block));
-                    // xPermuted[counterMode][0] = someMatrix[pi[i]*bytesPerRow + j][0];
+                    if(invPerm)
+                    {
+                        memcpy(xPermuted[counterMode].data(), xEncrypted[pi[i] * blocksPerRow + j].data() , sizeof(LowMC2<>::block));
+                        // xPermuted[counterMode][0] = someMatrix[pi[i]*bytesPerRow + j][0];
 
-                    LowMC2<>::block temp = pi[i] * blocksPerRow + j;
-                    memcpy(indexMatrix[counterMode].data(), &temp , sizeof(temp));
+                        LowMC2<>::block temp = pi[i] * blocksPerRow + j;
+                        memcpy(indexMatrix[counterMode].data(), &temp , sizeof(temp));
+                    }
+                    else
+                    {
+                            
+                        memcpy(xPermuted[ pi[i] * blocksPerRow +j].data(), xEncrypted[i * blocksPerRow + j].data() , sizeof(LowMC2<>::block));
+                        // xPermuted[counterMode][0] = someMatrix[pi[i]*bytesPerRow + j][0];
+
+                        LowMC2<>::block temp = i * blocksPerRow + j;
+                        memcpy(indexMatrix[pi[i] * blocksPerRow +j].data(), &temp , sizeof(temp));
+                    }
                     
 
 
