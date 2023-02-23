@@ -1,3 +1,5 @@
+#pragma once
+
 #include "LowMC.h"
 #include "Permutation.h"
 #include "secure-join/GMW/Gmw.h"
@@ -14,9 +16,10 @@ namespace secJoin
     
     class LowMCPerm
     {
+
         public:
 
-        macoro::task<> applyVec(
+        static macoro::task<> applyVec(
             Matrix<u8>& x1,
             oc::PRNG& prng, 
             u64 n, 
@@ -79,6 +82,9 @@ namespace secJoin
             
             MC_AWAIT(chl.send(std::move(xEncrypted)));
 
+            #if !defined(NDEBUG)
+                std::cout << "Encrypted Vector Sent" << std::endl;
+            #endif
 
             lowMc.to_enc_circuit(cir, true);
 
@@ -141,7 +147,7 @@ namespace secJoin
 
 
 
-        macoro::task<> applyVecPerm(
+        static macoro::task<> applyVecPerm(
             Matrix<u8>& x2,
             std::vector<u64>& pi, 
             oc::PRNG& prng, 
@@ -154,12 +160,11 @@ namespace secJoin
         {
 
             MC_BEGIN(macoro::task<>, &x2, &pi, &chl, n, bytesPerRow, &gmw1, &sout, &prng, invPerm,
-            x2Perm = oc::Matrix<u8>{},
-            this
+            x2Perm = oc::Matrix<u8>{}
             );
 
 
-            MC_AWAIT(applyPerm(pi, prng, n, bytesPerRow, gmw1, chl, sout, invPerm));
+            MC_AWAIT(LowMCPerm::applyPerm(pi, prng, n, bytesPerRow, gmw1, chl, sout, invPerm));
            
             x2Perm.resize(x2.rows(), x2.cols());
 
@@ -189,7 +194,7 @@ namespace secJoin
         }
 
 
-        macoro::task<> applyPerm(
+        static macoro::task<> applyPerm(
             std::vector<u64>& pi, 
             oc::PRNG& prng, 
             u64 n, 
@@ -221,6 +226,12 @@ namespace secJoin
             
             
             MC_AWAIT(chl.recv(xEncrypted));
+
+            #if !defined(NDEBUG)
+                std::cout << "Encrypted Vector Received" << std::endl;
+                std::cout << "n is " << n << std::endl;
+            #endif
+
             indexMatrix.resize(n * blocksPerRow,sizeof(LowMC2<>::block));
             // indexMatrix.reshape(n*bytesPerRow, 1);
 
@@ -239,7 +250,16 @@ namespace secJoin
 
                     if(invPerm)
                     {
-                        memcpy(xPermuted[counterMode].data(), xEncrypted[pi[i] * blocksPerRow + j].data() , sizeof(LowMC2<>::block));
+                        auto dst = counterMode;
+                        auto src = pi[i] * blocksPerRow + j;
+
+                        assert(src+sizeof(LowMC2<>::block) < xEncrypted.size() );
+                        assert(dst+sizeof(LowMC2<>::block) < xPermuted.size() );
+                        
+
+                        memcpy(xPermuted[counterMode].data(), 
+                            xEncrypted[pi[i] * blocksPerRow + j].data(), 
+                            sizeof(LowMC2<>::block));
                         // xPermuted[counterMode][0] = someMatrix[pi[i]*bytesPerRow + j][0];
 
                         LowMC2<>::block temp = pi[i] * blocksPerRow + j;
@@ -247,8 +267,21 @@ namespace secJoin
                     }
                     else
                     {
-                            
-                        memcpy(xPermuted[ pi[i] * blocksPerRow +j].data(), xEncrypted[i * blocksPerRow + j].data() , sizeof(LowMC2<>::block));
+                        auto src = counterMode;
+                        auto dst = pi[i] * blocksPerRow +j;
+
+                        assert(src+sizeof(LowMC2<>::block) < xEncrypted.size() );
+                        assert(dst+sizeof(LowMC2<>::block) < xPermuted.size() );
+
+                        #if !defined(NDEBUG)
+                            std::cout << "i="<<i << " " << "j="<< j << " pi=" << pi[i] << std::endl;
+                            // std::cout << "xEncrypted[src]= " << *(LowMC2<>::block*)xEncrypted[src].data() << std::endl;
+                            // std::cout << "xPermuted[dst]= " << *(LowMC2<>::block*)xPermuted[dst].data() << std::endl;
+                        #endif
+
+                        memcpy(xPermuted[ pi[i] * blocksPerRow +j].data(),
+                            xEncrypted[counterMode].data(),
+                            sizeof(LowMC2<>::block));
                         // xPermuted[counterMode][0] = someMatrix[pi[i]*bytesPerRow + j][0];
 
                         LowMC2<>::block temp = i * blocksPerRow + j;
@@ -267,6 +300,10 @@ namespace secJoin
 
 
             }
+
+            #if !defined(NDEBUG)
+                std::cout << "Generated Index Matrix & Permutated Matrix" << std::endl;
+            #endif
     
             lowMc.to_enc_circuit(cir, true);
 

@@ -52,6 +52,7 @@ namespace secJoin
 
 		//initializing permutation with vector 
 		Perm(std::vector<i64> perm) : mPerm(std::move(perm)) {}
+		Perm(const std::vector<u64>& perm) : mPerm(perm.begin(), perm.end()) {}
 		Perm(u64 s, std::vector<u64> perm) : mPerm(perm.begin(), perm.end()) {
 			assert(size() == s);
 		}

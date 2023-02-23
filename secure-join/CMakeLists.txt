@@ -1,14 +1,21 @@
 
 #configure_file(config.h.in "config.h" )
 
+file(GLOB_RECURSE SRCS *.cpp)
 
+
+#[[
 set(SRCS
     "PaillierPerm.cpp"
     "Permutation.cpp"
     "GMW/Circuit.cpp"
     "GMW/Gmw.cpp"
     "GMW/SilentTripleGen.cpp"
+    ""
     )
+    ]]
+
+# message("///////////// "  ${SRCS})
 
 add_library(secureJoin STATIC ${SRCS})
 target_link_libraries(secureJoin oc::libOTe Paillier)

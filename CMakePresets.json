@@ -81,6 +81,7 @@
             "cacheVariables": {
                 "FETCH_AUTO": true,
                 "CMAKE_BUILD_TYPE": "Debug",
+                "VOLE_PSI_ENABLE_ASAN": true,
                 "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}"
             }
         }
