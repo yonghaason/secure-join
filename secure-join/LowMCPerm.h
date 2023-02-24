@@ -22,8 +22,6 @@ namespace secJoin
         static macoro::task<> applyVec(
             Matrix<u8>& x1,
             oc::PRNG& prng, 
-            u64 n, 
-            u64 bytesPerRow, 
             Gmw &gmw0, 
             coproto::Socket& chl, 
             Matrix<u8>& sout)
@@ -32,7 +30,9 @@ namespace secJoin
             LowMC2<>::keyblock key;
             prng.get((u8*) &key, sizeof(key));
         
-            MC_BEGIN(macoro::task<>, &x1, &chl, n, bytesPerRow, &gmw0, &sout, &prng,
+            MC_BEGIN(macoro::task<>, &x1, &chl, &gmw0, &sout, &prng,
+            n = u64(x1.rows()),
+            bytesPerRow = u64(x1.cols()),
             lowMc = LowMC2<>(false, key),
             roundkeys = std::vector<LowMC2<>::block>{},
             cir = oc::BetaCircuit(),
@@ -151,15 +151,15 @@ namespace secJoin
             Matrix<u8>& x2,
             std::vector<u64>& pi, 
             oc::PRNG& prng, 
-            u64 n, 
-            u64 bytesPerRow, 
             Gmw &gmw1, 
             coproto::Socket& chl, 
             Matrix<u8>& sout,
             bool invPerm)
         {
 
-            MC_BEGIN(macoro::task<>, &x2, &pi, &chl, n, bytesPerRow, &gmw1, &sout, &prng, invPerm,
+            MC_BEGIN(macoro::task<>, &x2, &pi, &chl, &gmw1, &sout, &prng, invPerm,
+            n = u64(x2.rows()),
+            bytesPerRow = u64(x2.cols()),
             x2Perm = oc::Matrix<u8>{}
             );
 
@@ -209,7 +209,7 @@ namespace secJoin
             prng.get((u8*) &key, sizeof(key));
 
 
-            MC_BEGIN(macoro::task<>, &pi, &chl, n, bytesPerRow, &gmw1, &sout, &prng,invPerm,
+            MC_BEGIN(macoro::task<>, &pi, &chl, n, bytesPerRow, &gmw1, &sout, &prng, invPerm,
             xEncrypted = oc::Matrix<u8>{},
             xPermuted = oc::Matrix<u8>{},
             indexMatrix = oc::Matrix<u8>{},
@@ -226,6 +226,9 @@ namespace secJoin
             
             
             MC_AWAIT(chl.recv(xEncrypted));
+
+            if( (pi.size()!=n) || (blocksPerRow*n!=xEncrypted.rows()))
+                throw RTE_LOC;
 
             #if !defined(NDEBUG)
                 std::cout << "Encrypted Vector Received" << std::endl;

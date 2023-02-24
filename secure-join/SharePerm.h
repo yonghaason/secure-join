@@ -9,9 +9,9 @@ namespace secJoin
     {
 
         private:
-            int mPartyIdx;
-            //  Perm mPerm;
-            std::vector<u64> mPerm;
+            u64 mPartyIdx;
+            Perm mPerm;
+            // std::vector<u64> mPerm;
 
         public:
 
@@ -19,7 +19,7 @@ namespace secJoin
 
 		//initializing the permutation
 		// SharePerm(Perm perm) : mPerm(std::move(perm)) {}
-		SharePerm(std::vector<u64> perm, u8 partyIdx) : mPartyIdx(partyIdx), mPerm(std::move(perm)) {}
+		SharePerm(Perm perm, u8 partyIdx) : mPartyIdx(partyIdx), mPerm(std::move(perm)) {}
 
 
         macoro::task<> apply(
@@ -40,16 +40,14 @@ namespace secJoin
 
             if(mPartyIdx == 0)
             {   
-                MC_AWAIT(LowMCPerm::applyVec(in, prng, in.rows(), in.cols(), gmw0, chl, soutperm));
-                MC_AWAIT(LowMCPerm::applyVecPerm(soutperm, mPerm, prng, soutperm.rows(),
-                    soutperm.cols(), gmw1, chl, out, invPerm));
+                MC_AWAIT(LowMCPerm::applyVec(in, prng, gmw0, chl, soutperm));
+                MC_AWAIT(LowMCPerm::applyVecPerm(soutperm, mPerm.mPerm, prng, gmw1, chl, out, invPerm));
             }
             else
             {
 
-                MC_AWAIT(LowMCPerm::applyVecPerm(in, mPerm, prng, in.rows(), in.cols(), gmw0, chl, soutperm, invPerm));
-                MC_AWAIT(LowMCPerm::applyVec(soutperm, prng, soutperm.rows(), 
-                    soutperm.cols(), gmw1, chl, out));
+                MC_AWAIT(LowMCPerm::applyVecPerm(in, mPerm.mPerm, prng, gmw0, chl, soutperm, invPerm));
+                MC_AWAIT(LowMCPerm::applyVec(soutperm, prng, gmw1, chl, out));
             }
 
             MC_END();

@@ -17,6 +17,7 @@ void SharePerm_replicated_perm_test()
     // std::vector<u64> pi0(n), pi1(n);
     std::array<std::vector<u64>, 2> pi;
     
+    
     pi[0].resize(n);
     pi[1].resize(n);
 
@@ -28,11 +29,16 @@ void SharePerm_replicated_perm_test()
         pi[0][i] = (i+2) % n;
         pi[1][i] = (i+1) % n;
     }
+
+
     std::array<Matrix<u8>, 2> sout;
     std::array<Matrix<u8>, 2> xShares = share(x,prng);
 
-    SharePerm perm1(pi[0], 0); 
-    SharePerm perm2(pi[1], 1);
+    Perm p0(pi[0]);
+    Perm p1(pi[1]);
+
+    SharePerm perm1(p0, 0); 
+    SharePerm perm2(p1, 1);
 
     #if !defined(NDEBUG)
         std::cout << "cols of the vector is " << xShares[0].rows() << std::endl;
