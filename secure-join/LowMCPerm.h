@@ -106,6 +106,7 @@ namespace secJoin
             roundkeysMatrix.resize(roundkeys.size());
             for(u64 i=0; i<roundkeysMatrix.size(); i++)
             {
+                // std::cout << "Setting up round key " << i << std::endl;
                 roundkeysMatrix[i].resize( (n * blocksPerRow), sizeof(roundkeys[i]));
 
                 for(u64 j=0; j< (n * blocksPerRow) ; j++)
@@ -120,7 +121,15 @@ namespace secJoin
                 gmw0.setInput(2+i, roundkeysMatrix[i]);
             }
 
+            #if !defined(NDEBUG)
+                std::cout << "LowMC keys added as input" << std::endl;
+            #endif
+
             MC_AWAIT(gmw0.run(chl));
+
+            #if !defined(NDEBUG)
+                std::cout << "GMW0 run complete" << std::endl;
+            #endif
 
             if(bytesPerRow % sizeof(LowMC2<>::block) == 0)
             {
@@ -132,6 +141,8 @@ namespace secJoin
             {
                 Matrix<u8> temp(n * blocksPerRow, sizeof(LowMC2<>::block), oc::AllocType::Uninitialized);
                 gmw0.getOutput(0, temp);
+
+                // std::cout << "applyVec GMW got the output" << std::endl;
 
                 sout.resize(n,bytesPerRow, oc::AllocType::Uninitialized);
                 for(u64 i = 0; i < n;++i)
@@ -256,6 +267,12 @@ namespace secJoin
                         auto dst = counterMode;
                         auto src = pi[i] * blocksPerRow + j;
 
+                        if( (src+sizeof(LowMC2<>::block) > xEncrypted.size()) ||
+                            (dst+sizeof(LowMC2<>::block) > xPermuted.size()))
+                        {
+                            throw RTE_LOC;
+                        }
+
                         assert(src+sizeof(LowMC2<>::block) < xEncrypted.size() );
                         assert(dst+sizeof(LowMC2<>::block) < xPermuted.size() );
                         
@@ -275,6 +292,13 @@ namespace secJoin
 
                         assert(src+sizeof(LowMC2<>::block) < xEncrypted.size() );
                         assert(dst+sizeof(LowMC2<>::block) < xPermuted.size() );
+
+                        if( (src+sizeof(LowMC2<>::block) > xEncrypted.size()) ||
+                            dst+sizeof(LowMC2<>::block) > xPermuted.size()
+                        )
+                        {
+                            throw RTE_LOC;
+                        }
 
                         #if !defined(NDEBUG)
                             std::cout << "i="<<i << " " << "j="<< j << " pi=" << pi[i] << std::endl;
@@ -330,6 +354,9 @@ namespace secJoin
 
             MC_AWAIT(gmw1.run(chl));
 
+            #if !defined(NDEBUG)
+                std::cout << "GMW1 run complete" << std::endl;
+            #endif
 
             if(bytesPerRow % sizeof(LowMC2<>::block) == 0)
             {
@@ -341,6 +368,8 @@ namespace secJoin
             {
                 Matrix<u8> temp(n * blocksPerRow, sizeof(LowMC2<>::block), oc::AllocType::Uninitialized);
                 gmw1.getOutput(0, temp);
+
+                // std::cout << "applyPerm GMW got the output" << std::endl;
 
                 sout.resize(n,bytesPerRow, oc::AllocType::Uninitialized);
                 for(u64 i = 0; i < n;++i)

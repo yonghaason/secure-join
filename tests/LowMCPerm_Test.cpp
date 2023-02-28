@@ -388,7 +388,7 @@ Matrix<u8> reconstruct_from_shares(
     Matrix<u8> v2)
 {
 
-        // Checking the dimensions
+    // Checking the dimensions
     if(v1.rows() != v2.rows())
         throw RTE_LOC;
     if(v1.cols() != v2.cols())
