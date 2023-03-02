@@ -1,3 +1,8 @@
+#pragma once
+
+#include "secure-join/config.h"
+#ifdef SECUREJOIN_ENABLE_PAILLIER
+
 #include "Paillier/Ciphertext.h"
 #include "Paillier/Plaintext.h"
 #include "Paillier/RNG.h"
@@ -186,3 +191,5 @@ namespace secJoin
         }
     };
 }
+
+#endif // SECUREJOIN_ENABLE_PAILLIER

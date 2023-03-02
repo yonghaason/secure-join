@@ -1,5 +1,6 @@
 #include "SharePerm_Test.h"
 using namespace secJoin;
+#include "util.h"
 
 void SharePerm_replicated_perm_test()
 {
@@ -8,7 +9,7 @@ void SharePerm_replicated_perm_test()
     u64 n = 10;    // total number of rows
     u64 rowSize = 5;
 
-    Matrix<u8> x(n, rowSize) ;
+    oc::Matrix<u8> x(n, rowSize);
     
     oc::PRNG prng(oc::block(0,0));
 
@@ -31,8 +32,8 @@ void SharePerm_replicated_perm_test()
     }
 
 
-    std::array<Matrix<u8>, 2> sout;
-    std::array<Matrix<u8>, 2> xShares = share(x,prng);
+    std::array<oc::Matrix<u8>, 2> sout;
+    std::array<oc::Matrix<u8>, 2> xShares = share(x,prng);
 
     Perm p0(pi[0]);
     Perm p1(pi[1]);
@@ -56,40 +57,3 @@ void SharePerm_replicated_perm_test()
 
 }
 
-
-void check_results(
-    Matrix<u8> &x,
-    std::array<Matrix<u8>, 2> &sout, 
-    std::vector<u64> &pi0,
-    std::vector<u64> &pi1
-    )
-{
-    // Checking the dimensions
-    if(sout[0].rows() != x.rows())
-        throw RTE_LOC;
-    if(sout[1].rows() != x.rows())
-        throw RTE_LOC;
-    if(sout[0].cols() != x.cols())
-        throw RTE_LOC;
-    if(sout[1].cols() != x.cols())
-        throw RTE_LOC;
- 
-
-    // Checking if everything works
-    for (u64 i = 0; i < x.rows(); ++i)
-    {
-        
-        for(u64 j=0; j < x.cols(); j++)
-        {
-            auto act = sout[0](  pi0[ pi1[i] ]   ,j) ^ sout[1]( pi0[ pi1[i] ] ,j);
-            if ( act != x( i,j))
-            {
-                std::cout << "Unit Test Failed" << std::endl;
-                throw RTE_LOC;
-            }
-
-        }
-    }
-
-
-}

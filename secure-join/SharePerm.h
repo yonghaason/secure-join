@@ -23,19 +23,19 @@ namespace secJoin
 
 
         macoro::task<> apply(
-            Matrix<u8>& in,
-            Matrix<u8>& out,
+            oc::Matrix<u8>& in,
+            oc::Matrix<u8>& out,
             coproto::Socket& chl
             )
         {
 
             MC_BEGIN(macoro::task<>, &in, &out, &chl,
-            gmw0 = Gmw(),
-            gmw1 = Gmw(),
-            invPerm = bool(false),
-            prng = oc::PRNG(oc::block(0,0)),
-            this,
-            soutperm = Matrix<u8>{}
+                gmw0 = std::move(Gmw()),
+                gmw1 = std::move(Gmw()),
+                invPerm = bool(false),
+                prng = oc::PRNG(oc::block(0,0)),
+                this,
+                soutperm = oc::Matrix<u8>{}
             );
 
             if(mPartyIdx == 0)

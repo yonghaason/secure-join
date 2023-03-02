@@ -1,6 +1,6 @@
 cmake_minimum_required (VERSION 3.15)
 
-project(volePSI VERSION 0.1.0)
+project(secureJoin VERSION 0.1.0)
 
 set(SECUREJOIN_BUILD ON)
 
@@ -13,7 +13,9 @@ include(cmake/buildOptions.cmake)
 # find all the dependancies.
 include(cmake/findDependancies.cmake)
 
-add_subdirectory(Paillier)
+if(SECUREJOIN_ENABLE_PAILLIER)
+	add_subdirectory(Paillier)
+endif()
 
 # build volePSI
 add_subdirectory(secure-join)

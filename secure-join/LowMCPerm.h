@@ -20,27 +20,27 @@ namespace secJoin
         public:
 
         static macoro::task<> applyVec(
-            Matrix<u8>& x1,
+            oc::Matrix<u8>& x1,
             oc::PRNG& prng, 
             Gmw &gmw0, 
             coproto::Socket& chl, 
-            Matrix<u8>& sout)
+            oc::Matrix<u8>& sout)
         {
           
             LowMC2<>::keyblock key;
             prng.get((u8*) &key, sizeof(key));
         
             MC_BEGIN(macoro::task<>, &x1, &chl, &gmw0, &sout, &prng,
-            n = u64(x1.rows()),
-            bytesPerRow = u64(x1.cols()),
-            lowMc = LowMC2<>(false, key),
-            roundkeys = std::vector<LowMC2<>::block>{},
-            cir = oc::BetaCircuit(),
-            xEncrypted = oc::Matrix<u8>{},
-            roundkeysMatrix = std::vector<Matrix<u8>>{},
-            counterMode = u64(),
-            blocksPerRow = u64()
-            // xEncrypted = oc::MatrixView<LowMC2<>::block>()
+                n = u64(x1.rows()),
+                bytesPerRow = u64(x1.cols()),
+                lowMc = LowMC2<>(false, key),
+                roundkeys = std::vector<LowMC2<>::block>{},
+                cir = oc::BetaCircuit(),
+                xEncrypted = oc::Matrix<u8>{},
+                roundkeysMatrix = std::vector<oc::Matrix<u8>>{},
+                counterMode = u64(),
+                blocksPerRow = u64()
+                // xEncrypted = oc::MatrixView<LowMC2<>::block>()
             );
 
             
@@ -139,7 +139,7 @@ namespace secJoin
             }
             else
             {
-                Matrix<u8> temp(n * blocksPerRow, sizeof(LowMC2<>::block), oc::AllocType::Uninitialized);
+                oc::Matrix<u8> temp(n * blocksPerRow, sizeof(LowMC2<>::block), oc::AllocType::Uninitialized);
                 gmw0.getOutput(0, temp);
 
                 // std::cout << "applyVec GMW got the output" << std::endl;
@@ -159,12 +159,12 @@ namespace secJoin
 
 
         static macoro::task<> applyVecPerm(
-            Matrix<u8>& x2,
+            oc::Matrix<u8>& x2,
             std::vector<u64>& pi, 
             oc::PRNG& prng, 
             Gmw &gmw1, 
             coproto::Socket& chl, 
-            Matrix<u8>& sout,
+            oc::Matrix<u8>& sout,
             bool invPerm)
         {
 
@@ -212,7 +212,7 @@ namespace secJoin
             u64 bytesPerRow, 
             Gmw &gmw1, 
             coproto::Socket& chl, 
-            Matrix<u8>& sout,
+            oc::Matrix<u8>& sout,
             bool invPerm)
         {
 
@@ -366,7 +366,7 @@ namespace secJoin
             }
             else
             {
-                Matrix<u8> temp(n * blocksPerRow, sizeof(LowMC2<>::block), oc::AllocType::Uninitialized);
+                oc::Matrix<u8> temp(n * blocksPerRow, sizeof(LowMC2<>::block), oc::AllocType::Uninitialized);
                 gmw1.getOutput(0, temp);
 
                 // std::cout << "applyPerm GMW got the output" << std::endl;

@@ -12,17 +12,30 @@ set(CMAKE_PREFIX_PATH "${SECUREJOIN_THIRDPARTY_DIR};${CMAKE_PREFIX_PATH}")
 
 macro(FIND_LIBOTE)
     set(ARGS ${ARGN})
-
-    if(ENABLE_ASAN)
-        set(ARGS ${ARGS} COMPONENTS asan)
+    set(COMPS)
+    
+    if(SECUREJOIN_ENABLE_ASAN)
+        set(COMPS ${COMPS}  asan)
+    else()
+        set(COMPS ${COMPS}  no_asan)
     endif()
+
+    if(SECUREJOIN_ENABLE_BOOST)
+        set(COMPS ${COMPS}  boost)
+    else()
+        #set(COMPS ${COMPS}  no_boost)
+    endif()
+
+
 
     #explicitly asked to fetch libOTe
     if(FETCH_LIBOTE)
         list(APPEND ARGS NO_DEFAULT_PATH PATHS ${SECUREJOIN_THIRDPARTY_DIR})
+    elseif(${NO_CMAKE_SYSTEM_PATH})
+        list(APPEND ARGS NO_DEFAULT_PATH PATHS ${CMAKE_PREFIX_PATH})
     endif()
     
-    find_package(libOTe ${ARGS})
+    find_package(libOTe ${ARGS} COMPONENTS ${COMPS})
 
     if(TARGET oc::libOTe)
         set(libOTe_FOUND ON)

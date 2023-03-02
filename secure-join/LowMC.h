@@ -13,10 +13,7 @@
 #include "Defines.h"
 
 #include <cryptoTools/Circuit/BetaCircuit.h>
-// #include "CircuitLibrary.h"
 #include <cryptoTools/Crypto/PRNG.h>
-
-using namespace osuCrypto;
 
 namespace secJoin
 {
@@ -36,11 +33,11 @@ namespace secJoin
         public:
 
 
-            struct LowMCInputBetaBundle{
+            struct LowMCInputBetaBundle {
 
-                BetaBundle encryptMessage, state, temp, temp2, xorMessage;
-                
-                std::array<BetaBundle, rounds + 1> roundKeys;
+                oc::BetaBundle encryptMessage, state, temp, temp2, xorMessage;
+
+                std::array<oc::BetaBundle, rounds + 1> roundKeys;
             };
 
             size_t getBlockSize() { return blocksize; };
@@ -111,13 +108,13 @@ namespace secJoin
             }
 
 
-            
 
-            void add_lowmc_gates(BetaCircuit& cir,LowMCInputBetaBundle bundle)
+
+            void add_lowmc_gates(oc::BetaCircuit& cir, LowMCInputBetaBundle bundle)
             {
                 for (int i = 0; i < (int)blocksize; ++i)
                 {
-                    cir.addGate(bundle.encryptMessage[i], bundle.roundKeys[0][i], GateType::Xor, bundle.state[i]);
+                    cir.addGate(bundle.encryptMessage[i], bundle.roundKeys[0][i], oc::GateType::Xor, bundle.state[i]);
                 }
 
                 for (u64 r = 0; r < rounds; ++r)
@@ -134,23 +131,23 @@ namespace secJoin
                         auto& a_b = bundle.temp2[0];
 
                         // a_b = a + b
-                        cir.addGate(a, b, GateType::Xor, a_b);
+                        cir.addGate(a, b, oc::GateType::Xor, a_b);
 
-                        cir.addGate(b, c, GateType::And, aa);
+                        cir.addGate(b, c, oc::GateType::And, aa);
 
-                        cir.addGate(a, c, GateType::And, bb);
+                        cir.addGate(a, c, oc::GateType::And, bb);
 
-                        cir.addGate(a, b, GateType::And, cc);
-                        cir.addGate(cc, c, GateType::Xor, cc);
+                        cir.addGate(a, b, oc::GateType::And, cc);
+                        cir.addGate(cc, c, oc::GateType::Xor, cc);
 
                         // a = a + bc
-                        cir.addGate(a, aa, GateType::Xor, a);
+                        cir.addGate(a, aa, oc::GateType::Xor, a);
                         // b = a + b + ac
-                        cir.addGate(a_b, bb, GateType::Xor, b);
+                        cir.addGate(a_b, bb, oc::GateType::Xor, b);
                         // c = a + b + c + ab
-                        cir.addGate(cc, a_b, GateType::Xor, c);
+                        cir.addGate(cc, a_b, oc::GateType::Xor, c);
                     }
-                  
+
                     // multiply with linear matrix and add const
                     auto& matrix = LinMatrices[r];
                     for (int i = 0; i < (int)blocksize; ++i)
@@ -166,13 +163,13 @@ namespace secJoin
                         while (row[++j] == 0);
                         secondIdx = j++;
 
-                        cir.addGate(bundle.state[firstIdx], bundle.state[secondIdx], GateType::Xor, t);
+                        cir.addGate(bundle.state[firstIdx], bundle.state[secondIdx], oc::GateType::Xor, t);
 
                         for (; j < (int)blocksize; ++j)
                         {
                             if (row[j])
                             {
-                                cir.addGate(t, bundle.state[j], GateType::Xor, t);
+                                cir.addGate(t, bundle.state[j], oc::GateType::Xor, t);
                             }
                         }
                     }
@@ -189,7 +186,7 @@ namespace secJoin
                     // add key
                     for (int i = 0; i < (int)blocksize; ++i)
                     {
-                        cir.addGate(bundle.temp[i], bundle.roundKeys[r + 1][i], GateType::Xor, bundle.state[i]);
+                        cir.addGate(bundle.temp[i], bundle.roundKeys[r + 1][i], oc::GateType::Xor, bundle.state[i]);
                     }
 
 
@@ -197,7 +194,7 @@ namespace secJoin
             }
 
 
-            void to_enc_circuit(BetaCircuit& cir, bool isCounterModeEnabled)
+            void to_enc_circuit(oc::BetaCircuit& cir, bool isCounterModeEnabled)
             {
                 LowMCInputBetaBundle bundle;
                 bundle.encryptMessage.mWires.resize(blocksize);
@@ -207,41 +204,41 @@ namespace secJoin
 
                 cir.addInputBundle(bundle.encryptMessage);
 
-                if(isCounterModeEnabled)
+                if (isCounterModeEnabled)
                 {
                     bundle.xorMessage.mWires.resize(blocksize);
                     cir.addInputBundle(bundle.xorMessage);
                 }
-                    
-                
+
+
                 for (auto& key : bundle.roundKeys)
                 {
                     key.mWires.resize(blocksize);
                     cir.addInputBundle(key);
                 }
-                
+
 
                 cir.addOutputBundle(bundle.state);
 
                 cir.addTempWireBundle(bundle.temp);
                 cir.addTempWireBundle(bundle.temp2);
 
-                add_lowmc_gates(cir,bundle);
+                add_lowmc_gates(cir, bundle);
 
 
-                if(isCounterModeEnabled)
+                if (isCounterModeEnabled)
                 {
                     for (int i = 0; i < (int)blocksize; ++i)
                     {
-                        cir.addGate(bundle.xorMessage[i], bundle.state[i] , GateType::Xor, bundle.state[i]);
+                        cir.addGate(bundle.xorMessage[i], bundle.state[i], oc::GateType::Xor, bundle.state[i]);
                     }
 
                 }
-                
+
             }
 
             /*
-    
+
             void to_enc_circuit(BetaCircuit& cir)
             {
                 BetaBundle message(blocksize), state(blocksize), temp(blocksize), temp2(1);
@@ -261,7 +258,7 @@ namespace secJoin
 
                 for (int i = 0; i < (int)blocksize; ++i)
                 {
-                    cir.addGate(message[i], roundKeys[0][i], GateType::Xor, state[i]);
+                    cir.addGate(message[i], roundKeys[0][i], oc::GateType::Xor, state[i]);
                 }
 
                 //cir.addPrint("message        ");
@@ -291,21 +288,21 @@ namespace secJoin
                         auto& a_b = temp2[0];
 
                         // a_b = a + b
-                        cir.addGate(a, b, GateType::Xor, a_b);
+                        cir.addGate(a, b, oc::GateType::Xor, a_b);
 
-                        cir.addGate(b, c, GateType::And, aa);
+                        cir.addGate(b, c, oc::GateType::And, aa);
 
-                        cir.addGate(a, c, GateType::And, bb);
+                        cir.addGate(a, c, oc::GateType::And, bb);
 
-                        cir.addGate(a, b, GateType::And, cc);
-                        cir.addGate(cc, c, GateType::Xor, cc);
+                        cir.addGate(a, b, oc::GateType::And, cc);
+                        cir.addGate(cc, c, oc::GateType::Xor, cc);
 
                         // a = a + bc
-                        cir.addGate(a, aa, GateType::Xor, a);
+                        cir.addGate(a, aa, oc::GateType::Xor, a);
                         // b = a + b + ac
-                        cir.addGate(a_b, bb, GateType::Xor, b);
+                        cir.addGate(a_b, bb, oc::GateType::Xor, b);
                         // c = a + b + c + ab
-                        cir.addGate(cc, a_b, GateType::Xor, c);
+                        cir.addGate(cc, a_b, oc::GateType::Xor, c);
                     }
                     //cir.addPrint("state[" + std::to_string(r) + "].sbox  ");
                     //cir.addPrint(state);
@@ -327,13 +324,13 @@ namespace secJoin
                         while (row[++j] == 0);
                         secondIdx = j++;
 
-                        cir.addGate(state[firstIdx], state[secondIdx], GateType::Xor, t);
+                        cir.addGate(state[firstIdx], state[secondIdx], oc::GateType::Xor, t);
 
                         for (; j < (int)blocksize; ++j)
                         {
                             if (row[j])
                             {
-                                cir.addGate(t, state[j], GateType::Xor, t);
+                                cir.addGate(t, state[j], oc::GateType::Xor, t);
                             }
                         }
                     }
@@ -356,7 +353,7 @@ namespace secJoin
                     // add key
                     for (int i = 0; i < (int)blocksize; ++i)
                     {
-                        cir.addGate(temp[i], roundKeys[r + 1][i], GateType::Xor, state[i]);
+                        cir.addGate(temp[i], roundKeys[r + 1][i], oc::GateType::Xor, state[i]);
                     }
 
 
@@ -526,7 +523,7 @@ namespace secJoin
                     }
 
                     in.read(&c, 1);
-                    if(c != '\n')
+                    if (c != '\n')
                         throw std::runtime_error(LOCATION);
                 }
                 return mat;
@@ -663,7 +660,7 @@ namespace secJoin
 
 
             // Random bits functions //
-            block getrandblock(PRNG& prng)
+            block getrandblock(oc::PRNG& prng)
             {
                 block tmp = 0;
                 for (u64 i = 0; i < blocksize; ++i) tmp[i] = prng.get<bool>();
@@ -671,7 +668,7 @@ namespace secJoin
             }
 
 
-            keyblock getrandkeyblock(PRNG& prng)
+            keyblock getrandkeyblock(oc::PRNG& prng)
             {
                 keyblock tmp = 0;
                 for (u64 i = 0; i < keysize; ++i) tmp[i] = prng.get<bool>();

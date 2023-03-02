@@ -1,9 +1,12 @@
 
 #include "secure-join/PaillierPerm.h"
-using namespace secJoin;
+#include "cryptoTools/Common/TestCollection.h"
+
 
 void PaillierPerm_basic_test()
 {
+#ifdef SECUREJOIN_ENALBLE_PAILLIER
+    using namespace secJoin;
 
     u64 n = 100;
     PaillierPerm perm0, perm1;
@@ -33,6 +36,10 @@ void PaillierPerm_basic_test()
             throw RTE_LOC;
         }
     }
+#else
+
+    throw oc::UnitTestSkipped("SECUREJOIN_ENALBLE_PAILLIER not defined.");
+#endif
 }
 
 

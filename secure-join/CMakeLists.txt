@@ -1,24 +1,27 @@
 
-#configure_file(config.h.in "config.h" )
-
-file(GLOB_RECURSE SRCS *.cpp)
 
 
-#[[
 set(SRCS
-    "PaillierPerm.cpp"
     "Permutation.cpp"
+    "SharePerm.cpp"
     "GMW/Circuit.cpp"
     "GMW/Gmw.cpp"
     "GMW/SilentTripleGen.cpp"
-    ""
     )
-    ]]
 
-# message("///////////// "  ${SRCS})
+if(SECUREJOIN_ENABLE_PAILLIER)
+    set(SRCS ${SRCS} "PaillierPerm.cpp")
+endif()
 
 add_library(secureJoin STATIC ${SRCS})
-target_link_libraries(secureJoin oc::libOTe Paillier)
+target_link_libraries(secureJoin oc::libOTe)
+
+configure_file(config.h.in "config.h" )
+
+
+if(SECUREJOIN_ENABLE_PAILLIER)
+    target_link_libraries(secureJoin Paillier)
+endif()
 
 if(APPLE)
     target_compile_options(secureJoin PUBLIC
