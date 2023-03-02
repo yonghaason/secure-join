@@ -64,9 +64,12 @@ namespace secJoin
             tg.setTimer(*mTimer);
 
         tg.init(mNumOts, batchSize, numThreads, mIdx ? Mode::Receiver : Mode::Sender, mPrng.get());
+
+#ifndef SECUREJOIN_ENABLE_FAKE_GEN
+
         if (tg.hasBaseOts() == false)
             MC_AWAIT(tg.generateBaseOts(mIdx, mPrng, chl));
-
+#endif
 
         MC_AWAIT(tg.expand(chl));
         if (mIdx)
@@ -305,8 +308,12 @@ namespace secJoin
 
         for (gate = gates.begin(); gate < gates.end(); ++gate)
         {
-            in = { mWords[gate->mInput[0]], mWords[gate->mInput[1]] };
-            out = mWords[gate->mOutput];
+            //in = { mWords[gate->mInput[0]], mWords[gate->mInput[1]] };
+            //out = mWords[gate->mOutput];
+
+            in[0] = oc::span<oc::block>(mWords.data() + gate->mInput[0] * mWords.cols(), mWords.cols());
+            in[1] = oc::span<oc::block>(mWords.data() + gate->mInput[1] * mWords.cols(), mWords.cols());
+            out = oc::span<oc::block>(mWords.data() + gate->mOutput * mWords.cols(), mWords.cols());
 
             //if (mIdx && mO.mDebug)
             //{
@@ -374,8 +381,11 @@ namespace secJoin
 
         for (gate = gates.begin(); gate < gates.end(); ++gate)
         {
-            in = { mWords[gate->mInput[0]], mWords[gate->mInput[1]] };
-            out = mWords[gate->mOutput];
+            in[0] = oc::span<oc::block>(mWords.data() + gate->mInput[0] * mWords.cols(), mWords.cols());
+            in[1] = oc::span<oc::block>(mWords.data() + gate->mInput[1] * mWords.cols(), mWords.cols());
+            out = oc::span<oc::block>(mWords.data() + gate->mOutput * mWords.cols(), mWords.cols()); 
+            //, mWords[gate->mInput[1]]
+                //  };
 
             if (gate->mType == oc::GateType::na_And ||
                 gate->mType == oc::GateType::nb_And ||

@@ -5,8 +5,8 @@ using namespace secJoin;
 void LowMCPerm_perm_test()
 {
     // User input
-    u64 n = 10;    // total number of rows
-    u64 rowSize = 5;    
+    u64 n = 1024;    // total number of rows
+    u64 rowSize = 25;    
 
     oc::Matrix<u8> x(n, rowSize), x2Perm(n,rowSize);
     bool invPerm = false;
@@ -48,8 +48,8 @@ void LowMCPerm_inv_perm_test()
 {
 
     // User input
-    u64 n = 10;    // total number of rows
-    u64 rowSize = 5;    
+    u64 n = 10111;    // total number of rows
+    u64 rowSize = 101;    
 
     oc::Matrix<u8> x(n, rowSize), x2Perm(n,rowSize);
     bool invPerm = false;
@@ -98,8 +98,8 @@ void LowMCPerm_secret_shared_input_inv_perm_test()
 {
 
     // User input
-    u64 n = 10;    // total number of rows
-    u64 rowSize = 5;    
+    u64 n = 4533;    // total number of rows
+    u64 rowSize = 54;    
 
     oc::Matrix<u8> x(n, rowSize), x2Perm(n,rowSize);
     bool invPerm = false;
@@ -147,8 +147,8 @@ void LowMCPerm_secret_shared_input_inv_perm_test()
 void LowMCPerm_secret_shared_input_perm_test()
 {
     // User input
-    u64 n = 10;    // total number of rows
-    u64 rowSize = 5;
+    u64 n = 14354;    // total number of rows
+    u64 rowSize = 66;
     
 
     oc::Matrix<u8> x(n, rowSize), x2Perm(n,rowSize);
