@@ -61,7 +61,7 @@ namespace secJoin
 
         void init(
             u64 n,
-            BetaCircuit& cir,
+            const BetaCircuit& cir,
             u64 numThreads, 
             u64 pIdx, 
             block seed);

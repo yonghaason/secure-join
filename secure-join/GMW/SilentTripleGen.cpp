@@ -1,3 +1,5 @@
+#include "secure-join/config.h"
+
 #include "SilentTripleGen.h"
 #include "cryptoTools/Network/IOService.h"
 #include "cryptoTools/Network/Session.h"
@@ -135,6 +137,26 @@ namespace secJoin
             shuffle = std::array<block, 16>{}
         );
 
+#ifdef SECUREJOIN_ENABLE_FAKE_GEN
+        if (mSenderOT.size())
+        {
+            mAVec.resize(mN / 128);
+            mBVec.resize(mN / 128);
+            mMult = mAVec;
+            mAdd = mBVec;
+
+        }
+        else
+        {
+            mDVec.resize(mN / 128);
+            mCBitVec.resize(0);
+            mCBitVec.reserve(mN);
+            mAdd = mDVec;
+            mMult = span<block>((block*)mCBitVec.data(), mAdd.size());
+
+        }
+
+#else
 
         memset(shuffle.data(), 1 << 7, sizeof(*shuffle.data()) * shuffle.size());
         for (u64 i = 0; i < 16; ++i)
@@ -361,6 +383,8 @@ namespace secJoin
                 }
             }
         }
+
+#endif
 
         mHasBase = false;
         setTimePoint("SilentTripleGen::expand end");

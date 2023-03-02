@@ -41,11 +41,6 @@ void SharePerm_replicated_perm_test()
     SharePerm perm1(p0, 0); 
     SharePerm perm2(p1, 1);
 
-    #if !defined(NDEBUG)
-        std::cout << "cols of the vector is " << xShares[0].rows() << std::endl;
-        std::cout << "rows of the vector is " << xShares[0].cols() << std::endl;
-    #endif
-    
     auto proto0 = perm1.apply(xShares[0], sout[0], chls[0]);
     auto proto1 = perm2.apply(xShares[1], sout[1], chls[1]);
 

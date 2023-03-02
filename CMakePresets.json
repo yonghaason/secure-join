@@ -9,7 +9,9 @@
       "binaryDir": "${sourceDir}/out/build/${presetName}",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "RelWithDebInfo",
-        "VOLE_PSI_ENABLE_ASAN": false,
+        "SECUREJOIN_ENABLE_ASAN": false,
+        "SECUREJOIN_ENABLE_FAKE_GEN": true,
+        "SECUREJOIN_ENABLE_BOOST": false,
         "FETCH_AUTO": "ON",
         "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}"
       },
@@ -37,8 +39,9 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "FETCH_AUTO": "ON",
-        "VOLE_PSI_ENABLE_ASAN": false,
-        "COPROTO_ENABLE_BOOST": true,
+        "SECUREJOIN_ENABLE_ASAN": false,
+        "SECUREJOIN_ENABLE_FAKE_GEN": true,
+        "SECUREJOIN_ENABLE_BOOST": false,
         "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}"
       },
       "vendor": {
@@ -62,6 +65,9 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "RelWithDebInfo",
         "FETCH_AUTO": "ON",
+        "SECUREJOIN_ENABLE_ASAN": false,
+        "SECUREJOIN_ENABLE_FAKE_GEN": true,
+        "SECUREJOIN_ENABLE_BOOST": false,
         "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}"
       },
       "vendor": {
@@ -81,7 +87,9 @@
       "cacheVariables": {
         "FETCH_AUTO": true,
         "CMAKE_BUILD_TYPE": "Debug",
-        "VOLE_PSI_ENABLE_ASAN": true,
+        "SECUREJOIN_ENABLE_ASAN": false,
+        "SECUREJOIN_ENABLE_FAKE_GEN": true,
+        "SECUREJOIN_ENABLE_BOOST": false,
         "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}"
       },
       "vendor": {

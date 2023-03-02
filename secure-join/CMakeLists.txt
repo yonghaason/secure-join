@@ -4,6 +4,7 @@
 set(SRCS
     "Permutation.cpp"
     "SharePerm.cpp"
+    "LowMCPerm.cpp"
     "GMW/Circuit.cpp"
     "GMW/Gmw.cpp"
     "GMW/SilentTripleGen.cpp"

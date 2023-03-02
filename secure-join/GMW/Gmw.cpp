@@ -12,7 +12,7 @@ namespace secJoin
     using PRNG = oc::PRNG;
     void Gmw::init(
         u64 n,
-        BetaCircuit& cir,
+        const BetaCircuit& cir,
         u64 numThreads,
         u64 pIdx,
         block seed)
@@ -23,7 +23,9 @@ namespace secJoin
         mRoundIdx = 0;
         mCir = cir;
 
-        mCir.levelByAndDepth(mLevelize);
+        if(mCir.mLevelCounts.size() == 0)
+            mCir.levelByAndDepth(mLevelize);
+
         mNumRounds = mCir.mLevelCounts.size();
 
 
