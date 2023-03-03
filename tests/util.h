@@ -61,29 +61,36 @@ inline void check_results(
 
         for (oc::u64 j = 0; j < x.cols(); j++)
         {
-            oc::u8 act, cur;
+            oc::u8 act, cur, cur0, cur1;
             if (invPerm)
             {
                 act = x(pi[i], j);
-                cur = sout[0](i, j) ^ sout[1](i, j);
+                cur0 = sout[0](i, j);
+                cur1 = sout[1](i, j);
             }
             else
             {
                 act = x(i, j);
-                cur = sout[0](pi[i], j) ^ sout[1](pi[i], j);
+                cur0 = sout[0](pi[i], j);
+                cur1 = sout[1](pi[i], j);
             }
 
+            cur = cur0 ^ cur1;
 
             if (act != cur)
             {
-                std::cout << "Unit Test Failed" << std::endl;
+                //std::cout << "Unit Test Failed " << std::endl;
+
+                //std::cout << std::hex << std::setw(2) << std::setfill('0') << int(act) << std::endl;
+                //std::cout << std::hex << std::setw(2) << std::setfill('0') << int(cur) << std::endl;
+                //std::cout << std::hex << std::setw(2) << std::setfill('0') << int(cur0) << std::endl;
+                //std::cout << std::hex << std::setw(2) << std::setfill('0') << int(cur1) << std::endl;
                 throw RTE_LOC;
             }
 
         }
+
     }
-
-
 }
 
 

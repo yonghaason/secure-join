@@ -2,17 +2,18 @@
 #include "util.h"
 using namespace secJoin;
 
-void LowMCPerm_perm_test()
+void LowMCPerm_perm_test(const oc::CLP& cmd)
 {
     // User input
-    u64 n = 1024;    // total number of rows
-    u64 rowSize = 25;    
+    u64 n = 10;    // total number of rows
+    u64 rowSize = cmd.getOr("m",63);      
 
     oc::Matrix<u8> x(n, rowSize), x2Perm(n,rowSize);
     bool invPerm = false;
 
     LowMCPerm m1, m2;
-    oc::PRNG prng(oc::block(0,0));
+    oc::PRNG prng0(oc::block(0, 0));
+    oc::PRNG prng1(oc::block(0, 1));
 
     auto chls = coproto::LocalAsyncSocket::makePair();
 
@@ -23,17 +24,18 @@ void LowMCPerm_perm_test()
     { 
         // std::cout << "The size of x[i] is " << x[i].size() << std::endl;
         // std::cout << "The size of offset * sizeof(LowMC2<>::block) is " << offset * sizeof(LowMC2<>::block) << std::endl;
+        oc::PRNG prng(oc::block(0, i));
         prng.get((u8*) &x[i][0], x[i].size());
-
-        pi[i] = (i+1) % n;
+        /*std::fi*/
+        pi[i] = (i+5) % n;
     }
 
 
     Gmw gmw0, gmw1;
     std::array<oc::Matrix<u8>, 2> sout;
 
-    auto proto0 = m1.applyVec(x, prng, gmw0, chls[0], sout[0]);
-    auto proto1 = m2.applyPerm(pi, prng, n, rowSize, gmw1, chls[1], sout[1], invPerm);
+    auto proto0 = m1.applyVec(x, prng0, gmw0, chls[0], sout[0]);
+    auto proto1 = m2.applyPerm(pi, prng1, n, rowSize, gmw1, chls[1], sout[1], invPerm);
 
     auto res = macoro::sync_wait(macoro::when_all_ready(std::move(proto0), std::move(proto1)));
 
@@ -48,8 +50,8 @@ void LowMCPerm_inv_perm_test()
 {
 
     // User input
-    u64 n = 10111;    // total number of rows
-    u64 rowSize = 101;    
+    u64 n = 10;    // total number of rows
+    u64 rowSize = 40;    
 
     oc::Matrix<u8> x(n, rowSize), x2Perm(n,rowSize);
     bool invPerm = false;
@@ -98,7 +100,7 @@ void LowMCPerm_secret_shared_input_inv_perm_test()
 {
 
     // User input
-    u64 n = 4533;    // total number of rows
+    u64 n = 453;    // total number of rows
     u64 rowSize = 54;    
 
     oc::Matrix<u8> x(n, rowSize), x2Perm(n,rowSize);
@@ -147,7 +149,7 @@ void LowMCPerm_secret_shared_input_inv_perm_test()
 void LowMCPerm_secret_shared_input_perm_test()
 {
     // User input
-    u64 n = 14354;    // total number of rows
+    u64 n = 1454;    // total number of rows
     u64 rowSize = 66;
     
 
