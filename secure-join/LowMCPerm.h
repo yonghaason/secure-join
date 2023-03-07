@@ -1,6 +1,20 @@
 #pragma once
 
 #include "LowMC.h"
+
+#include "coproto/Common/Defines.h"
+#include "coproto/Common/span.h"
+namespace coproto
+{
+    namespace internal
+    {
+        inline span<u8> asSpan(std::vector<std::bitset<256>>& v)
+        {
+            return span<u8>((u8*)v.data(), v.size() * sizeof(std::bitset<256>));
+        }
+    }
+}
+
 #include "Permutation.h"
 #include "secure-join/GMW/Gmw.h"
 #include "coproto/Socket/LocalAsyncSock.h"
@@ -11,19 +25,6 @@
 
 // using coproto::LocalAsyncSocket;
 
-
-namespace coproto
-{
-    namespace internal
-    {
-
-        template<int n>
-        inline span<u8> asSpan(std::vector<std::bitset<n>>& v)
-        {
-            return span<u8>((u8*)v.data(), v.size() * sizeof(std::bitset<n>));
-        }
-    }
-}
 
 namespace secJoin
 {
@@ -232,22 +233,22 @@ namespace secJoin
 
             for (u64 i = 0; i < n; ++i)
             {
-                lowBlock* dst, *src, *idx;
+                std::vector<LowMC2<>::block>::iterator dst, src, idx;
                 u64 srcIdx;
                 auto counterMode = i * blocksPerRow;
                 auto pi_i = pi[i] * blocksPerRow;
                 if (invPerm)
                 {
-                    dst = &xPermuted[counterMode];
-                    idx = &indexMatrix[counterMode];
-                    src = &xEncrypted[pi_i];
+                    dst = xPermuted.begin() + counterMode;
+                    idx = indexMatrix.begin() + counterMode;
+                    src = xEncrypted.begin() + pi_i;
                     srcIdx = pi_i;
                 }
                 else
                 {
-                    dst = &xPermuted[pi_i];
-                    idx = &indexMatrix[pi_i];
-                    src = &xEncrypted[counterMode];
+                    dst = xPermuted.begin() + pi_i;
+                    idx = indexMatrix.begin() + pi_i;
+                    src = xEncrypted.begin() + counterMode;
                     srcIdx = counterMode;
                 }
 
@@ -291,11 +292,7 @@ namespace secJoin
                 }
             }
 
-
             MC_END();
-
-
         }
-
     };
 }
