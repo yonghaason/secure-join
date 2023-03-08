@@ -9,6 +9,7 @@ set(SRCS
 	LowMCPerm_Test.cpp
 	SharePerm_Test.cpp
 	PaillierPerm_Test.cpp
+	DarkMatterPrf_Test.cpp
 	)
 
 	
