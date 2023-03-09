@@ -5,15 +5,22 @@
 namespace secJoin
 {
 
-    const LowMC2<> LowMCPerm::mLowMc(false);
+    const LowMC2<>& LowMCPerm::mLowMc()
+    {
+        static const LowMC2<> m(false);
+        return m;
+    }
 
-    const oc::BetaCircuit LowMCPerm::mLowMcCir = []() {
-        LowMC2<> lowmc(false);
-        oc::BetaCircuit cir;
-        lowmc.to_enc_circuit(cir, true);
-        cir.levelByAndDepth();
+    const oc::BetaCircuit& LowMCPerm::mLowMcCir() {
+        static oc::BetaCircuit cir;
+        if (cir.mGates.size() == 0)
+        {
+
+            LowMCPerm::mLowMc().to_enc_circuit(cir, true);
+            cir.levelByAndDepth();
+        }
         return cir;
-    }();
-    
+    };
+
 
 }

@@ -149,25 +149,219 @@ namespace secJoin
     {
         auto n = mBuffer.size();
         auto dst = mBuffer.data();
-        oc::block m[8];
-        //assert((mBuffer.size() * sizeof(u16))% sizeof(oc::block))
+        oc::block m[8], t[8], eq[9];
+        eq[8] = oc::ZeroBlock;
+        oc::block block1 = std::array<u16, 8>{1, 1, 1, 1, 1, 1, 1, 1};
+        oc::block block3 = std::array<u16, 8>{3, 3, 3, 3, 3, 3, 3, 3};
+
         for (u64 i = 0; i < n;)
         {
             prng.mAes.ecbEncCounterMode(prng.mBlockIdx, 8, m);
             prng.mBlockIdx += 8;
-            for (auto k = 0; k < 16 && i < n; ++k)
+            //for (auto k = 0; k < 16 && i < n; ++k)
+            //{
+            //    u64 t = ((u64*)m)[k];
+            //    auto min = std::min<u64>(32, n - i);
+            //    for (u64 j = 0; j < min; ++j)
+            //    {
+            //        auto b = t & 3;
+            //        dst[i] = b;
+            //        i += (b != 3);
+            //        t >>= 2;
+            //    }
+            //}
+            for (u64 j = 0; j < 8 && i < n;++j)
             {
-                u64 t = ((u64*)m)[k];
-                auto min = std::min<u64>(32, n - i);
-                for (u64 j = 0; j < min; ++j)
+                if (j)
                 {
-                    auto b = t & 3;
-                    dst[i] = b;
-                    i += (b != 3);
-                    t >>= 2;
+                    m[0] = m[0] >> 2;
+                    m[1] = m[1] >> 2;
+                    m[2] = m[2] >> 2;
+                    m[3] = m[3] >> 2;
+                    m[4] = m[4] >> 2;
+                    m[5] = m[5] >> 2;
+                    m[6] = m[6] >> 2;
+                    m[7] = m[7] >> 2;
                 }
+
+                t[0] = m[0] & block3;
+                t[1] = m[1] & block3;
+                t[2] = m[2] & block3;
+                t[3] = m[3] & block3;
+                t[4] = m[4] & block3;
+                t[5] = m[5] & block3;
+                t[6] = m[6] & block3;
+                t[7] = m[7] & block3;
+
+                eq[0] = _mm_cmpeq_epi16(t[0], block3);
+                eq[1] = _mm_cmpeq_epi16(t[1], block3);
+                eq[2] = _mm_cmpeq_epi16(t[2], block3);
+                eq[3] = _mm_cmpeq_epi16(t[3], block3);
+                eq[4] = _mm_cmpeq_epi16(t[4], block3);
+                eq[5] = _mm_cmpeq_epi16(t[5], block3);
+                eq[6] = _mm_cmpeq_epi16(t[6], block3);
+                eq[7] = _mm_cmpeq_epi16(t[7], block3);
+
+                eq[0] = eq[0] ^ block1;
+                eq[1] = eq[1] ^ block1;
+                eq[2] = eq[2] ^ block1;
+                eq[3] = eq[3] ^ block1;
+                eq[4] = eq[4] ^ block1;
+                eq[5] = eq[5] ^ block1;
+                eq[6] = eq[6] ^ block1;
+                eq[7] = eq[7] ^ block1;
+                eq[0] = eq[0] & block1;
+                eq[1] = eq[1] & block1;
+                eq[2] = eq[2] & block1;
+                eq[3] = eq[3] & block1;
+                eq[4] = eq[4] & block1;
+                eq[5] = eq[5] & block1;
+                eq[6] = eq[6] & block1;
+                eq[7] = eq[7] & block1;
+
+
+                if (1)
+                {
+
+                    auto min = std::min<u64>(16 * 8, n - i);
+                    auto tIter = (u8*)t;
+                    auto eqIter = (u8*)eq;
+
+                    for (u64 j = 0; j < min; ++j)
+                    {
+                        dst[i] = *tIter;
+                        assert(*eqIter == 0 || dst[i] < 3);
+
+                        i += *eqIter;
+                        ++tIter;
+                        ++eqIter;
+                    }
+                }
+                else
+                {
+                    auto t8 = span<u16>((u16*)t, 64);
+                    auto e8 = span<u16>((u16*)eq, 64);
+
+                    auto tIter = t8.data();
+                    auto eqIter = e8.data();
+                    //auto tIter = (u16*)t;
+                    //auto eqIter = (u16*)eq;
+                    //auto end = (u16*)eq + 8 * 8;
+
+                    u64 k = 0;
+                    //std::cout << "leading ";
+                    // skip goods ones
+                    while (eqIter[k])
+                    {
+                        //std::cout << int(eqIter[k]);
+                        ++k;
+                    }
+                    u64 good = k;
+
+                    while (k != 64 && i != n)
+                    {
+                        //std::cout << "\nbad ";
+                        // first empty
+                        //auto dst = k;
+
+                        while (!eqIter[k] && k < 64)
+                        {
+                            //std::cout << int(eqIter[k]);
+                            ++k;
+                        }
+
+                        if (k == 64)
+                            break;
+                        //std::cout << "\ngood ";
+
+                        // first good one.
+                        auto sBegin = k;
+                        while (eqIter[k])
+                        {
+                            //std::cout << int(eqIter[k]);
+                            ++k;
+                        }
+                        auto sEnd = k;
+                        auto w = sEnd - sBegin;
+                        //std::cout <<" ~ " << w <<"\n--"<<std::endl;
+
+                        //for (u64 q = 0; q < sEnd - sBegin; ++q)
+                        //{
+                        //    assert(tIter[sBegin + q] < 3);
+                        //}
+
+                        if (1)
+                        {
+
+                            assert(tIter + good + w <= (u16*)(t + 8));
+                            assert(tIter + sBegin + w <= (u16*)(t + 8));
+                            std::copy(tIter + sBegin, tIter + sEnd, tIter + good);
+                            //memmove(tIter + good, tIter + sBegin, w * 2);
+                            good += w;
+
+                        }
+                        else
+                        {
+
+                            auto min = std::min<i64>(w, n - i);
+                            auto b = tIter + sBegin;
+                            auto e = b + min;
+                            std::copy(b,e, mBuffer.data() + i);
+                            i += min;
+                            good += w;
+                        }
+                    }
+
+
+                    //for (u64 q = 0; q < good; ++q)
+                    //{
+                    //    assert(tIter[q] < 3);
+                    //}
+
+                    if (1)
+                    {
+                        auto min = std::min<i64>(good, n - i);
+                        std::copy(tIter, tIter + min, mBuffer.data() + i);
+                        //memcpy(dst + i, t, min * 2);
+
+                        i += min;
+                    }
+                }
+
+                ////auto rem = n - i;
+                ////auto min = std::min<u64>(16 * 8, );
+                //auto tIter = (u8*)t;
+                //auto prev = 0;
+                //for (u64 j = 0; j < 16 * 8; ++j)
+                //{
+                //    auto p = prev;
+                //    prev += *eqIter;
+                //    *eqIter = p;
+                //    ++eqIter;
+                //    end = p == n ? eqIter : end;
+                //}
+                ////auto min = std::min<u64>(rem, eqIter - (u8*)eq);
+                //eqIter = (u8*)eq;
+                //for (u64 j = 0; j < min; ++j)
+                //{
+                //    //auto p = prev;
+                //    //prev
+                //    dst[*eqIter] = *tIter;
+                //    //assert(*eqIter == 0 || dst[i] < 3);
+
+                //    //i += *eqIter;
+                //    ++tIter;
+                //    ++eqIter;
+                //}
             }
         }
+
+        //for (u64 q = 0; q < mBuffer.size(); ++q)
+        //{
+        //    mBuffer[q] = prng.get<u64>() % 3;
+        //    assert(mBuffer[q] < 3);
+        //}
+
     }
 
     inline oc::AlignedUnVector<u16> sampleMod3(oc::PRNG& prng, u64 n)
@@ -225,13 +419,14 @@ namespace secJoin
             throw RTE_LOC;
 
         const u64* s = (const u64*)src.data();
+        auto d = dst.data();
         for (u64 i = 0; i < dst.size();)
         {
             auto ss = *s;
             assert(s < (u64*)(src.data() + src.size()));
             for (u64 j = 0; j < 32; ++j, ++i)
             {
-                auto& dsti = dst[i];
+                auto& dsti = d[i];
                 dsti = ss & 3;
                 assert(dsti < 3);
                 ss >>= 2;
@@ -286,8 +481,8 @@ namespace secJoin
         }
         for (; j < n; ++j)
         {
-            //auto m = prng.mAes.ecbEncBlock(oc::toBlock(prng.mBlockIdx++));
-            oc::block m = prng.get();
+            auto m = prng.mAes.ecbEncBlock(oc::toBlock(prng.mBlockIdx++));
+            //oc::block m = prng.get();
             *vIter = *vIter ^ m;
             ++vIter;
         }
@@ -343,8 +538,8 @@ namespace secJoin
         }
         for (; j < n; ++j)
         {
-            //auto m = prng.mAes.ecbEncBlock(oc::toBlock(prng.mBlockIdx++));
-            oc::block m = prng.get();
+            auto m = prng.mAes.ecbEncBlock(oc::toBlock(prng.mBlockIdx++));
+            //oc::block m = prng.get();
 
             *vIter = *vIter ^ *uIter ^ m;
             ++vIter;
@@ -567,7 +762,7 @@ namespace secJoin
         std::vector<std::array<u16, 256>> mU;
 
 
-        void setKeyOts(span<std::array<oc::block,2>> ots)
+        void setKeyOts(span<std::array<oc::block, 2>> ots)
         {
             if (ots.size() != 256)
                 throw RTE_LOC;

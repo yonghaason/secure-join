@@ -42,9 +42,9 @@ namespace secJoin
     {
 
     public:
-        static const LowMC2<> mLowMc;
+        static const LowMC2<>& mLowMc();
 
-        static const oc::BetaCircuit mLowMcCir;
+        static const oc::BetaCircuit& mLowMcCir();
 
         static macoro::task<> applyVec(
             oc::Matrix<u8>& x1,
@@ -62,7 +62,7 @@ namespace secJoin
                 roundkeysMatrix = std::vector<oc::Matrix<u8>>{},
                 counterMode = u64(),
                 blocksPerRow = u64(),
-                lowMc = mLowMc
+                lowMc = mLowMc()
             );
 
             {
@@ -96,7 +96,7 @@ namespace secJoin
             // gmw0.mDebugPrintIdx = 1;
 
 
-            gmw0.init(n * blocksPerRow, mLowMcCir, 1, 0, prng.get());
+            gmw0.init(n * blocksPerRow, mLowMcCir(), 1, 0, prng.get());
 
             // Indexes are set by other party because they have the permutation pi
             gmw0.setZeroInput(0);
@@ -255,7 +255,7 @@ namespace secJoin
                 std::iota(idx, idx + blocksPerRow, srcIdx);
             }
 
-            gmw1.init(n * blocksPerRow, mLowMcCir, 1, 1, prng.get());
+            gmw1.init(n * blocksPerRow, mLowMcCir(), 1, 1, prng.get());
 
             // Setting the permuted indexes (since we are using the counter mode)
             gmw1.setInput(0, oc::MatrixView<u8>((u8*)indexMatrix.data(), indexMatrix.size(), sizeof(lowBlock)));
@@ -264,7 +264,7 @@ namespace secJoin
             gmw1.setInput(1, oc::MatrixView<u8>((u8*)xPermuted.data(), xPermuted.size(), sizeof(lowBlock)));
 
 
-            for (u8 i = 0; i < mLowMc.roundkeys.size(); i++)
+            for (u8 i = 0; i < mLowMc().roundkeys.size(); i++)
             {
                 gmw1.setZeroInput(2 + i);
             }

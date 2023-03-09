@@ -207,7 +207,7 @@ namespace secJoin
 
 
 
-            void add_lowmc_gates(oc::BetaCircuit& cir, LowMCInputBetaBundle bundle)
+            void add_lowmc_gates(oc::BetaCircuit& cir, LowMCInputBetaBundle bundle) const
             {
                 for (int i = 0; i < (int)blocksize; ++i)
                 {
@@ -291,7 +291,7 @@ namespace secJoin
             }
 
 
-            void to_enc_circuit(oc::BetaCircuit& cir, bool isCounterModeEnabled)
+            void to_enc_circuit(oc::BetaCircuit& cir, bool isCounterModeEnabled) const
             {
                 LowMCInputBetaBundle bundle;
                 bundle.encryptMessage.mWires.resize(blocksize);
