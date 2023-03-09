@@ -130,6 +130,8 @@ void DarkMatterPrf_proto_test(const oc::CLP& cmd)
 {
 
     u64 n = cmd.getOr("n", 100);
+    bool noCheck = cmd.isSet("nc");
+
     DarkMatterPrfSender sender;
     DarkMatterPrfReceiver recver;
 
@@ -168,6 +170,9 @@ void DarkMatterPrf_proto_test(const oc::CLP& cmd)
 
     std::get<0>(r).result();
     std::get<1>(r).result();
+
+    if (noCheck)
+        return;
 
     for (u64 ii = 0; ii < n; ++ii)
     {

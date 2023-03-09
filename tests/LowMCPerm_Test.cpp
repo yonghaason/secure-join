@@ -2,6 +2,50 @@
 #include "util.h"
 using namespace secJoin;
 
+void LocMC_eval_test(const oc::CLP& cmd)
+{
+    u64 n = cmd.getOr("n", 100);
+
+    oc::Matrix<u8> x(n, 32);// , x2Perm(n, rowSize);
+    std::vector<oc::Matrix<u8>> k(13);// (n, LowMC2<>::getBlockSize());// , x2Perm(n, rowSize);
+
+    for (u64 i = 0; i < k.size(); ++i)
+    {
+        k[i].resize(n, 32);
+    }
+
+    auto cir = LowMCPerm::mLowMcCir();
+    oc::PRNG prng0(oc::block(0, 0));
+    oc::PRNG prng1(oc::block(0, 1));
+
+    auto chls = coproto::LocalAsyncSocket::makePair();
+
+
+    Gmw gmw0, gmw1;
+    gmw0.init(n, cir, 1, 0, oc::ZeroBlock);
+    gmw1.init(n, cir, 1, 1, oc::OneBlock);
+
+    gmw0.setInput(0, x);
+    gmw0.setInput(1, x);
+    gmw1.setZeroInput(0);
+    gmw1.setZeroInput(1);
+
+    for (u64 i = 0; i < k.size(); ++i)
+    {
+        gmw0.setInput(i + 2, k[i]);
+        gmw1.setZeroInput(i + 2);
+    }
+
+    auto proto0 = gmw0.run(chls[0]);
+    auto proto1 = gmw1.run(chls[1]);
+
+    auto res = macoro::sync_wait(macoro::when_all_ready(std::move(proto0), std::move(proto1)));
+
+    std::get<0>(res).result();
+    std::get<1>(res).result();
+
+}
+
 void LowMCPerm_perm_test(const oc::CLP& cmd)
 {
     // User input

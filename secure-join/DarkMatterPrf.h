@@ -1,4 +1,5 @@
 #pragma once
+#include "secure-join/config.h"
 #include "secure-join/Defines.h"
 #include "cryptoTools/Common/BitIterator.h"
 #include <bitset>
@@ -37,8 +38,9 @@ namespace secJoin
             auto xx = *(std::bitset<256>*)this;
             auto low = xx >> i;
             auto hgh = xx << (256 - i);
-            xx = hgh ^ low;
-            return *(block256*)&xx;
+
+            auto r = *(block256*)&hgh ^ *(block256*)&low;
+            return r;
         }
 
         bool operator==(const block256& x) const
@@ -63,24 +65,113 @@ namespace secJoin
         std::array<u8, 256> mData;
         void operator^=(const block256& x)
         {
-            oc::BitIterator iter((u8*)&x);
-            for (u64 i = 0; i < 256; ++i, ++iter)
-            {
-                assert((mData[i] == 255 && *iter) == false);
+            //oc::BitIterator iter((u8*)&x);
+            //for (u64 i = 0; i < 256; ++i, ++iter)
+            //{
+            //    assert((mData[i] == 255 && *iter) == false);
 
-                mData[i] += *iter;
+            //    mData[i] += *iter;
+            //}
+            oc::block block1 = oc::block::allSame<u8>(1);
+            oc::block X[8], v[8];
+            for (u64 j = 0; j < 2; ++j)
+            {
+
+                X[0] = x.mData[j];
+                X[1] = x.mData[j] >> 1;
+                X[2] = x.mData[j] >> 2;
+                X[3] = x.mData[j] >> 3;
+                X[4] = x.mData[j] >> 4;
+                X[5] = x.mData[j] >> 5;
+                X[6] = x.mData[j] >> 6;
+                X[7] = x.mData[j] >> 7;
+
+                auto xIter = (u8*)X;
+                u8* v8 = v[0].data();
+                for (u64 t = 0; t < 8; ++t)
+                {
+                    for (u64 kk = 0; kk < 2; ++kk)
+                    {
+
+                        for (u64 k = 0; k < 8; ++k)
+                        {
+                            v8[k] = xIter[sizeof(oc::block) * k];
+                            //if (v != *oc::BitIterator((u8*)&x, i))
+                            //    throw RTE_LOC;
+                            //mData[i] += v;
+                        }
+                        v8 += 8;
+                        ++xIter;
+                    }
+                }
+                auto d = (oc::block*)&mData[j * 128];
+
+                v[0] = v[0] & block1;
+                v[1] = v[1] & block1;
+                v[2] = v[2] & block1;
+                v[3] = v[3] & block1;
+                v[4] = v[4] & block1;
+                v[5] = v[5] & block1;
+                v[6] = v[6] & block1;
+                v[7] = v[7] & block1;
+
+                d[0] = d[0] + v[0];
+                d[1] = d[1] + v[1];
+                d[2] = d[2] + v[2];
+                d[3] = d[3] + v[3];
+                d[4] = d[4] + v[4];
+                d[5] = d[5] + v[5];
+                d[6] = d[6] + v[6];
+                d[7] = d[7] + v[7];
+
+
             }
+
+            //u64* iter = (u64*)&x;
+            //for (u64 i = 0; i < 256;)
+            //{
+            //    auto d = i + 64;
+            //    auto xx = *iter;
+            //    auto s = 0;
+            //    while (i < d)
+            //    {
+
+            //        auto xd = xx >> s;
+            //        mData[i] += (xd & 1);
+            //        ++s;
+            //        ++i;
+            //    }
+            //    ++iter;
+            //}
         }
 
         block256 mod2()
         {
             block256 r;
-            oc::BitIterator iter((u8*)&r);
+            //oc::BitIterator iter((u8*)&r);
 
-            for (u64 i = 0; i < 256; ++i, ++iter)
+            //
+            //for (u64 i = 0; i < 256; ++i)
+            //{
+            //    mData[i] %= 3;
+            //    *iter = mData[i] % 2;
+            //}
+
+            u64* iter = (u64*)&r;
+            for (u64 i = 0; i < 256;)
             {
-                mData[i] %= 3;
-                *iter = mData[i] % 2;
+                auto d = i + 64;
+                auto s = 0;
+                *iter = 0;
+                while (i < d)
+                {
+
+                    mData[i] %= 3;
+                    *iter |= u64(mData[i] % 2) << s;
+                    ++i;
+                    ++s;
+                }
+                ++iter;
             }
             return r;
         }
@@ -144,39 +235,12 @@ namespace secJoin
         }
     };
 
-    inline __m128i nonz_index(__m128i x, u64& count) {
-        /* Set some constants that will (hopefully) be hoisted out of a loop after inlining. */
-        uint64_t  indx_const = 0xFEDCBA9876543210;                       /* 16 4-bit integers, all possible indices from 0 o 15                                                            */
-        __m128i   cntr = _mm_set_epi8(64, 60, 56, 52, 48, 44, 40, 36, 32, 28, 24, 20, 16, 12, 8, 4);
-        __m128i   pshufbcnst = _mm_set_epi8(0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x0E, 0x0C, 0x0A, 0x08, 0x06, 0x04, 0x02, 0x00);
-        __m128i   cnst0F = _mm_set1_epi8(0x0F);
-
-        __m128i   msk = _mm_cmpeq_epi8(x, _mm_setzero_si128());    /* Generate 16x8 bit mask.                                                                                        */
-        msk = _mm_srli_epi64(msk, 4);                    /* Pack 16x8 bit mask to 16x4 bit mask.                                                                           */
-        msk = _mm_shuffle_epi8(msk, pshufbcnst);         /* Pack 16x8 bit mask to 16x4 bit mask, continued.                                                                */
-        uint64_t  msk64 = ~_mm_cvtsi128_si64x(msk);                 /* Move to general purpose register and invert 16x4 bit mask.                                                     */
-
-                                                                           /* Compute the termination byte nonzmsk separately.                                                               */
-        int64_t   nnz64 = _mm_popcnt_u64(msk64);                    /* Count the nonzero bits in msk64.                                                                               */
-        __m128i   nnz = _mm_set1_epi8(nnz64);                     /* May generate vmovd + vpbroadcastb if AVX2 is enabled.                                                          */
-        __m128i   nonzmsk = _mm_cmpgt_epi8(cntr, nnz);                 /* nonzmsk is a mask of the form 0xFF, 0xFF, ..., 0xFF, 0, 0, ...,0 to mark the output positions without an index */
-        uint64_t  indx64 = _pext_u64(indx_const, msk64);              /* parallel bits extract. pext shuffles indx_const such that indx64 contains the nnz64 4-bit indices that we want.*/
-        //std::cout << "nnz64 " << nnz64 << std::endl;
-        __m128i   indx = _mm_cvtsi64x_si128(indx64);               /* Use a few integer instructions to unpack 4-bit integers to 8-bit integers.                                     */
-        __m128i   indx_024 = indx;                                     /* Even indices.                                                                                                  */
-        __m128i   indx_135 = _mm_srli_epi64(indx, 4);                   /* Odd indices.                                                                                                   */
-        indx = _mm_unpacklo_epi8(indx_024, indx_135);     /* Merge odd and even indices.                                                                                    */
-        indx = _mm_and_si128(indx, cnst0F);               /* Mask out the high bits 4,5,6,7 of every byte.                                                                  */
-
-        count = nnz64 / 8;
-        return _mm_or_si128(indx, nonzmsk);                       /* Merge indx with nonzmsk .                                                                                      */
-    }
-
     inline void sampleMod3(oc::PRNG& prng, span<u16> mBuffer)
     {
         auto n = mBuffer.size();
         auto dst = mBuffer.data();
         oc::block m[8], t[8], eq[8];
+        oc::block allOne = oc::AllOneBlock;
         oc::block block1 = std::array<u16, 8>{1, 1, 1, 1, 1, 1, 1, 1};
         oc::block block3 = std::array<u16, 8>{3, 3, 3, 3, 3, 3, 3, 3};
 
@@ -239,14 +303,14 @@ namespace secJoin
                     eq[6] = _mm_cmpeq_epi16(t[6], block3);
                     eq[7] = _mm_cmpeq_epi16(t[7], block3);
 
-                    eq[0] = eq[0] ^ oc::AllOneBlock;
-                    eq[1] = eq[1] ^ oc::AllOneBlock;
-                    eq[2] = eq[2] ^ oc::AllOneBlock;
-                    eq[3] = eq[3] ^ oc::AllOneBlock;
-                    eq[4] = eq[4] ^ oc::AllOneBlock;
-                    eq[5] = eq[5] ^ oc::AllOneBlock;
-                    eq[6] = eq[6] ^ oc::AllOneBlock;
-                    eq[7] = eq[7] ^ oc::AllOneBlock;
+                    eq[0] = eq[0] ^ allOne;
+                    eq[1] = eq[1] ^ allOne;
+                    eq[2] = eq[2] ^ allOne;
+                    eq[3] = eq[3] ^ allOne;
+                    eq[4] = eq[4] ^ allOne;
+                    eq[5] = eq[5] ^ allOne;
+                    eq[6] = eq[6] ^ allOne;
+                    eq[7] = eq[7] ^ allOne;
 
                     eq[0] = eq[0] & block1;
                     eq[1] = eq[1] & block1;
@@ -257,8 +321,8 @@ namespace secJoin
                     eq[6] = eq[6] & block1;
                     eq[7] = eq[7] & block1;
 
-                    auto t16 = (u16*)t;
-                    auto e16 = (u16*)eq;
+                    auto t16 = (u16 * __restrict)t;
+                    auto e16 = (u16 * __restrict)eq;
                     for (u64 j = 0; j < 64; ++j)
                     {
                         iters[j][0] = t16[j];
@@ -592,9 +656,13 @@ namespace secJoin
 
             // mod 2
             diff.resize(y.size() * 512);
-            //MC_AWAIT(mOtSender.silentSendInplace(prng.get(),diff.size(), prng, sock));
+
+#ifdef SECUREJOIN_ENABLE_FAKE_GEN
             mOtSender.mB.resize(diff.size());
             memset(mOtSender.mB.data(), 0, mOtSender.mB.size() * sizeof(oc::block));
+#else
+            MC_AWAIT(mOtSender.silentSendInplace(prng.get(),diff.size(), prng, sock));
+#endif
             MC_AWAIT(sock.recv(diff));
             {
 
@@ -602,52 +670,75 @@ namespace secJoin
                 mW.resize(y.size());
                 f.resize(y.size() * 256 * 2);
                 auto mask = oc::AllOneBlock ^ oc::OneBlock;
-                auto uIter = oc::BitIterator((u8*)mU2.data());
-                auto dIter = diff.begin();
+                //auto uIter = oc::BitIterator((u8*)mU2.data());
+                auto u8Iter = (u8*)mU2.data();
+                //auto dIter = diff.begin();
+                auto d16Iter = (u16*)diff.data();
                 auto bIter = mOtSender.mB.begin();
-                auto fIter = f.begin();
+                //auto fIter = f.begin();
+                auto f16Iter = (u16*)f.data();
                 //auto rIter = rKeys.begin();
                 for (u64 i = 0; i < y.size(); ++i)
                 {
-                    for (u64 j = 0; j < 256; ++j)
+                    for (u64 j = 0; j < 256; )
                     {
-                        std::array<oc::block, 2> s0{ { *bIter, *bIter } };
-                        ++bIter;
-                        std::array<oc::block, 2> s1{ { *bIter, *bIter } };
-                        ++bIter;
+                        *u8Iter = 0;
+                        *f16Iter = 0;
+                        auto di = *d16Iter++;
+                        for (u64 k = 0; k < 8; ++k, ++j)
+                        {
 
-                        auto d0 = *dIter++ ^ 1;
-                        auto d1 = *dIter++ ^ 1;
-                        s0[d0] = s0[d0] ^ mOtSender.mDelta;
-                        s1[d1] = s1[d1] ^ mOtSender.mDelta;
+                            std::array<oc::block, 4> s;
+                            s[0] = *bIter;
+                            s[1] = *bIter; ++bIter;
+                            s[2] = *bIter;
+                            s[3] = *bIter; ++bIter;
 
-                        s0[0] = oc::mAesFixedKey.hashBlock(s0[0] & mask);
-                        s0[1] = oc::mAesFixedKey.hashBlock(s0[1] & mask);
-                        s1[0] = oc::mAesFixedKey.hashBlock(s1[0] & mask);
-                        s1[1] = oc::mAesFixedKey.hashBlock(s1[1] & mask);
+                            auto d0 = ((di) ^ 1) & 1;
+                            auto d1 = ((di >> 1) ^ 1) & 1;
+                            di = di >> 2;
 
-                        auto q0 = (s0[0].get<u8>(1) ^ s1[0].get<u8>(1)) & 1;
-                        auto q1 = (s0[1].get<u8>(1) ^ s1[0].get<u8>(1)) & 1;
-                        auto q2 = (s0[0].get<u8>(1) ^ s1[1].get<u8>(1)) & 1;
+                            s[d0] = s[d0] ^ mOtSender.mDelta;
+                            s[d1 + 2] = s[d1 + 2] ^ mOtSender.mDelta;
 
-                        //  them       us
-                        //         0   1   2
-                        //        ___________
-                        //  0    | 0   1   0
-                        //  1    | 1   0   0
-                        //  2    | 0   0   1
+                            s[0] = s[0] & mask;
+                            s[1] = s[1] & mask;
+                            s[2] = s[2] & mask;
+                            s[3] = s[3] & mask;
 
-                        //  0   -> u==1
-                        //  1   -> u==0
-                        //  2   -> u==2
+                            oc::mAesFixedKey.hashBlocks<4>(s.data(), s.data());
 
-                        auto t0 = q0 ^ (mU[i][j] == 1);
-                        auto t1 = t0 ^ (mU[i][j] == 0);
-                        auto t2 = t0 ^ (mU[i][j] == 2);
-                        *uIter++ = t0;
-                        *fIter++ = q1 ^ t1;
-                        *fIter++ = q2 ^ t2;
+                            auto q0 = (s[0].get<u8>(1) ^ s[2].get<u8>(1)) & 1;
+                            auto q1 = (s[1].get<u8>(1) ^ s[2].get<u8>(1)) & 1;
+                            auto q2 = (s[0].get<u8>(1) ^ s[3].get<u8>(1)) & 1;
 
+                            //  them       us
+                            //         0   1   2
+                            //        ___________
+                            //  0    | 0   1   0
+                            //  1    | 1   0   0
+                            //  2    | 0   0   1
+
+                            //  0   -> u==1
+                            //  1   -> u==0
+                            //  2   -> u==2
+
+                            auto t0 = q0 ^ (mU[i][j] == 1);
+                            auto t1 = t0 ^ (mU[i][j] == 0);
+                            auto t2 = t0 ^ (mU[i][j] == 2);
+                            assert(t0 < 2);
+                            *u8Iter |= t0 << k;
+                            //*uIter++ = t0;
+                            //*fIter++ = q1 ^ t1;
+                            //*fIter++ = q2 ^ t2;
+                            auto b1 = q1 ^ t1;
+                            auto b2 = (q2 ^ t2) << 1;
+                            *f16Iter |= (b1 ^ b2) << (2 * k);
+
+                        }
+
+                        ++f16Iter;
+                        ++u8Iter;
                     }
 
                     auto w = mU2[i] ^ mV[i];
@@ -910,18 +1001,19 @@ namespace secJoin
 
             for (u64 j = 0; j < x.size(); ++j)
             {
-                for (u64 k = 0; k < 256; ++k)
+                auto ujk = mU[j].data();
+                for (u64 k = 0; k < 256; ++k, ++ujk)
                 {
-                    mU[j][k] = mU[j][k] % 3;
+                    *ujk = *ujk % 3;
 
                     //bool(mU[j][k]) * (i64(1 - mU[j][k]) * 2) + 1);
-                    switch (mU[j][k])
+                    switch (*ujk)
                     {
                     case 1:
-                        mU[j][k] = 2;
+                        *ujk = 2;
                         break;
                     case 2:
-                        mU[j][k] = 1;
+                        *ujk = 1;
                         break;
                     default:
                         break;
@@ -932,10 +1024,12 @@ namespace secJoin
             // mod 2
             diff.resize(x.size() * 512);
             rKeys.resize(x.size() * 256);
-            //MC_AWAIT(mOtReceiver.silentReceiveInplace(diff.size(), prng, sock, oc::ChoiceBitPacking::True));
+#ifdef SECUREJOIN_ENABLE_FAKE_GEN
             mOtReceiver.mA.resize(diff.size());
             memset(mOtReceiver.mA.data(), 0, mOtReceiver.mA.size() * sizeof(oc::block));
-
+#else
+            MC_AWAIT(mOtReceiver.silentReceiveInplace(diff.size(), prng, sock, oc::ChoiceBitPacking::True));
+#endif
             {
                 auto mask = oc::AllOneBlock ^ oc::OneBlock;
                 auto dIter = diff.begin();
@@ -945,7 +1039,7 @@ namespace secJoin
                 {
                     for (u64 j = 0; j < 256; ++j)
                     {
-                        auto uij = mU[i][j];
+                        auto uij = mU.data()[i][j];
                         auto a0 = uij & 1;
                         auto a1 = (uij >> 1);
                         assert(a1 < 2);
@@ -976,13 +1070,15 @@ namespace secJoin
                 auto rIter = rKeys.begin();
                 for (i = 0; i < x.size(); ++i)
                 {
-                    for (u64 j = 0; j < 256; ++j)
+                    auto uij = mU[i].data();
+
+                    for (u64 j = 0; j < 256; ++j, ++uij)
                     {
 
                         auto u = (rIter++->get<u8>(1) & 1);
-                        if (mU[i][j])
+                        if (*uij)
                         {
-                            u ^= *(fIter + (mU[i][j] - 1));
+                            u ^= *(fIter + (*uij - 1));
                         }
                         fIter = fIter + 2;
                         *uIter++ = u;

@@ -40,7 +40,7 @@ namespace secJoin
                 std::array<oc::BetaBundle, rounds + 1> roundKeys;
             };
 
-            size_t getBlockSize() { return blocksize; };
+            static size_t getBlockSize() { return blocksize; };
 
             using block = std::bitset<blocksize>; // Store messages and states
             //struct block
