@@ -184,7 +184,7 @@ namespace secJoin
 
         static constexpr int batchSize = 8;
         std::array<std::array<oc::block, batchSize>, 64> buffer;
-        std::array<u16*, 64> iters;
+        std::array<u16 * __restrict, 64> iters;
 
         for (u64 i = 0; i < n;)
         {
@@ -262,12 +262,40 @@ namespace secJoin
                         eq[6] = eq[6] & block1;
                         eq[7] = eq[7] & block1;
 
+                        //auto t16 = (u16*)t;
+                        //auto e16 = (u16*)eq;
+                        //for (u64 j = 0; j < 64; ++j)
+                        //{
+                        //    iters[j][0] = t16[j];
+                        //    iters[j] += e16[j];
+                        //}
+
                         auto t16 = (u16*)t;
                         auto e16 = (u16*)eq;
-                        for (u64 j = 0; j < 64; ++j)
+                        auto iter = iters.data();
+                        for (u64 j = 0; j < 8; j += 8)
                         {
-                            iters[j][0] = t16[j];
-                            iters[j] += e16[j];
+                            iter[0][0] = t16[0];
+                            iter[1][0] = t16[1];
+                            iter[2][0] = t16[2];
+                            iter[3][0] = t16[3];
+                            iter[4][0] = t16[4];
+                            iter[5][0] = t16[5];
+                            iter[6][0] = t16[6];
+                            iter[7][0] = t16[7];
+
+                            iter[0] += e16[0];
+                            iter[1] += e16[1];
+                            iter[2] += e16[2];
+                            iter[3] += e16[3];
+                            iter[4] += e16[4];
+                            iter[5] += e16[5];
+                            iter[6] += e16[6];
+                            iter[7] += e16[7];
+
+                            iter += 8;
+                            t16 += 8;
+                            e16 += 8;
                         }
                     }
                     else if (0)
