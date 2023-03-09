@@ -116,7 +116,7 @@ void DarkMatterPrf_util_test()
     //std::cout << std::endl;
 
     std::vector<u8> dst(n / 4);
-    oc::AlignedUnVector<u8> mm(n);
+    oc::AlignedUnVector<u16> mm(n);
     compressMod3(dst, m3);
     decompressMod3(mm, dst);
 
@@ -126,10 +126,10 @@ void DarkMatterPrf_util_test()
 
 }
 
-void DarkMatterPrf_proto_test()
+void DarkMatterPrf_proto_test(const oc::CLP& cmd)
 {
 
-    u64 n = 10;
+    u64 n = cmd.getOr("n", 100);
     DarkMatterPrfSender sender;
     DarkMatterPrfReceiver recver;
 
@@ -147,18 +147,19 @@ void DarkMatterPrf_proto_test()
     dm.setKey(k);
     sender.setKey(k);
 
-    sender.mKeyOTs.resize(256);
-    recver.mKeyOTs.resize(256);
 
     prng0.get(x.data(), x.size());
     //memset(x.data(), -1, n * sizeof(block256));
-
+    std::vector<oc::block> rk(256);
+    std::vector<std::array<oc::block,2>> sk(256);
     for (u64 i = 0; i < 256; ++i)
     {
-        recver.mKeyOTs[i][0].SetSeed(oc::block(i, 0));
-        recver.mKeyOTs[i][1].SetSeed(oc::block(i, 1));
-        sender.mKeyOTs[i].SetSeed(oc::block(i, *oc::BitIterator((u8*)&k, i)));
+        sk[i][0] = oc::block(i, 0);
+        sk[i][1] = oc::block(i, 1);
+        rk[i] = oc::block(i, *oc::BitIterator((u8*)&k, i));
     }
+    sender.setKeyOts(rk);
+    recver.setKeyOts(sk);
 
     auto r = coproto::sync_wait(coproto::when_all_ready(
         sender.evaluate(y0, sock[0], prng0),
