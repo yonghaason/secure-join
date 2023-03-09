@@ -176,15 +176,13 @@ namespace secJoin
     {
         auto n = mBuffer.size();
         auto dst = mBuffer.data();
-        oc::block m[8], t[8], eq[9], ss[8];
-        eq[8] = oc::ZeroBlock;
+        oc::block m[8], t[8], eq[8];
         oc::block block1 = std::array<u16, 8>{1, 1, 1, 1, 1, 1, 1, 1};
         oc::block block3 = std::array<u16, 8>{3, 3, 3, 3, 3, 3, 3, 3};
-        oc::block I = std::array<u16, 8>{0, 1, 2, 3, 4, 5, 6, 7};
 
-        static constexpr int batchSize = 8;
+        static constexpr int batchSize = 16;
         std::array<std::array<oc::block, batchSize>, 64> buffer;
-        std::array<u16 * __restrict, 64> iters;
+        std::array<u16* __restrict, 64> iters;
 
         for (u64 i = 0; i < n;)
         {
@@ -209,7 +207,7 @@ namespace secJoin
                 //        t >>= 2;
                 //    }
                 //}
-                for (u64 j = 0; j < 8 && i < n; ++j)
+                for (u64 j = 0; j < 8; ++j)
                 {
                     if (j)
                     {
@@ -250,27 +248,26 @@ namespace secJoin
                     eq[6] = eq[6] ^ oc::AllOneBlock;
                     eq[7] = eq[7] ^ oc::AllOneBlock;
 
-                        eq[0] = eq[0] & block1;
-                        eq[1] = eq[1] & block1;
-                        eq[2] = eq[2] & block1;
-                        eq[3] = eq[3] & block1;
-                        eq[4] = eq[4] & block1;
-                        eq[5] = eq[5] & block1;
-                        eq[6] = eq[6] & block1;
-                        eq[7] = eq[7] & block1;
+                    eq[0] = eq[0] & block1;
+                    eq[1] = eq[1] & block1;
+                    eq[2] = eq[2] & block1;
+                    eq[3] = eq[3] & block1;
+                    eq[4] = eq[4] & block1;
+                    eq[5] = eq[5] & block1;
+                    eq[6] = eq[6] & block1;
+                    eq[7] = eq[7] & block1;
 
-                        auto t16 = (u16*)t;
-                        auto e16 = (u16*)eq;
-                        for (u64 j = 0; j < 64; ++j)
-                        {
-                            iters[j][0] = t16[j];
-                            iters[j] += e16[j];
-                        }
+                    auto t16 = (u16*)t;
+                    auto e16 = (u16*)eq;
+                    for (u64 j = 0; j < 64; ++j)
+                    {
+                        iters[j][0] = t16[j];
+                        iters[j] += e16[j];
+                    }
 
                 }
-
-
             }
+
             for (u64 j = 0; j < 64 && i < n; ++j)
             {
                 auto b = (u16*)buffer[j].data();
