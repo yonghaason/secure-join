@@ -144,223 +144,416 @@ namespace secJoin
         }
     };
 
+    inline __m128i nonz_index(__m128i x, u64& count) {
+        /* Set some constants that will (hopefully) be hoisted out of a loop after inlining. */
+        uint64_t  indx_const = 0xFEDCBA9876543210;                       /* 16 4-bit integers, all possible indices from 0 o 15                                                            */
+        __m128i   cntr = _mm_set_epi8(64, 60, 56, 52, 48, 44, 40, 36, 32, 28, 24, 20, 16, 12, 8, 4);
+        __m128i   pshufbcnst = _mm_set_epi8(0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x0E, 0x0C, 0x0A, 0x08, 0x06, 0x04, 0x02, 0x00);
+        __m128i   cnst0F = _mm_set1_epi8(0x0F);
+
+        __m128i   msk = _mm_cmpeq_epi8(x, _mm_setzero_si128());    /* Generate 16x8 bit mask.                                                                                        */
+        msk = _mm_srli_epi64(msk, 4);                    /* Pack 16x8 bit mask to 16x4 bit mask.                                                                           */
+        msk = _mm_shuffle_epi8(msk, pshufbcnst);         /* Pack 16x8 bit mask to 16x4 bit mask, continued.                                                                */
+        uint64_t  msk64 = ~_mm_cvtsi128_si64x(msk);                 /* Move to general purpose register and invert 16x4 bit mask.                                                     */
+
+                                                                           /* Compute the termination byte nonzmsk separately.                                                               */
+        int64_t   nnz64 = _mm_popcnt_u64(msk64);                    /* Count the nonzero bits in msk64.                                                                               */
+        __m128i   nnz = _mm_set1_epi8(nnz64);                     /* May generate vmovd + vpbroadcastb if AVX2 is enabled.                                                          */
+        __m128i   nonzmsk = _mm_cmpgt_epi8(cntr, nnz);                 /* nonzmsk is a mask of the form 0xFF, 0xFF, ..., 0xFF, 0, 0, ...,0 to mark the output positions without an index */
+        uint64_t  indx64 = _pext_u64(indx_const, msk64);              /* parallel bits extract. pext shuffles indx_const such that indx64 contains the nnz64 4-bit indices that we want.*/
+        //std::cout << "nnz64 " << nnz64 << std::endl;
+        __m128i   indx = _mm_cvtsi64x_si128(indx64);               /* Use a few integer instructions to unpack 4-bit integers to 8-bit integers.                                     */
+        __m128i   indx_024 = indx;                                     /* Even indices.                                                                                                  */
+        __m128i   indx_135 = _mm_srli_epi64(indx, 4);                   /* Odd indices.                                                                                                   */
+        indx = _mm_unpacklo_epi8(indx_024, indx_135);     /* Merge odd and even indices.                                                                                    */
+        indx = _mm_and_si128(indx, cnst0F);               /* Mask out the high bits 4,5,6,7 of every byte.                                                                  */
+
+        count = nnz64 / 8;
+        return _mm_or_si128(indx, nonzmsk);                       /* Merge indx with nonzmsk .                                                                                      */
+    }
 
     inline void sampleMod3(oc::PRNG& prng, span<u16> mBuffer)
     {
         auto n = mBuffer.size();
         auto dst = mBuffer.data();
-        oc::block m[8], t[8], eq[9];
+        oc::block m[8], t[8], eq[9], ss[8];
         eq[8] = oc::ZeroBlock;
         oc::block block1 = std::array<u16, 8>{1, 1, 1, 1, 1, 1, 1, 1};
         oc::block block3 = std::array<u16, 8>{3, 3, 3, 3, 3, 3, 3, 3};
+        oc::block I = std::array<u16, 8>{0, 1, 2, 3, 4, 5, 6, 7};
+
+        static constexpr int batchSize = 8;
+        std::array<std::array<oc::block, batchSize>, 64> buffer;
+        std::array<u16*, 64> iters;
 
         for (u64 i = 0; i < n;)
         {
-            prng.mAes.ecbEncCounterMode(prng.mBlockIdx, 8, m);
-            prng.mBlockIdx += 8;
-            //for (auto k = 0; k < 16 && i < n; ++k)
-            //{
-            //    u64 t = ((u64*)m)[k];
-            //    auto min = std::min<u64>(32, n - i);
-            //    for (u64 j = 0; j < min; ++j)
-            //    {
-            //        auto b = t & 3;
-            //        dst[i] = b;
-            //        i += (b != 3);
-            //        t >>= 2;
-            //    }
-            //}
-            for (u64 j = 0; j < 8 && i < n;++j)
+            for (u64 j = 0; j < 64; ++j)
+                iters[j] = (u16*)buffer[j].data();
+
+
+            for (u64 bb = 0; bb < batchSize; ++bb)
             {
-                if (j)
+
+                prng.mAes.ecbEncCounterMode(prng.mBlockIdx, 8, m);
+                prng.mBlockIdx += 8;
+                //for (auto k = 0; k < 16 && i < n; ++k)
+                //{
+                //    u64 t = ((u64*)m)[k];
+                //    auto min = std::min<u64>(32, n - i);
+                //    for (u64 j = 0; j < min; ++j)
+                //    {
+                //        auto b = t & 3;
+                //        dst[i] = b;
+                //        i += (b != 3);
+                //        t >>= 2;
+                //    }
+                //}
+                for (u64 j = 0; j < 8 && i < n; ++j)
                 {
-                    m[0] = m[0] >> 2;
-                    m[1] = m[1] >> 2;
-                    m[2] = m[2] >> 2;
-                    m[3] = m[3] >> 2;
-                    m[4] = m[4] >> 2;
-                    m[5] = m[5] >> 2;
-                    m[6] = m[6] >> 2;
-                    m[7] = m[7] >> 2;
-                }
-
-                t[0] = m[0] & block3;
-                t[1] = m[1] & block3;
-                t[2] = m[2] & block3;
-                t[3] = m[3] & block3;
-                t[4] = m[4] & block3;
-                t[5] = m[5] & block3;
-                t[6] = m[6] & block3;
-                t[7] = m[7] & block3;
-
-                eq[0] = _mm_cmpeq_epi16(t[0], block3);
-                eq[1] = _mm_cmpeq_epi16(t[1], block3);
-                eq[2] = _mm_cmpeq_epi16(t[2], block3);
-                eq[3] = _mm_cmpeq_epi16(t[3], block3);
-                eq[4] = _mm_cmpeq_epi16(t[4], block3);
-                eq[5] = _mm_cmpeq_epi16(t[5], block3);
-                eq[6] = _mm_cmpeq_epi16(t[6], block3);
-                eq[7] = _mm_cmpeq_epi16(t[7], block3);
-
-                eq[0] = eq[0] ^ block1;
-                eq[1] = eq[1] ^ block1;
-                eq[2] = eq[2] ^ block1;
-                eq[3] = eq[3] ^ block1;
-                eq[4] = eq[4] ^ block1;
-                eq[5] = eq[5] ^ block1;
-                eq[6] = eq[6] ^ block1;
-                eq[7] = eq[7] ^ block1;
-                eq[0] = eq[0] & block1;
-                eq[1] = eq[1] & block1;
-                eq[2] = eq[2] & block1;
-                eq[3] = eq[3] & block1;
-                eq[4] = eq[4] & block1;
-                eq[5] = eq[5] & block1;
-                eq[6] = eq[6] & block1;
-                eq[7] = eq[7] & block1;
-
-
-                if (1)
-                {
-
-                    auto min = std::min<u64>(16 * 8, n - i);
-                    auto tIter = (u8*)t;
-                    auto eqIter = (u8*)eq;
-
-                    for (u64 j = 0; j < min; ++j)
+                    if (j)
                     {
-                        dst[i] = *tIter;
-                        assert(*eqIter == 0 || dst[i] < 3);
-
-                        i += *eqIter;
-                        ++tIter;
-                        ++eqIter;
-                    }
-                }
-                else
-                {
-                    auto t8 = span<u16>((u16*)t, 64);
-                    auto e8 = span<u16>((u16*)eq, 64);
-
-                    auto tIter = t8.data();
-                    auto eqIter = e8.data();
-                    //auto tIter = (u16*)t;
-                    //auto eqIter = (u16*)eq;
-                    //auto end = (u16*)eq + 8 * 8;
-
-                    u64 k = 0;
-                    //std::cout << "leading ";
-                    // skip goods ones
-                    while (eqIter[k])
-                    {
-                        //std::cout << int(eqIter[k]);
-                        ++k;
-                    }
-                    u64 good = k;
-
-                    while (k != 64 && i != n)
-                    {
-                        //std::cout << "\nbad ";
-                        // first empty
-                        //auto dst = k;
-
-                        while (!eqIter[k] && k < 64)
-                        {
-                            //std::cout << int(eqIter[k]);
-                            ++k;
-                        }
-
-                        if (k == 64)
-                            break;
-                        //std::cout << "\ngood ";
-
-                        // first good one.
-                        auto sBegin = k;
-                        while (eqIter[k])
-                        {
-                            //std::cout << int(eqIter[k]);
-                            ++k;
-                        }
-                        auto sEnd = k;
-                        auto w = sEnd - sBegin;
-                        //std::cout <<" ~ " << w <<"\n--"<<std::endl;
-
-                        //for (u64 q = 0; q < sEnd - sBegin; ++q)
-                        //{
-                        //    assert(tIter[sBegin + q] < 3);
-                        //}
-
-                        if (1)
-                        {
-
-                            assert(tIter + good + w <= (u16*)(t + 8));
-                            assert(tIter + sBegin + w <= (u16*)(t + 8));
-                            std::copy(tIter + sBegin, tIter + sEnd, tIter + good);
-                            //memmove(tIter + good, tIter + sBegin, w * 2);
-                            good += w;
-
-                        }
-                        else
-                        {
-
-                            auto min = std::min<i64>(w, n - i);
-                            auto b = tIter + sBegin;
-                            auto e = b + min;
-                            std::copy(b,e, mBuffer.data() + i);
-                            i += min;
-                            good += w;
-                        }
+                        m[0] = m[0] >> 2;
+                        m[1] = m[1] >> 2;
+                        m[2] = m[2] >> 2;
+                        m[3] = m[3] >> 2;
+                        m[4] = m[4] >> 2;
+                        m[5] = m[5] >> 2;
+                        m[6] = m[6] >> 2;
+                        m[7] = m[7] >> 2;
                     }
 
+                    t[0] = m[0] & block3;
+                    t[1] = m[1] & block3;
+                    t[2] = m[2] & block3;
+                    t[3] = m[3] & block3;
+                    t[4] = m[4] & block3;
+                    t[5] = m[5] & block3;
+                    t[6] = m[6] & block3;
+                    t[7] = m[7] & block3;
 
-                    //for (u64 q = 0; q < good; ++q)
-                    //{
-                    //    assert(tIter[q] < 3);
-                    //}
+                    eq[0] = _mm_cmpeq_epi16(t[0], block3);
+                    eq[1] = _mm_cmpeq_epi16(t[1], block3);
+                    eq[2] = _mm_cmpeq_epi16(t[2], block3);
+                    eq[3] = _mm_cmpeq_epi16(t[3], block3);
+                    eq[4] = _mm_cmpeq_epi16(t[4], block3);
+                    eq[5] = _mm_cmpeq_epi16(t[5], block3);
+                    eq[6] = _mm_cmpeq_epi16(t[6], block3);
+                    eq[7] = _mm_cmpeq_epi16(t[7], block3);
+
+                    eq[0] = eq[0] ^ oc::AllOneBlock;
+                    eq[1] = eq[1] ^ oc::AllOneBlock;
+                    eq[2] = eq[2] ^ oc::AllOneBlock;
+                    eq[3] = eq[3] ^ oc::AllOneBlock;
+                    eq[4] = eq[4] ^ oc::AllOneBlock;
+                    eq[5] = eq[5] ^ oc::AllOneBlock;
+                    eq[6] = eq[6] ^ oc::AllOneBlock;
+                    eq[7] = eq[7] ^ oc::AllOneBlock;
+
 
                     if (1)
                     {
-                        auto min = std::min<i64>(good, n - i);
-                        std::copy(tIter, tIter + min, mBuffer.data() + i);
-                        //memcpy(dst + i, t, min * 2);
+                        eq[0] = eq[0] & block1;
+                        eq[1] = eq[1] & block1;
+                        eq[2] = eq[2] & block1;
+                        eq[3] = eq[3] & block1;
+                        eq[4] = eq[4] & block1;
+                        eq[5] = eq[5] & block1;
+                        eq[6] = eq[6] & block1;
+                        eq[7] = eq[7] & block1;
 
-                        i += min;
+                        auto t16 = (u16*)t;
+                        auto e16 = (u16*)eq;
+                        for (u64 j = 0; j < 64; ++j)
+                        {
+                            iters[j][0] = t16[j];
+                            iters[j] += e16[j];
+                        }
+                    }
+                    else if (0)
+                    {
+                        for (u64 j = 0; j < 8; ++j)
+                        {
+                            u64 count;
+                            auto z = nonz_index(eq[j], count);
+                            t[j] = _mm_shuffle_epi8(t[j], z);
+
+                            auto size = std::min<u64>(n - i, count);
+                            memcpy(dst + i, &t[j], 2 * size);
+                            i += size;
+                            //std::cout << "e   ";
+                            //for (u64 k = 0; k < count; ++k)
+                            //    std::cout << eq[j].get<u16>(k) << " ";
+                            //std::cout << "\nz   ";
+                            //for (u64 k = 0; k < count*2; ++k)
+                            //    std::cout << int(oc::block(z).get<u8>(k)) << " ";
+                            //std::cout << "\nt   ";
+                            //for (u64 k = 0; k < count; ++k)
+                            //    std::cout << oc::block(t[j]).get<u16>(k) << " ";
+                            //std::cout << std::endl;
+                        }
+                    }
+                    else
+                    {
+
+                        eq[0] = eq[0] & block1;
+                        eq[1] = eq[1] & block1;
+                        eq[2] = eq[2] & block1;
+                        eq[3] = eq[3] & block1;
+                        eq[4] = eq[4] & block1;
+                        eq[5] = eq[5] & block1;
+                        eq[6] = eq[6] & block1;
+                        eq[7] = eq[7] & block1;
+                        if (0)
+                        {
+
+
+                            //d[i] = a[b[i]];
+                            // d= _mm_shuffle_epi8(a, b);
+
+                            // e = 1 1 1 0 1 0 1 0
+                            // b = 0 1 2 4 6 * * *
+
+                            // 1 = 0 1 1 1 0 1 0 1 
+                            // 2 = 0 0 1 1 1 0 1 0 
+                            // 3 = 0 0 0 1 1 1 0 1 
+                            // 4 = 0 0 0 0 1 1 1 0 
+                            // 5 = 0 0 0 0 0 1 1 1 
+                            // 6 = 0 0 0 0 0 0 1 1 
+                            // 7 = 0 0 0 0 0 0 0 1 
+                            // + 
+                            //   = 0 1 2 3 3 4 4 5    a
+                            // 
+                            // e = 0 1 2 * 3 * 4 *
+                            // _ = 0 1 2 * 4 * 6 *    b
+
+                            //     0 1 2 3 3 4 4 5 
+
+                            // 1 = 0 1 1 1 0 1 0 1 
+                            // 2 = 0 0 1 1 1 0 1 0 
+                            //   +
+                            //12   0 1 2 2 1 1 1 1
+                            //34   0 0 0 1 2 2 1 1 
+                            //   + 
+                            //14   0 1 2 3 3 3 2 2 
+                            //58   0 0 0 0 0 1 2 3 
+                            //18 + 0 1 2 3 3 4 4 5
+
+                            for (u64 j = 0; j < 8; ++j)
+                            {
+                                ss[j] = _mm_slli_si128(eq[j], 2);
+                                eq[j] = _mm_slli_si128(eq[j], 4);
+
+                                ss[j] = _mm_adds_epi16(ss[j], eq[j]);
+                                eq[j] = _mm_slli_si128(ss[j], 4);
+
+                                ss[j] = _mm_adds_epi16(ss[j], eq[j]);
+                                eq[j] = _mm_slli_si128(ss[j], 8);
+                                ss[j] = _mm_adds_epi16(ss[j], eq[j]);
+
+                                //auto ptr = (u16*)
+                                auto tj = t[j];
+                                for (u64 k = 0; k < 8; ++k)
+                                {
+                                    tj.set(ss[j].get<u16>(k), tj.get<u16>(k));
+                                }
+                                auto size = std::min<u64>(n - i, ss[j].get<u16>(7));
+                                memcpy(dst + i, &tj, 2 * size);
+                                i += size;
+
+                                //std::cout << "e   ";
+                                //for (u64 k = 0; k < 8; ++k)
+                                //    std::cout << eq[j].get<u16>(k) << " ";
+                                //std::cout << "\ne1  ";
+                                //for (u64 k = 0; k < 8; ++k)
+                                //    std::cout << oc::block(e1).get<u16>(k) << " ";
+                                //std::cout << "\ne2  ";
+                                //for (u64 k = 0; k < 8; ++k)
+                                //    std::cout << oc::block(e2).get<u16>(k) << " ";
+                                //std::cout << "\ne12  ";
+                                //for (u64 k = 0; k < 8; ++k)
+                                //    std::cout << oc::block(e12).get<u16>(k) << " ";
+                                //std::cout << "\ne34  ";
+                                //for (u64 k = 0; k < 8; ++k)
+                                //    std::cout << oc::block(e34).get<u16>(k) << " ";
+                                //std::cout << "\ne14  ";
+                                //for (u64 k = 0; k < 8; ++k)
+                                //    std::cout << oc::block(e14).get<u16>(k) << " ";
+                                //std::cout << "\ne58  ";
+                                //for (u64 k = 0; k < 8; ++k)
+                                //    std::cout << oc::block(e58).get<u16>(k) << " ";
+
+
+                                //std::cout << "\ne   ";
+                                //for (u64 k = 0; k < 8; ++k)
+                                //    std::cout << eq[j].get<u16>(k) << " ";
+                                //std::cout << "\ns   ";
+                                //for (u64 k = 0; k < 8; ++k)
+                                //    std::cout << oc::block(e18).get<u16>(k) << " ";
+                                //std::cout << std::endl;
+
+                            }
+
+                        }
+                        else if (1)
+                        {
+
+                            auto min = std::min<u64>(16 * 8, n - i);
+                            auto tIter = (u8*)t;
+                            auto eqIter = (u8*)eq;
+
+                            for (u64 j = 0; j < min; ++j)
+                            {
+                                dst[i] = *tIter;
+                                assert(*eqIter == 0 || dst[i] < 3);
+
+                                i += *eqIter;
+                                ++tIter;
+                                ++eqIter;
+                            }
+                        }
+                        else
+                        {
+                            auto t8 = span<u16>((u16*)t, 64);
+                            auto e8 = span<u16>((u16*)eq, 64);
+
+                            auto tIter = t8.data();
+                            auto eqIter = e8.data();
+                            //auto tIter = (u16*)t;
+                            //auto eqIter = (u16*)eq;
+                            //auto end = (u16*)eq + 8 * 8;
+
+                            u64 k = 0;
+                            //std::cout << "leading ";
+                            // skip goods ones
+                            while (eqIter[k])
+                            {
+                                //std::cout << int(eqIter[k]);
+                                ++k;
+                            }
+                            u64 good = k;
+
+                            while (k != 64 && i != n)
+                            {
+                                //std::cout << "\nbad ";
+                                // first empty
+                                //auto dst = k;
+
+                                while (!eqIter[k] && k < 64)
+                                {
+                                    //std::cout << int(eqIter[k]);
+                                    ++k;
+                                }
+
+                                if (k == 64)
+                                    break;
+                                //std::cout << "\ngood ";
+
+                                // first good one.
+                                auto sBegin = k;
+                                while (eqIter[k])
+                                {
+                                    //std::cout << int(eqIter[k]);
+                                    ++k;
+                                }
+                                auto sEnd = k;
+                                auto w = sEnd - sBegin;
+                                //std::cout <<" ~ " << w <<"\n--"<<std::endl;
+
+                                //for (u64 q = 0; q < sEnd - sBegin; ++q)
+                                //{
+                                //    assert(tIter[sBegin + q] < 3);
+                                //}
+
+                                if (1)
+                                {
+
+                                    assert(tIter + good + w <= (u16*)(t + 8));
+                                    assert(tIter + sBegin + w <= (u16*)(t + 8));
+                                    std::copy(tIter + sBegin, tIter + sEnd, tIter + good);
+                                    //memmove(tIter + good, tIter + sBegin, w * 2);
+                                    good += w;
+
+                                }
+                                else
+                                {
+
+                                    auto min = std::min<i64>(w, n - i);
+                                    auto b = tIter + sBegin;
+                                    auto e = b + min;
+                                    std::copy(b, e, mBuffer.data() + i);
+                                    i += min;
+                                    good += w;
+                                }
+                            }
+
+
+                            //for (u64 q = 0; q < good; ++q)
+                            //{
+                            //    assert(tIter[q] < 3);
+                            //}
+
+                            if (1)
+                            {
+                                auto min = std::min<i64>(good, n - i);
+                                std::copy(tIter, tIter + min, mBuffer.data() + i);
+                                //memcpy(dst + i, t, min * 2);
+
+                                i += min;
+                            }
+                        }
+
+                        ////auto rem = n - i;
+                        ////auto min = std::min<u64>(16 * 8, );
+                        //auto tIter = (u8*)t;
+                        //auto prev = 0;
+                        //for (u64 j = 0; j < 16 * 8; ++j)
+                        //{
+                        //    auto p = prev;
+                        //    prev += *eqIter;
+                        //    *eqIter = p;
+                        //    ++eqIter;
+                        //    end = p == n ? eqIter : end;
+                        //}
+                        ////auto min = std::min<u64>(rem, eqIter - (u8*)eq);
+                        //eqIter = (u8*)eq;
+                        //for (u64 j = 0; j < min; ++j)
+                        //{
+                        //    //auto p = prev;
+                        //    //prev
+                        //    dst[*eqIter] = *tIter;
+                        //    //assert(*eqIter == 0 || dst[i] < 3);
+
+                        //    //i += *eqIter;
+                        //    ++tIter;
+                        //    ++eqIter;
+                        //}
                     }
                 }
 
-                ////auto rem = n - i;
-                ////auto min = std::min<u64>(16 * 8, );
-                //auto tIter = (u8*)t;
-                //auto prev = 0;
-                //for (u64 j = 0; j < 16 * 8; ++j)
-                //{
-                //    auto p = prev;
-                //    prev += *eqIter;
-                //    *eqIter = p;
-                //    ++eqIter;
-                //    end = p == n ? eqIter : end;
-                //}
-                ////auto min = std::min<u64>(rem, eqIter - (u8*)eq);
-                //eqIter = (u8*)eq;
-                //for (u64 j = 0; j < min; ++j)
-                //{
-                //    //auto p = prev;
-                //    //prev
-                //    dst[*eqIter] = *tIter;
-                //    //assert(*eqIter == 0 || dst[i] < 3);
 
-                //    //i += *eqIter;
-                //    ++tIter;
-                //    ++eqIter;
-                //}
+            }
+            for (u64 j = 0; j < 64 && i < n; ++j)
+            {
+                auto b = (u16*)buffer[j].data();
+
+                auto size = iters[j] - b;
+                auto min = std::min<u64>(size, n - i);
+                if (min)
+                {
+                    memcpy(dst + i, b, min * 2);
+                    i += min;
+                }
             }
         }
 
         //for (u64 q = 0; q < mBuffer.size(); ++q)
         //{
-        //    mBuffer[q] = prng.get<u64>() % 3;
+        //    //mBuffer[q] = prng.get<u64>() % 3;
+        //    std::cout << int(mBuffer[q]) << " ";
         //    assert(mBuffer[q] < 3);
         //}
+        //std::cout << std::endl;
 
     }
 
