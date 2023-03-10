@@ -5,7 +5,7 @@ set(SRCS
     "Permutation.cpp"
     "SharePerm.cpp"
     "LowMCPerm.cpp"
-    "DarkMatterPrf.cpp"
+    "DarkMatter22Prf.cpp"
     "GMW/Circuit.cpp"
     "GMW/Gmw.cpp"
     "GMW/SilentTripleGen.cpp"
