@@ -6,6 +6,7 @@
 #include "libOTe/Tools/Tools.h"
 #include "libOTe/TwoChooseOne/Silent/SilentOtExtSender.h"
 #include "libOTe/TwoChooseOne/Silent/SilentOtExtReceiver.h"
+#include "libOTe/TwoChooseOne/SoftSpokenOT/SoftSpokenShOtExt.h"
 
 namespace secJoin
 {
@@ -216,11 +217,18 @@ namespace secJoin
             block256 u2 = u.mod2();
             block256 w = v ^ u2;
 
+            return compress(w);
+        }
+
+        static inline oc::block compress(block256 w)
+        {
+
             alignas(32) std::array<std::array<oc::block, 128>, 2> bw;
+
             for (u64 i = 0; i < 128; ++i)
             {
-                bw[0][i] = mB[i].mData[0] & w.mData[0];
-                bw[1][i] = mB[i].mData[1] & w.mData[1];
+                bw[0][i] = DarkMatterPrf::mB[i].mData[0] & w.mData[0];
+                bw[1][i] = DarkMatterPrf::mB[i].mData[1] & w.mData[1];
             }
             oc::transpose128(bw[0].data());
             oc::transpose128(bw[1].data());
@@ -231,6 +239,7 @@ namespace secJoin
                 r = r ^ bw[0][i];
             for (u64 i = 0; i < 128; ++i)
                 r = r ^ bw[1][i];
+
             return r;
         }
     };
@@ -547,13 +556,16 @@ namespace secJoin
         xorVector(vv, uu, prng);
     }
 
-    class DarkMatterPrfSender
+    class DarkMatterPrfSender : public oc::TimerAdapter
     {
         std::vector<oc::PRNG> mKeyOTs;
     public:
         block256 mKey;
+#ifdef SECUREJOIN_DK_USE_SILENT
         oc::SilentOtExtSender mOtSender;
-
+#else
+        oc::SoftSpokenShOtSender<> mSoftSender;
+#endif
         std::vector<block256> mV, mU2, mW;
         std::vector<std::array<u16, 256>> mU;
 
@@ -575,6 +587,7 @@ namespace secJoin
             mKey = k;
         }
 
+
         coproto::task<> evaluate(span<oc::block> y, coproto::Socket& sock, oc::PRNG& prng)
         {
             static constexpr auto compSize = 256 / 4;
@@ -585,8 +598,10 @@ namespace secJoin
                 uui = oc::AlignedUnVector<u16>{},
                 f = oc::BitVector{},
                 diff = oc::BitVector{},
+                ots = oc::AlignedUnVector<std::array<oc::block, 2>>{},
                 i = u64{});
 
+            setTimePoint("DarkMatter.sender.begin");
             mV.resize(y.size());
             mU.resize(y.size());
             uui.resize(y.size() * 256);
@@ -653,17 +668,25 @@ namespace secJoin
                 }
             }
 
+            setTimePoint("DarkMatter.sender.kxMult");
 
             // mod 2
-            diff.resize(y.size() * 512);
 
 #ifdef SECUREJOIN_ENABLE_FAKE_GEN
             mOtSender.mB.resize(diff.size());
             memset(mOtSender.mB.data(), 0, mOtSender.mB.size() * sizeof(oc::block));
 #else
+#ifdef SECUREJOIN_DK_USE_SILENT
+            diff.resize(y.size() * 512);
             MC_AWAIT(mOtSender.silentSendInplace(prng.get(),diff.size(), prng, sock));
-#endif
             MC_AWAIT(sock.recv(diff));
+#else
+            ots.resize(y.size() * 512);
+            MC_AWAIT(mSoftSender.send(ots, prng, sock));
+#endif
+#endif
+            setTimePoint("DarkMatter.sender.silent");
+
             {
 
                 mU2.resize(y.size());
@@ -673,10 +696,12 @@ namespace secJoin
                 //auto uIter = oc::BitIterator((u8*)mU2.data());
                 auto u8Iter = (u8*)mU2.data();
                 //auto dIter = diff.begin();
+                auto f16Iter = (u16*)f.data();
+#ifdef SECUREJOIN_DK_USE_SILENT
                 auto d16Iter = (u16*)diff.data();
                 auto bIter = mOtSender.mB.begin();
+
                 //auto fIter = f.begin();
-                auto f16Iter = (u16*)f.data();
                 //auto rIter = rKeys.begin();
                 for (u64 i = 0; i < y.size(); ++i)
                 {
@@ -723,9 +748,10 @@ namespace secJoin
                             //  1   -> u==0
                             //  2   -> u==2
 
-                            auto t0 = q0 ^ (mU[i][j] == 1);
-                            auto t1 = t0 ^ (mU[i][j] == 0);
-                            auto t2 = t0 ^ (mU[i][j] == 2);
+                            auto uij = mU.data()[i].data()[j];
+                            auto t0 = q0 ^ (uij == 1);
+                            auto t1 = t0 ^ (uij == 0);
+                            auto t2 = t0 ^ (uij == 2);
                             assert(t0 < 2);
                             *u8Iter |= t0 << k;
                             //*uIter++ = t0;
@@ -741,41 +767,76 @@ namespace secJoin
                         ++u8Iter;
                     }
 
+
                     auto w = mU2[i] ^ mV[i];
 
-                    alignas(32) std::array<std::array<oc::block, 128>, 2> bw;
-
-                    for (u64 i = 0; i < 128; ++i)
-                    {
-                        bw[0][i] = DarkMatterPrf::mB[i].mData[0] & w.mData[0];
-                        bw[1][i] = DarkMatterPrf::mB[i].mData[1] & w.mData[1];
-                    }
-                    oc::transpose128(bw[0].data());
-                    oc::transpose128(bw[1].data());
-
-                    oc::block& r = y[i];
-                    memset(&r, 0, sizeof(r));
-                    for (u64 i = 0; i < 128; ++i)
-                        r = r ^ bw[0][i];
-                    for (u64 i = 0; i < 128; ++i)
-                        r = r ^ bw[1][i];
+                    y[i] = DarkMatterPrf::compress(w);
                 }
+#else
+                auto bIter = ots.data();
+
+                for (u64 i = 0; i < y.size(); ++i)
+                {
+                    for (u64 j = 0; j < 256; )
+                    {
+                        *u8Iter = 0;
+                        *f16Iter = 0;
+                        for (u64 k = 0; k < 8; ++k, ++j)
+                        {
+                            auto s = (oc::block*)bIter; bIter += 2;
+
+                            auto q0 = (s[0].get<u8>(0) ^ s[2].get<u8>(0)) & 1;
+                            auto q1 = (s[1].get<u8>(0) ^ s[2].get<u8>(0)) & 1;
+                            auto q2 = (s[0].get<u8>(0) ^ s[3].get<u8>(0)) & 1;
+
+                            //  them       us
+                            //         0   1   2
+                            //        ___________
+                            //  0    | 0   1   0
+                            //  1    | 1   0   0
+                            //  2    | 0   0   1
+
+                            //  0   -> u==1
+                            //  1   -> u==0
+                            //  2   -> u==2
+                            auto uij = mU.data()[i].data()[j];
+                            auto t0 = q0 ^ (uij == 1);
+                            auto t1 = t0 ^ (uij == 0);
+                            auto t2 = t0 ^ (uij == 2);
+                            *u8Iter |= t0 << k;
+                            auto b1 = q1 ^ t1;
+                            auto b2 = (q2 ^ t2) << 1;
+                            *f16Iter |= (b1 ^ b2) << (2 * k);
+
+                        }
+
+                        ++f16Iter;
+                        ++u8Iter;
+                    }
+
+
+                    auto w = mU2[i] ^ mV[i];
+
+                    y[i] = DarkMatterPrf::compress(w);
+                }
+#endif
 
             }
             MC_AWAIT(sock.send(std::move(f)));
 
+            setTimePoint("DarkMatter.sender.derand");
 
             MC_END();
         }
 
     };
 
-    class DarkMatterPrfReceiver
+    class DarkMatterPrfReceiver : public oc::TimerAdapter
     {
         std::vector<std::array<oc::PRNG, 2>> mKeyOTs;
     public:
         oc::SilentOtExtReceiver mOtReceiver;
-
+        oc::SoftSpokenShOtReceiver<> mSoftReceiver;
 
         std::vector<block256> mV, mU2, mW;
         std::vector<std::array<u16, 256>> mU;
@@ -809,8 +870,10 @@ namespace secJoin
                 mod3i = (u16*)nullptr,
                 diff = oc::BitVector{},
                 i = u64{},
+                ots = oc::AlignedUnVector<oc::block>{},
                 block3 = oc::block{}
             );
+            setTimePoint("DarkMatter.recver.begin");
 
             block3 = std::array<u16, 8>{3, 3, 3, 3, 3, 3, 3, 3};
             mV.resize(x.size());
@@ -998,6 +1061,7 @@ namespace secJoin
                 MC_AWAIT(sock.send(std::move(ui)));
             }
             X = {};
+            setTimePoint("DarkMatter.recver.xkMult");
 
             for (u64 j = 0; j < x.size(); ++j)
             {
@@ -1021,15 +1085,21 @@ namespace secJoin
                 }
             }
 
+            setTimePoint("DarkMatter.recver.mod2");
+
             // mod 2
             diff.resize(x.size() * 512);
             rKeys.resize(x.size() * 256);
 #ifdef SECUREJOIN_ENABLE_FAKE_GEN
             mOtReceiver.mA.resize(diff.size());
             memset(mOtReceiver.mA.data(), 0, mOtReceiver.mA.size() * sizeof(oc::block));
+
 #else
+#ifdef SECUREJOIN_DK_USE_SILENT
             MC_AWAIT(mOtReceiver.silentReceiveInplace(diff.size(), prng, sock, oc::ChoiceBitPacking::True));
-#endif
+
+            setTimePoint("DarkMatter.recver.silent");
+
             {
                 auto mask = oc::AllOneBlock ^ oc::OneBlock;
                 auto dIter = diff.begin();
@@ -1055,6 +1125,37 @@ namespace secJoin
                 }
             }
             MC_AWAIT(sock.send(std::move(diff)));
+
+#else
+
+            setTimePoint("DarkMatter.recver.choice");
+
+            {
+                auto dIter = diff.begin();
+                for (u64 i = 0; i < x.size(); ++i)
+                {
+                    for (u64 j = 0; j < 256; ++j)
+                    {
+                        auto uij = mU.data()[i][j];
+                        auto a0 = uij & 1;
+                        auto a1 = (uij >> 1);
+                        assert(a1 < 2);
+
+                        *dIter++ = a0;
+                        *dIter++ = a1 & 1;
+                    }
+                }
+            }
+
+            ots.resize(diff.size());
+            MC_AWAIT(mSoftReceiver.receive(diff, ots, prng, sock));
+
+            for (u64 i = 0; i < rKeys.size(); ++i)
+            {
+                rKeys[i] = ots[i * 2] ^ ots[i * 2 + 1];
+            }
+#endif
+#endif
 
             //oc::mAesFixedKey.hashBlocks(rKeys, rKeys);
             ui.resize(0);
@@ -1125,6 +1226,7 @@ namespace secJoin
 
 
             }
+            setTimePoint("DarkMatter.recver.derand");
 
             MC_END();
         }

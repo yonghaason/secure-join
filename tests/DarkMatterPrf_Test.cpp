@@ -132,8 +132,13 @@ void DarkMatterPrf_proto_test(const oc::CLP& cmd)
     u64 n = cmd.getOr("n", 100);
     bool noCheck = cmd.isSet("nc");
 
+    oc::Timer timer;
+
     DarkMatterPrfSender sender;
     DarkMatterPrfReceiver recver;
+
+    sender.setTimer(timer);
+    recver.setTimer(timer);
 
     std::vector<block256> x(n);
     std::vector<oc::block> y0(n), y1(n);
@@ -170,6 +175,9 @@ void DarkMatterPrf_proto_test(const oc::CLP& cmd)
 
     std::get<0>(r).result();
     std::get<1>(r).result();
+
+    if (cmd.isSet("v"))
+        std::cout << timer << std::endl;
 
     if (noCheck)
         return;
