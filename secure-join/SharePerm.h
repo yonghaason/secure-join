@@ -49,7 +49,7 @@ namespace secJoin
                 soutperm = oc::Matrix<u8>{}
             );
 
-            if(mPartyIdx == 0)
+            if(invPerm ^ bool(mPartyIdx))
             {   
                 MC_AWAIT(LowMCPerm::applyVec(in, prng, gmw0, chl, soutperm));
                 MC_AWAIT(LowMCPerm::applyVecPerm(soutperm, mPerm.mPerm, prng, gmw1, chl, out, invPerm));

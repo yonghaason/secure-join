@@ -9,36 +9,20 @@ void VectorPerm_basic_test()
     u64 n = 5;    // total number of rows
     u64 rowSize = 1;
 
-    std::vector<u64> s(n);
-
-    // ---- s should be vector<u64>
-    std::array<oc::Matrix<u8>,2> xPerm;
-    
-    oc::Matrix<u8> stemp(n, rowSize), x(n,rowSize);
+    oc::Matrix<u8> x(n,rowSize),yExp(n,rowSize);
     oc::PRNG prng(oc::block(0,0));
     auto chls = coproto::LocalAsyncSocket::makePair();
 
-
-    // Creating permutation s
-    for(u8 i =0; i < n; ++i)
-    { 
-        prng.get((u8*) &x[i][0], x[i].size());
-        // x[i][0] = (u8)10+i;
-
-        // std::cout<<"/////  " << *(u8*)&x[i][0] << std::endl;
-
-        s[i] = (i) % n;
-        // s[i] = (i+1) % n;
-    }
-
-
-    // Secret Sharing s
-    std::array<std::vector<u64>, 2> sShares = share(s,prng);
-
     Perm mPerm(n, prng);
-    
+    prng.get(x.data(), x.size());
 
-    VectorPerm vecPerm1(sShares[0], prng, 0),
+    
+    // Secret Sharing s
+    std::array<std::vector<u64>, 2> sShares = share(mPerm.mPerm, prng);
+    std::array<oc::Matrix<u8>, 2> yShare;
+
+    VectorPerm 
+        vecPerm1(sShares[0], prng, 0),
         vecPerm2(sShares[1], prng, 1);
 
     auto proto0 = vecPerm1.setup(chls[0]);
@@ -53,29 +37,35 @@ void VectorPerm_basic_test()
     {
         std::cout << ex.what() << std::endl;
         std::get<1>(res).result();
-
         throw ex;
     }
     std::get<1>(res).result();
 
-
+    if(vecPerm1.mRho != vecPerm2.mRho)
+        throw RTE_LOC;
+    
+    auto pi = vecPerm1.mPi.mPerm.compose(vecPerm2.mPi.mPerm);
+    Perm rhoExp = pi.apply(mPerm.mPerm);
+    if(rhoExp != vecPerm1.mRho)
+        throw RTE_LOC;
     // Secret Sharing x
     std::array<oc::Matrix<u8>, 2> xShares = share(x,prng);
 
-
-
-    proto0 = vecPerm1.main( xShares[0], xPerm[0], prng, chls[0]);
-    proto1 = vecPerm2.main( xShares[1], xPerm[1], prng, chls[1]);
+    proto0 = vecPerm1.apply(xShares[0], yShare[0], prng, chls[0]);
+    proto1 = vecPerm2.apply(xShares[1], yShare[1], prng, chls[1]);
 
     auto res1 = macoro::sync_wait(macoro::when_all_ready(std::move(proto0), std::move(proto1)));
 
     std::get<0>(res1).result();
     std::get<1>(res1).result();
 
+    auto yAct = reconstruct_from_shares(yShare[0], yShare[1]);
+    mPerm.apply<u8>(x,yExp);
 
-    bool invPerm = false;
+    if(!eq(yAct, yExp))
+        throw RTE_LOC;
     
     // oc::Matrix<oc::u8> xPermCom = reconstruct_from_shares(xPerm[0], xPerm[1]);
 
-    check_results(x, xPerm, s, invPerm);
+    //check_results(x, xPerm, s, invPerm);
 }

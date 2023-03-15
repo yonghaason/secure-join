@@ -29,37 +29,12 @@ namespace secJoin
 		}
 
 		VectorPerm(span<u64> data, Perm mPerm, u8 partyIdx):
-			mPi(mPerm, partyIdx)
+			mPi(std::move(mPerm), partyIdx)
 		{
 			mShare.resize(data.size(), sizeof(u64));
 			std::copy(data.begin(), data.end(), (u64*)mShare.data());
 		}
 
-		// void init(u64 n, u64 partyIdx)
-		// {
-		// 	// mShare.resize(n);
-		// 	// mShare.reshape(n, 1);
-		// 	mPi.mPartyIdx = partyIdx;
-		// 	// mPi.mPerm.clear();
-		// 	// mRhoPP.mPerm.clear();
-		// }
-
-		// void setShares(std::vector<i64> share)
-		// {
-		//     if (share.size() != mShare.size())
-		//         throw RTE_LOC;
-
-		//     memcpy(&mShare[0], &share[0], sizeof(i64) * mShare.size());
-		// }
-
-		// void setShare(std::vector<u64> share)
-		// {
-		// 	if (share.size() != mShare.size())
-		// 		throw RTE_LOC;
-
-		// 	// Need to replace this with the copy function
-		// 	memcpy(mShare[0].data(), &share[0], sizeof(u64) * mShare.size());
-		// }
 
 		// generate the masking (replicated) permutation mPi
 		// and then reveal mRhoPP = mPi(mShares).
@@ -87,7 +62,7 @@ namespace secJoin
 
 
 			// rho1 will resized() and initialzed in the apply function
-			MC_AWAIT(mPi.apply(mShare, rho1, true, chl));
+			MC_AWAIT(mPi.apply(mShare, rho1, false, chl));
 
 			// Exchanging the [Rho]
 			if (mPi.mPartyIdx == 0)
@@ -161,7 +136,7 @@ namespace secJoin
 
 		u64 size() const { return mShare.size(); }
 
-		macoro::task<> main(
+		macoro::task<> apply(
 			oc::Matrix<u8> &in,
 			oc::Matrix<u8> &out,
 			oc::PRNG &prng,
@@ -169,49 +144,51 @@ namespace secJoin
 		{
 
 			MC_BEGIN(macoro::task<>, this, &in, &out, &prng, &chl,
-					 permIn = oc::Matrix<u8>{},
+					 temp = oc::Matrix<u8>{},
 					 soutInv = oc::Matrix<u8>{},
 					 gmw = Gmw()
 
 			);
 
-
+			out.resize(in.rows(), in.cols());
 			// std::cout << "mRho[" << i << "]="<< mRho.mPerm[i] << std::endl;
 
-			permIn.resize(in.rows(), in.cols());
 
 			// Local Permutation of [x]
-			for (u64 i = 0; i < in.rows(); ++i)
-			{
-				auto dst = permIn[mRho.mPerm[i]].begin();
-				// auto src = in[i].data();
-				std::copy(in[i].begin(), in[i].end(), dst); // Need to check the second argument
-			}
+			temp.resize(in.rows(), in.cols());
+			mRho.apply<u8>(in, temp);
+			MC_AWAIT(mPi.apply(temp, out, true, chl));
+			// for (u64 i = 0; i < in.rows(); ++i)
+			// {
+			// 	auto dst = permIn[mRho.mPerm[i]].begin();
+			// 	// auto src = in[i].data();
+			// 	std::copy(in[i].begin(), in[i].end(), dst); // Need to check the second argument
+			// }
 
-			for (u64 i = 0; i < in.rows(); ++i)
-			{
+			// for (u64 i = 0; i < in.rows(); ++i)
+			// {
 
-				for (u64 j = 0; j < in.cols(); ++j)
-				{
-					if(in(i,j) != permIn( mRho.mPerm[i]  , j))
-						std::cout<<"Wrong after rho perm" << std::endl;
-				}
+			// 	for (u64 j = 0; j < in.cols(); ++j)
+			// 	{
+			// 		if(in(i,j) != permIn( mRho.mPerm[i]  , j))
+			// 			std::cout<<"Wrong after rho perm" << std::endl;
+			// 	}
 				
-			}
+			// }
 
 			// Inverse permutation logic
-			if (mPi.mPartyIdx == 0)
-			{
-				//  Second party does the inverse
-				MC_AWAIT(LowMCPerm::applyVecPerm(permIn, mPi.mPerm.mPerm, prng, gmw, chl, soutInv, true));
-				MC_AWAIT(LowMCPerm::applyVec(soutInv, prng, gmw, chl, out));
-			}
-			else
-			{
-				MC_AWAIT(LowMCPerm::applyVec(permIn, prng, gmw, chl, soutInv));
-				// Now the first party does the inverse
-				MC_AWAIT(LowMCPerm::applyVecPerm(soutInv, mPi.mPerm.mPerm, prng, gmw, chl, out, true));
-			}
+			// if (mPi.mPartyIdx == 0)
+			// {
+			// 	//  Second party does the inverse
+			// 	MC_AWAIT(LowMCPerm::applyVecPerm(permIn, mPi.mPerm.mPerm, prng, gmw, chl, soutInv, true));
+			// 	MC_AWAIT(LowMCPerm::applyVec(soutInv, prng, gmw, chl, out));
+			// }
+			// else
+			// {
+			// 	MC_AWAIT(LowMCPerm::applyVec(permIn, prng, gmw, chl, soutInv));
+			// 	// Now the first party does the inverse
+			// 	MC_AWAIT(LowMCPerm::applyVecPerm(soutInv, mPi.mPerm.mPerm, prng, gmw, chl, out, true));
+			// }
 
 
 			MC_END();
