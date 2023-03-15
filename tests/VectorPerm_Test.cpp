@@ -41,19 +41,6 @@ void VectorPerm_basic_test()
     VectorPerm vecPerm1(sShares[0], prng, 0),
         vecPerm2(sShares[1], prng, 1);
 
-    // VectorPerm vecPerm1(sShares[0], mPerm, 0),
-        // vecPerm2(sShares[1], mPerm, 1);
-
-    // if(vecPerm1.isSetup()  || vecPerm2.isSetup())
-        // throw RTE_LOC;
-
-    // vecPerm1.init(n,0);
-    // vecPerm1.setShare(sShares[0]);
-
-
-    // vecPerm2.init(n,1);
-    // vecPerm2.setShare(sShares[1]);
-
     auto proto0 = vecPerm1.setup(chls[0]);
     auto proto1 = vecPerm2.setup(chls[1]);
 
@@ -91,36 +78,4 @@ void VectorPerm_basic_test()
     // oc::Matrix<oc::u8> xPermCom = reconstruct_from_shares(xPerm[0], xPerm[1]);
 
     check_results(x, xPerm, s, invPerm);
-
-
-    
-
-    // std::vector<u64> pi(n);
-
-    // // Initializing the vector x & permutation pi
-    
-
-
-    // Gmw gmw0, gmw1;
-    // std::array<oc::Matrix<u8>, 2> soutPerm, soutInv;
-
-    // auto proto0 = m1.applyVec(x, prng, gmw0, chls[0], soutPerm[0]);
-    // auto proto1 = m2.applyPerm(pi, prng, n, rowSize, gmw1, chls[1], soutPerm[1], invPerm);
-
-    // auto res = macoro::sync_wait(macoro::when_all_ready(std::move(proto0), std::move(proto1)));
-
-    // std::get<0>(res).result();
-    // std::get<1>(res).result();
-
-    // oc::Matrix<u8> recon_sout = reconstruct_from_shares( soutPerm[0], soutPerm[1]);
-
-    // proto0 = m1.applyVec(recon_sout, prng, gmw0, chls[0], soutInv[0]);
-    // proto1 = m2.applyPerm(pi, prng, n, rowSize, gmw1, chls[1], soutInv[1], !invPerm);
-
-    // auto res1 = macoro::sync_wait(macoro::when_all_ready(std::move(proto0), std::move(proto1)));
-
-    // std::get<0>(res1).result();
-    // std::get<1>(res1).result();
-
-    // check_inv_results(x, soutInv);
 }

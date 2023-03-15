@@ -77,16 +77,10 @@ namespace secJoin
 			coproto::Socket &chl
 		)
 		{
-			// assert(mShare.cols() == 1);
-
 			MC_BEGIN(macoro::task<>, this, &chl,
 					 rho1 = oc::Matrix<u8>{},
 					 rho2 = oc::Matrix<u8>{}
 					 );
-
-			// ----------- Need to pass pi1 ot pi2 over here
-			// mPi.init(size(), prng);
-
 
 			std::cout << "mPi.mPerm for party = " << mPi.mPartyIdx << " is ";
 			std::cout << mPi.mPerm << " " << std::endl;
@@ -218,21 +212,6 @@ namespace secJoin
 				// Now the first party does the inverse
 				MC_AWAIT(LowMCPerm::applyVecPerm(soutInv, mPi.mPerm.mPerm, prng, gmw, chl, out, true));
 			}
-
-
-			// std::cout << "Number of rows " << in.rows() << std::endl;
-			// std::cout << "Number of cols " << in.cols() << std::endl;
-
-			// for (u64 i = 0; i < in.rows(); ++i)
-			// {
-
-			// 	for (u64 j = 0; j < in.cols(); ++j)
-			// 	{
-			// 		if(in(i,j) != out( (i+1)%in.rows() ,j))
-			// 			std::cout<<"/// Wrong after pi removal" << std::endl;
-			// 	}
-				
-			// }
 
 
 			MC_END();
