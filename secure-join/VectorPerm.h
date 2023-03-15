@@ -57,8 +57,10 @@ namespace secJoin
 					 rho2 = oc::Matrix<u8>{}
 					 );
 
-			std::cout << "mPi.mPerm for party = " << mPi.mPartyIdx << " is ";
-			std::cout << mPi.mPerm << " " << std::endl;
+			#ifndef NDEBUG
+				std::cout << "mPi.mPerm for party = " << mPi.mPartyIdx << " is ";
+				std::cout << mPi.mPerm << " " << std::endl;
+			#endif
 
 
 			// rho1 will resized() and initialzed in the apply function
@@ -105,9 +107,11 @@ namespace secJoin
 
 				// ------ Need to find a safer way to do this
 			}
-			std::cout << "mRho is ";
-			std::cout << mRho.mPerm << " ";
-			std::cout << std::endl;
+			#ifndef NDEBUG
+				std::cout << "mRho is ";
+				std::cout << mRho.mPerm << " ";
+				std::cout << std::endl;
+			#endif
 			// oc::Matrix<u8> dst(mRhoPP.mPerm.data(), size(), 1);
 
 			// #ifndef NDEBUG
@@ -151,44 +155,13 @@ namespace secJoin
 			);
 
 			out.resize(in.rows(), in.cols());
-			// std::cout << "mRho[" << i << "]="<< mRho.mPerm[i] << std::endl;
-
 
 			// Local Permutation of [x]
 			temp.resize(in.rows(), in.cols());
 			mRho.apply<u8>(in, temp);
+
+			// Applying pi1 & pi2
 			MC_AWAIT(mPi.apply(temp, out, true, chl));
-			// for (u64 i = 0; i < in.rows(); ++i)
-			// {
-			// 	auto dst = permIn[mRho.mPerm[i]].begin();
-			// 	// auto src = in[i].data();
-			// 	std::copy(in[i].begin(), in[i].end(), dst); // Need to check the second argument
-			// }
-
-			// for (u64 i = 0; i < in.rows(); ++i)
-			// {
-
-			// 	for (u64 j = 0; j < in.cols(); ++j)
-			// 	{
-			// 		if(in(i,j) != permIn( mRho.mPerm[i]  , j))
-			// 			std::cout<<"Wrong after rho perm" << std::endl;
-			// 	}
-				
-			// }
-
-			// Inverse permutation logic
-			// if (mPi.mPartyIdx == 0)
-			// {
-			// 	//  Second party does the inverse
-			// 	MC_AWAIT(LowMCPerm::applyVecPerm(permIn, mPi.mPerm.mPerm, prng, gmw, chl, soutInv, true));
-			// 	MC_AWAIT(LowMCPerm::applyVec(soutInv, prng, gmw, chl, out));
-			// }
-			// else
-			// {
-			// 	MC_AWAIT(LowMCPerm::applyVec(permIn, prng, gmw, chl, soutInv));
-			// 	// Now the first party does the inverse
-			// 	MC_AWAIT(LowMCPerm::applyVecPerm(soutInv, mPi.mPerm.mPerm, prng, gmw, chl, out, true));
-			// }
 
 
 			MC_END();

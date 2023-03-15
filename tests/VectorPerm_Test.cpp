@@ -13,6 +13,7 @@ void VectorPerm_basic_test()
     oc::PRNG prng(oc::block(0,0));
     auto chls = coproto::LocalAsyncSocket::makePair();
 
+    // Generating a random s
     Perm mPerm(n, prng);
     prng.get(x.data(), x.size());
 
@@ -41,13 +42,18 @@ void VectorPerm_basic_test()
     }
     std::get<1>(res).result();
 
+    // Checking if both the parties have same rho
     if(vecPerm1.mRho != vecPerm2.mRho)
         throw RTE_LOC;
     
+    // Creating pi from pi1 & pi2
     auto pi = vecPerm1.mPi.mPerm.compose(vecPerm2.mPi.mPerm);
     Perm rhoExp = pi.apply(mPerm.mPerm);
+
+    // Checking if pi1 & pi2 are applied correctly
     if(rhoExp != vecPerm1.mRho)
         throw RTE_LOC;
+    
     // Secret Sharing x
     std::array<oc::Matrix<u8>, 2> xShares = share(x,prng);
 
@@ -60,12 +66,11 @@ void VectorPerm_basic_test()
     std::get<1>(res1).result();
 
     auto yAct = reconstruct_from_shares(yShare[0], yShare[1]);
+
+    // Getting x permutated under s
     mPerm.apply<u8>(x,yExp);
 
     if(!eq(yAct, yExp))
         throw RTE_LOC;
-    
-    // oc::Matrix<oc::u8> xPermCom = reconstruct_from_shares(xPerm[0], xPerm[1]);
 
-    //check_results(x, xPerm, s, invPerm);
 }
