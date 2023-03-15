@@ -4,6 +4,8 @@
 #include "secure-join/Defines.h"
 #include <vector>
 
+using namespace secJoin;
+
 inline void check_inv_results(
     oc::Matrix<oc::u8>& x,
     std::array<oc::Matrix<oc::u8>, 2>& sout)
@@ -62,7 +64,7 @@ inline void check_results(
         for (oc::u64 j = 0; j < x.cols(); j++)
         {
             oc::u8 act, cur, cur0, cur1;
-            if (invPerm)
+            if (!invPerm)
             {
                 act = x(pi[i], j);
                 cur0 = sout[0](i, j);
@@ -142,6 +144,24 @@ inline std::array<oc::Matrix<oc::u8>, 2> share(
 
     for (oc::u64 i = 0; i < v.size(); ++i)
         s1(i) = v(i) ^ s0(i);
+
+    return { s0, s1 };
+}
+
+inline std::array<std::vector<u64>, 2> share(
+    std::vector<u64> v,
+    oc::PRNG& prng)
+{
+    auto n = v.size();
+    std::vector<u64>
+        s0(n),
+        s1(n);
+
+    prng.get(s0.data(), s0.size());
+    prng.get((u8*) s0.data(), n * sizeof(u64));
+
+    for (oc::u64 i = 0; i < v.size(); ++i)
+        s1[i] = v[i] ^ s0[i];
 
     return { s0, s1 };
 }

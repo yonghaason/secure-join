@@ -29,6 +29,7 @@ if(NOT ${DEP_NAME}_FOUND OR LIBOTE_DEV)
     set(CONFIGURE_CMD ${CMAKE_COMMAND} -S ${CLONE_DIR} -B ${BUILD_DIR} -DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}
                        -DCMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH_STR}
                        -DCMAKE_BUILD_TYPE:STRING=${CMAKE_BUILD_TYPE} 
+                       -DNO_CMAKE_SYSTEM_PATH=${NO_CMAKE_SYSTEM_PATH}
                        -DFETCH_AUTO=${FETCH_AUTO}
                        -DVERBOSE_FETCH=${VERBOSE_FETCH}
                        -DENABLE_CIRCUITS=ON
@@ -44,7 +45,8 @@ if(NOT ${DEP_NAME}_FOUND OR LIBOTE_DEV)
                        #-DCOPROTO_ENABLE_OPENSSL=${COPROTO_ENABLE_OPENSSL}
                        #-DOC_PIC=${SECUREJOIN_PIC}
                        -DOC_THIRDPARTY_CLONE_DIR=${SECUREJOIN_THIRDPARTY_CLONE_DIR}
-                       -DENABLE_ASAN=${ENABLE_ASAN}
+                       -DENABLE_ASAN=${SECUREJOIN_ENABLE_ASAN}
+                       -DENABLE_BOOST=${SECUREJOIN_ENABLE_BOOST}
                        )
     set(BUILD_CMD     ${CMAKE_COMMAND} --build ${BUILD_DIR} --config ${CMAKE_BUILD_TYPE})
     set(INSTALL_CMD   ${CMAKE_COMMAND} --install ${BUILD_DIR} --config ${CMAKE_BUILD_TYPE} --prefix ${SECUREJOIN_THIRDPARTY_DIR})

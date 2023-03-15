@@ -175,7 +175,7 @@ namespace secJoin
             for (u64 i = 0; i < n; ++i)
             {
 
-                if (invPerm)
+                if (!invPerm)
                     memcpy(x2Perm.data(i), x2.data(pi[i]), bytesPerRow);
                 else
                     memcpy(x2Perm.data(pi[i]), x2.data(i), bytesPerRow);
@@ -237,7 +237,7 @@ namespace secJoin
                 u64 srcIdx;
                 auto counterMode = i * blocksPerRow;
                 auto pi_i = pi[i] * blocksPerRow;
-                if (invPerm)
+                if (!invPerm)
                 {
                     dst = xPermuted.begin() + counterMode;
                     idx = indexMatrix.begin() + counterMode;
