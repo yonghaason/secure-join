@@ -43,7 +43,10 @@ void LocMC_eval_test(const oc::CLP& cmd)
 
     std::get<0>(res).result();
     std::get<1>(res).result();
-
+    if (cmd.isSet("v"))
+    {
+        std::cout << chls[0].bytesReceived() / 1000.0 << " " << chls[0].bytesSent() / 1000.0 << " kB " << std::endl;
+    }
 }
 
 void LowMCPerm_perm_test(const oc::CLP& cmd)

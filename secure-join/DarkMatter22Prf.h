@@ -374,13 +374,14 @@ namespace secJoin
 
     inline void compressMod3(span<u8> dst, span<const u16> src)
     {
-        if (dst.size() * 4 != src.size())
-            throw RTE_LOC;
+        assert(oc::divCeil(src.size(), 4) == dst.size());
 
         u64* d = (u64*)dst.data();
         auto s = (const u16*)src.data();
         auto n = src.size();
-        for (u64 i = 0; i < n;)
+        auto n32 = n / 32 * 32;
+        u64 i = 0;
+        for (; i < n32;)
         {
             assert(d < (u64*)(dst.data() + dst.size()));
 
@@ -389,6 +390,7 @@ namespace secJoin
             //auto si = s + i;
             for (u64 j = 0; j < 8; ++j)
             {
+                assert(s + 4 <= src.data() + src.size());
                 x8[0 + j] = *s++;
                 x8[8 + j] = *s++;
                 x8[16 + j] = *s++;
@@ -403,36 +405,52 @@ namespace secJoin
 
             assert(s <= src.data() + src.size());
             i += 32;
+        }
 
-            //*d = 0;
-            //for (u64 j = 0; j < 64; j += 2, ++i)
-            //{
-            //    assert(s[i] < 3);
-            //    *d |= u64(s[i]) << j;
-            //}
-            //++d;
+        while (i < n)
+        {
+            auto& d8 = dst[i / 4];
+            d8 = 0;
+            for (u64 j = 0; i < n && j < 8; j += 2, ++i)
+            {
+                assert(s[i] < 3);
+                d8 |= s[i] << j;
+            }
         }
     }
 
     inline void decompressMod3(span<u16> dst, span<const u8> src)
     {
-        if (dst.size() != src.size() * 4)
-            throw RTE_LOC;
+        assert(oc::divCeil(dst.size(), 4) == src.size());
 
         const u64* s = (const u64*)src.data();
         auto d = dst.data();
-        for (u64 i = 0; i < dst.size();)
+        u64 i = 0, main = dst.size() / 32 * 32;
+        for (; i < main;)
         {
             auto ss = *s;
-            assert(s < (u64*)(src.data() + src.size()));
             for (u64 j = 0; j < 32; ++j, ++i)
             {
+                assert(s < (u64*)(src.data() + src.size()));
+                assert(i < dst.size());
                 auto& dsti = d[i];
                 dsti = ss & 3;
                 assert(dsti < 3);
                 ss >>= 2;
             }
             ++s;
+        }
+        for (; i < dst.size();)
+        {
+            auto ss = src[i/4];
+            auto rem = std::min<u64>(4, dst.size() % 4);
+            for (u64 j = 0; j < rem; ++j, ++i)
+            {
+                auto& dsti = d[i];
+                dsti = ss & 3;
+                assert(dsti < 3);
+                ss >>= 2;
+            }
         }
     }
 
@@ -492,9 +510,20 @@ namespace secJoin
 
     inline void xorVector(span<u8> ui, oc::PRNG& prng)
     {
-        assert(ui.size() % sizeof(oc::block) == 0);
-        auto uiBlk = span<oc::block>((oc::block*)ui.data(), ui.size() / sizeof(oc::block));
-        xorVector(uiBlk, prng);
+        if (ui.size() % sizeof(oc::block) == 0)
+        {
+
+            auto uiBlk = span<oc::block>((oc::block*)ui.data(), ui.size() / sizeof(oc::block));
+            xorVector(uiBlk, prng);
+        }
+        else
+        {
+            for (u64 i = 0; i < ui.size(); ++i)
+            {
+                auto r = prng.get<u8>();
+                ui[i] ^= r;
+            }
+        }
     }
 
     inline void xorVector(span<block256> v, oc::PRNG& prng)

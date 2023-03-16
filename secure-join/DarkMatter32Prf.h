@@ -12,11 +12,25 @@
 namespace secJoin
 {
 
+
+    inline oc::AlignedUnVector<u16> samplePerm(oc::block s, u64 n)
+    {
+        oc::AlignedUnVector<u16> pi(n);
+        std::iota(pi.begin(), pi.end(), 0);
+
+        oc::PRNG prng(s);
+        for (u64 i = 0; i < n; ++i)
+        {
+            auto j = prng.get<u64>() % (n - i) + i;
+            std::swap(pi[i], pi[j]);
+        }
+        return pi;
+    }
+
     class DarkMatter32Prf
     {
     public:
         block256 mKey;
-
         std::array<block256, 256> mKeyMask;
 
         void setKey(block256 k)
@@ -55,6 +69,7 @@ namespace secJoin
     {
         std::vector<oc::PRNG> mKeyOTs;
     public:
+        bool mCompressed = true;
         block256 mKey;
 #ifdef SECUREJOIN_DK_USE_SILENT
         oc::SilentOtExtSender mOtSender;
@@ -63,6 +78,8 @@ namespace secJoin
 #endif
         std::vector<block256> mU2;
         std::vector<std::array<u16, 256>> mU;
+
+        oc::AlignedUnVector<u16> mPi;
 
         void setKeyOts(span<oc::block> ots)
         {
@@ -87,7 +104,8 @@ namespace secJoin
 
             MC_BEGIN(coproto::task<>, y, this, &sock, &prng,
                 ui = oc::AlignedUnVector<u8>{},
-                uui = oc::AlignedUnVector<u16>{},
+                uu = oc::AlignedUnVector<u16>{},
+                h = oc::AlignedUnVector<u16>{},
                 f = oc::BitVector{},
                 diff = oc::BitVector{},
                 ots = oc::AlignedUnVector<std::array<oc::block, 2>>{},
@@ -95,50 +113,116 @@ namespace secJoin
 
             setTimePoint("DarkMatter.sender.begin");
             mU.resize(y.size());
-            uui.resize(y.size() * 256);
-            for (i = 0; i < 256; ++i)
+
+            if (mCompressed)
             {
-                ui.resize(y.size() * compSize); // y.size() * 256 * 2 bits
+                //xk
+                uu.resize(y.size() * 4);
 
-                MC_AWAIT(sock.recv(ui));
-
-                u8 ki = *oc::BitIterator((u8*)&mKey, i);
-                if (ki)
+                // y.size() rows, each of size 1024
+                h.resize(uu.size() * 256);
+                for (i = 0; i < 256; ++i)
                 {
-                    // ui = ui ^ H(mKeyOTs[i])
-                    xorVector(ui, mKeyOTs[i]);
-                    decompressMod3(uui, ui);
-                }
-                else
-                {
-                    sampleMod3(mKeyOTs[i], uui);
+                    ui.resize(y.size()); // y.size() * 256 * 2 bits
+
+                    MC_AWAIT(sock.recv(ui));
+
+                    u8 ki = *oc::BitIterator((u8*)&mKey, i);
+                    if (ki)
+                    {
+                        // ui = ui ^ H(mKeyOTs[i])
+                        xorVector(ui, mKeyOTs[i]);
+                        decompressMod3(uu, ui);
+                    }
+                    else
+                    {
+                        sampleMod3(mKeyOTs[i], uu);
+                    }
+
+                    for (u64 j = 0; j < y.size(); ++j)
+                    {
+                        for (u64 k = 0; k < 4; ++k)
+                        {
+                            h[j * 1024 + i * 4 + k] = uu[j * 4 + k];
+                        }
+                    }
                 }
 
-                auto u = (oc::block*)mU.data();
-                auto ui = (oc::block*)uui.data();
+                if (mPi.size() == 0)
+                {
+                    mPi = samplePerm(oc::ZeroBlock, 1024);
+                }
+
                 for (u64 j = 0; j < y.size(); ++j)
                 {
-                    for (u64 k = 0; k < 4; ++k)
+                    auto  hj = h.subspan(j * 1024, 1024);
+                    for (u64 k = 1; k < 1024; ++k)
                     {
-                        u[0] = _mm_adds_epu16(u[0], ui[0]);
-                        u[1] = _mm_adds_epu16(u[1], ui[1]);
-                        u[2] = _mm_adds_epu16(u[2], ui[2]);
-                        u[3] = _mm_adds_epu16(u[3], ui[3]);
-                        u[4] = _mm_adds_epu16(u[4], ui[4]);
-                        u[5] = _mm_adds_epu16(u[5], ui[5]);
-                        u[6] = _mm_adds_epu16(u[6], ui[6]);
-                        u[7] = _mm_adds_epu16(u[7], ui[7]);
-                        u += 8;
-                        ui += 8;
+                        hj[k] += hj[k];
+                    }
+
+                    auto& uj = mU[j];
+                    auto pik = mPi.data();
+                    for (u64 k = 0; k < 256; ++k)
+                    {
+                        uj[k] =
+                            hj[pik[0]] +
+                            hj[pik[1]] +
+                            hj[pik[2]] +
+                            hj[pik[3]];
+                        uj[k] %= 3;
+                        pik += 4;
                     }
                 }
             }
-
-            for (u64 j = 0; j < y.size(); ++j)
+            else
             {
-                for (u64 k = 0; k < 256; ++k)
+
+                uu.resize(y.size() * 256);//256
+                for (i = 0; i < 256; ++i)
                 {
-                    mU[j][k] = mU[j][k] % 3;
+                    ui.resize(y.size() * compSize); // y.size() * 256 * 2 bits
+
+                    MC_AWAIT(sock.recv(ui));
+
+                    u8 ki = *oc::BitIterator((u8*)&mKey, i);
+                    if (ki)
+                    {
+                        // ui = ui ^ H(mKeyOTs[i])
+                        xorVector(ui, mKeyOTs[i]);
+                        decompressMod3(uu, ui);
+                    }
+                    else
+                    {
+                        sampleMod3(mKeyOTs[i], uu);
+                    }
+
+                    auto u = (oc::block*)mU.data();
+                    auto ui = (oc::block*)uu.data();
+                    for (u64 j = 0; j < y.size(); ++j)
+                    {
+                        for (u64 k = 0; k < 4; ++k)
+                        {
+                            u[0] = _mm_adds_epu16(u[0], ui[0]);
+                            u[1] = _mm_adds_epu16(u[1], ui[1]);
+                            u[2] = _mm_adds_epu16(u[2], ui[2]);
+                            u[3] = _mm_adds_epu16(u[3], ui[3]);
+                            u[4] = _mm_adds_epu16(u[4], ui[4]);
+                            u[5] = _mm_adds_epu16(u[5], ui[5]);
+                            u[6] = _mm_adds_epu16(u[6], ui[6]);
+                            u[7] = _mm_adds_epu16(u[7], ui[7]);
+                            u += 8;
+                            ui += 8;
+                        }
+                    }
+                }
+
+                for (u64 j = 0; j < y.size(); ++j)
+                {
+                    for (u64 k = 0; k < 256; ++k)
+                    {
+                        mU[j][k] = mU[j][k] % 3;
+                    }
                 }
             }
 
@@ -316,6 +400,8 @@ namespace secJoin
         std::vector<block256> mU2;
         std::vector<std::array<u16, 256>> mU;
 
+        bool mCompressed = true;
+        oc::AlignedUnVector<u16> mPi;
 
         void setKeyOts(span<std::array<oc::block, 2>> ots)
         {
@@ -335,6 +421,7 @@ namespace secJoin
             MC_BEGIN(coproto::task<>, x, y, this, &sock, &prng,
                 X = oc::AlignedUnVector<std::array<u16, 512>>{},
                 ui = oc::AlignedUnVector<u8>{},
+                h = oc::AlignedUnVector<u16>{},
                 rKeys = oc::AlignedUnVector<oc::block>{},
                 mod3 = oc::AlignedUnVector<u16>{},
                 mod3i = (u16*)nullptr,
@@ -347,109 +434,198 @@ namespace secJoin
 
             block3 = std::array<u16, 8>{3, 3, 3, 3, 3, 3, 3, 3};
             mU.resize(x.size());
-            mod3.resize(x.size() * 256);
-            X.resize(x.size());
-            for (u64 j = 0; j < x.size(); ++j)
+
+
+            if (mCompressed)
             {
-                auto iter = oc::BitIterator((u8*)&x[j]);
+                X.resize(x.size());
+                for (u64 j = 0; j < x.size(); ++j)
+                {
+                    auto iter = oc::BitIterator((u8*)&x[j]);
+                    for (i = 0; i < 256; ++i)
+                    {
+                        X[j][i] = *iter++;
+                        X[j][i + 256] = X[j][i];
+                    }
+                }
+                ////xk
+                //uu.resize(y.size() * 4);
+
+                //// y.size() rows, each of size 1024
+                //h.resize(uu.size() * 256);
+                mod3.resize(y.size() * 4);
+                h.resize(mod3.size() * 256);
                 for (i = 0; i < 256; ++i)
                 {
-                    X[j][i] = *iter++;
-                    X[j][i + 256] = X[j][i];
+                    ui.resize(y.size());
+                    sampleMod3(mKeyOTs[i][0], mod3);
+
+                    for (u64 j = 0; j < y.size(); ++j)
+                    {
+                        for (u64 k = 0; k < 4; ++k)
+                        {
+                            h[j * 1024 + i * 4 + k] = mod3[j * 4 + k];
+                            mod3[j * 4 + k] += X[j][(i * 4 + k) % 512];
+                            mod3[j * 4 + k] %= 3;
+                        }
+                    }
+
+                    compressMod3(ui, mod3);
+                    xorVector(ui, mKeyOTs[i][1]);
+
+                    MC_AWAIT(sock.send(std::move(ui)));
+                    //    ui.resize(y.size()); // y.size() * 256 * 2 bits
+
+                    //    MC_AWAIT(sock.recv(ui));
+
+                    //    u8 ki = *oc::BitIterator((u8*)&mKey, i);
+                    //    if (ki)
+                    //    {
+                    //        // ui = ui ^ H(mKeyOTs[i])
+                    //        xorVector(ui, mKeyOTs[i]);
+                    //        decompressMod3(uu, ui);
+                    //    }
+                    //    else
+                    //    {
+                    //        sampleMod3(mKeyOTs[i], uu);
+                    //    }
+                }
+
+
+                if (mPi.size() == 0)
+                {
+                    mPi = samplePerm(oc::ZeroBlock, 1024);
+                }
+
+                for (u64 j = 0; j < y.size(); ++j)
+                {
+                    auto  hj = h.subspan(j * 1024, 1024);
+                    for (u64 k = 1; k < 1024; ++k)
+                    {
+                        hj[k] += hj[k];
+                    }
+
+                    auto& uj = mU[j];
+                    auto pik = mPi.data();
+                    for (u64 k = 0; k < 256; ++k)
+                    {
+                        uj[k] =
+                            hj[pik[0]] +
+                            hj[pik[1]] +
+                            hj[pik[2]] +
+                            hj[pik[3]];
+                        uj[k] %= 3;
+                        pik += 4;
+                    }
                 }
             }
-            for (i = 0; i < 256; ++i)
+            else
             {
-                ui.resize(x.size() * 256 / 4); // x.size() * 256 * 2 bits
+                mod3.resize(x.size() * 256);
+                X.resize(x.size());
+                for (u64 j = 0; j < x.size(); ++j)
+                {
+                    auto iter = oc::BitIterator((u8*)&x[j]);
+                    for (i = 0; i < 256; ++i)
+                    {
+                        X[j][i] = *iter++;
+                        X[j][i + 256] = X[j][i];
+                    }
+                }
+                for (i = 0; i < 256; ++i)
+                {
+                    ui.resize(x.size() * 256 / 4); // x.size() * 256 * 2 bits
 
-                sampleMod3(mKeyOTs[i][0], mod3);
-                mod3i = mod3.data();
+                    sampleMod3(mKeyOTs[i][0], mod3);
+                    mod3i = mod3.data();
+
+                    for (u64 j = 0; j < x.size(); ++j)
+                    {
+                        oc::AlignedArray<oc::block, 32> xij;
+                        memcpy(&xij, &X[j][i], sizeof(xij));
+                        auto uj = mU[j].data();
+                        auto xij128 = (oc::block*)&xij;
+                        auto uj128 = (oc::block*)uj;
+                        auto mod3i128 = (oc::block*)mod3i;
+                        assert(u64(xij128) % 16 == 0);
+                        assert(u64(uj128) % 16 == 0);
+                        assert(u64(mod3i128) % 16 == 0);
+                        for (u64 k = 0; k < 4; ++k)
+                        {
+                            uj128[0] = _mm_adds_epu16(uj128[0], mod3i128[0]);
+                            uj128[1] = _mm_adds_epu16(uj128[1], mod3i128[1]);
+                            uj128[2] = _mm_adds_epu16(uj128[2], mod3i128[2]);
+                            uj128[3] = _mm_adds_epu16(uj128[3], mod3i128[3]);
+                            uj128[4] = _mm_adds_epu16(uj128[4], mod3i128[4]);
+                            uj128[5] = _mm_adds_epu16(uj128[5], mod3i128[5]);
+                            uj128[6] = _mm_adds_epu16(uj128[6], mod3i128[6]);
+                            uj128[7] = _mm_adds_epu16(uj128[7], mod3i128[7]);
+
+                            mod3i128[0] = _mm_adds_epu16(mod3i128[0], xij128[0]);
+                            mod3i128[1] = _mm_adds_epu16(mod3i128[1], xij128[1]);
+                            mod3i128[2] = _mm_adds_epu16(mod3i128[2], xij128[2]);
+                            mod3i128[3] = _mm_adds_epu16(mod3i128[3], xij128[3]);
+                            mod3i128[4] = _mm_adds_epu16(mod3i128[4], xij128[4]);
+                            mod3i128[5] = _mm_adds_epu16(mod3i128[5], xij128[5]);
+                            mod3i128[6] = _mm_adds_epu16(mod3i128[6], xij128[6]);
+                            mod3i128[7] = _mm_adds_epu16(mod3i128[7], xij128[7]);
+
+                            auto eq0 = _mm_cmpeq_epi16(mod3i128[0], block3);
+                            auto eq1 = _mm_cmpeq_epi16(mod3i128[1], block3);
+                            auto eq2 = _mm_cmpeq_epi16(mod3i128[2], block3);
+                            auto eq3 = _mm_cmpeq_epi16(mod3i128[3], block3);
+                            auto eq4 = _mm_cmpeq_epi16(mod3i128[4], block3);
+                            auto eq5 = _mm_cmpeq_epi16(mod3i128[5], block3);
+                            auto eq6 = _mm_cmpeq_epi16(mod3i128[6], block3);
+                            auto eq7 = _mm_cmpeq_epi16(mod3i128[7], block3);
+
+                            mod3i128[0] = _mm_andnot_si128(eq0, mod3i128[0]);
+                            mod3i128[1] = _mm_andnot_si128(eq1, mod3i128[1]);
+                            mod3i128[2] = _mm_andnot_si128(eq2, mod3i128[2]);
+                            mod3i128[3] = _mm_andnot_si128(eq3, mod3i128[3]);
+                            mod3i128[4] = _mm_andnot_si128(eq4, mod3i128[4]);
+                            mod3i128[5] = _mm_andnot_si128(eq5, mod3i128[5]);
+                            mod3i128[6] = _mm_andnot_si128(eq6, mod3i128[6]);
+                            mod3i128[7] = _mm_andnot_si128(eq7, mod3i128[7]);
+
+                            xij128 += 8;
+                            uj128 += 8;
+                            mod3i128 += 8;
+                        }
+                        mod3i += 256;
+                    }
+                    compressMod3(ui, mod3);
+
+
+                    //ui = ui ^ H(mKeyOTs[i][1])
+                    xorVector(ui, mKeyOTs[i][1]);
+
+                    MC_AWAIT(sock.send(std::move(ui)));
+                }
+
+                X = {};
+                setTimePoint("DarkMatter.recver.xkMult");
 
                 for (u64 j = 0; j < x.size(); ++j)
                 {
-                    oc::AlignedArray<oc::block, 32> xij;
-                    memcpy(&xij, &X[j][i], sizeof(xij));
-                    auto uj = mU[j].data();
-                    auto xij128 = (oc::block*)&xij;
-                    auto uj128 = (oc::block*)uj;
-                    auto mod3i128 = (oc::block*)mod3i;
-                    assert(u64(xij128) % 16 == 0);
-                    assert(u64(uj128) % 16 == 0);
-                    assert(u64(mod3i128) % 16 == 0);
-                    for (u64 k = 0; k < 4; ++k)
+                    auto ujk = mU[j].data();
+                    for (u64 k = 0; k < 256; ++k, ++ujk)
                     {
-                        uj128[0] = _mm_adds_epu16(uj128[0], mod3i128[0]);
-                        uj128[1] = _mm_adds_epu16(uj128[1], mod3i128[1]);
-                        uj128[2] = _mm_adds_epu16(uj128[2], mod3i128[2]);
-                        uj128[3] = _mm_adds_epu16(uj128[3], mod3i128[3]);
-                        uj128[4] = _mm_adds_epu16(uj128[4], mod3i128[4]);
-                        uj128[5] = _mm_adds_epu16(uj128[5], mod3i128[5]);
-                        uj128[6] = _mm_adds_epu16(uj128[6], mod3i128[6]);
-                        uj128[7] = _mm_adds_epu16(uj128[7], mod3i128[7]);
+                        *ujk = *ujk % 3;
 
-                        mod3i128[0] = _mm_adds_epu16(mod3i128[0], xij128[0]);
-                        mod3i128[1] = _mm_adds_epu16(mod3i128[1], xij128[1]);
-                        mod3i128[2] = _mm_adds_epu16(mod3i128[2], xij128[2]);
-                        mod3i128[3] = _mm_adds_epu16(mod3i128[3], xij128[3]);
-                        mod3i128[4] = _mm_adds_epu16(mod3i128[4], xij128[4]);
-                        mod3i128[5] = _mm_adds_epu16(mod3i128[5], xij128[5]);
-                        mod3i128[6] = _mm_adds_epu16(mod3i128[6], xij128[6]);
-                        mod3i128[7] = _mm_adds_epu16(mod3i128[7], xij128[7]);
-
-                        auto eq0 = _mm_cmpeq_epi16(mod3i128[0], block3);
-                        auto eq1 = _mm_cmpeq_epi16(mod3i128[1], block3);
-                        auto eq2 = _mm_cmpeq_epi16(mod3i128[2], block3);
-                        auto eq3 = _mm_cmpeq_epi16(mod3i128[3], block3);
-                        auto eq4 = _mm_cmpeq_epi16(mod3i128[4], block3);
-                        auto eq5 = _mm_cmpeq_epi16(mod3i128[5], block3);
-                        auto eq6 = _mm_cmpeq_epi16(mod3i128[6], block3);
-                        auto eq7 = _mm_cmpeq_epi16(mod3i128[7], block3);
-
-                        mod3i128[0] = _mm_andnot_si128(eq0, mod3i128[0]);
-                        mod3i128[1] = _mm_andnot_si128(eq1, mod3i128[1]);
-                        mod3i128[2] = _mm_andnot_si128(eq2, mod3i128[2]);
-                        mod3i128[3] = _mm_andnot_si128(eq3, mod3i128[3]);
-                        mod3i128[4] = _mm_andnot_si128(eq4, mod3i128[4]);
-                        mod3i128[5] = _mm_andnot_si128(eq5, mod3i128[5]);
-                        mod3i128[6] = _mm_andnot_si128(eq6, mod3i128[6]);
-                        mod3i128[7] = _mm_andnot_si128(eq7, mod3i128[7]);
-
-                        xij128 += 8;
-                        uj128 += 8;
-                        mod3i128 += 8;
-                    }
-                    mod3i += 256;
-                }
-                compressMod3(ui, mod3);
-
-
-                //ui = ui ^ H(mKeyOTs[i][1])
-                xorVector(ui, mKeyOTs[i][1]);
-
-                MC_AWAIT(sock.send(std::move(ui)));
-            }
-            X = {};
-            setTimePoint("DarkMatter.recver.xkMult");
-
-            for (u64 j = 0; j < x.size(); ++j)
-            {
-                auto ujk = mU[j].data();
-                for (u64 k = 0; k < 256; ++k, ++ujk)
-                {
-                    *ujk = *ujk % 3;
-
-                    //bool(mU[j][k]) * (i64(1 - mU[j][k]) * 2) + 1);
-                    switch (*ujk)
-                    {
-                    case 1:
-                        *ujk = 2;
-                        break;
-                    case 2:
-                        *ujk = 1;
-                        break;
-                    default:
-                        assert(*ujk == 0);
-                        break;
+                        //bool(mU[j][k]) * (i64(1 - mU[j][k]) * 2) + 1);
+                        switch (*ujk)
+                        {
+                        case 1:
+                            *ujk = 2;
+                            break;
+                        case 2:
+                            *ujk = 1;
+                            break;
+                        default:
+                            assert(*ujk == 0);
+                            break;
+                        }
                     }
                 }
             }

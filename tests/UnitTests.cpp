@@ -22,6 +22,8 @@ namespace secJoin_Tests
         t.add("DarkMatter22Prf_util_test                     ", DarkMatter22Prf_util_test);
         t.add("DarkMatter22Prf_proto_test                    ", DarkMatter22Prf_proto_test);
         t.add("DarkMatter32Prf_proto_test                    ", DarkMatter32Prf_proto_test);
+        t.add("DLpnPrf_plain_test                            ", DLpnPrf_plain_test);
+        t.add("DLpnPrf_proto_test                            ", DLpnPrf_proto_test);
         
 
     });
