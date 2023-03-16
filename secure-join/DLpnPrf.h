@@ -189,10 +189,12 @@ namespace secJoin
             }
 
             {
+
+                auto h2 = mH;
                 for (u64 k = 1; k < mPrf.KeySize; ++k)
                 {
-                    auto hk = mH.subspan(k * y.size());
-                    auto hk1 = mH.subspan((k - 1) * y.size());
+                    auto hk = h2.subspan(k * y.size());
+                    auto hk1 = h2.subspan((k - 1) * y.size());
 
                     for (u64 j = 0; j < y.size(); ++j)
                         hk[j] += hk1[j];
@@ -202,8 +204,8 @@ namespace secJoin
                 auto pik = mPrf.mPi.data();
                 for (u64 k = 0; k < m; ++k)
                 {
-                    auto h0 = mH.subspan(pik[0] * y.size(), y.size());
-                    auto h1 = mH.subspan(pik[1] * y.size(), y.size());
+                    auto h0 = h2.subspan(pik[0] * y.size(), y.size());
+                    auto h1 = h2.subspan(pik[1] * y.size(), y.size());
                     pik += 2;
                     for (u64 j = 0; j < y.size(); ++j)
                     {
@@ -211,6 +213,22 @@ namespace secJoin
                     }
                 }
             }
+
+
+            //for (u64 k = 1; k < KeySize; ++k)
+            //{
+            //    hj[k] += hj[k - 1];
+            //}
+
+            //auto pik = mPi.data();
+            //for (u64 k = 0; k < 256; ++k)
+            //{
+            //    uj.mData[k] = (
+            //        hj[pik[0]] +
+            //        hj[pik[1]]
+            //        ) % 3;
+            //    pik += 2;
+            //}
 
 
             setTimePoint("DarkMatter.sender.kxMult");
@@ -474,10 +492,12 @@ namespace secJoin
             }
 
             {
+
+                auto h2 = mH;
                 for (u64 k = 1; k < mPrf.KeySize; ++k)
                 {
-                    auto hk = mH.subspan(k * y.size());
-                    auto hk1 = mH.subspan((k - 1) * y.size());
+                    auto hk = h2.subspan(k * y.size());
+                    auto hk1 = h2.subspan((k - 1) * y.size());
 
                     for (u64 j = 0; j < y.size(); ++j)
                         hk[j] += hk1[j];
@@ -487,12 +507,14 @@ namespace secJoin
                 auto pik = mPrf.mPi.data();
                 for (u64 k = 0; k < m; ++k)
                 {
-                    auto h0 = mH.subspan(pik[0] * y.size(), y.size());
-                    auto h1 = mH.subspan(pik[1] * y.size(), y.size());
+                    auto h0 = h2.subspan(pik[0] * y.size(), y.size());
+                    auto h1 = h2.subspan(pik[1] * y.size(), y.size());
                     pik += 2;
                     for (u64 j = 0; j < y.size(); ++j)
                     {
                         mU[j][k] = (h0[j] + h1[j]) % 3;
+                        mU[j][k] = (3 - mU[j][k]) % 3;
+
                     }
                 }
             }
