@@ -603,9 +603,6 @@ void DLpnPrf_proto_test(const oc::CLP& cmd)
             for (u64 i = 0; i < X.size(); ++i)
                 X[i] = x[ii] ^ oc::block(i, i);
             oc::mAesFixedKey.hashBlocks<X.size()>(X.data(), X.data());
-            for (u64 i = 0; i < 4; ++i)
-                std::cout << X[i] << " ";
-            std::cout << std::endl;
             auto kIter = oc::BitIterator((u8*)sender.mPrf.mKey.data());
             auto xIter = oc::BitIterator((u8*)X.data());
             for (u64 i = 0; i < sender.mPrf.KeySize; ++i)

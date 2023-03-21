@@ -377,7 +377,7 @@ namespace secJoin
         assert(oc::divCeil(src.size(), 4) == dst.size());
 
         u64* d = (u64*)dst.data();
-        auto s = (const u16*)src.data();
+        auto s = src.data();
         auto n = src.size();
         auto n32 = n / 32 * 32;
         u64 i = 0;
@@ -407,6 +407,8 @@ namespace secJoin
             i += 32;
         }
 
+
+        s = src.data();
         while (i < n)
         {
             auto& d8 = dst[i / 4];
@@ -443,7 +445,7 @@ namespace secJoin
         for (; i < dst.size();)
         {
             auto ss = src[i/4];
-            auto rem = std::min<u64>(4, dst.size() % 4);
+            auto rem = std::min<u64>(4, dst.size() - i);
             for (u64 j = 0; j < rem; ++j, ++i)
             {
                 auto& dsti = d[i];
