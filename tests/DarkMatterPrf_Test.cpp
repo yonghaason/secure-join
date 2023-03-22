@@ -2,6 +2,7 @@
 #include "secure-join/DarkMatter22Prf.h"
 #include "secure-join/DarkMatter32Prf.h"
 #include "secure-join/DLpnPrf.h"
+#include "secure-join/ALpnPrf.h"
 #include "cryptoTools/Crypto/PRNG.h"
 #include "cryptoTools/Common/Matrix.h"
 using namespace secJoin;
@@ -644,6 +645,162 @@ void DLpnPrf_proto_test(const oc::CLP& cmd)
             y = sender.mPrf.compress(w);
         }
         //auto y = sender.mPrf.eval(x[ii]);
+
+        auto yy = (y0[ii] ^ y1[ii]);
+        if (yy != y)
+            throw RTE_LOC;
+    }
+}
+
+void ALpnPrf_plain_test()
+{
+
+
+
+    auto n = 256;
+    auto m = 256;
+    auto t = 128;
+    oc::PRNG prng(oc::ZeroBlock);
+    oc::block kk = prng.get();
+    oc::block xx = prng.get();
+
+
+    ALpnPrf prf;
+
+    prf.setKey(kk);
+
+
+    auto y = prf.eval(xx);
+
+    oc::Matrix<u64> B(t, m);
+    std::vector<u64> U(m), Y(t);
+    auto X = sampleMod3(oc::PRNG(xx,1), n);
+    auto K = sampleMod3(oc::PRNG(kk,1), n);
+
+    for (u64 i = 0; i < n; ++i)
+    {
+        U[i] = ((X[i] + K[i]) % 3) % 2;
+    }
+    for (u64 i = 0; i < t; ++i)
+    {
+        for (u64 j = 0; j < m; ++j)
+        {
+            B(i, j) = *oc::BitIterator((u8*)&DarkMatter22Prf::mB[i], j);
+        }
+    }
+    for (u64 i = 0; i < t; ++i)
+    {
+        for (u64 j = 0; j < m; ++j)
+        {
+            Y[i] ^= B(i, j) * U[j];
+        }
+
+        if (Y[i] != (u8)*oc::BitIterator((u8*)&y, i))
+        {
+            throw RTE_LOC;
+        }
+    }
+
+}
+
+void ALpnPrf_proto_test(const oc::CLP& cmd)
+{
+
+
+    u64 n = cmd.getOr("n", 100);
+    bool noCheck = cmd.isSet("nc");
+
+    oc::Timer timer;
+
+    ALpnPrfSender sender;
+    ALpnPrfReceiver recver;
+
+    sender.setTimer(timer);
+    recver.setTimer(timer);
+
+    std::vector<oc::block> x(n);
+    std::vector<oc::block> y0(n), y1(n);
+
+    auto sock = coproto::LocalAsyncSocket::makePair();
+
+    oc::PRNG prng0(oc::ZeroBlock);
+    oc::PRNG prng1(oc::OneBlock);
+
+    ALpnPrf dm;
+    oc::block kk;
+    kk = prng0.get();
+    dm.setKey(kk);
+    sender.setKey(kk);
+
+    prng0.get(x.data(), x.size());
+
+    auto r = coproto::sync_wait(coproto::when_all_ready(
+        sender.evaluate(y0, sock[0], prng0),
+        recver.evaluate(x, y1, sock[1], prng1)
+    ));
+
+    std::get<0>(r).result();
+    std::get<1>(r).result();
+
+    if (cmd.isSet("v"))
+    {
+        std::cout << timer << std::endl;
+        std::cout << sock[0].bytesReceived() / 1000.0 << " " << sock[0].bytesSent() / 1000.0 << " kB " << std::endl;
+    }
+
+    if (noCheck)
+        return;
+
+    for (u64 ii = 0; ii < n; ++ii)
+    {
+        oc::block y;
+        //{
+        //    std::array<u16, sender.mPrf.KeySize> h;
+        //    std::array<oc::block, sender.mPrf.KeySize / 128> X;
+        //    for (u64 i = 0; i < X.size(); ++i)
+        //        X[i] = x[ii] ^ oc::block(i, i);
+        //    oc::mAesFixedKey.hashBlocks<X.size()>(X.data(), X.data());
+        //    auto kIter = oc::BitIterator((u8*)sender.mPrf.mKey.data());
+        //    auto xIter = oc::BitIterator((u8*)X.data());
+        //    for (u64 i = 0; i < sender.mPrf.KeySize; ++i)
+        //    {
+        //        u8 xi = *xIter;
+        //        u8 ki = *kIter;
+        //        h[i] = ki & xi;
+
+        //        auto r = recver.mH[i * x.size() + ii];
+        //        auto s = sender.mH[i * x.size() + ii];
+        //        auto neg = (3 - r) % 3;
+        //        auto act = (s + neg) % 3;
+        //        if (act != h[i])
+        //            throw RTE_LOC;
+        //        //if (i < 20)
+        //        //    std::cout << "h[" << i << "] = " << h[i] 
+        //        //    << " = " << *kIter 
+        //        //    <<" ^ " << *xIter <<std::endl;
+
+        //        ++kIter;
+        //        ++xIter;
+        //    }
+
+        //    block256m3 u;
+        //    sender.mPrf.compressH(h, u);
+
+        //    for (u64 i = 0; i < 256; ++i)
+        //        if ((sender.mU[ii][i] + recver.mU[ii][i]) % 3 != u.mData[i])
+        //            throw RTE_LOC;
+
+        //    block256 w;
+        //    for (u64 i = 0; i < u.mData.size(); ++i)
+        //    {
+        //        //if (i < 10)
+        //        //    std::cout << "u[" << i << "] = " << (int)u.mData[i] << std::endl;
+
+        //        *oc::BitIterator((u8*)&w, i) = u.mData[i] % 2;
+        //    }
+        //    y = sender.mPrf.compress(w);
+        //}
+        y = sender.mPrf.eval(x[ii]);
 
         auto yy = (y0[ii] ^ y1[ii]);
         if (yy != y)
