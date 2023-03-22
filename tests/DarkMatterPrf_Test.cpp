@@ -732,6 +732,19 @@ void ALpnPrf_proto_test(const oc::CLP& cmd)
     dm.setKey(kk);
     sender.setKey(kk);
 
+
+    auto choice = sender.getKeyChoiceBits();
+    std::vector<oc::block> rk(choice.size());
+    std::vector<std::array<oc::block, 2>> sk(choice.size());
+    for (u64 i = 0; i < choice.size(); ++i)
+    {
+        sk[i][0] = oc::mAesFixedKey.hashBlock(oc::block(i, 0));
+        sk[i][1] = oc::mAesFixedKey.hashBlock(oc::block(i, 1));
+        rk[i] = oc::mAesFixedKey.hashBlock(oc::block(i,choice[i]));
+    }
+    sender.setKeyOts(rk);
+    recver.setKeyOts(sk);
+
     prng0.get(x.data(), x.size());
 
     auto r = coproto::sync_wait(coproto::when_all_ready(
