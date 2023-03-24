@@ -18,9 +18,9 @@ namespace secJoin
     class DLpnPrf
     {
     public:
-        static constexpr int KeySize = 512;
+        static constexpr int KeySize = 256;
         std::array<oc::block, KeySize / 128> mKey;
-        oc::AlignedUnVector<u16> mPi;
+        //oc::AlignedUnVector<u16> mPi;
 
         //std::array<oc::block, 1024> mKeyMask;
 
@@ -34,27 +34,34 @@ namespace secJoin
             //for (u64 i = 0; i < 256; ++i)
             //    mKeyMask[i] = zeroOne[*oc::BitIterator((u8*)&k, i)];
 
-            mPi = samplePerm(oc::ZeroBlock, KeySize);
+            //mPi = samplePerm(oc::ZeroBlock, KeySize);
         }
 
         void compressH(std::array<u16, KeySize>& hj, block256m3& uj)
         {
-            assert(mPi.size() != 0);
+            //for (u64 k = 0; k < KeySize; ++k)
+            //{
+            //    uj.mData[k] = hj[k];
+            //}
 
+
+            //assert(mPi.size() != 0);
+            uj.mData[0] = hj[0];
             for (u64 k = 1; k < KeySize; ++k)
             {
-                hj[k] += hj[k - 1];
+                uj.mData[k] = hj[k] + uj.mData[k - 1];
+                uj.mData[k] = uj.mData[k] % 3;
             }
 
-            auto pik = mPi.data();
-            for (u64 k = 0; k < 256; ++k)
-            {
-                uj.mData[k] = (
-                    hj[pik[0]] +
-                    hj[pik[1]]
-                    ) % 3;
-                pik += 2;
-            }
+            //auto pik = mPi.data();
+            //for (u64 k = 0; k < 256; ++k)
+            //{
+            //    uj.mData[k] = (
+            //        hj[pik[0]] +
+            //        hj[pik[1]]
+            //        ) % 3;
+            //    pik += 2;
+            //}
 
         }
 
@@ -75,7 +82,7 @@ namespace secJoin
                 //if (i < 20)
                 //    std::cout << "h[" << i << "] = " << h[i] 
                 //    << " = " << *kIter 
-                //    <<" ^ " << *xIter <<std::endl;
+                //    <<" & " << *xIter <<std::endl;
 
                 ++kIter;
                 ++xIter;
@@ -87,8 +94,8 @@ namespace secJoin
             block256 w;
             for (u64 i = 0; i < u.mData.size(); ++i)
             {
-                //if (i < 10)
-                //    std::cout << "u[" << i << "] = " << (int)u.mData[i] << std::endl;
+                if (i < 10)
+                    std::cout << "u[" << i << "] = " << (int)u.mData[i] << std::endl;
 
                 *oc::BitIterator((u8*)&w, i) = u.mData[i] % 2;
             }
@@ -113,7 +120,7 @@ namespace secJoin
 
         static constexpr auto StepSize = 32;
         static constexpr auto n = DLpnPrf::KeySize;
-        static constexpr auto m = n / 2;
+        static constexpr auto m = 256;
         static constexpr auto t = 128;
         DLpnPrf mPrf;
         //std::vector<block256> mU2;
@@ -188,36 +195,52 @@ namespace secJoin
                 }
             }
 
-            if (mPrf.mPi.size() == 0)
-            {
-                mPrf.mPi = samplePerm(oc::ZeroBlock, mPrf.KeySize);
-            }
+            //if (mPrf.mPi.size() == 0)
+            //{
+            //    mPrf.mPi = samplePerm(oc::ZeroBlock, mPrf.KeySize);
+            //}
 
 
             {
+                //for (u64 k = 0; k < mPrf.KeySize; ++k)
+                //{
+                //    auto hk = mH.data() + k * y.size();
+                //    for (u64 j = 0; j < y.size(); ++j)
+                //    {
+                //        mU.data()[j].data()[k] = hk[j];
+                //    }
+                //}
 
                 auto& h2 = mH;
+                for (u64 j = 0; j < y.size(); ++j)
+                {
+                    mU.data()[j].data()[0] = h2.data()[j];
+                }
                 for (u64 k = 1; k < mPrf.KeySize; ++k)
                 {
                     auto hk = h2.data() + k * y.size();
                     auto hk1 = h2.data() + ((k - 1) * y.size());
 
                     for (u64 j = 0; j < y.size(); ++j)
+                    {
                         hk[j] += hk1[j];
+                        hk[j] %= 3;
+                        mU.data()[j].data()[k] = hk[j];
+                    }
                 }
 
                 //auto& uj = mU[j];
-                auto pik = mPrf.mPi.data();
-                for (u64 k = 0; k < m; ++k)
-                {
-                    auto h0 = h2.data() + pik[0] * y.size();
-                    auto h1 = h2.data() + pik[1] * y.size();
-                    pik += 2;
-                    for (u64 j = 0; j < y.size(); ++j)
-                    {
-                        mU.data()[j].data()[k] = (h0[j] + h1[j]) % 3;
-                    }
-                }
+                //auto pik = mPrf.mPi.data();
+                //for (u64 k = 0; k < m; ++k)
+                //{
+                //    auto h0 = h2.data() + pik[0] * y.size();
+                //    auto h1 = h2.data() + pik[1] * y.size();
+                //    pik += 2;
+                //    for (u64 j = 0; j < y.size(); ++j)
+                //    {
+                //        mU.data()[j].data()[k] = (h0[j] + h1[j]) % 3;
+                //    }
+                //}
             }
 
 
@@ -335,7 +358,7 @@ namespace secJoin
                     }
 
                     y[i] = DarkMatter22Prf::compress(w);
-                }
+            }
 #else
                 auto bIter = ots.data();
 
@@ -393,13 +416,13 @@ namespace secJoin
                 }
 #endif
 
-            }
+        }
             MC_AWAIT(sock.send(std::move(f)));
 
             setTimePoint("DarkMatter.sender.derand");
 
             MC_END();
-        }
+    }
 
     };
 
@@ -417,7 +440,7 @@ namespace secJoin
 
         static constexpr auto StepSize = 32;
         static constexpr auto n = DLpnPrf::KeySize;
-        static constexpr auto m = n / 2;
+        static constexpr auto m = 256;
         static constexpr auto t = 128;
         DLpnPrf mPrf;
         //oc::AlignedUnVector<u16> mPi;
@@ -438,7 +461,7 @@ namespace secJoin
         coproto::task<> evaluate(span<oc::block> x, span<oc::block> y, coproto::Socket& sock, oc::PRNG& prng)
         {
             MC_BEGIN(coproto::task<>, x, y, this, &sock, &prng,
-                X = oc::AlignedUnVector<std::array<oc::block, 4>>{},
+                X = oc::AlignedUnVector<std::array<oc::block, 2>>{},
                 buffer = oc::AlignedUnVector<u8>{},
                 //h = oc::AlignedUnVector<u16>{},
                 rKeys = oc::AlignedUnVector<oc::block>{},
@@ -460,11 +483,11 @@ namespace secJoin
             X.resize(x.size());
             for (u64 j = 0; j < x.size(); ++j)
             {
-                for (i = 0; i < 4; ++i)
+                for (i = 0; i < 2; ++i)
                 {
                     X[j][i] = x[j] ^ oc::block(i, i);
                 }
-                oc::mAesFixedKey.hashBlocks<4>(X[j].data(), X[j].data());
+                oc::mAesFixedKey.hashBlocks<2>(X[j].data(), X[j].data());
             }
             ////xk
             //uu.resize(y.size() * 4);
@@ -509,42 +532,53 @@ namespace secJoin
             }
 
 
-            if (mPrf.mPi.size() == 0)
-            {
-                mPrf.mPi = samplePerm(oc::ZeroBlock, mPrf.KeySize);
-            }
+            //if (mPrf.mPi.size() == 0)
+            //{
+            //    mPrf.mPi = samplePerm(oc::ZeroBlock, mPrf.KeySize);
+            //}
 
             {
+
 
                 auto& h2 = mH;
+
+                for (u64 j = 0; j < y.size(); ++j)
+                {
+                    mU.data()[j].data()[0] = (3- h2.data()[j]) % 3;
+                }
                 for (u64 k = 1; k < mPrf.KeySize; ++k)
                 {
                     auto hk = h2.data() + k * y.size();
                     auto hk1 = h2.data() + ((k - 1) * y.size());
 
                     for (u64 j = 0; j < y.size(); ++j)
+                    {
                         hk[j] += hk1[j];
+                        hk[j] %= 3;
+
+                        mU.data()[j].data()[k] = (3 - hk[j]) % 3;
+                    }
                 }
 
                 //auto& uj = mU[j];
-                auto pik = mPrf.mPi.data();
-                for (u64 k = 0; k < m; ++k)
-                {
-                    auto h0 = h2.data() + pik[0] * y.size();
-                    auto h1 = h2.data() + pik[1] * y.size();
-                    pik += 2;
-                    for (u64 j = 0; j < y.size(); ++j)
-                    {
-                        auto& ujk = mU.data()[j].data()[k];
-                        ujk = (h0[j] + h1[j]) % 3;
-                        //mU[j][k] = (3 - mU[j][k]) % 3;
+                //auto pik = mPrf.mPi.data();
+                //for (u64 k = 0; k < m; ++k)
+                //{
+                //    auto h0 = h2.data() + pik[0] * y.size();
+                //    auto h1 = h2.data() + pik[1] * y.size();
+                //    pik += 2;
+                //    for (u64 j = 0; j < y.size(); ++j)
+                //    {
+                //        auto& ujk = mU.data()[j].data()[k];
+                //        ujk = (h0[j] + h1[j]) % 3;
+                //        //mU[j][k] = (3 - mU[j][k]) % 3;
 
-                        ujk =
-                            ((ujk & 2) >> 1) |
-                            ((ujk & 1) << 1);
+                //        ujk =
+                //            ((ujk & 2) >> 1) |
+                //            ((ujk & 1) << 1);
 
-                    }
-                }
+                //    }
+                //}
             }
 
             setTimePoint("DarkMatter.recver.mod2");
@@ -578,9 +612,9 @@ namespace secJoin
 
                         *dIter++ = ((*aIter++).get<u8>(0) ^ a0) & 1;
                         *dIter++ = ((*aIter++).get<u8>(0) ^ a1) & 1;
-                    }
-                }
             }
+        }
+    }
             MC_AWAIT(sock.send(std::move(diff)));
 
 #else
@@ -673,7 +707,7 @@ namespace secJoin
             setTimePoint("DarkMatter.recver.derand");
 
             MC_END();
-        }
+}
 
     };
 }

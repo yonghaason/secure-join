@@ -438,7 +438,7 @@ void DLpnPrf_plain_test()
 {
 
 
-    auto n = 512;
+    auto n = DLpnPrf::KeySize;
     auto m = 256;
     auto t = 128;
     oc::PRNG prng(oc::ZeroBlock);
@@ -448,7 +448,7 @@ void DLpnPrf_plain_test()
     std::array<oc::block, DLpnPrf::KeySize / 128> x;
     for (u64 i = 0; i < x.size(); ++i)
         x[i] = xx ^ oc::block(i, i);
-    oc::mAesFixedKey.hashBlocks<4>(x.data(), x.data());
+    oc::mAesFixedKey.hashBlocks<DLpnPrf::KeySize / 128>(x.data(), x.data());
 
     DLpnPrf prf;
 
@@ -466,7 +466,7 @@ void DLpnPrf_plain_test()
         H[i] = X[i] & K[i];
 
         //if (i < 20)
-        //    std::cout << "H[" << i << "] = " << (H[i]) << std::endl;
+        //    std::cout << "H[" << i << "] = " << (H[i]) << " = " << K[i] << " * " << X[i] << std::endl;
 
     }
     for (u64 i = 0; i < t; ++i)
@@ -498,20 +498,27 @@ void DLpnPrf_plain_test()
     {
         //assert(mPi.size() != 0);
 
+        //for (u64 k = 0; k < prf.KeySize; ++k)
+        //{
+        //    U[k] = H[k];
+        //}
+
+        U[0] = H[0];
         for (u64 k = 1; k < prf.KeySize; ++k)
         {
-            H[k] += H[k - 1];
+            U[k] = H[k] + U[k - 1];
+            U[k] %= 3;
         }
 
-        auto pik = prf.mPi.data();
-        for (u64 k = 0; k < m; ++k)
-        {
-            U[k] = (
-                H[pik[0]] +
-                H[pik[1]]
-                ) % 3;
-            pik += 2;
-        }
+        //auto pik = prf.mPi.data();
+        //for (u64 k = 0; k < m; ++k)
+        //{
+        //    U[k] = (
+        //        H[pik[0]] +
+        //        H[pik[1]]
+        //        ) % 3;
+        //    pik += 2;
+        //}
     }
     for (u64 i = 0; i < m; ++i)
     {
@@ -631,8 +638,13 @@ void DLpnPrf_proto_test(const oc::CLP& cmd)
             sender.mPrf.compressH(h, u);
 
             for (u64 i = 0; i < 256; ++i)
-                if ((sender.mU[ii][i] + recver.mU[ii][i])%3 != u.mData[i])
+            {
+
+                if ((sender.mU[ii][i] + recver.mU[ii][i]) % 3 != u.mData[i])
+                {
                     throw RTE_LOC;
+                }
+            }
 
             block256 w;
             for (u64 i = 0; i < u.mData.size(); ++i)
