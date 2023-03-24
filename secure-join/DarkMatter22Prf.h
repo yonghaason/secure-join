@@ -244,6 +244,117 @@ namespace secJoin
         }
     };
 
+    template<u64 n>
+    inline void fastMod3(oc::PRNG& prng, span<u16> mBuffer)
+    {
+        assert(mBuffer.size() == n);
+        auto dst = mBuffer.data();
+        oc::block block1 = std::array<u16, 8>{1, 1, 1, 1, 1, 1, 1, 1};
+
+
+        for (u64 i = 0; i < n;)
+        {
+            for (u64 bb = 0; bb < batchSize; ++bb)
+            {
+
+                prng.mAes.ecbEncCounterMode(prng.mBlockIdx, 8, m);
+                prng.mBlockIdx += 8;
+                //for (auto k = 0; k < 16 && i < n; ++k)
+                //{
+                //    u64 t = ((u64*)m)[k];
+                //    auto min = std::min<u64>(32, n - i);
+                //    for (u64 j = 0; j < min; ++j)
+                //    {
+                //        auto b = t & 3;
+                //        dst[i] = b;
+                //        i += (b != 3);
+                //        t >>= 2;
+                //    }
+                //}
+                for (u64 j = 0; j < 8; ++j)
+                {
+                    if (j)
+                    {
+                        m[0] = m[0] >> 2;
+                        m[1] = m[1] >> 2;
+                        m[2] = m[2] >> 2;
+                        m[3] = m[3] >> 2;
+                        m[4] = m[4] >> 2;
+                        m[5] = m[5] >> 2;
+                        m[6] = m[6] >> 2;
+                        m[7] = m[7] >> 2;
+                    }
+
+                    t[0] = m[0] & block3;
+                    t[1] = m[1] & block3;
+                    t[2] = m[2] & block3;
+                    t[3] = m[3] & block3;
+                    t[4] = m[4] & block3;
+                    t[5] = m[5] & block3;
+                    t[6] = m[6] & block3;
+                    t[7] = m[7] & block3;
+
+                    eq[0] = _mm_cmpeq_epi16(t[0], block3);
+                    eq[1] = _mm_cmpeq_epi16(t[1], block3);
+                    eq[2] = _mm_cmpeq_epi16(t[2], block3);
+                    eq[3] = _mm_cmpeq_epi16(t[3], block3);
+                    eq[4] = _mm_cmpeq_epi16(t[4], block3);
+                    eq[5] = _mm_cmpeq_epi16(t[5], block3);
+                    eq[6] = _mm_cmpeq_epi16(t[6], block3);
+                    eq[7] = _mm_cmpeq_epi16(t[7], block3);
+
+                    eq[0] = eq[0] ^ allOne;
+                    eq[1] = eq[1] ^ allOne;
+                    eq[2] = eq[2] ^ allOne;
+                    eq[3] = eq[3] ^ allOne;
+                    eq[4] = eq[4] ^ allOne;
+                    eq[5] = eq[5] ^ allOne;
+                    eq[6] = eq[6] ^ allOne;
+                    eq[7] = eq[7] ^ allOne;
+
+                    eq[0] = eq[0] & block1;
+                    eq[1] = eq[1] & block1;
+                    eq[2] = eq[2] & block1;
+                    eq[3] = eq[3] & block1;
+                    eq[4] = eq[4] & block1;
+                    eq[5] = eq[5] & block1;
+                    eq[6] = eq[6] & block1;
+                    eq[7] = eq[7] & block1;
+
+                    auto t16 = (u16 * __restrict)t;
+                    auto e16 = (u16 * __restrict)eq;
+                    for (u64 j = 0; j < 64; ++j)
+                    {
+                        iters[j][0] = t16[j];
+                        iters[j] += e16[j];
+                    }
+
+                }
+            }
+
+            for (u64 j = 0; j < 64 && i < n; ++j)
+            {
+                auto b = (u16*)buffer[j].data();
+
+                auto size = iters[j] - b;
+                auto min = std::min<u64>(size, n - i);
+                if (min)
+                {
+                    memcpy(dst + i, b, min * 2);
+                    i += min;
+                }
+            }
+        }
+
+        //for (u64 q = 0; q < mBuffer.size(); ++q)
+        //{
+        //    //mBuffer[q] = prng.get<u64>() % 3;
+        //    std::cout << int(mBuffer[q]) << " ";
+        //    assert(mBuffer[q] < 3);
+        //}
+        //std::cout << std::endl;
+
+    }
     inline void sampleMod3(oc::PRNG& prng, span<u16> mBuffer)
     {
         auto n = mBuffer.size();

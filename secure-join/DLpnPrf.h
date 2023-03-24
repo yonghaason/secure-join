@@ -213,14 +213,7 @@ namespace secJoin
                     pik += 2;
                     for (u64 j = 0; j < y.size(); ++j)
                     {
-                        auto& ujk = mU[j][k];
-                        ujk = (h0[j] + h1[j]) % 3;
-                        //mU[j][k] = (3 - mU[j][k]) % 3;
-
-                        ujk =
-                            ((ujk & 2) >> 1) |
-                            ((ujk & 1) << 1);
-
+                        mU[j][k] = (h0[j] + h1[j]) % 3;
                     }
                 }
             }

@@ -4,9 +4,6 @@
 #include "cryptoTools/Common/BitIterator.h"
 #include <bitset>
 #include "libOTe/Tools/Tools.h"
-#include "libOTe/TwoChooseOne/Silent/SilentOtExtSender.h"
-#include "libOTe/TwoChooseOne/Silent/SilentOtExtReceiver.h"
-#include "libOTe/TwoChooseOne/SoftSpokenOT/SoftSpokenShOtExt.h"
 #include "DarkMatter22Prf.h"
 
 namespace secJoin
@@ -49,20 +46,11 @@ namespace secJoin
     {
         std::vector<oc::PRNG> mKeyOTs;
     public:
-#ifdef SECUREJOIN_DK_USE_SILENT
-        oc::SilentOtExtSender mOtSender;
-#else
-        oc::SoftSpokenShOtSender<> mSoftSender;
-#endif
 
-        static constexpr auto StepSize = 32;
         static constexpr auto n = ALpnPrf::KeySize;
-        static constexpr auto m = n;
         static constexpr auto t = 128;
 
         ALpnPrf mPrf;
-        //oc::AlignedUnVector<std::array<u16, m>> mU;
-
 
         oc::BitVector getKeyChoiceBits()
         {
@@ -98,8 +86,6 @@ namespace secJoin
 
             MC_BEGIN(coproto::task<>, y, this, &sock, &prng,
                 buffer = oc::AlignedUnVector<u8>{},
-                //uu = oc::AlignedUnVector<u16>{},
-                ots = oc::AlignedUnVector<std::array<oc::block, 2>>{},
                 i = u64{}
             );
 
@@ -115,31 +101,50 @@ namespace secJoin
 
             {
                 //mU2.resize(x.size());
-                auto fIter = oc::BitIterator((u8*)buffer.data());
+                //auto fIter = oc::BitIterator((u8*)buffer.data());
+                auto f16Iter = (u16*)buffer.data();
+                std::array<u64, 256> kBuff;
+
+
                 for (i = 0; i < y.size(); ++i)
                 {
+                    auto s = i % 64;
+                    if (s == 0)
+                    {
+                        for (u64 j = 0; j < 256; ++j)
+                        {
+                            kBuff[j] = mKeyOTs[j].get<u64>();
+                        }
+                    }
+
                     auto uij = mPrf.mKey.data();
                     block256 w;
-                    auto uIter = oc::BitIterator((u8*)&w);
+                    auto u8Iter = (u8*)&w;
 
-                    for (u64 j = 0; j < n; ++j, ++uij)
+                    for (u64 j = 0; j < n;)
                     {
-                        auto u = mKeyOTs[j].get<u8>();
-                        //if (i == 4)
-                        //{
-                        //    std::cout << "r" << j << " " << int(u) << " ~ " << mPrf.mKey[j] << std::endl;
-                        //}
-
-                        u &= 1;
-                        assert(*uij < 3);
-
-                        if (*uij)
+                        //auto u = mKeyOTs[j].get<u8>();
+                        //u &= 1;
+                        *u8Iter = 0;
+                        for (u64 k = 0; k < 8; ++k, ++j, ++uij)
                         {
-                            u ^= *(fIter + (*uij - 1));
+
+                            auto u = (kBuff[j] >> s) & 1;
+
+                            assert(*uij < 3);
+
+                            if (*uij)
+                            {
+                                u ^= (*f16Iter >> (*uij - 1)) & 1;
+                            }
+
+                            *f16Iter = *f16Iter >> 2;
+                            *u8Iter ^= u << k;
                         }
 
-                        fIter = fIter + 2;
-                        *uIter++ = u;
+
+                        ++f16Iter;
+                        ++u8Iter;
                     }
 
                     y[i] = DarkMatter22Prf::compress(w);
@@ -156,15 +161,8 @@ namespace secJoin
     {
         std::vector<std::array<oc::PRNG, 3>> mKeyOTs;
     public:
-        oc::SilentOtExtReceiver mOtReceiver;
-        oc::SoftSpokenShOtReceiver<> mSoftReceiver;
-
-
-        static constexpr auto StepSize = 32;
         static constexpr auto n = ALpnPrf::KeySize;
-        static constexpr auto m = n;
         static constexpr auto t = 128;
-
 
         void setKeyOts(span<std::array<oc::block, 2>> ots)
         {
@@ -184,22 +182,10 @@ namespace secJoin
         {
             MC_BEGIN(coproto::task<>, x, y, this, &sock, &prng,
                 X = oc::AlignedUnVector<std::array<u16, n>>{},
-                buffer = oc::AlignedUnVector<u8>{},
-                //h = oc::AlignedUnVector<u16>{},
-                rKeys = oc::AlignedUnVector<oc::block>{},
-                mod3 = oc::AlignedUnVector<u16>{},
-                diff = oc::BitVector{},
                 f = oc::BitVector{},
-                i = u64{},
-                ots = oc::AlignedUnVector<oc::block>{},
-                block3 = oc::block{},
-                xPtr = (u32*)nullptr,
-                compressedSize = u64{}
+                i = u64{}
             );
             setTimePoint("DarkMatter.recver.begin");
-
-            block3 = std::array<u16, 8>{3, 3, 3, 3, 3, 3, 3, 3};
-
 
             X.resize(x.size());
             for (u64 j = 0; j < x.size(); ++j)
@@ -208,18 +194,27 @@ namespace secJoin
             }
             setTimePoint("DarkMatter.recver.xMod3");
 
-
-
             {
-                f.resize(y.size() * m * 2);
+                f.resize(y.size() * n * 2);
                 auto mask = oc::AllOneBlock ^ oc::OneBlock;
                 auto f16Iter = (u16*)f.data();
+
+                std::array<std::array<u64, 3>, 256> kBuff;
 
 
                 for (u64 i = 0; i < y.size(); ++i)
                 {
+                    auto s = i % 64;
+                    if (s == 0)
+                    {
+                        for (u64 j = 0; j < 256; ++j)
+                        {
+                            kBuff[j][0] = mKeyOTs[j][0].get<u64>();
+                            kBuff[j][1] = mKeyOTs[j][1].get<u64>();
+                            kBuff[j][2] = mKeyOTs[j][2].get<u64>();
+                        }
+                    }
 
-                    auto bIter = ots.data();
                     block256 w;
                     auto u8Iter = (u8*)&w;
                     for (u64 j = 0; j < 256; )
@@ -229,18 +224,9 @@ namespace secJoin
                         for (u64 k = 0; k < 8; ++k, ++j)
                         {
 
-                            auto q0 = mKeyOTs[j][0].get<u8>();
-                            auto q1 = mKeyOTs[j][1].get<u8>();
-                            auto q2 = mKeyOTs[j][2].get<u8>();
-
-                            //if (i == 4)
-                            //{
-                            //    std::cout << "s" << j << " " << int(q0) << " " << int(q1) << " " << int(q2) << std::endl;
-                            //}
-
-                            q0 &= 1;
-                            q1 &= 1;
-                            q2 &= 1;
+                            auto q0 = (kBuff[j][0] >> s) & 1;
+                            auto q1 = (kBuff[j][1] >> s) & 1;
+                            auto q2 = (kBuff[j][2] >> s) & 1;
 
                             //  them       us
                             //         0   1   2
