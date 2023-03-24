@@ -148,6 +148,7 @@ namespace secJoin
                 diff = oc::BitVector{},
                 ots = oc::AlignedUnVector<std::array<oc::block, 2>>{},
                 i = u64{},
+                compressedSizeAct = u64{},
                 compressedSize = u64{}
             );
 
@@ -159,7 +160,8 @@ namespace secJoin
 
             // y.size() rows, each of size 1024
             mH.resize(y.size() * mPrf.KeySize);
-            compressedSize = oc::divCeil(y.size(), 4);
+            compressedSizeAct = oc::divCeil(y.size(), 4);
+            compressedSize = oc::roundUpTo(compressedSizeAct, sizeof(oc::block));
             for (i = 0; i < mPrf.KeySize;)
             {
                 buffer.resize(compressedSize * StepSize); // y.size() * 256 * 2 bits
@@ -167,8 +169,8 @@ namespace secJoin
                 MC_AWAIT(sock.recv(buffer));
                 for (u64 k = 0; k < StepSize; ++i, ++k)
                 {
-                    auto ui = buffer.subspan(compressedSize * k, compressedSize);
-                    auto uu = mH.subspan(i * y.size(), y.size());
+                    auto ui = buffer.subspan(compressedSize * k, compressedSizeAct);
+                    auto hh = mH.subspan(i * y.size(), y.size());
 
                     u8 ki = *oc::BitIterator((u8*)&mPrf.mKey, i);
                     if (ki)
@@ -177,11 +179,11 @@ namespace secJoin
                         //std::cout << "recv ui " << int(ui[0]) << std::endl;
                         xorVector(ui, mKeyOTs[i]);
                         //std::cout << "recv ui " << int(ui[0]) << std::endl;
-                        decompressMod3(uu, ui);
+                        decompressMod3(hh, ui);
                     }
                     else
                     {
-                        sampleMod3(mKeyOTs[i], uu);
+                        sampleMod3(mKeyOTs[i], hh);
                     }
                 }
             }
@@ -194,7 +196,7 @@ namespace secJoin
 
             {
 
-                auto h2 = mH;
+                auto& h2 = mH;
                 for (u64 k = 1; k < mPrf.KeySize; ++k)
                 {
                     auto hk = h2.data() + k * y.size();
@@ -213,7 +215,7 @@ namespace secJoin
                     pik += 2;
                     for (u64 j = 0; j < y.size(); ++j)
                     {
-                        mU[j][k] = (h0[j] + h1[j]) % 3;
+                        mU.data()[j].data()[k] = (h0[j] + h1[j]) % 3;
                     }
                 }
             }
@@ -248,7 +250,7 @@ namespace secJoin
 #else
             ots.resize(y.size() * m * 2);
 #ifdef SECUREJOIN_ENABLE_FAKE_GEN
-            memset(ots.data(), 0, sizeof(ots[0]) * ots.size());
+            //memset(ots.data(), 0, sizeof(ots[0]) * ots.size());
 #else
             MC_AWAIT(mSoftSender.send(ots, prng, sock));
 #endif
@@ -352,9 +354,13 @@ namespace secJoin
 
 
 
-                            auto q0 = (s[0].get<u8>(0) ^ s[2].get<u8>(0)) & 1;
-                            auto q1 = (s[1].get<u8>(0) ^ s[2].get<u8>(0)) & 1;
-                            auto q2 = (s[0].get<u8>(0) ^ s[3].get<u8>(0)) & 1;
+                            auto Q0 = (s[0] ^ s[2]) & oc::OneBlock;
+                            auto Q1 = (s[1] ^ s[2]) & oc::OneBlock;
+                            auto Q2 = (s[0] ^ s[3]) & oc::OneBlock;
+
+                            auto q0 = ((u8*)&Q0)[0];
+                            auto q1 = ((u8*)&Q1)[0];
+                            auto q2 = ((u8*)&Q2)[0];
 
                             //  them       us
                             //         0   1   2
@@ -442,6 +448,7 @@ namespace secJoin
                 ots = oc::AlignedUnVector<oc::block>{},
                 block3 = oc::block{},
                 xPtr = (u32*)nullptr,
+                compressedSizeAct = u64{},
                 compressedSize = u64{}
             );
             setTimePoint("DarkMatter.recver.begin");
@@ -467,14 +474,15 @@ namespace secJoin
             assert(mPrf.KeySize % StepSize == 0);
             mod3.resize(y.size());
             mH.resize(y.size() * mPrf.KeySize);
-            compressedSize = oc::divCeil(y.size(), 4);
+            compressedSizeAct = oc::divCeil(y.size(), 4);
+            compressedSize = oc::roundUpTo(compressedSizeAct, sizeof(oc::block));
             for (i = 0; i < mPrf.KeySize;)
             {
                 static_assert(StepSize == sizeof(*xPtr) * 8, "failed static_assert: StepSize == sizeof(*xPtr) * 8");
                 buffer.resize(compressedSize * StepSize);
                 for (u64 k = 0; k < StepSize; ++i, ++k)
                 {
-                    auto ui = buffer.subspan(compressedSize * k, compressedSize);
+                    auto ui = buffer.subspan(compressedSize * k, compressedSizeAct);
                     auto hi = mH.subspan(y.size() * i, y.size());
                     xPtr = (u32*)X.data() + i / StepSize;
 
@@ -508,7 +516,7 @@ namespace secJoin
 
             {
 
-                auto h2 = mH;
+                auto& h2 = mH;
                 for (u64 k = 1; k < mPrf.KeySize; ++k)
                 {
                     auto hk = h2.data() + k * y.size();
@@ -527,7 +535,7 @@ namespace secJoin
                     pik += 2;
                     for (u64 j = 0; j < y.size(); ++j)
                     {
-                        auto& ujk = mU[j][k];
+                        auto& ujk = mU.data()[j].data()[k];
                         ujk = (h0[j] + h1[j]) % 3;
                         //mU[j][k] = (3 - mU[j][k]) % 3;
 
@@ -579,31 +587,42 @@ namespace secJoin
             setTimePoint("DarkMatter.recver.choice");
 
             {
-                auto dIter = diff.begin();
+                auto d64Iter = (u64*)diff.data();
                 for (u64 i = 0; i < x.size(); ++i)
                 {
-                    for (u64 j = 0; j < m; ++j)
+                    for (u64 j = 0; j < m;)
                     {
-                        auto uij = mU.data()[i][j];
-                        auto a0 = uij & 1;
-                        auto a1 = (uij >> 1);
-                        assert(a1 < 2);
+                        *d64Iter = 0;
+                        for (u64 k = 0; k < 64; k += 2, ++j)
+                        {
 
-                        *dIter++ = a0;
-                        *dIter++ = a1 & 1;
+                            u64 uij = mU.data()[i][j];
+                            auto a0 = uij & 1;
+                            auto a1 = (uij >> 1);
+                            assert(a1 < 2);
+
+                            *d64Iter |= a0 << (k);
+                            *d64Iter |= a1 << (k + 1);;
+                        }
+
+                        ++d64Iter;
                     }
                 }
             }
 
             ots.resize(diff.size());
 #ifdef SECUREJOIN_ENABLE_FAKE_GEN
-            memset(ots.data(), 0, sizeof(ots[0]) * ots.size());
+            //memset(ots.data(), 0, sizeof(ots[0]) * ots.size());
 #else
             MC_AWAIT(mSoftReceiver.receive(diff, ots, prng, sock));
 #endif
-            for (u64 i = 0; i < rKeys.size(); ++i)
             {
-                rKeys[i] = ots[i * 2] ^ ots[i * 2 + 1];
+                auto otIter = ots.data();
+                for (u64 i = 0; i < rKeys.size(); ++i)
+                {
+                    rKeys.data()[i] = otIter[0] ^ otIter[1];
+                    otIter += 2;
+                }
             }
             setTimePoint("DarkMatter.recver.soft");
 
@@ -614,34 +633,42 @@ namespace secJoin
 
             MC_AWAIT(sock.recv(buffer));
 
+
             {
                 //mU2.resize(x.size());
-                auto fIter = oc::BitIterator((u8*)buffer.data());
+                //auto fIter = oc::BitIterator((u8*)buffer.data());
+                auto f16Iter = (u16*)buffer.data();
                 auto rIter = rKeys.begin();
                 for (i = 0; i < x.size(); ++i)
                 {
                     auto uij = mU[i].data();
                     block256 w;
-                    auto uIter = oc::BitIterator((u8*)&w);
+                    auto u8Iter = (u8*)&w;
 
-                    for (u64 j = 0; j < 256; ++j, ++uij)
+                    for (u64 j = 0; j < 256;)
                     {
-                        auto u = (rIter++->get<u8>(0) & 1);
-                        assert(*uij < 3);
-
-                        if (*uij)
+                        *u8Iter = 0;
+                        for (u64 k = 0; k < 8; ++k, ++j, ++uij)
                         {
-                            u ^= *(fIter + (*uij - 1));
+                            auto u = (rIter++->get<u8>(0) & 1);
+                            assert(*uij < 3);
+
+                            if (*uij)
+                            {
+                                u ^= (*f16Iter >> (*uij - 1)) & 1;
+                            }
+
+                            *f16Iter = *f16Iter >> 2;
+                            *u8Iter ^= u << k;
                         }
 
-                        fIter = fIter + 2;
-                        *uIter++ = u;
+
+                        ++f16Iter;
+                        ++u8Iter;
                     }
 
                     y[i] = DarkMatter22Prf::compress(w);
                 }
-
-
             }
             setTimePoint("DarkMatter.recver.derand");
 
