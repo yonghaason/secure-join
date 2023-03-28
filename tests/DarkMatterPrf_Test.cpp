@@ -446,9 +446,14 @@ void DLpnPrf_plain_test()
     oc::block xx = prng.get();
 
     std::array<oc::block, DLpnPrf::KeySize / 128> x;
-    for (u64 i = 0; i < x.size(); ++i)
-        x[i] = xx ^ oc::block(i, i);
-    oc::mAesFixedKey.hashBlocks<DLpnPrf::KeySize / 128>(x.data(), x.data());
+    if (x.size() > 1) {
+
+        for (u64 i = 0; i < x.size(); ++i)
+            x[i] = xx ^ oc::block(i, i);
+        oc::mAesFixedKey.hashBlocks<DLpnPrf::KeySize / 128>(x.data(), x.data());
+    }
+    else
+        x[0] = xx;
 
     DLpnPrf prf;
 
@@ -630,9 +635,17 @@ void DLpnPrf_proto_test(const oc::CLP& cmd)
         {
             std::array<u16, sender.mPrf.KeySize> h;
             std::array<oc::block, sender.mPrf.KeySize / 128> X;
-            for (u64 i = 0; i < X.size(); ++i)
-                X[i] = x[ii] ^ oc::block(i, i);
-            oc::mAesFixedKey.hashBlocks<X.size()>(X.data(), X.data());
+            if (sender.mPrf.KeySize / 128 > 1)
+            {
+                for (u64 i = 0; i < X.size(); ++i)
+                    X[i] = x[ii] ^ oc::block(i, i);
+                oc::mAesFixedKey.hashBlocks<X.size()>(X.data(), X.data());
+            }
+            else
+            {
+                X[0] = x[ii];
+            }
+
             auto kIter = oc::BitIterator((u8*)sender.mPrf.mKey.data());
             auto xIter = oc::BitIterator((u8*)X.data());
             for (u64 i = 0; i < sender.mPrf.KeySize; ++i)

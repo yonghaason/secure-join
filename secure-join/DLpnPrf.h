@@ -96,9 +96,15 @@ namespace secJoin
         {
             std::array<u16, KeySize> h;
             std::array<oc::block, KeySize / 128> X;
-            for (u64 i = 0; i < X.size(); ++i)
-                X[i] = x ^ oc::block(i, i);
-            oc::mAesFixedKey.hashBlocks<X.size()>(X.data(), X.data());
+            if constexpr (DLpnPrf::KeySize / 128 > 1)
+            {
+
+                for (u64 i = 0; i < X.size(); ++i)
+                    X[i] = x ^ oc::block(i, i);
+                oc::mAesFixedKey.hashBlocks<X.size()>(X.data(), X.data());
+            }
+            else
+                X[0] = x;
 
             auto kIter = oc::BitIterator((u8*)mKey.data());
             auto xIter = oc::BitIterator((u8*)X.data());
@@ -356,7 +362,7 @@ namespace secJoin
 #else
             ots.resize(y.size() * m * 2);
 #ifdef SECUREJOIN_ENABLE_FAKE_GEN
-            //memset(ots.data(), 0, sizeof(ots[0]) * ots.size());
+            memset(ots.data(), 0, sizeof(ots[0]) * ots.size());
 #else
             MC_AWAIT(mSoftSender.send(ots, prng, sock));
 #endif
@@ -509,6 +515,8 @@ namespace secJoin
 
     };
 
+
+
     class DLpnPrfReceiver : public oc::TimerAdapter
     {
         std::vector<std::array<oc::PRNG, 2>> mKeyOTs;
@@ -563,20 +571,19 @@ namespace secJoin
             mU.resize(x.size());
 
 
-            X.resize(x.size());
-            for (u64 j = 0; j < x.size(); ++j)
+            if constexpr (DLpnPrf::KeySize / 128 > 1)
             {
-                for (i = 0; i < DLpnPrf::KeySize/128; ++i)
+                X.resize(x.size());
+                for (u64 j = 0; j < x.size(); ++j)
                 {
-                    X[j][i] = x[j] ^ oc::block(i, i);
+                    for (i = 0; i < DLpnPrf::KeySize/128; ++i)
+                    {
+                        X[j][i] = x[j] ^ oc::block(i, i);
+                    }
+                    oc::mAesFixedKey.hashBlocks<DLpnPrf::KeySize / 128>(X[j].data(), X[j].data());
                 }
-                oc::mAesFixedKey.hashBlocks<DLpnPrf::KeySize / 128>(X[j].data(), X[j].data());
             }
-            ////xk
-            //uu.resize(y.size() * 4);
 
-            //// y.size() rows, each of size 1024
-            //h.resize(uu.size() * 256);
             assert(mPrf.KeySize % StepSize == 0);
             mod3.resize(y.size());
             mH.resize(y.size() * mPrf.KeySize);
@@ -590,30 +597,24 @@ namespace secJoin
                 {
                     auto ui = buffer.subspan(compressedSize * k, compressedSizeAct);
                     auto hi = mH.subspan(y.size() * i, y.size());
-                    xPtr = (u32*)X.data() + i / StepSize;
+                    if constexpr (DLpnPrf::KeySize / 128 > 1)
+                        xPtr = (u32*)X.data() + i / StepSize;
+                    else
+                        xPtr = (u32*)x.data() + i / StepSize;
 
                     sampleMod3(mKeyOTs[i][0], hi);
                     for (u64 j = 0; j < y.size(); ++j)
                     {
                         assert(hi.data()[j] < 3);
-                        //assert()
 
-                        //assert((*xPtr & 1) == *oc::BitIterator((u8*)&X[j], i));
-
-                        mod3.data()[j] = hi.data()[j] + (*xPtr & 1);
+                        mod3.data()[j] = hi.data()[j] + ((*xPtr >> k) & 1);
                         mod3[j] %= 3;
 
                         auto neg = ((hi.data()[j] << 1) | (hi.data()[j] >> 1)) & 3 ;
                         assert(neg == ((3 - hi.data()[j]) % 3));
 
-                        //if (j == 1)
-                        //{
-                        //    std::cout << i << " s " << neg << " vs " << hi.data()[j] << " " << mod3[j] << "   x " << (*xPtr & 1) << std::endl;
-                        //}
                         hi.data()[j] = neg;
 
-
-                        *xPtr >>= 1;
                         xPtr += mPrf.KeySize / StepSize;
                     }
 
@@ -690,7 +691,7 @@ namespace secJoin
 
             ots.resize(diff.size());
 #ifdef SECUREJOIN_ENABLE_FAKE_GEN
-            //memset(ots.data(), 0, sizeof(ots[0]) * ots.size());
+            memset(ots.data(), 0, sizeof(ots[0]) * ots.size());
 #else
             MC_AWAIT(mSoftReceiver.receive(diff, ots, prng, sock));
 #endif
