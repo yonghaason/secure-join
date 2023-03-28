@@ -18,7 +18,7 @@ namespace secJoin
     class DLpnPrf
     {
     public:
-        static constexpr int KeySize = 256;
+        static constexpr int KeySize = 128;
         std::array<oc::block, KeySize / 128> mKey;
         //oc::AlignedUnVector<u16> mPi;
 
@@ -46,23 +46,50 @@ namespace secJoin
 
 
             //assert(mPi.size() != 0);
-            uj.mData[0] = hj[0];
-            for (u64 k = 1; k < KeySize; ++k)
+            if constexpr (KeySize == 128)
             {
-                uj.mData[k] = hj[k] + uj.mData[k - 1];
-                uj.mData[k] = uj.mData[k] % 3;
+                uj.mData[0] = hj[0];
+                for (u64 k = 1; k < KeySize; ++k)
+                {
+                    uj.mData[k] = hj[k] + uj.mData[k - 1];
+                    uj.mData[k] = uj.mData[k] % 3;
+                }
+
+                for (u64 k = 128; k < 256; ++k)
+                {
+                    //uj.mData[k] = hj[k-128] + uj.mData[k-128];
+                    uj.mData[k] = uj.mData[k-128];
+                }
+
             }
+            else if constexpr (KeySize == 256)
+            {
 
-            //auto pik = mPi.data();
-            //for (u64 k = 0; k < 256; ++k)
-            //{
-            //    uj.mData[k] = (
-            //        hj[pik[0]] +
-            //        hj[pik[1]]
-            //        ) % 3;
-            //    pik += 2;
-            //}
 
+                uj.mData[0] = hj[0];
+                for (u64 k = 1; k < KeySize; ++k)
+                {
+                    uj.mData[k] = hj[k] + uj.mData[k - 1];
+                    uj.mData[k] = uj.mData[k] % 3;
+                }
+            }
+            else if constexpr (KeySize == 512)
+            {
+                assert(0);
+                //auto pik = mPi.data();
+                //for (u64 k = 0; k < 256; ++k)
+                //{
+                //    uj.mData[k] = (
+                //        hj[pik[0]] +
+                //        hj[pik[1]]
+                //        ) % 3;
+                //    pik += 2;
+                //}
+            }
+            else
+            {
+                assert(0);
+            }
         }
 
         oc::block eval(oc::block x)
@@ -94,8 +121,8 @@ namespace secJoin
             block256 w;
             for (u64 i = 0; i < u.mData.size(); ++i)
             {
-                if (i < 10)
-                    std::cout << "u[" << i << "] = " << (int)u.mData[i] << std::endl;
+                //if (i < 10)
+                //    std::cout << "u[" << i << "] = " << (int)u.mData[i] << std::endl;
 
                 *oc::BitIterator((u8*)&w, i) = u.mData[i] % 2;
             }
@@ -107,6 +134,111 @@ namespace secJoin
             return DarkMatter22Prf::compress(w);
         }
     };
+
+    template<int keySize>
+    inline void compressH(
+        oc::span<const u16> mH,
+        oc::AlignedUnVector<std::array<u16, 256>>& mU
+    )
+    {
+        if constexpr (keySize == 256)
+        {
+
+            auto n = mH.size() / keySize;
+            auto& h2 = mH;
+
+            for (u64 j = 0; j < n; ++j)
+            {
+                mU.data()[j].data()[0] = h2.data()[j];
+            }
+            for (u64 k = 1; k < keySize; ++k)
+            {
+                auto hk = h2.data() + k * n;
+                auto hk1 = h2.data() + ((k - 1) * n);
+
+                for (u64 j = 0; j < n; ++j)
+                {
+                    hk[j] += hk1[j];
+                    hk[j] %= 3;
+
+                    mU.data()[j].data()[k] = hk[j];
+                }
+            }
+        }
+        else if constexpr (keySize == 128)
+        {
+
+            auto n = mH.size() / keySize;
+            auto& h2 = mH;
+
+            for (u64 j = 0; j < n; ++j)
+            {
+                mU.data()[j].data()[0] = h2.data()[j];
+            }
+            for (u64 k = 1; k < keySize; ++k)
+            {
+                auto hk = h2.data() + k * n;
+                //auto hk1 = h2.data() + ((k - 1) * n);
+
+                for (u64 j = 0; j < n; ++j)
+                {
+                    //assert(hk[j] < 3);
+                    assert(hk[j] < 3);
+
+                    auto prev = mU.data()[j].data()[k-1];
+                    auto cur = prev + hk[j];
+
+                    assert(cur < 6);
+                    __assume(cur < 6);
+                    cur %= 3;
+
+                    mU.data()[j].data()[k] = cur;
+                }
+            }
+
+            for (u64 k = 128; k < 256; ++k)
+            {
+                //auto hk = h2.data() + (k) * n;
+                //auto hk1 = h2.data() + (k - 128) * n;
+
+                for (u64 j = 0; j < n; ++j)
+                {
+                    //hk[j] = hk1[j] + mU.data()[j].data()[k-128];
+
+                    //assert(hk[j] < 6);
+                    //__assume(hk[j] < 6);
+                    //hk[j] %= 3;
+
+                    mU.data()[j].data()[k] = mU.data()[j].data()[k-128];
+
+                }
+            }
+        }
+        else
+        {
+            assert(0);
+
+            //auto& uj = mU[j];
+            //auto pik = mPrf.mPi.data();
+            //for (u64 k = 0; k < m; ++k)
+            //{
+            //    auto h0 = h2.data() + pik[0] * y.size();
+            //    auto h1 = h2.data() + pik[1] * y.size();
+            //    pik += 2;
+            //    for (u64 j = 0; j < y.size(); ++j)
+            //    {
+            //        auto& ujk = mU.data()[j].data()[k];
+            //        ujk = (h0[j] + h1[j]) % 3;
+            //        //mU[j][k] = (3 - mU[j][k]) % 3;
+
+            //        ujk =
+            //            ((ujk & 2) >> 1) |
+            //            ((ujk & 1) << 1);
+
+            //    }
+            //}
+        }
+    }
 
     class DLpnPrfSender : public oc::TimerAdapter
     {
@@ -192,6 +324,15 @@ namespace secJoin
                     {
                         sampleMod3(mKeyOTs[i], hh);
                     }
+
+                    //for (u64 j = 0; j < y.size(); ++j)
+                    //{
+
+                    //    if (j == 1)
+                    //    {
+                    //        std::cout << i << " r " << hh[j] << std::endl;
+                    //    }
+                    //}
                 }
             }
 
@@ -200,65 +341,7 @@ namespace secJoin
             //    mPrf.mPi = samplePerm(oc::ZeroBlock, mPrf.KeySize);
             //}
 
-
-            {
-                //for (u64 k = 0; k < mPrf.KeySize; ++k)
-                //{
-                //    auto hk = mH.data() + k * y.size();
-                //    for (u64 j = 0; j < y.size(); ++j)
-                //    {
-                //        mU.data()[j].data()[k] = hk[j];
-                //    }
-                //}
-
-                auto& h2 = mH;
-                for (u64 j = 0; j < y.size(); ++j)
-                {
-                    mU.data()[j].data()[0] = h2.data()[j];
-                }
-                for (u64 k = 1; k < mPrf.KeySize; ++k)
-                {
-                    auto hk = h2.data() + k * y.size();
-                    auto hk1 = h2.data() + ((k - 1) * y.size());
-
-                    for (u64 j = 0; j < y.size(); ++j)
-                    {
-                        hk[j] += hk1[j];
-                        hk[j] %= 3;
-                        mU.data()[j].data()[k] = hk[j];
-                    }
-                }
-
-                //auto& uj = mU[j];
-                //auto pik = mPrf.mPi.data();
-                //for (u64 k = 0; k < m; ++k)
-                //{
-                //    auto h0 = h2.data() + pik[0] * y.size();
-                //    auto h1 = h2.data() + pik[1] * y.size();
-                //    pik += 2;
-                //    for (u64 j = 0; j < y.size(); ++j)
-                //    {
-                //        mU.data()[j].data()[k] = (h0[j] + h1[j]) % 3;
-                //    }
-                //}
-            }
-
-
-
-            //for (u64 k = 1; k < KeySize; ++k)
-            //{
-            //    hj[k] += hj[k - 1];
-            //}
-
-            //auto pik = mPi.data();
-            //for (u64 k = 0; k < 256; ++k)
-            //{
-            //    uj.mData[k] = (
-            //        hj[pik[0]] +
-            //        hj[pik[1]]
-            //        ) % 3;
-            //    pik += 2;
-            //}
+            compressH<DLpnPrf::KeySize>(mH, mU);
 
 
             setTimePoint("DarkMatter.sender.kxMult");
@@ -461,7 +544,7 @@ namespace secJoin
         coproto::task<> evaluate(span<oc::block> x, span<oc::block> y, coproto::Socket& sock, oc::PRNG& prng)
         {
             MC_BEGIN(coproto::task<>, x, y, this, &sock, &prng,
-                X = oc::AlignedUnVector<std::array<oc::block, 2>>{},
+                X = oc::AlignedUnVector<std::array<oc::block, DLpnPrf::KeySize / 128>>{},
                 buffer = oc::AlignedUnVector<u8>{},
                 //h = oc::AlignedUnVector<u16>{},
                 rKeys = oc::AlignedUnVector<oc::block>{},
@@ -483,11 +566,11 @@ namespace secJoin
             X.resize(x.size());
             for (u64 j = 0; j < x.size(); ++j)
             {
-                for (i = 0; i < 2; ++i)
+                for (i = 0; i < DLpnPrf::KeySize/128; ++i)
                 {
                     X[j][i] = x[j] ^ oc::block(i, i);
                 }
-                oc::mAesFixedKey.hashBlocks<2>(X[j].data(), X[j].data());
+                oc::mAesFixedKey.hashBlocks<DLpnPrf::KeySize / 128>(X[j].data(), X[j].data());
             }
             ////xk
             //uu.resize(y.size() * 4);
@@ -512,74 +595,35 @@ namespace secJoin
                     sampleMod3(mKeyOTs[i][0], hi);
                     for (u64 j = 0; j < y.size(); ++j)
                     {
-                        mod3.data()[j] = hi.data()[j] + (*xPtr & 1);
+                        assert(hi.data()[j] < 3);
+                        //assert()
 
-                        //mod3[j] %= 3;
-                        mod3.data()[j] *= !(mod3.data()[j] == 3);
+                        //assert((*xPtr & 1) == *oc::BitIterator((u8*)&X[j], i));
+
+                        mod3.data()[j] = hi.data()[j] + (*xPtr & 1);
+                        mod3[j] %= 3;
+
+                        auto neg = ((hi.data()[j] << 1) | (hi.data()[j] >> 1)) & 3 ;
+                        assert(neg == ((3 - hi.data()[j]) % 3));
+
+                        //if (j == 1)
+                        //{
+                        //    std::cout << i << " s " << neg << " vs " << hi.data()[j] << " " << mod3[j] << "   x " << (*xPtr & 1) << std::endl;
+                        //}
+                        hi.data()[j] = neg;
+
 
                         *xPtr >>= 1;
                         xPtr += mPrf.KeySize / StepSize;
                     }
 
                     compressMod3(ui, mod3);
-                    //std::cout << "send ui " << int(ui[0]) << std::endl;
-
                     xorVector(ui, mKeyOTs[i][1]);
-                    //std::cout << "send ui " << int(ui[0]) << std::endl;
-
                 }
                 MC_AWAIT(sock.send(std::move(buffer)));
             }
 
-
-            //if (mPrf.mPi.size() == 0)
-            //{
-            //    mPrf.mPi = samplePerm(oc::ZeroBlock, mPrf.KeySize);
-            //}
-
-            {
-
-
-                auto& h2 = mH;
-
-                for (u64 j = 0; j < y.size(); ++j)
-                {
-                    mU.data()[j].data()[0] = (3- h2.data()[j]) % 3;
-                }
-                for (u64 k = 1; k < mPrf.KeySize; ++k)
-                {
-                    auto hk = h2.data() + k * y.size();
-                    auto hk1 = h2.data() + ((k - 1) * y.size());
-
-                    for (u64 j = 0; j < y.size(); ++j)
-                    {
-                        hk[j] += hk1[j];
-                        hk[j] %= 3;
-
-                        mU.data()[j].data()[k] = (3 - hk[j]) % 3;
-                    }
-                }
-
-                //auto& uj = mU[j];
-                //auto pik = mPrf.mPi.data();
-                //for (u64 k = 0; k < m; ++k)
-                //{
-                //    auto h0 = h2.data() + pik[0] * y.size();
-                //    auto h1 = h2.data() + pik[1] * y.size();
-                //    pik += 2;
-                //    for (u64 j = 0; j < y.size(); ++j)
-                //    {
-                //        auto& ujk = mU.data()[j].data()[k];
-                //        ujk = (h0[j] + h1[j]) % 3;
-                //        //mU[j][k] = (3 - mU[j][k]) % 3;
-
-                //        ujk =
-                //            ((ujk & 2) >> 1) |
-                //            ((ujk & 1) << 1);
-
-                //    }
-                //}
-            }
+            compressH<DLpnPrf::KeySize>(mH, mU);
 
             setTimePoint("DarkMatter.recver.mod2");
 
@@ -661,16 +705,12 @@ namespace secJoin
             setTimePoint("DarkMatter.recver.soft");
 
 #endif
-
             buffer.resize(0);
             buffer.resize(x.size() * 256 / 4);
 
             MC_AWAIT(sock.recv(buffer));
 
-
             {
-                //mU2.resize(x.size());
-                //auto fIter = oc::BitIterator((u8*)buffer.data());
                 auto f16Iter = (u16*)buffer.data();
                 auto rIter = rKeys.begin();
                 for (i = 0; i < x.size(); ++i)

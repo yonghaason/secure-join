@@ -502,12 +502,34 @@ void DLpnPrf_plain_test()
         //{
         //    U[k] = H[k];
         //}
-
-        U[0] = H[0];
-        for (u64 k = 1; k < prf.KeySize; ++k)
+        if (prf.KeySize == 256)
         {
-            U[k] = H[k] + U[k - 1];
-            U[k] %= 3;
+
+            U[0] = H[0];
+            for (u64 k = 1; k < prf.KeySize; ++k)
+            {
+                U[k] = H[k] + U[k - 1];
+                U[k] %= 3;
+            }
+        }
+        else if (prf.KeySize == 128)
+        {
+
+            U[0] = H[0];
+            for (u64 k = 1; k < prf.KeySize; ++k)
+            {
+                U[k] = H[k] + U[k - 1];
+                U[k] %= 3;
+            }
+            for (u64 k = 0; k < prf.KeySize; ++k)
+            {
+                U[k + 128] = U[k];
+                //U[k + 128] %= 3;
+            }
+        }
+        else
+        {
+            assert(0);
         }
 
         //auto pik = prf.mPi.data();
@@ -621,10 +643,10 @@ void DLpnPrf_proto_test(const oc::CLP& cmd)
 
                 auto r = recver.mH[i * x.size() + ii];
                 auto s = sender.mH[i * x.size() + ii];
-                auto neg = (3 - r)%3;
-                auto act = (s + neg) % 3;
-                //if (act != h[i])
-                //    throw RTE_LOC;
+                //auto neg = (3 - r) % 3;
+                auto act = (s + r) % 3;
+                if (act != h[i])
+                    throw RTE_LOC;
                 //if (i < 20)
                 //    std::cout << "h[" << i << "] = " << h[i] 
                 //    << " = " << *kIter 
@@ -686,8 +708,8 @@ void ALpnPrf_plain_test()
 
     oc::Matrix<u64> B(t, m);
     std::vector<u64> U(m), Y(t);
-    auto X = sampleMod3(oc::PRNG(xx,1), n);
-    auto K = sampleMod3(oc::PRNG(kk,1), n);
+    auto X = sampleMod3(oc::PRNG(xx, 1), n);
+    auto K = sampleMod3(oc::PRNG(kk, 1), n);
 
     for (u64 i = 0; i < n; ++i)
     {
@@ -752,7 +774,7 @@ void ALpnPrf_proto_test(const oc::CLP& cmd)
     {
         sk[i][0] = oc::mAesFixedKey.hashBlock(oc::block(i, 0));
         sk[i][1] = oc::mAesFixedKey.hashBlock(oc::block(i, 1));
-        rk[i] = oc::mAesFixedKey.hashBlock(oc::block(i,choice[i]));
+        rk[i] = oc::mAesFixedKey.hashBlock(oc::block(i, choice[i]));
     }
     sender.setKeyOts(rk);
     recver.setKeyOts(sk);
