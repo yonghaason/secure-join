@@ -10,6 +10,7 @@ set(SRCS
 	SharePerm_Test.cpp
 	PaillierPerm_Test.cpp
 	DarkMatterPrf_Test.cpp
+	OleGenerator_Test.cpp
 	)
 
 	

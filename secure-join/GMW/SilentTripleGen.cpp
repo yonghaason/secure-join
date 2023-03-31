@@ -144,7 +144,6 @@ namespace secJoin
             mBVec.resize(mN / 128);
             mMult = mAVec;
             mAdd = mBVec;
-
         }
         else
         {
@@ -153,9 +152,7 @@ namespace secJoin
             mCBitVec.reserve(mN);
             mAdd = mDVec;
             mMult = span<block>((block*)mCBitVec.data(), mAdd.size());
-
         }
-
 #else
 
         memset(shuffle.data(), 1 << 7, sizeof(*shuffle.data()) * shuffle.size());

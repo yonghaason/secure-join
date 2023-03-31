@@ -4,6 +4,8 @@
 #include "PaillierPerm_Test.h"
 #include "SharePerm_Test.h"
 #include "DarkMatterPrf_Test.h"
+#include "OleGenerator_Test.h"
+
 namespace secJoin_Tests
 {
     oc::TestCollection Tests([](oc::TestCollection& t) {
@@ -29,6 +31,7 @@ namespace secJoin_Tests
         t.add("ALpnPrf_plain_test                            ", ALpnPrf_plain_test);
         t.add("ALpnPrf_proto_test                            ", ALpnPrf_proto_test);
         
+        t.add("OleGenerator_Basic_Test                       ", OleGenerator_Basic_Test);
 
     });
 }
