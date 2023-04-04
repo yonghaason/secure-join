@@ -1,7 +1,7 @@
 #include "OleGenerator_Test.h"
 #include "secure-join/OleGenerator.h"
 
-void OleGenerator_Basic_Test()
+void OleGenerator_Basic_Test(const oc::CLP& cmd)
 {
     using namespace secJoin;
 
@@ -9,14 +9,14 @@ void OleGenerator_Basic_Test()
     macoro::thread_pool tp;
     auto chl = coproto::LocalAsyncSocket::makePair();
 
-    u64 totalSize = 1ull << 26;
-    u64 reservoirSize = 1ull << 22;
-    u64 numConcurrent = 4;
-    u64 chunkSize = 1ull << 18;
+    u64 totalSize = 1ull << cmd.getOr("total", 22);
+    u64 reservoirSize = 1ull << cmd.getOr("res", 22);
+    u64 numConcurrent = cmd.getOr("concur", 4);
+    u64 chunkSize = 1ull << cmd.getOr("size", 18);
 
     oc::PRNG prng(oc::CCBlock);
     auto work = tp.make_work();
-    tp.create_threads(6);
+    tp.create_threads(cmd.getOr("nt", 6));
 
     g0.init(OleGenerator::Role::Sender, tp, chl[0], prng, totalSize, reservoirSize, numConcurrent, chunkSize);
     g1.init(OleGenerator::Role::Receiver, tp, chl[1], prng, totalSize, reservoirSize, numConcurrent, chunkSize);
@@ -33,10 +33,13 @@ void OleGenerator_Basic_Test()
             g1.get(t1, n)
         ));
 
-        for (u64 i = 0; i < t0.mAdd.size(); ++i)
+        if (cmd.isSet("nc") == false)
         {
-            if ((t0.mAdd[i] ^ t1.mAdd[i]) != (t0.mMult[i] & t1.mMult[i]))
-                throw RTE_LOC;
+            for (u64 i = 0; i < t0.mAdd.size(); ++i)
+            {
+                if ((t0.mAdd[i] ^ t1.mAdd[i]) != (t0.mMult[i] & t1.mMult[i]))
+                    throw RTE_LOC;
+            }
         }
 
         s += t0.size();

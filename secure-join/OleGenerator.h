@@ -79,9 +79,17 @@ namespace secJoin
             {
                 macoro::async_manual_reset_event* mEvent;
             };
-            macoro::variant<Stop, ChunkComplete, GenStopped, GetChunk> mOp;
+            struct BaseOt
+            {
+                oc::BitVector mRecvChoice;
+                std::vector<oc::block> mRecvOt;
+                std::vector<std::array<oc::block, 2>> mSendOt;
+            };
+            macoro::variant<Stop, ChunkComplete, GenStopped, GetChunk, BaseOt> mOp;
         };
 
+
+        bool mFakeGen = false;
         u64 mCurSize = 0;
         u64 mNumChunks = 0;
         u64 mChunkSize = 0;
@@ -100,8 +108,18 @@ namespace secJoin
         macoro::thread_pool* mThreadPool = nullptr;
         coproto::Socket mChl;
 
+        macoro::eager_task<> mBaseTask;
+
         macoro::eager_task<> mCtrl;
         oc::PRNG mPrng;
+        oc::Log mLog;
+        void log(std::string m)
+        {
+            std::stringstream ss;
+            ss << "[" << std::this_thread::get_id() << "] ";
+            ss << m;
+            mLog.push(ss.str());
+        }
 
         struct Gen
         {
@@ -112,6 +130,17 @@ namespace secJoin
             macoro::eager_task<> mTask;
             oc::PRNG mPrng;
             u64 mIdx = 0;
+
+            oc::Log mLog;
+
+            void log(std::string m)
+            {
+                std::stringstream ss;
+                ss << "[" << std::this_thread::get_id() << "] ";
+                ss << m;
+                mLog.push(ss.str());
+                mParent->log("gen " + std::to_string(mIdx) + ": " + m);
+            }
 
             std::unique_ptr<macoro::spsc::channel<Chunk>> mInQueue;
 
@@ -142,6 +171,17 @@ namespace secJoin
         macoro::task<> stop();
 
         macoro::task<> control();
+        //macoro::task<> baseOtProvider(oc::block seed);
+
+        
+        void init(
+            Role role,
+            macoro::thread_pool& threadPool,
+            coproto::Socket chl,
+            oc::PRNG& prng)
+        {
+            init(role, threadPool, std::move(chl), prng, 0, 1ull << 20, 1, 1 << 14);
+        }
 
         void init(
             Role role,
@@ -162,12 +202,22 @@ namespace secJoin
             MC_BEGIN(macoro::task<>, this, &triples, n
             );
 
+
             if (mRemChunk == 0)
             {
                 mGetEvent.reset();
 
-                MC_AWAIT(mControlQueue->push({ Command::GetChunk{&mGetEvent} }));
-                MC_AWAIT(mGetEvent);
+                if (mFakeGen)
+                {
+                    mCurChunk.mAdd.resize(mChunkSize / 128);
+                    mCurChunk.mMult.resize(mChunkSize / 128);
+                }
+                else
+                {
+                    MC_AWAIT(mControlQueue->push({ Command::GetChunk{&mGetEvent} }));
+                    MC_AWAIT(mGetEvent);
+                }
+
                 mRemChunk = mCurChunk.mAdd.size();
             }
 

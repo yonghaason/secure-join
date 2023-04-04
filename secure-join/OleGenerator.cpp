@@ -1,5 +1,6 @@
 #include "OleGenerator.h"
 
+#define LOG(X) log(X)
 
 namespace secJoin
 {
@@ -16,41 +17,45 @@ namespace secJoin
             chunk = Chunk{}
         );
 
+        LOG("start");
+
         while (true)
         {
             MC_AWAIT_SET(chunk, mInQueue->pop());
-
+            LOG("pop chunk " + std::to_string(chunk.mIdx));
+            MC_AWAIT(macoro::transfer_to(*mParent->mThreadPool));
+            LOG("transfered " + std::to_string(chunk.mIdx));
             //A// std::cout << "pop chunk" << std::endl;
 
 
             if (chunk.mBaseRecv.size() == 0 && chunk.mBaseSend.size() == 0)
             {
                 MC_AWAIT(mParent->mControlQueue->push({ Command::GenStopped{chunk.mIdx} }));
+                LOG("genStop");
 
                 MC_RETURN_VOID();
             }
 
-            MC_AWAIT(macoro::transfer_to(*mParent->mThreadPool));
-            //A// std::cout << "transfer" << std::endl;
-
             if (mParent->mRole == Role::Sender)
             {
-                diff.resize(chunk.mBaseSend.size());
-                MC_AWAIT(mChl.recv(diff));
+                //diff.resize(chunk.mBaseSend.size());
+                //MC_AWAIT(mChl.recv(diff));
+                //LOG("recv diff " + std::to_string(chunk.mIdx));
 
-                //A// std::cout << "recv diff" << std::endl;
+                ////A// std::cout << "recv diff" << std::endl;
 
-                for (u64 i = 0; i < diff.size(); ++i)
-                {
-                    if (diff[i])
-                        std::swap(chunk.mBaseSend[i][0], chunk.mBaseSend[i][1]);
-                }
+                //for (u64 i = 0; i < diff.size(); ++i)
+                //{
+                //    if (diff[i])
+                //        std::swap(chunk.mBaseSend[i][0], chunk.mBaseSend[i][1]);
+                //}
 
-                mSender->configure(mParent->mChunkSize);
-                mSender->setSilentBaseOts(chunk.mBaseSend);
+                //mSender->configure(mParent->mChunkSize);
+                //mSender->setSilentBaseOts(chunk.mBaseSend);
 
                 sendMsg.resize(mParent->mChunkSize);
                 MC_AWAIT(mSender->silentSend(sendMsg, mPrng, mChl));
+                LOG("silentSend " + std::to_string(chunk.mIdx));
                 //A// std::cout << "send ot " << sendMsg[0][0] << " " << sendMsg[0][1] << std::endl;
 
                 chunk.mAdd.resize(mParent->mChunkSize / 128);
@@ -59,15 +64,16 @@ namespace secJoin
             }
             else
             {
-                mRecver->configure(mParent->mChunkSize);
-                diff = mRecver->sampleBaseChoiceBits(mPrng) ^ chunk.mBaseChoice;;
-                MC_AWAIT(mChl.send(std::move(diff)));
-                //A// std::cout << "send diff" << std::endl;
+                //mRecver->configure(mParent->mChunkSize);
+                //diff = mRecver->sampleBaseChoiceBits(mPrng) ^ chunk.mBaseChoice;;
+                //MC_AWAIT(mChl.send(std::move(diff)));
+                //LOG("send diff " + std::to_string(chunk.mIdx));
+                //mRecver->setSilentBaseOts(chunk.mBaseRecv);
 
                 recvMsg.resize(mParent->mChunkSize);
                 bv.resize(mParent->mChunkSize);
-                mRecver->setSilentBaseOts(chunk.mBaseRecv);
                 MC_AWAIT(mRecver->silentReceive(bv, recvMsg, mPrng, mChl));
+                LOG("silentReceive " + std::to_string(chunk.mIdx));
                 //A// std::cout << "recv ot " << recvMsg[0] << " " << bv[0] << std::endl;
 
                 chunk.mAdd.resize(mParent->mChunkSize / 128);
@@ -76,9 +82,10 @@ namespace secJoin
             }
 
             //A// std::cout << "push" << std::endl;
+            LOG("publish " + std::to_string(chunk.mIdx));
 
             MC_AWAIT(mParent->mControlQueue->push({ Command::ChunkComplete{std::move(chunk)} }));
-            //mParent->publishChunk(chunk);
+            LOG("published " + std::to_string(chunk.mIdx));
         }
 
         MC_END();
@@ -89,10 +96,69 @@ namespace secJoin
     macoro::task<> OleGenerator::stop()
     {
         MC_BEGIN(macoro::task<>, this);
-        MC_AWAIT(mControlQueue->push({ Command::Stop{} }));
-        MC_AWAIT(mCtrl);
+
+
+        if (!mFakeGen)
+        {
+            MC_AWAIT(mControlQueue->push({ Command::Stop{} }));
+            MC_AWAIT(mCtrl);
+        }
+
         MC_END();
     }
+
+    //macoro::task<> OleGenerator::baseOtProvider(oc::block seed)
+    //{
+    //    MC_BEGIN(macoro::task<>, this, 
+    //        sender = oc::SoftSpokenShOtSender{},
+    //        recver = oc::SoftSpokenShOtReceiver{},
+    //        prng = oc::PRNG(seed),
+    //        n = u64{},
+    //        base = Command::BaseOt{}
+    //        );
+
+    //    if (mRole == Role::Sender)
+    //    {
+    //        MC_AWAIT(recver.genBaseOts(prng, mChl));
+
+    //        do {
+    //            MC_AWAIT_SET(n, mBaseOtQueue->pop());
+    //            
+    //            if (n)
+    //            {
+    //                base.mRecvChoice.resize(n);
+    //                base.mRecvChoice.randomize(prng);
+
+    //                base.mRecvOt.resize(n);
+    //                MC_AWAIT(recver.receive(base.mRecvChoice, base.mRecvOt, prng, mChl));
+
+    //                MC_AWAIT(mControlQueue->push(Command{ std::move(base) }));
+    //            }
+
+    //        } while (n);
+    //    }
+    //    else
+    //    {
+    //        MC_AWAIT(sender.genBaseOts(prng, mChl));
+
+    //        do {
+    //            MC_AWAIT_SET(n, mBaseOtQueue->pop());
+
+    //            if (n)
+    //            {
+    //                base.mRecvChoice.resize(n);
+    //                base.mRecvOt.resize(n);
+    //                MC_AWAIT(sender.send(base.mSendOt, prng, mChl));
+
+    //                MC_AWAIT(mControlQueue->push(Command{ std::move(base) }));
+    //            }
+
+    //        } while (n);
+    //    }
+
+
+    //    MC_END();
+    //}
 
     macoro::task<> OleGenerator::control()
     {
@@ -100,60 +166,85 @@ namespace secJoin
             i = u64{},
             chunk = Chunk{},
             cmd = Command{},
-            pushIdx = u64{},
+            pushIdxs = std::vector<u64>{},
             popIdx = u64{},
             numTasks = u64{},
             pendingChunks = std::vector<Chunk>{},
-            getEvent = (macoro::async_manual_reset_event*)nullptr
+            getEvent = (macoro::async_manual_reset_event*)nullptr,
+            baseLeft = u64{},
+            baseReservoirCapacity = u64{},
+            baseReservoir = u64{},
+            baseSender = oc::SoftSpokenMalOtSender{},
+            baseRecver = oc::SoftSpokenMalOtReceiver{}
+
         );
 
         //A// std::cout << "control " << std::endl;
+        LOG("control: start");
 
-        MC_AWAIT(mChl.send(std::move(mNumConcurrent)));
-        MC_AWAIT(mChl.recv(i));
-        if (i != mNumConcurrent)
-        {
-            MC_AWAIT(stop());
-            MC_RETURN_VOID();
-        }
-
-        mGens.resize(mNumConcurrent);
-        for (i = 0; i < mNumConcurrent; ++i)
-        {
-            //A// std::cout << "create " << i << std::endl;
-
-            if (mRole == Role::Sender)
-                mGens[i].mSender.reset(new oc::SilentOtExtSender);
-            else
-                mGens[i].mRecver.reset(new oc::SilentOtExtReceiver);
-
-            ++numTasks;
-            mGens[i].mIdx = i;
-            mGens[i].mInQueue.reset(new macoro::spsc::channel<Chunk>(oc::divCeil(mReservoirSize, mNumConcurrent * mChunkSize)));
-            mGens[i].mParent = this;
-            mGens[i].mPrng.SetSeed(mPrng.get());
-
-            mGens[i].mChl = mChl.fork();
-            mGens[i].mTask = mGens[i].start()
-                | macoro::make_eager();
-        }
+        numTasks = 0;
 
         {
             oc::SilentOtExtSender s;
             s.configure(mChunkSize);
             mBaseSize = s.silentBaseOtCount();
+            //std::cout << "total base " << mNumChunks * mBaseSize << " = n " << mNumChunks << " * s " << mBaseSize << std::endl;
         }
 
-        for (pushIdx = 0;
-            pushIdx < std::min<u64>(
-                oc::divCeil(mReservoirSize, mChunkSize),
-                mNumChunks); ++pushIdx)
+        if (mRole == Role::Sender)
         {
-            getBaseOts(chunk);
-            //A// std::cout << "\n\npush chunk " << pushIdx << std::endl;
+            MC_AWAIT(baseSender.genBaseOts(mPrng, mChl));
+        }
+        else
+        {
+            MC_AWAIT(baseRecver.genBaseOts(mPrng, mChl));
+        }
 
-            chunk.mIdx = pushIdx;
-            MC_AWAIT(mGens[pushIdx % mNumConcurrent].mInQueue->push(std::move(chunk)));
+        LOG("Base done");
+
+        mGens.resize(mNumConcurrent);
+        for (i = 0; i < mNumConcurrent; ++i)
+        {
+
+            if (mRole == Role::Sender)
+            {
+                mGens[i].mSender.reset(new oc::SilentOtExtSender);
+                mGens[i].mSender->mOtExtSender = baseSender.splitBase();
+            }
+            else
+            {
+                mGens[i].mRecver.reset(new oc::SilentOtExtReceiver);
+                mGens[i].mRecver->mOtExtRecver = baseRecver.splitBase();
+            }
+
+            ++numTasks;
+            mGens[i].mIdx = i;
+            mGens[i].mInQueue.reset(new macoro::spsc::channel<Chunk>(oc::divCeil(mReservoirSize, mNumConcurrent)));
+            mGens[i].mParent = this;
+            mGens[i].mPrng.SetSeed(mPrng.get());
+
+            mGens[i].mChl = mChl.fork();
+            mGens[i].mChl.setExecutor(*mThreadPool);
+
+            mGens[i].mTask = mGens[i].start()
+                | macoro::make_eager();
+        }
+
+
+        pushIdxs.resize(mNumConcurrent);
+        for (i = 0;
+            i < std::min<u64>(mReservoirSize, mNumChunks);
+            ++i)
+        {
+
+            chunk.mIdx = i;
+            getBaseOts(chunk);
+            LOG("control: push chunk " + std::to_string(i));
+
+            pushIdxs[i % mNumConcurrent] = i;
+            //pendingChunks.push_back(std::move(chunk));
+
+            MC_AWAIT(mGens[i % mNumConcurrent].mInQueue->push(std::move(chunk)));
         }
 
 
@@ -164,57 +255,65 @@ namespace secJoin
 
             if (cmd.mOp.index() == cmd.mOp.index_of<Command::ChunkComplete>())
             {
-                pushIdx = cmd.mOp.get<Command::ChunkComplete>().mChunk.mIdx;
+
+                i = cmd.mOp.get<Command::ChunkComplete>().mChunk.mIdx;
+                LOG("control: ChunkComplete " + std::to_string(i));
 
                 //assert((mChunks.size() == 0 && pushIdx == 0) || mChunks.back().mIdx + 1 == pushIdx);
-                if (popIdx == pushIdx && getEvent)
+                if (popIdx == i && getEvent)
                 {
-
-                    //A// std::cout << "control get pending complete " << popIdx << std::endl;
                     ++popIdx;
                     mCurChunk = std::move(cmd.mOp.get<Command::ChunkComplete>().mChunk);
                     getEvent->set();
                     getEvent = nullptr;
                 }
                 else 
-                    mChunks.emplace(pushIdx, std::move(cmd.mOp.get<Command::ChunkComplete>().mChunk));
+                    mChunks.emplace(i, std::move(cmd.mOp.get<Command::ChunkComplete>().mChunk));
 
 
-                pushIdx += mNumConcurrent;
+                pushIdxs[i % mNumConcurrent] += mNumConcurrent;
+                i = pushIdxs[i % mNumConcurrent];
                 //A// std::cout << "chunk complete " << cmd.mOp.get<Command::ChunkComplete>().mChunk.mIdx << std::endl;
 
-                if (pushIdx < mNumChunks)
+                if (i < mNumChunks)
                 {
+                    chunk.mIdx = i;
                     getBaseOts(chunk);
-                    chunk.mIdx = pushIdx;
-                    //A//  std::cout << "\n\npush chunk " << pushIdx << std::endl;
-                    MC_AWAIT(mGens[pushIdx % mNumConcurrent].mInQueue->push(std::move(chunk)));
+                    //A//  std::cout << "\n\npush chunk " << i << std::endl;
+                    LOG("control: push chunk " + std::to_string(i));
+                    MC_AWAIT(mGens[i % mNumConcurrent].mInQueue->push(std::move(chunk)));
 
                 }
             }
             else if (cmd.mOp.index() == cmd.mOp.index_of<Command::Stop>())
             {
+                LOG("control: stop request");
                 mStopRequested = true;
                 for (i = 0; i < mNumConcurrent; ++i)
                 {
                     chunk.mIdx = i;
                     MC_AWAIT(mGens[i].mInQueue->push(std::move(chunk)));
+                    LOG("control: gen stop sent " + std::to_string(i));
+
                 }
             }
             else if (cmd.mOp.index() == cmd.mOp.index_of<Command::GenStopped>())
             {
                 //A// std::cout << "gen " << cmd.mOp.get<Command::GenStopped>().mIdx << " stopped" << std::endl;
+                LOG("control: gen stopped " + std::to_string(cmd.mOp.get<Command::GenStopped>().mIdx));
 
                 MC_AWAIT(mGens[cmd.mOp.get<Command::GenStopped>().mIdx].mTask);
 
                 if (--numTasks == 0)
                 {
                     //A// std::cout << "control stopped" << std::endl;
+                    LOG("control: stopped ");
                     MC_RETURN_VOID();
                 }
             }
             else if (cmd.mOp.index() == cmd.mOp.index_of<Command::GetChunk>())
             {
+                LOG("control: get ");
                 assert(getEvent == nullptr);
                 if (popIdx == mNumChunks)
                 {
@@ -237,6 +336,10 @@ namespace secJoin
                     //A// std::cout << "control get pending " << popIdx << std::endl;
                     getEvent = cmd.mOp.get<Command::GetChunk>().mEvent;
                 }
+            }
+            else if (cmd.mOp.index() == cmd.mOp.index_of<Command::BaseOt>())
+            {
+
             }
             else
             {
@@ -269,6 +372,8 @@ namespace secJoin
             }
         }
     }
+
+
     void OleGenerator::init(Role role, macoro::thread_pool& threadPool, coproto::Socket chl, oc::PRNG& prng, u64 totalSize, u64 reservoirSize, u64 numConcurrent, u64 chunkSize)
     {
         if (!numConcurrent)
@@ -277,15 +382,17 @@ namespace secJoin
         mRole = role;
         mThreadPool = &threadPool;
         mChl = chl.fork();
+        mChl.setExecutor(threadPool);
         mPrng.SetSeed(prng.get());
         mCurSize = 0;
         mChunkSize = oc::roundUpTo(1ull<<oc::log2ceil(chunkSize), 128);
-        mReservoirSize = oc::roundUpTo(reservoirSize, mChunkSize);
+        mReservoirSize = oc::divCeil(reservoirSize, mChunkSize);
         mNumConcurrent = numConcurrent;
-        mNumChunks = oc::divCeil(totalSize, mChunkSize);
+        mNumChunks = totalSize ? oc::divCeil(totalSize, mChunkSize) : ~0ull;
         mControlQueue.reset(new macoro::mpsc::channel<Command>(1024));
 
-        mCtrl = control() | macoro::make_eager();
+        if(!mFakeGen)
+            mCtrl = control() | macoro::make_eager();
     }
 
     void OleGenerator::Gen::compressSender(span<std::array<oc::block, 2>> sendMsg, span<oc::block> add, span<oc::block> mult)
