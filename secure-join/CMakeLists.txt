@@ -2,6 +2,7 @@
 
 
 set(SRCS
+    "DLpnPrf.cpp"
     "OleGenerator.cpp"
     "Permutation.cpp"
     "SharePerm.cpp"

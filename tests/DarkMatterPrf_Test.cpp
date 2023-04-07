@@ -573,7 +573,7 @@ void DLpnPrf_proto_test(const oc::CLP& cmd)
 {
 
 
-    u64 n = cmd.getOr("n", 100);
+    u64 n = cmd.getOr("n", 1000);
     bool noCheck = cmd.isSet("nc");
 
     oc::Timer timer;
@@ -598,6 +598,12 @@ void DLpnPrf_proto_test(const oc::CLP& cmd)
     dm.setKey(kk);
     sender.setKey(kk);
 
+    OleGenerator ole0, ole1;
+    macoro::thread_pool tp;
+    ole0.mFakeGen = true;
+    ole1.mFakeGen = true;
+    ole0.init(OleGenerator::Role::Sender, tp, sock[0], prng0);
+    ole1.init(OleGenerator::Role::Receiver, tp, sock[1], prng1);
 
     prng0.get(x.data(), x.size());
     //memset(x.data(), -1, n * sizeof(block256));
@@ -613,8 +619,8 @@ void DLpnPrf_proto_test(const oc::CLP& cmd)
     recver.setKeyOts(sk);
 
     auto r = coproto::sync_wait(coproto::when_all_ready(
-        sender.evaluate(y0, sock[0], prng0),
-        recver.evaluate(x, y1, sock[1], prng1)
+        sender.evaluate(y0, sock[0], prng0, ole0),
+        recver.evaluate(x, y1, sock[1], prng1, ole1)
     ));
 
     std::get<0>(r).result();

@@ -8,16 +8,29 @@
 #include "libOTe/TwoChooseOne/Silent/SilentOtExtReceiver.h"
 #include "libOTe/TwoChooseOne/SoftSpokenOT/SoftSpokenShOtExt.h"
 #include "DarkMatter22Prf.h"
+#include "OleGenerator.h"
 
 namespace secJoin
 {
-
-
-
+    static u64 jj = 2;
+    static u64 ii = 33;
+    
+    template<typename T>
+    int bit(T& x, u64 i)
+    {
+        return  *oc::BitIterator((u8*)&x, i);
+    }
+    template<typename T>
+    int bit2(T& x, u64 i)
+    {
+        return  *oc::BitIterator((u8*)&x, i * 2) + 2 * *oc::BitIterator((u8*)&x, i * 2 + 1);;
+    }
 
     class DLpnPrf
     {
     public:
+        static const std::array<block256, 128> mB, mBShuffled;
+
         static constexpr int KeySize = 128;
         std::array<oc::block, KeySize / 128> mKey;
         //oc::AlignedUnVector<u16> mPi;
@@ -137,7 +150,34 @@ namespace secJoin
 
         static inline oc::block compress(block256& w)
         {
-            return DarkMatter22Prf::compress(w);
+            return compress(w, mB);
+        }
+
+        static inline oc::block shuffledCompress(block256& w)
+        {
+            return compress(w, mBShuffled);
+        }
+
+        static inline oc::block compress(block256& w, const std::array<block256, 128>& B)
+        {
+            alignas(32) std::array<std::array<oc::block, 128>, 2> bw;
+
+            for (u64 i = 0; i < 128; ++i)
+            {
+                bw[0][i] = B[i].mData[0] & w.mData[0];
+                bw[1][i] = B[i].mData[1] & w.mData[1];
+            }
+            oc::transpose128(bw[0].data());
+            oc::transpose128(bw[1].data());
+
+            oc::block r;
+            memset(&r, 0, sizeof(r));
+            for (u64 i = 0; i < 128; ++i)
+                r = r ^ bw[0][i];
+            for (u64 i = 0; i < 128; ++i)
+                r = r ^ bw[1][i];
+
+            return r;
         }
     };
 
@@ -256,10 +296,12 @@ namespace secJoin
         oc::SoftSpokenShOtSender<> mSoftSender;
 #endif
 
+        static constexpr auto mDebug = false;
         static constexpr auto StepSize = 32;
         static constexpr auto n = DLpnPrf::KeySize;
         static constexpr auto m = 256;
         static constexpr auto t = 128;
+        static constexpr int mNumOlePer = (m * 2) / 128;
         DLpnPrf mPrf;
         //std::vector<block256> mU2;
         oc::AlignedUnVector<std::array<u16, m>> mU;
@@ -283,10 +325,10 @@ namespace secJoin
         }
 
 
-        coproto::task<> evaluate(span<oc::block> y, coproto::Socket& sock, oc::PRNG& prng)
+        coproto::task<> evaluate(span<oc::block> y, coproto::Socket& sock, oc::PRNG& prng, OleGenerator& ole)
         {
 
-            MC_BEGIN(coproto::task<>, y, this, &sock, &prng,
+            MC_BEGIN(coproto::task<>, y, this, &sock, &prng, &ole,
                 buffer = oc::AlignedUnVector<u8>{},
                 //uu = oc::AlignedUnVector<u16>{},
                 f = oc::BitVector{},
@@ -353,6 +395,9 @@ namespace secJoin
             setTimePoint("DarkMatter.sender.kxMult");
 
             // mod 2
+            MC_AWAIT(mod2Compress(mU, y, sock, ole));
+            MC_RETURN_VOID();
+
 
 #ifdef SECUREJOIN_DK_USE_SILENT
             diff.resize(y.size() * m);
@@ -511,7 +556,186 @@ namespace secJoin
             setTimePoint("DarkMatter.sender.derand");
 
             MC_END();
-    }
+        }
+
+        macoro::task<> mod2Compress(
+            span<std::array<u16, m>> u,
+            span<oc::block> out,
+            coproto::Socket& sock,
+            OleGenerator& ole)
+        {
+            MC_BEGIN(macoro::task<>, u, out, &sock, &ole,
+                triple = SharedTriple{},
+                tIter = std::vector<SharedTriple>::iterator{},
+                tIdx = u64{},
+                tSize = u64{},
+                i = u64{},
+                step = u64{},
+                buff = oc::AlignedUnVector<oc::block>{},
+                buffW = oc::AlignedUnVector<oc::block>{},
+                mask0 = oc::block{},
+                mask1 = oc::block{}
+            );
+
+            memset(&mask0, 0b01010101, sizeof(mask0));
+            memset(&mask1, 0b10101010, sizeof(mask0));
+
+            if(mDebug)
+                MC_AWAIT(sock.send(u));
+
+            tIdx = 0;
+            tSize = 0;
+            for (i = 0; i < u.size();)
+            {
+                MC_AWAIT(ole.get(triple));
+                tSize = triple.mAdd.size();
+                tIdx = 0;
+                buff.resize(tSize);
+                MC_AWAIT(sock.recv(buff));
+
+                if (mDebug)
+                    buffW.resize(buff.size() / 2);
+
+                step = std::min<u64>(u.size() - i, tSize / mNumOlePer);
+                assert(tSize % mNumOlePer == 0);
+                for (u64 j = 0; j < step; ++j, ++i, tIdx+=4)
+                {
+                    auto x = &triple.mAdd[tIdx];
+                    auto y = &triple.mMult[tIdx];
+                    auto d = &buff[tIdx];
+
+                    for (u64 k = 0; k < 4; ++k)
+                    {
+                        if (x[k] != oc::ZeroBlock)
+                            throw RTE_LOC;                        
+                        if (y[k] != oc::ZeroBlock)
+                            throw RTE_LOC;
+                        x[k] = x[k] ^ y[k] & d[k];
+                        if (x[k] != oc::ZeroBlock)
+                            throw RTE_LOC;
+                    }
+
+                    std::array<oc::block, mNumOlePer> packedU;
+                    block256 q0, q1, q2, t0,t1,t2;
+                    q0[0] = x[0] ^ x[2];
+                    q0[1] = x[1] ^ x[3];
+                    q1[0] = q0[0] ^ y[0];
+                    q1[1] = q0[1] ^ y[1];
+                    q2[0] = q0[0] ^ y[2];
+                    q2[1] = q0[1] ^ y[3];
+
+                    std::array<oc::block, mNumOlePer> t;
+                    auto iter = (u8*)&t;
+                    for (u64 k = 0; k < m; k += 4)
+                    {
+                        *iter++ =
+                            (u[i][k + 0] << 0) |
+                            (u[i][k + 1] << 2) |
+                            (u[i][k + 2] << 4) |
+                            (u[i][k + 3] << 6);
+                    }
+
+                    {
+                        auto iter = oc::BitIterator((u8*)&t);
+                        for (u64 k = 0; k < m; ++k)
+                        {
+                            if (*iter++ != (u[i][k] & 1))
+                                throw RTE_LOC;
+                            if (*iter++ != (u[i][k] >> 1))
+                                throw RTE_LOC;
+                        }
+                    }
+                    // even bits in perfect shuffled order
+                    // eg: 0 128 2 130 4 132 6 134 ... 126 254
+                    packedU[0] =
+                        t[0] & mask0 |
+                        ((t[2] & mask0) << 1);
+                    packedU[1] =
+                        t[1] & mask0 |
+                        ((t[3] & mask0) << 1);
+
+                    // odd bits in perfect shuffled order
+                    // eg: 1 9 3 11 5 13 7 15
+                    packedU[2] =
+                        ((t[0] & mask1) >> 1) |
+                        t[2] & mask1;
+                    packedU[3] =
+                        ((t[1] & mask1) >> 1) |
+                        t[3] & mask1;
+
+
+                    {
+                        auto s0 = oc::BitIterator((u8*)&t[0]);
+                        auto s1 = oc::BitIterator((u8*)&t[2]);
+                        auto d0 = oc::BitIterator((u8*)&packedU[0]);
+                        auto d1 = oc::BitIterator((u8*)&packedU[2]);
+                        for (u64 k = 0; k < m/2; ++k)
+                        {
+                            if (*d0++ != *s0++)
+                                throw RTE_LOC;
+                            if (*d0++ != *s1++)
+                                throw RTE_LOC;
+                            if (*d1++ != *s0++)
+                                throw RTE_LOC;
+                            if (*d1++ != *s1++)
+                                throw RTE_LOC;
+                        }
+                    }
+
+                    if (mDebug && i == ii)
+                    {
+                        std::cout << "s u " << bit2(t[0], jj) <<" = " << u[i][jj] << std::endl;
+                        auto jj2 = jj / 128 + (jj % 128) * 2;
+                        std::cout << "    " 
+                            << bit(packedU[0], jj2) << " "  
+                            << bit(packedU[2], jj2) << std::endl;
+                    }
+
+
+                    t0[0] = q0[0] ^ packedU[0];
+                    t0[1] = q0[1] ^ packedU[1];
+                    t1[0] = t0[0] ^ q1[0] ^ packedU[0] ^ packedU[2] ^ oc::AllOneBlock;
+                    t1[1] = t0[1] ^ q1[1] ^ packedU[1] ^ packedU[3] ^ oc::AllOneBlock;
+                    t2[0] = t0[0] ^ q2[0] ^ packedU[2];
+                    t2[1] = t0[1] ^ q2[1] ^ packedU[3];
+
+                    d[0] = t1[0];
+                    d[1] = t1[1];
+                    d[2] = t2[0];
+                    d[3] = t2[1];
+
+
+                    //buff2[j * 4 + 0] = packedU[0];
+                    //buff2[j * 4 + 1] = packedU[1];
+                    //buff2[j * 4 + 2] = packedU[2];
+                    //buff2[j * 4 + 3] = packedU[3];
+
+                    if (mDebug)
+                    {
+                        buffW[j * 2 + 0] = t0[0];
+                        buffW[j * 2 + 1] = t0[1];
+
+                        if (i == ii)
+                        {
+                            auto jj2 = jj / 128 + (jj % 128) * 2;
+                            std::cout << "s w " << bit(t0[0], jj2) <<" = q " <<bit(q0[0], jj2) << " ^ u " << bit(packedU[0] , jj2) << std::endl;
+                            std::cout << "    " << bit(t1[0], jj2) << std::endl;
+                            std::cout << "    " << bit(t2[0], jj2) << std::endl;
+                        }
+                    }
+
+                    out[i] = DLpnPrf::shuffledCompress(t0);
+                }
+
+                MC_AWAIT(sock.send(std::move(buff)));
+                //MC_AWAIT(sock.send(std::move(buff2)));
+
+                if(mDebug)
+                    MC_AWAIT(sock.send(std::move(buffW)));
+
+            }
+            MC_END();
+        }
 
     };
 
@@ -529,11 +753,14 @@ namespace secJoin
         oc::AlignedUnVector<u16> mH;
 
 
+        static constexpr auto mDebug = false;
         static constexpr auto StepSize = 32;
         static constexpr auto n = DLpnPrf::KeySize;
         static constexpr auto m = 256;
         static constexpr auto t = 128;
         DLpnPrf mPrf;
+        static constexpr int mNumOlePer = (m * 2) / 128;
+
         //oc::AlignedUnVector<u16> mPi;
 
         void setKeyOts(span<std::array<oc::block, 2>> ots)
@@ -549,9 +776,9 @@ namespace secJoin
         }
 
 
-        coproto::task<> evaluate(span<oc::block> x, span<oc::block> y, coproto::Socket& sock, oc::PRNG& prng)
+        coproto::task<> evaluate(span<oc::block> x, span<oc::block> y, coproto::Socket& sock, oc::PRNG& prng, OleGenerator& ole)
         {
-            MC_BEGIN(coproto::task<>, x, y, this, &sock, &prng,
+            MC_BEGIN(coproto::task<>, x, y, this, &sock, &prng, &ole,
                 X = oc::AlignedUnVector<std::array<oc::block, DLpnPrf::KeySize / 128>>{},
                 buffer = oc::AlignedUnVector<u8>{},
                 //h = oc::AlignedUnVector<u16>{},
@@ -629,9 +856,12 @@ namespace secJoin
             setTimePoint("DarkMatter.recver.mod2");
 
             // mod 2
+
+            MC_AWAIT(mod2Compress(mU, y, sock, ole));
+            MC_RETURN_VOID();
+
             diff.resize(x.size() * m * 2);
             rKeys.resize(x.size() * m);
-
 #ifdef SECUREJOIN_DK_USE_SILENT
             MC_AWAIT(mOtReceiver.silentReceiveInplace(diff.size(), prng, sock, oc::ChoiceBitPacking::True));
             setTimePoint("DarkMatter.recver.silent");
@@ -748,7 +978,172 @@ namespace secJoin
             setTimePoint("DarkMatter.recver.derand");
 
             MC_END();
-}
+        }
+
+
+        macoro::task<> mod2Compress(
+            span<std::array<u16, m>> u, 
+            span<oc::block> out,
+            coproto::Socket& sock, 
+            OleGenerator& ole)
+        {
+            MC_BEGIN(macoro::task<>, u, out, &sock, &ole,
+                triple = std::vector<SharedTriple>{},
+                tIter = std::vector<SharedTriple>::iterator{},
+                tIdx = u64{},
+                tSize = u64{},
+                i = u64{},
+                step = u64{},
+                buff = oc::AlignedUnVector<oc::block>{},
+                packedU = oc::AlignedUnVector<std::array<oc::block, mNumOlePer>>{},
+                u2 = oc::AlignedUnVector<std::array<u16, m>>{},
+                ww = oc::AlignedUnVector<block256>{},
+                mask0 = oc::block{},
+                mask1 = oc::block{}
+            );
+
+            if (mDebug)
+            {
+                u2.resize(u.size());
+                MC_AWAIT(sock.recv(u2));
+
+            }
+
+            memset(&mask0, 0b01010101, sizeof(mask0));
+            memset(&mask1, 0b10101010, sizeof(mask1));
+
+            triple.reserve(oc::divCeil(u.size() * 2 * m, ole.mChunkSize) + 1);
+            tIdx = 0;
+            tSize = 0;
+            packedU.resize(u.size());
+            for (i = 0; i < u.size();)
+            {
+                triple.emplace_back();
+                MC_AWAIT(ole.get(triple.back()));
+                tSize = triple.back().mAdd.size();
+                tIdx = 0;
+                buff.resize(tSize);
+
+                step = std::min<u64>(u.size() - i, tSize / mNumOlePer);
+                assert(tSize % mNumOlePer == 0);
+                for (u64 j = 0; j < step; ++j, ++i)
+                {
+                    std::array<oc::block, mNumOlePer> t;
+                    auto iter = (u8*)&t;
+                    for (u64 k = 0; k < m; k += 4)
+                    {
+                        *iter++ =
+                            (u[i][k + 0] << 0) |
+                            (u[i][k + 1] << 2) |
+                            (u[i][k + 2] << 4) |
+                            (u[i][k + 3] << 6);
+                    }
+
+                    if (mDebug && i == ii)
+                    {
+                        std::cout << "r u " << bit2(t[0], jj) << " = " << u[i][jj]  << std::endl;
+                    }
+
+                    // even bits in perfect shuffled order
+                    // eg: 0 8 2 10 4 12 6 14
+                    packedU[i][0] =
+                        t[0] & mask0 |
+                        ((t[2] & mask0) << 1);
+                    packedU[i][1] =
+                        t[1] & mask0 |
+                        ((t[3] & mask0) << 1);
+
+                    // odd bits in perfect shuffled order
+                    // eg: 1 9 3 11 5 13 7 15
+                    packedU[i][2] =
+                        ((t[0] & mask1) >> 1) |
+                        t[2] & mask1;
+                    packedU[i][3] =
+                        ((t[1] & mask1) >> 1) |
+                        t[3] & mask1;
+
+                    for (u64 k = 0; k < packedU[i].size(); ++k, ++tIdx)
+                    {
+                        buff[tIdx] = triple.back().mMult[tIdx] ^ packedU[i][k];
+                    }
+                }
+
+                MC_AWAIT(sock.send(std::move(buff)));
+            }
+
+            
+            tIter = triple.begin();
+            for (i = 0; i < u.size(); )
+            {
+                tIdx = 0;
+                tSize = tIter->mAdd.size();
+                buff.resize(tSize);
+                MC_AWAIT(sock.recv(buff));
+
+                if (mDebug)
+                {
+                    ww.resize(tSize/4);
+                    MC_AWAIT(sock.recv(ww));
+                }
+
+                step = std::min<u64>(u.size() - i, tSize / mNumOlePer);
+                for (u64 j = 0; j < step; ++j, ++i, tIdx += 4)
+                {
+                    block256 w;
+                    w[0] =
+                        (packedU[i][0] & buff[tIdx + 0]) ^
+                        (packedU[i][2] & buff[tIdx + 2]) ^
+                        tIter->mAdd[tIdx + 0] ^
+                        tIter->mAdd[tIdx + 2];
+                    w[1] =
+                        (packedU[i][1] & buff[tIdx + 1]) ^
+                        (packedU[i][3] & buff[tIdx + 3]) ^
+                        tIter->mAdd[tIdx + 1] ^
+                        tIter->mAdd[tIdx + 3];
+
+                    //for (u64 k = 0; k < packedU.size() / 2; ++k, ++tIdx)
+                    //{
+                    //    packedU[i][k] =
+                    //        tIter->mAdd[tIdx] ^
+                    //        (buff[tIdx] & packedU[i][k]);
+
+                    //    packedU[i][k] = packedU[i][k] ^ (packedU[i][k] >> 1);
+                    //    packedU[i][k] = packedU[i][k] & mask;
+
+                    //}
+
+                    ////packedU[i][0] = packedU[i][0] ^ (packedU[i][1] << 1);
+                    ////packedU[i][1] = packedU[i][2] ^ (packedU[i][3] << 1);
+
+
+                    if (mDebug)
+                    {
+                        if (i == ii)
+                        {
+                            auto jj2 = jj / 128 + (jj % 128) * 2;
+                            std::cout << "r w " << bit(w[0], jj2) << std::endl;
+                            std::cout << " ww " << bit(ww[j],jj2) << std::endl;
+                            
+                        }
+
+                        block256 W = w ^ ww[j];
+                        for (u64 k = 0; k < m; ++k)
+                        {
+                            auto U0 = u[i][k];
+                            auto U1 = u2[i][k];
+                            auto U = (U0 + U1) % 3;
+                            auto kk2 = k / 128 + (k % 128) * 2;
+                            auto wk = bit(W, kk2);
+                            if ((U % 2) != wk)
+                                throw RTE_LOC;;
+                        }
+                    }
+                    out[i] = DLpnPrf::shuffledCompress(w);
+                }
+            }
+
+            MC_END();
+        }
 
     };
 }

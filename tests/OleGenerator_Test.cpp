@@ -29,8 +29,8 @@ void OleGenerator_Basic_Test(const oc::CLP& cmd)
         auto n = prng.get<u64>() % chunkSize;
 
         auto r = macoro::sync_wait(macoro::when_all_ready(
-            g0.get(t0, n),
-            g1.get(t1, n)
+            g0.getRef(t0, n),
+            g1.getRef(t1, n)
         ));
 
         if (cmd.isSet("nc") == false)

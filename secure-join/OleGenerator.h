@@ -24,7 +24,7 @@ namespace secJoin
     struct SharedTriple
     {
         span<oc::block> mMult, mAdd;
-
+        oc::AlignedUnVector<oc::block> mMemAdd, mMemMult;
 
         u64 size() const
         {
@@ -197,7 +197,7 @@ namespace secJoin
 
 
         macoro::async_manual_reset_event mGetEvent;
-        macoro::task<> get(SharedTriple& triples, u64 n)
+        macoro::task<> getRef(SharedTriple& triples, u64 n)
         {
             MC_BEGIN(macoro::task<>, this, &triples, n
             );
@@ -211,6 +211,8 @@ namespace secJoin
                 {
                     mCurChunk.mAdd.resize(mChunkSize / 128);
                     mCurChunk.mMult.resize(mChunkSize / 128);
+                    memset(mCurChunk.mAdd.data(), 0, mCurChunk.mAdd.size() * sizeof(oc::block));
+                    memset(mCurChunk.mMult.data(), 0, mCurChunk.mMult.size() * sizeof(oc::block));
                 }
                 else
                 {
@@ -224,6 +226,7 @@ namespace secJoin
             if (mRemChunk)
             {
                 auto m = mChunkSize / 128;
+                n = oc::divCeil(n, 128);
                 n = std::min<u64>(n, mRemChunk);
                 triples.mAdd = mCurChunk.mAdd.subspan(m - mRemChunk, n);
                 triples.mMult = mCurChunk.mMult.subspan(m - mRemChunk, n);
@@ -233,7 +236,47 @@ namespace secJoin
                 throw std::runtime_error("OleGenerator, no triples left. " LOCATION);
             MC_END();
         }
-        macoro::task<> get(span<oc::block> mult, span<oc::block> add, u64 n);
+
+
+        macoro::task<> get(SharedTriple& triples)
+        {
+            MC_BEGIN(macoro::task<>, this, &triples
+            );
+
+            if (mRemChunk == 0)
+            {
+                mGetEvent.reset();
+                if (mFakeGen)
+                {
+                    mCurChunk.mAdd.resize(mChunkSize / 128);
+                    mCurChunk.mMult.resize(mChunkSize / 128);
+                    memset(mCurChunk.mAdd.data(), 0, mCurChunk.mAdd.size() * sizeof(oc::block));
+                    memset(mCurChunk.mMult.data(), 0, mCurChunk.mMult.size() * sizeof(oc::block));
+                }
+                else
+                {
+                    MC_AWAIT(mControlQueue->push({ Command::GetChunk{&mGetEvent} }));
+                    MC_AWAIT(mGetEvent);
+                }
+
+                mRemChunk = mCurChunk.mAdd.size();
+            }
+
+            if (mRemChunk)
+            {
+                auto m = mChunkSize / 128;
+                auto n = mRemChunk;
+
+                triples.mAdd = mCurChunk.mAdd.subspan(m - mRemChunk, n);
+                triples.mMult = mCurChunk.mMult.subspan(m - mRemChunk, n);
+                triples.mMemAdd = std::move(mCurChunk.mAdd);
+                triples.mMemMult = std::move(mCurChunk.mMult);
+                mRemChunk = 0;
+            }
+            else
+                throw std::runtime_error("OleGenerator, no triples left. " LOCATION);
+            MC_END();
+        }
     };
 
 

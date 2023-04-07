@@ -1,6 +1,6 @@
 #include "OleGenerator.h"
 
-#define LOG(X) log(X)
+#define LOG(X) 
 
 namespace secJoin
 {
@@ -27,7 +27,6 @@ namespace secJoin
             LOG("transfered " + std::to_string(chunk.mIdx));
             //A// std::cout << "pop chunk" << std::endl;
 
-
             if (chunk.mBaseRecv.size() == 0 && chunk.mBaseSend.size() == 0)
             {
                 MC_AWAIT(mParent->mControlQueue->push({ Command::GenStopped{chunk.mIdx} }));
@@ -38,21 +37,6 @@ namespace secJoin
 
             if (mParent->mRole == Role::Sender)
             {
-                //diff.resize(chunk.mBaseSend.size());
-                //MC_AWAIT(mChl.recv(diff));
-                //LOG("recv diff " + std::to_string(chunk.mIdx));
-
-                ////A// std::cout << "recv diff" << std::endl;
-
-                //for (u64 i = 0; i < diff.size(); ++i)
-                //{
-                //    if (diff[i])
-                //        std::swap(chunk.mBaseSend[i][0], chunk.mBaseSend[i][1]);
-                //}
-
-                //mSender->configure(mParent->mChunkSize);
-                //mSender->setSilentBaseOts(chunk.mBaseSend);
-
                 sendMsg.resize(mParent->mChunkSize);
                 MC_AWAIT(mSender->silentSend(sendMsg, mPrng, mChl));
                 LOG("silentSend " + std::to_string(chunk.mIdx));
@@ -64,12 +48,6 @@ namespace secJoin
             }
             else
             {
-                //mRecver->configure(mParent->mChunkSize);
-                //diff = mRecver->sampleBaseChoiceBits(mPrng) ^ chunk.mBaseChoice;;
-                //MC_AWAIT(mChl.send(std::move(diff)));
-                //LOG("send diff " + std::to_string(chunk.mIdx));
-                //mRecver->setSilentBaseOts(chunk.mBaseRecv);
-
                 recvMsg.resize(mParent->mChunkSize);
                 bv.resize(mParent->mChunkSize);
                 MC_AWAIT(mRecver->silentReceive(bv, recvMsg, mPrng, mChl));
@@ -107,59 +85,6 @@ namespace secJoin
         MC_END();
     }
 
-    //macoro::task<> OleGenerator::baseOtProvider(oc::block seed)
-    //{
-    //    MC_BEGIN(macoro::task<>, this, 
-    //        sender = oc::SoftSpokenShOtSender{},
-    //        recver = oc::SoftSpokenShOtReceiver{},
-    //        prng = oc::PRNG(seed),
-    //        n = u64{},
-    //        base = Command::BaseOt{}
-    //        );
-
-    //    if (mRole == Role::Sender)
-    //    {
-    //        MC_AWAIT(recver.genBaseOts(prng, mChl));
-
-    //        do {
-    //            MC_AWAIT_SET(n, mBaseOtQueue->pop());
-    //            
-    //            if (n)
-    //            {
-    //                base.mRecvChoice.resize(n);
-    //                base.mRecvChoice.randomize(prng);
-
-    //                base.mRecvOt.resize(n);
-    //                MC_AWAIT(recver.receive(base.mRecvChoice, base.mRecvOt, prng, mChl));
-
-    //                MC_AWAIT(mControlQueue->push(Command{ std::move(base) }));
-    //            }
-
-    //        } while (n);
-    //    }
-    //    else
-    //    {
-    //        MC_AWAIT(sender.genBaseOts(prng, mChl));
-
-    //        do {
-    //            MC_AWAIT_SET(n, mBaseOtQueue->pop());
-
-    //            if (n)
-    //            {
-    //                base.mRecvChoice.resize(n);
-    //                base.mRecvOt.resize(n);
-    //                MC_AWAIT(sender.send(base.mSendOt, prng, mChl));
-
-    //                MC_AWAIT(mControlQueue->push(Command{ std::move(base) }));
-    //            }
-
-    //        } while (n);
-    //    }
-
-
-    //    MC_END();
-    //}
-
     macoro::task<> OleGenerator::control()
     {
         MC_BEGIN(macoro::task<>, this,
@@ -169,14 +94,9 @@ namespace secJoin
             pushIdxs = std::vector<u64>{},
             popIdx = u64{},
             numTasks = u64{},
-            pendingChunks = std::vector<Chunk>{},
             getEvent = (macoro::async_manual_reset_event*)nullptr,
-            baseLeft = u64{},
-            baseReservoirCapacity = u64{},
-            baseReservoir = u64{},
             baseSender = oc::SoftSpokenMalOtSender{},
             baseRecver = oc::SoftSpokenMalOtReceiver{}
-
         );
 
         //A// std::cout << "control " << std::endl;
@@ -188,7 +108,7 @@ namespace secJoin
             oc::SilentOtExtSender s;
             s.configure(mChunkSize);
             mBaseSize = s.silentBaseOtCount();
-            //std::cout << "total base " << mNumChunks * mBaseSize << " = n " << mNumChunks << " * s " << mBaseSize << std::endl;
+            std::cout << "total base " << mNumChunks * mBaseSize << " = n " << mNumChunks << " * s " << mBaseSize << std::endl;
         }
 
         if (mRole == Role::Sender)
@@ -242,8 +162,6 @@ namespace secJoin
             LOG("control: push chunk " + std::to_string(i));
 
             pushIdxs[i % mNumConcurrent] = i;
-            //pendingChunks.push_back(std::move(chunk));
-
             MC_AWAIT(mGens[i % mNumConcurrent].mInQueue->push(std::move(chunk)));
         }
 

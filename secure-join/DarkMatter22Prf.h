@@ -52,6 +52,8 @@ namespace secJoin
         {
             return std::memcmp(this, &x, sizeof(x)) != 0;
         }
+
+        oc::block& operator[](u64 i) { return mData[i]; }
     };
 
     inline std::ostream& operator<<(std::ostream& o, const block256& x)
