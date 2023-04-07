@@ -12,8 +12,8 @@
 
 namespace secJoin
 {
-    static u64 jj = 2;
-    static u64 ii = 33;
+    static u64 jj = 0;
+    static u64 ii = 11;
     
     template<typename T>
     int bit(T& x, u64 i)
@@ -606,13 +606,7 @@ namespace secJoin
 
                     for (u64 k = 0; k < 4; ++k)
                     {
-                        if (x[k] != oc::ZeroBlock)
-                            throw RTE_LOC;                        
-                        if (y[k] != oc::ZeroBlock)
-                            throw RTE_LOC;
                         x[k] = x[k] ^ y[k] & d[k];
-                        if (x[k] != oc::ZeroBlock)
-                            throw RTE_LOC;
                     }
 
                     std::array<oc::block, mNumOlePer> packedU;
@@ -1073,7 +1067,7 @@ namespace secJoin
 
             
             tIter = triple.begin();
-            for (i = 0; i < u.size(); )
+            for (i = 0; i < u.size(); ++tIter)
             {
                 tIdx = 0;
                 tSize = tIter->mAdd.size();

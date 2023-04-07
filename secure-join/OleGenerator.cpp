@@ -108,7 +108,7 @@ namespace secJoin
             oc::SilentOtExtSender s;
             s.configure(mChunkSize);
             mBaseSize = s.silentBaseOtCount();
-            std::cout << "total base " << mNumChunks * mBaseSize << " = n " << mNumChunks << " * s " << mBaseSize << std::endl;
+            //std::cout << "total base " << mNumChunks * mBaseSize << " = n " << mNumChunks << " * s " << mBaseSize << std::endl;
         }
 
         if (mRole == Role::Sender)
@@ -296,6 +296,10 @@ namespace secJoin
     {
         if (!numConcurrent)
             throw std::runtime_error("OleGenerator::numConcurrent must be non-zero");
+
+        // not implemented.
+        if (totalSize == 0)
+            throw RTE_LOC;
 
         mRole = role;
         mThreadPool = &threadPool;

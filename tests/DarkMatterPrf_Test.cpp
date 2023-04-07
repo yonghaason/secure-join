@@ -600,10 +600,12 @@ void DLpnPrf_proto_test(const oc::CLP& cmd)
 
     OleGenerator ole0, ole1;
     macoro::thread_pool tp;
-    ole0.mFakeGen = true;
-    ole1.mFakeGen = true;
-    ole0.init(OleGenerator::Role::Sender, tp, sock[0], prng0);
-    ole1.init(OleGenerator::Role::Receiver, tp, sock[1], prng1);
+    auto w = tp.make_work();
+    tp.create_threads(6);
+    //ole0.mFakeGen = true;
+    //ole1.mFakeGen = true;
+    ole0.init(OleGenerator::Role::Sender, tp, sock[0], prng0, n * 512, n * 512, 4);
+    ole1.init(OleGenerator::Role::Receiver, tp, sock[1], prng1, n * 512, n * 512, 4);
 
     prng0.get(x.data(), x.size());
     //memset(x.data(), -1, n * sizeof(block256));
@@ -626,6 +628,11 @@ void DLpnPrf_proto_test(const oc::CLP& cmd)
     std::get<0>(r).result();
     std::get<1>(r).result();
 
+    coproto::sync_wait(coproto::when_all_ready(
+        ole0.stop(),
+        ole1.stop()
+    ));
+        
     if (cmd.isSet("v"))
     {
         std::cout << timer << std::endl;
