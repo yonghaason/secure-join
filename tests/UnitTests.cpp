@@ -44,8 +44,6 @@ namespace secJoin_Tests
         t.add("DLpnPrf_plain_test                            ", DLpnPrf_plain_test);
         t.add("DLpnPrf_proto_test                            ", DLpnPrf_proto_test);
 
-        t.add("ALpnPrf_plain_test                            ", ALpnPrf_plain_test);
-        t.add("ALpnPrf_proto_test                            ", ALpnPrf_proto_test);
         
         
 

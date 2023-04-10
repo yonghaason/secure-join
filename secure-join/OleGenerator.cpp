@@ -327,6 +327,7 @@ namespace secJoin
             throw RTE_LOC;
         if (mult.size() * 128 != sendMsg.size())
             throw RTE_LOC;
+        using block = oc::block;
 
         auto shuffle = std::array<block, 16>{};
         memset(shuffle.data(), 1 << 7, sizeof(*shuffle.data()) * shuffle.size());
@@ -431,6 +432,7 @@ namespace secJoin
             throw RTE_LOC;
         if (mult.size() * 128 != recvMsg.size())
             throw RTE_LOC;
+        using block = oc::block;
 
         auto shuffle = std::array<block, 16>{};
         memset(shuffle.data(), 1 << 7, sizeof(*shuffle.data()) * shuffle.size());

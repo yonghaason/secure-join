@@ -12,5 +12,3 @@ void DarkMatter32Prf_proto_test(const oc::CLP& cmd);
 void DLpnPrf_plain_test();
 void DLpnPrf_proto_test(const oc::CLP& cmd);
 
-void ALpnPrf_plain_test();
-void ALpnPrf_proto_test(const oc::CLP& cmd);

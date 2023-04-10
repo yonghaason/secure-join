@@ -67,9 +67,9 @@ namespace secJoin
         memset(memView.data(), 0, memView.size());
     }
 
-    Proto Gmw::run(coproto::Socket& chl)
+    coproto::task<> Gmw::run(coproto::Socket& chl)
     {
-        MC_BEGIN(Proto, this, &chl, i = u64{});
+        MC_BEGIN(coproto::task<>, this, &chl, i = u64{});
 
         if (mO.mDebug)
         {
@@ -147,12 +147,12 @@ namespace secJoin
     //    mSilent.requiredBaseOts()
     //}
 
-//    Proto Gmw::generateTriple(
+//    coproto::task<> Gmw::generateTriple(
 //        u64 batchSize,
 //        u64 numThreads,
 //        coproto::Socket& chl)
 //    {
-//        MC_BEGIN(Proto, this, &tg = mSilent, batchSize, numThreads, &chl,
+//        MC_BEGIN(coproto::task<>, this, &tg = mSilent, batchSize, numThreads, &chl,
 //            A2 = std::vector<block>{},
 //            B2 = std::vector<block>{},
 //            C2 = std::vector<block>{},
@@ -269,9 +269,9 @@ namespace secJoin
     // Recver outputs: z2 = x2y2 + z12 + z22 
     //                    = x2y2 + r1 + r2
     //                    = x2y2 + r
-    Proto Gmw::roundFunction(coproto::Socket& chl)
+    coproto::task<> Gmw::roundFunction(coproto::Socket& chl)
     {
-        MC_BEGIN(Proto, this, &chl,
+        MC_BEGIN(coproto::task<>, this, &chl,
             gates = span<oc::BetaGate>{},
             gate = span<oc::BetaGate>::iterator{},
             dirtyBits = std::vector<u8>{},
@@ -654,10 +654,10 @@ namespace secJoin
     //                            = ac + xc + (ac + b)
     //                            = cx + b
     // Observer z1 + z2 = xy
-    Proto Gmw::multSendP1(span<block> x, coproto::Socket& chl, oc::GateType gt,
+    coproto::task<> Gmw::multSendP1(span<block> x, coproto::Socket& chl, oc::GateType gt,
         span<block> a)
     {
-        MC_BEGIN(Proto, this, x, &chl, gt, a,
+        MC_BEGIN(coproto::task<>, this, x, &chl, gt, a,
             width = x.size(),
             u = std::vector<block>{}
         );
@@ -682,11 +682,11 @@ namespace secJoin
         MC_END();
     }
 
-    Proto Gmw::multSendP2(span<block> y, coproto::Socket& chl, oc::GateType gt,
+    coproto::task<> Gmw::multSendP2(span<block> y, coproto::Socket& chl, oc::GateType gt,
         span<block> c)
     {
 
-        MC_BEGIN(Proto, this, y, &chl, gt, c,
+        MC_BEGIN(coproto::task<>, this, y, &chl, gt, c,
             width = y.size(),
             w = std::vector<block>{}
         );
@@ -712,10 +712,10 @@ namespace secJoin
         MC_END();
     }
 
-    Proto Gmw::multRecvP1(span<block> x, span<block> z, coproto::Socket& chl, oc::GateType gt,
+    coproto::task<> Gmw::multRecvP1(span<block> x, span<block> z, coproto::Socket& chl, oc::GateType gt,
         span<block> b)
     {
-        MC_BEGIN(Proto, this, x, z, &chl, gt, b,
+        MC_BEGIN(coproto::task<>, this, x, z, &chl, gt, b,
             width = x.size(),
             w = std::vector<block>{}
         );
@@ -744,7 +744,7 @@ namespace secJoin
         //oc::lout << mIdx << " " << "z1 = x * w" << std::endl << view(z[0]) << " = " << view(x[0]) << " * " << view(w[0]) << std::endl;
     }
 
-    Proto Gmw::multRecvP2(
+    coproto::task<> Gmw::multRecvP2(
         span<block> y,
         span<block> z,
         coproto::Socket& chl,
@@ -753,7 +753,7 @@ namespace secJoin
     )
     {
 
-        MC_BEGIN(Proto, this, z, &chl, c, d,
+        MC_BEGIN(coproto::task<>, this, z, &chl, c, d,
             width = y.size(),
             u = std::vector<block>{}
         );
@@ -776,21 +776,21 @@ namespace secJoin
 
     }
 
-    Proto Gmw::multSendP1(span<block> x, span<block> y, coproto::Socket& chl, oc::GateType gt,
+    coproto::task<> Gmw::multSendP1(span<block> x, span<block> y, coproto::Socket& chl, oc::GateType gt,
         span<block> a,
         span<block> c)
     {
-        MC_BEGIN(Proto, this, x, y, &chl, gt, a, c);
+        MC_BEGIN(coproto::task<>, this, x, y, &chl, gt, a, c);
         MC_AWAIT(multSendP1(x, chl, gt, a));
         MC_AWAIT(multSendP2(y, chl, gt, c));
         MC_END();
     }
 
-    Proto Gmw::multSendP2(span<block> x, span<block> y, coproto::Socket& chl,
+    coproto::task<> Gmw::multSendP2(span<block> x, span<block> y, coproto::Socket& chl,
         span<block> a,
         span<block> c)
     {
-        MC_BEGIN(Proto, this, x, y, &chl, a, c);
+        MC_BEGIN(coproto::task<>, this, x, y, &chl, a, c);
 
         MC_AWAIT(multSendP2(y, chl, oc::GateType::And, c));
         MC_AWAIT(multSendP1(x, chl, oc::GateType::And, a));
@@ -799,12 +799,12 @@ namespace secJoin
     }
 
 
-    Proto Gmw::multRecvP1(span<block> x, span<block> y, span<block> z, coproto::Socket& chl, oc::GateType gt,
+    coproto::task<> Gmw::multRecvP1(span<block> x, span<block> y, span<block> z, coproto::Socket& chl, oc::GateType gt,
         span<block> b,
         span<block> c,
         span<block> d)
     {
-        MC_BEGIN(Proto, this, x, y, z, &chl, gt, b, c, d,
+        MC_BEGIN(coproto::task<>, this, x, y, z, &chl, gt, b, c, d,
             zz = std::vector<block>{},
             zz2 = std::vector<block>{},
             xm = block{},
@@ -834,12 +834,12 @@ namespace secJoin
         MC_END();
     }
 
-    Proto Gmw::multRecvP2(span<block> x, span<block> y, span<block> z, coproto::Socket& chl,
+    coproto::task<> Gmw::multRecvP2(span<block> x, span<block> y, span<block> z, coproto::Socket& chl,
         span<block> b,
         span<block> c,
         span<block> d)
     {
-        MC_BEGIN(Proto, this, x, y, z, &chl, b, c, d,
+        MC_BEGIN(coproto::task<>, this, x, y, z, &chl, b, c, d,
             zz = std::vector<block>{},
             zz2 = std::vector<block>{}
         );

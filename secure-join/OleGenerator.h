@@ -14,7 +14,6 @@
 #include <libOTe/TwoChooseOne/Silent/SilentOtExtReceiver.h>
 #include "macoro/thread_pool.h"
 #include "macoro/channel_spsc.h"
-#include "secure-join/GMW/SilentTripleGen.h"
 #include "macoro/manual_reset_event.h"
 #include <map>
 
@@ -215,9 +214,9 @@ namespace secJoin
             oc::PRNG prng(oc::block(mCurSize++));
             for (u32 i = 0; i < chunk.mAdd.size(); ++i)
             {
-                block m0 = std::array<u32, 4>{i, i, i, i};// prng.get();
-                block m1 = std::array<u32, 4>{i, i, i, i};//prng.get();
-                block a0 = std::array<u32, 4>{0, i, 0, i};//prng.get();
+                oc::block m0 = std::array<u32, 4>{i, i, i, i};// prng.get();
+                oc::block m1 = std::array<u32, 4>{i, i, i, i};//prng.get();
+                oc::block a0 = std::array<u32, 4>{0, i, 0, i};//prng.get();
                 auto a1  = std::array<u32, 4>{i, 0, i, 0};;// m0& m1^ a0;
 
                 if (mRole == Role::Sender)

@@ -11,7 +11,6 @@
 #include "secure-join/Defines.h"
 
 #include "secure-join/GMW/Circuit.h"
-#include "secure-join/GMW/SilentTripleGen.h"
 #include <list>
 #include <cryptoTools/Network/Channel.h>
 #include <cryptoTools/Common/Matrix.h>
@@ -19,7 +18,7 @@
 
 namespace secJoin
 {
-
+    using block = oc::block;
     enum class OtExtType
     {
         IKNP,
@@ -76,7 +75,7 @@ namespace secJoin
         //    mD = d;
         //}
 
-        //Proto generateTriple(
+        //coproto::task<> generateTriple(
         //    u64 batchSize,
         //    u64 numThreads,
         //    coproto::Socket& chl);
@@ -91,7 +90,7 @@ namespace secJoin
 
         void setZeroInput(u64 i);
 
-        Proto run(coproto::Socket& chl);
+        coproto::task<> run(coproto::Socket& chl);
 
         template<typename T>
         void getOutput(u64 i, oc::MatrixView<T> out)
@@ -118,23 +117,23 @@ namespace secJoin
             return mNumRounds;
         }
 
-        Proto roundFunction(coproto::Socket& chl);
+        coproto::task<> roundFunction(coproto::Socket& chl);
 
 
-        Proto multSendP1(span<block> x, coproto::Socket& chl, oc::GateType gt,
+        coproto::task<> multSendP1(span<block> x, coproto::Socket& chl, oc::GateType gt,
             span<block> a);
-        Proto multSendP2(span<block> x, coproto::Socket& chl, oc::GateType gt,
+        coproto::task<> multSendP2(span<block> x, coproto::Socket& chl, oc::GateType gt,
             span<block> c);
 
 
-        Proto multRecvP1(span<block> x, span<block> z, coproto::Socket& chl, oc::GateType gt,
+        coproto::task<> multRecvP1(span<block> x, span<block> z, coproto::Socket& chl, oc::GateType gt,
             span<block> b);
-        Proto multRecvP2(span<block> x,  span<block> z, coproto::Socket& chl,
+        coproto::task<> multRecvP2(span<block> x,  span<block> z, coproto::Socket& chl,
             span<block> c,
             span<block> d);
 
 
-        Proto multSend(span<block> x, span<block> y, coproto::Socket& chl, oc::GateType gt,
+        coproto::task<> multSend(span<block> x, span<block> y, coproto::Socket& chl, oc::GateType gt,
             span<block> a,
             span<block> c)
         {
@@ -143,15 +142,15 @@ namespace secJoin
             else
                 return multSendP2(x, y, chl, a, c);
         }
-        Proto multSendP1(span<block> x, span<block> y, coproto::Socket& chl, oc::GateType gt,
+        coproto::task<> multSendP1(span<block> x, span<block> y, coproto::Socket& chl, oc::GateType gt,
             span<block> a,
             span<block> c);
-        Proto multSendP2(span<block> x, span<block> y, coproto::Socket& chl,
+        coproto::task<> multSendP2(span<block> x, span<block> y, coproto::Socket& chl,
             span<block> a,
             span<block> c);
 
 
-        Proto multRecv(span<block> x, span<block> y, span<block> z, coproto::Socket& chl, oc::GateType gt,
+        coproto::task<> multRecv(span<block> x, span<block> y, span<block> z, coproto::Socket& chl, oc::GateType gt,
             span<block> b,
             span<block> c,
             span<block> d)
@@ -162,11 +161,11 @@ namespace secJoin
                 return multRecvP2(x, y, z, chl, b, c, d);
         }
 
-        Proto multRecvP1(span<block> x, span<block> y, span<block> z, coproto::Socket& chl, oc::GateType gt,
+        coproto::task<> multRecvP1(span<block> x, span<block> y, span<block> z, coproto::Socket& chl, oc::GateType gt,
             span<block> b,
             span<block> c,
             span<block> d);
-        Proto multRecvP2(span<block> x, span<block> y, span<block> z, coproto::Socket& chl,
+        coproto::task<> multRecvP2(span<block> x, span<block> y, span<block> z, coproto::Socket& chl,
             span<block> b,
             span<block> c,
             span<block> d);

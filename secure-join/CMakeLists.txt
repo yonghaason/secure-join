@@ -10,7 +10,7 @@ set(SRCS
     "DarkMatter22Prf.cpp"
     "GMW/Circuit.cpp"
     "GMW/Gmw.cpp"
-    "GMW/SilentTripleGen.cpp"
+    
     )
 
 if(SECUREJOIN_ENABLE_PAILLIER)
