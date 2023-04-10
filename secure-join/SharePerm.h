@@ -25,11 +25,12 @@ namespace secJoin
         macoro::task<> apply(
             oc::Matrix<u8>& in,
             oc::Matrix<u8>& out,
-            coproto::Socket& chl
+            coproto::Socket& chl,
+            OleGenerator& ole
             )
         {
 
-            MC_BEGIN(macoro::task<>, &in, &out, &chl,
+            MC_BEGIN(macoro::task<>, &in, &out, &chl,&ole,
                 gmw0 = std::move(Gmw()),
                 gmw1 = std::move(Gmw()),
                 invPerm = bool(false),
@@ -40,14 +41,14 @@ namespace secJoin
 
             if(mPartyIdx == 0)
             {   
-                MC_AWAIT(LowMCPerm::applyVec(in, prng, gmw0, chl, soutperm));
-                MC_AWAIT(LowMCPerm::applyVecPerm(soutperm, mPerm.mPerm, prng, gmw1, chl, out, invPerm));
+                MC_AWAIT(LowMCPerm::applyVec(in, prng, gmw0, chl, soutperm, ole));
+                MC_AWAIT(LowMCPerm::applyVecPerm(soutperm, mPerm.mPerm, prng, gmw1, chl, out, invPerm,ole));
             }
             else
             {
 
-                MC_AWAIT(LowMCPerm::applyVecPerm(in, mPerm.mPerm, prng, gmw0, chl, soutperm, invPerm));
-                MC_AWAIT(LowMCPerm::applyVec(soutperm, prng, gmw1, chl, out));
+                MC_AWAIT(LowMCPerm::applyVecPerm(in, mPerm.mPerm, prng, gmw0, chl, soutperm, invPerm,ole));
+                MC_AWAIT(LowMCPerm::applyVec(soutperm, prng, gmw1, chl, out, ole));
             }
 
             MC_END();

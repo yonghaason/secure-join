@@ -51,11 +51,12 @@ namespace secJoin
             oc::PRNG& prng,
             Gmw& gmw0,
             coproto::Socket& chl,
-            oc::Matrix<u8>& sout)
+            oc::Matrix<u8>& sout,
+            OleGenerator& ole)
         {
 
 
-            MC_BEGIN(macoro::task<>, &x1, &chl, &gmw0, &sout, &prng,
+            MC_BEGIN(macoro::task<>, &x1, &chl, &gmw0, &sout, &prng, &ole,
                 n = u64(x1.rows()),
                 bytesPerRow = u64(x1.cols()),
                 xEncrypted = std::vector<LowMC2<>::block>{},
@@ -96,7 +97,7 @@ namespace secJoin
             // gmw0.mDebugPrintIdx = 1;
 
 
-            gmw0.init(n * blocksPerRow, mLowMcCir(), 1, 0, prng.get());
+            gmw0.init(n * blocksPerRow, mLowMcCir(), ole);
 
             // Indexes are set by other party because they have the permutation pi
             gmw0.setZeroInput(0);
@@ -156,17 +157,18 @@ namespace secJoin
             Gmw& gmw1,
             coproto::Socket& chl,
             oc::Matrix<u8>& sout,
-            bool invPerm)
+            bool invPerm,
+            OleGenerator& ole)
         {
 
-            MC_BEGIN(macoro::task<>, &x2, &pi, &chl, &gmw1, &sout, &prng, invPerm,
+            MC_BEGIN(macoro::task<>, &x2, &pi, &chl, &gmw1, &sout, &prng, invPerm, &ole,
                 n = u64(x2.rows()),
                 bytesPerRow = u64(x2.cols()),
                 x2Perm = oc::Matrix<u8>{}
             );
 
 
-            MC_AWAIT(LowMCPerm::applyPerm(pi, prng, n, bytesPerRow, gmw1, chl, sout, invPerm));
+            MC_AWAIT(LowMCPerm::applyPerm(pi, prng, n, bytesPerRow, gmw1, chl, sout, invPerm, ole));
 
             x2Perm.resize(x2.rows(), x2.cols());
 
@@ -204,14 +206,15 @@ namespace secJoin
             Gmw& gmw1,
             coproto::Socket& chl,
             oc::Matrix<u8>& sout,
-            bool invPerm)
+            bool invPerm,
+            OleGenerator& ole)
         {
 
             LowMC2<>::keyblock key;
             prng.get((u8*)&key, sizeof(key));
 
 
-            MC_BEGIN(macoro::task<>, &pi, &chl, n, bytesPerRow, &gmw1, &sout, &prng, invPerm,
+            MC_BEGIN(macoro::task<>, &pi, &chl, n, bytesPerRow, &gmw1, &sout, &prng, invPerm, &ole,
                 xEncrypted = std::vector<LowMC2<>::block>{},
                 xPermuted = std::vector<LowMC2<>::block>{},
                 indexMatrix = std::vector<LowMC2<>::block>{},
@@ -255,7 +258,7 @@ namespace secJoin
                 std::iota(idx, idx + blocksPerRow, srcIdx);
             }
 
-            gmw1.init(n * blocksPerRow, mLowMcCir(), 1, 1, prng.get());
+            gmw1.init(n * blocksPerRow, mLowMcCir(), ole);
 
             // Setting the permuted indexes (since we are using the counter mode)
             gmw1.setInput(0, oc::MatrixView<u8>((u8*)indexMatrix.data(), indexMatrix.size(), sizeof(lowBlock)));

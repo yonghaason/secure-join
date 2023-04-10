@@ -13,8 +13,11 @@ void SharePerm_replicated_perm_test()
     
     oc::PRNG prng(oc::block(0,0));
 
-    auto chls = coproto::LocalAsyncSocket::makePair();
 
+    auto chls = coproto::LocalAsyncSocket::makePair();
+    OleGenerator ole0, ole1;
+    ole0.fakeInit(OleGenerator::Role::Sender);
+    ole1.fakeInit(OleGenerator::Role::Receiver);
     // std::vector<u64> pi0(n), pi1(n);
     std::array<std::vector<u64>, 2> pi;
     
@@ -41,8 +44,8 @@ void SharePerm_replicated_perm_test()
     SharePerm perm1(p0, 0); 
     SharePerm perm2(p1, 1);
 
-    auto proto0 = perm1.apply(xShares[0], sout[0], chls[0]);
-    auto proto1 = perm2.apply(xShares[1], sout[1], chls[1]);
+    auto proto0 = perm1.apply(xShares[0], sout[0], chls[0], ole0);
+    auto proto1 = perm2.apply(xShares[1], sout[1], chls[1], ole1);
 
     auto res = macoro::sync_wait(macoro::when_all_ready(std::move(proto0), std::move(proto1)));
     std::get<0>(res).result();

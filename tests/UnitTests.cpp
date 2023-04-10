@@ -5,10 +5,26 @@
 #include "SharePerm_Test.h"
 #include "DarkMatterPrf_Test.h"
 #include "OleGenerator_Test.h"
+#include "GMW_Test.h"
 
 namespace secJoin_Tests
 {
     oc::TestCollection Tests([](oc::TestCollection& t) {
+        
+        t.add("OleGenerator_Basic_Test                       ", OleGenerator_Basic_Test);
+
+        t.add("Gmw_half_test                                 ", Gmw_half_test);
+        t.add("Gmw_basic_test                                ", Gmw_basic_test);
+        t.add("Gmw_inOut_test                                ", Gmw_inOut_test);
+        t.add("Gmw_xor_test                                  ", Gmw_xor_test);
+        t.add("Gmw_and_test                                  ", Gmw_and_test);
+        t.add("Gmw_na_and_test                               ", Gmw_na_and_test);
+        t.add("Gmw_or_test                                   ", Gmw_or_test);
+        t.add("Gmw_xor_and_test                              ", Gmw_xor_and_test);
+        t.add("Gmw_aa_na_and_test                            ", Gmw_aa_na_and_test);
+        t.add("Gmw_add_test                                  ", Gmw_add_test);
+        t.add("Gmw_noLevelize_test                           ", Gmw_noLevelize_test);
+        
         
 
         t.add("PaillierPerm_basic_test                       ", PaillierPerm_basic_test);
@@ -31,7 +47,7 @@ namespace secJoin_Tests
         t.add("ALpnPrf_plain_test                            ", ALpnPrf_plain_test);
         t.add("ALpnPrf_proto_test                            ", ALpnPrf_proto_test);
         
-        t.add("OleGenerator_Basic_Test                       ", OleGenerator_Basic_Test);
+        
 
     });
 }

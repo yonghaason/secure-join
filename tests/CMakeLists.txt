@@ -11,6 +11,7 @@ set(SRCS
 	PaillierPerm_Test.cpp
 	DarkMatterPrf_Test.cpp
 	OleGenerator_Test.cpp
+	GMW_Test.cpp
 	)
 
 	

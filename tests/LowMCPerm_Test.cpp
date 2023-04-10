@@ -26,11 +26,12 @@ void LocMC_eval_test(const oc::CLP& cmd)
     oc::PRNG prng1(oc::block(0, 1));
 
     auto chls = coproto::LocalAsyncSocket::makePair();
-
-
+    OleGenerator ole0, ole1;
+    ole0.fakeInit(OleGenerator::Role::Sender);
+    ole1.fakeInit(OleGenerator::Role::Receiver);
     Gmw gmw0, gmw1;
-    gmw0.init(n, cir, 1, 0, oc::ZeroBlock);
-    gmw1.init(n, cir, 1, 1, oc::OneBlock);
+    gmw0.init(n, cir, ole0);
+    gmw1.init(n, cir, ole1);
 
     gmw0.setInput(0, x);
     gmw0.setInput(1, x);
@@ -70,6 +71,9 @@ void LowMCPerm_perm_test(const oc::CLP& cmd)
     oc::PRNG prng1(oc::block(0, 1));
 
     auto chls = coproto::LocalAsyncSocket::makePair();
+    OleGenerator ole0, ole1;
+    ole0.fakeInit(OleGenerator::Role::Sender);
+    ole1.fakeInit(OleGenerator::Role::Receiver);
 
     std::vector<u64> pi(n);
 
@@ -88,8 +92,8 @@ void LowMCPerm_perm_test(const oc::CLP& cmd)
     Gmw gmw0, gmw1;
     std::array<oc::Matrix<u8>, 2> sout;
 
-    auto proto0 = m1.applyVec(x, prng0, gmw0, chls[0], sout[0]);
-    auto proto1 = m2.applyPerm(pi, prng1, n, rowSize, gmw1, chls[1], sout[1], invPerm);
+    auto proto0 = m1.applyVec(x, prng0, gmw0, chls[0], sout[0], ole0);
+    auto proto1 = m2.applyPerm(pi, prng1, n, rowSize, gmw1, chls[1], sout[1], invPerm, ole1);
 
     auto res = macoro::sync_wait(macoro::when_all_ready(std::move(proto0), std::move(proto1)));
 
@@ -114,6 +118,9 @@ void LowMCPerm_inv_perm_test()
     oc::PRNG prng(oc::block(0,0));
 
     auto chls = coproto::LocalAsyncSocket::makePair();
+    OleGenerator ole0, ole1;
+    ole0.fakeInit(OleGenerator::Role::Sender);
+    ole1.fakeInit(OleGenerator::Role::Receiver);
 
     std::vector<u64> pi(n);
 
@@ -128,8 +135,8 @@ void LowMCPerm_inv_perm_test()
     Gmw gmw0, gmw1;
     std::array<oc::Matrix<u8>, 2> soutPerm, soutInv;
 
-    auto proto0 = m1.applyVec(x, prng, gmw0, chls[0], soutPerm[0]);
-    auto proto1 = m2.applyPerm(pi, prng, n, rowSize, gmw1, chls[1], soutPerm[1], invPerm);
+    auto proto0 = m1.applyVec(x, prng, gmw0, chls[0], soutPerm[0], ole0);
+    auto proto1 = m2.applyPerm(pi, prng, n, rowSize, gmw1, chls[1], soutPerm[1], invPerm, ole1);
 
     auto res = macoro::sync_wait(macoro::when_all_ready(std::move(proto0), std::move(proto1)));
 
@@ -138,8 +145,8 @@ void LowMCPerm_inv_perm_test()
 
     oc::Matrix<u8> recon_sout = reconstruct_from_shares( soutPerm[0], soutPerm[1]);
 
-    proto0 = m1.applyVec(recon_sout, prng, gmw0, chls[0], soutInv[0]);
-    proto1 = m2.applyPerm(pi, prng, n, rowSize, gmw1, chls[1], soutInv[1], !invPerm);
+    proto0 = m1.applyVec(recon_sout, prng, gmw0, chls[0], soutInv[0], ole0);
+    proto1 = m2.applyPerm(pi, prng, n, rowSize, gmw1, chls[1], soutInv[1], !invPerm, ole1);
 
     auto res1 = macoro::sync_wait(macoro::when_all_ready(std::move(proto0), std::move(proto1)));
 
@@ -164,7 +171,9 @@ void LowMCPerm_secret_shared_input_inv_perm_test()
     oc::PRNG prng(oc::block(0,0));
 
     auto chls = coproto::LocalAsyncSocket::makePair();
-
+    OleGenerator ole0, ole1;
+    ole0.fakeInit(OleGenerator::Role::Sender);
+    ole1.fakeInit(OleGenerator::Role::Receiver);
     std::vector<u64> pi(n);
 
     // Initializing the vector x & permutation pi
@@ -179,8 +188,8 @@ void LowMCPerm_secret_shared_input_inv_perm_test()
     Gmw gmw0, gmw1;
     std::array<oc::Matrix<u8>, 2> soutPerm, soutInv;
 
-    auto proto0 = m1.applyVec(xShares[0], prng, gmw0, chls[0], soutPerm[0]);
-    auto proto1 = m2.applyVecPerm(xShares[1],pi, prng, gmw1, chls[1], soutPerm[1], invPerm);
+    auto proto0 = m1.applyVec(xShares[0], prng, gmw0, chls[0], soutPerm[0], ole0);
+    auto proto1 = m2.applyVecPerm(xShares[1],pi, prng, gmw1, chls[1], soutPerm[1], invPerm, ole1);
 
     auto res = macoro::sync_wait(macoro::when_all_ready(std::move(proto0), std::move(proto1)));
 
@@ -189,8 +198,8 @@ void LowMCPerm_secret_shared_input_inv_perm_test()
 
     
 
-    proto0 = m1.applyVec(soutPerm[0], prng, gmw0, chls[0], soutInv[0]);
-    proto1 = m2.applyVecPerm(soutPerm[1], pi, prng, gmw1, chls[1], soutInv[1], !invPerm);
+    proto0 = m1.applyVec(soutPerm[0], prng, gmw0, chls[0], soutInv[0], ole0);
+    proto1 = m2.applyVecPerm(soutPerm[1], pi, prng, gmw1, chls[1], soutInv[1], !invPerm, ole1);
 
     auto res1 = macoro::sync_wait(macoro::when_all_ready(std::move(proto0), std::move(proto1)));
 
@@ -215,6 +224,10 @@ void LowMCPerm_secret_shared_input_perm_test()
 
     auto chls = coproto::LocalAsyncSocket::makePair();
 
+
+    OleGenerator ole0, ole1;
+    ole0.fakeInit(OleGenerator::Role::Sender);
+    ole1.fakeInit(OleGenerator::Role::Receiver);
     std::vector<u64> pi(n);
 
     // Initializing the vector x & permutation pi
@@ -233,8 +246,8 @@ void LowMCPerm_secret_shared_input_perm_test()
     Gmw gmw0, gmw1;
     std::array<oc::Matrix<u8>, 2> sout;
 
-    auto proto0 = m1.applyVec(xShares[0], prng, gmw0, chls[0], sout[0]);
-    auto proto1 = m2.applyVecPerm(xShares[1], pi, prng, gmw1, chls[1], sout[1], invPerm);
+    auto proto0 = m1.applyVec(xShares[0], prng, gmw0, chls[0], sout[0], ole0);
+    auto proto1 = m2.applyVecPerm(xShares[1], pi, prng, gmw1, chls[1], sout[1], invPerm, ole1);
 
     auto res = macoro::sync_wait(macoro::when_all_ready(std::move(proto0), std::move(proto1)));
 

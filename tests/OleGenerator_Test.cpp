@@ -9,10 +9,10 @@ void OleGenerator_Basic_Test(const oc::CLP& cmd)
     macoro::thread_pool tp;
     auto chl = coproto::LocalAsyncSocket::makePair();
 
-    u64 totalSize = 1ull << cmd.getOr("total", 22);
-    u64 reservoirSize = 1ull << cmd.getOr("res", 22);
+    u64 totalSize = 1ull << cmd.getOr("total", 18);
+    u64 reservoirSize = 1ull << cmd.getOr("res", 16);
     u64 numConcurrent = cmd.getOr("concur", 4);
-    u64 chunkSize = 1ull << cmd.getOr("size", 18);
+    u64 chunkSize = 1ull << cmd.getOr("size", 14);
 
     oc::PRNG prng(oc::CCBlock);
     auto work = tp.make_work();

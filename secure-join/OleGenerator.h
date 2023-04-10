@@ -173,7 +173,7 @@ namespace secJoin
         macoro::task<> control();
         //macoro::task<> baseOtProvider(oc::block seed);
 
-        
+
         void init(
             Role role,
             macoro::thread_pool& threadPool,
@@ -193,8 +193,45 @@ namespace secJoin
             u64 numConcurrent,
             u64 chunkSize = 1ull << 18);
 
+
+
+        void fakeInit(Role role)
+        {
+            mFakeGen = true;
+            mRole = role;
+            mThreadPool = nullptr;
+            mPrng.SetSeed(oc::block((int)role, 132423));
+            mCurSize = 0;
+            mChunkSize = 1 << 16;
+            mReservoirSize = oc::divCeil(1 << 20, mChunkSize);
+            mNumConcurrent = 1;
+            mNumChunks = ~0ull;
+        }
+
         void getBaseOts(Chunk& chunk);
 
+        void fakeFill(Chunk& chunk)
+        {
+            oc::PRNG prng(oc::block(mCurSize++));
+            for (u32 i = 0; i < chunk.mAdd.size(); ++i)
+            {
+                block m0 = std::array<u32, 4>{i, i, i, i};// prng.get();
+                block m1 = std::array<u32, 4>{i, i, i, i};//prng.get();
+                block a0 = std::array<u32, 4>{0, i, 0, i};//prng.get();
+                auto a1  = std::array<u32, 4>{i, 0, i, 0};;// m0& m1^ a0;
+
+                if (mRole == Role::Sender)
+                {
+                    chunk.mMult[i] = m0;
+                    chunk.mAdd[i] = a0;
+                }
+                else
+                {
+                    chunk.mMult[i] = m1;
+                    chunk.mAdd[i] = a1;
+                }
+            }
+        }
 
         macoro::async_manual_reset_event mGetEvent;
         macoro::task<> getRef(SharedTriple& triples, u64 n)
@@ -211,8 +248,9 @@ namespace secJoin
                 {
                     mCurChunk.mAdd.resize(mChunkSize / 128);
                     mCurChunk.mMult.resize(mChunkSize / 128);
-                    memset(mCurChunk.mAdd.data(), 0, mCurChunk.mAdd.size() * sizeof(oc::block));
-                    memset(mCurChunk.mMult.data(), 0, mCurChunk.mMult.size() * sizeof(oc::block));
+                    //memset(mCurChunk.mAdd.data(), 0, mCurChunk.mAdd.size() * sizeof(oc::block));
+                    //memset(mCurChunk.mMult.data(), 0, mCurChunk.mMult.size() * sizeof(oc::block));
+                    fakeFill(mCurChunk);
                 }
                 else
                 {
@@ -250,8 +288,8 @@ namespace secJoin
                 {
                     mCurChunk.mAdd.resize(mChunkSize / 128);
                     mCurChunk.mMult.resize(mChunkSize / 128);
-                    memset(mCurChunk.mAdd.data(), 0, mCurChunk.mAdd.size() * sizeof(oc::block));
-                    memset(mCurChunk.mMult.data(), 0, mCurChunk.mMult.size() * sizeof(oc::block));
+
+                    fakeFill(mCurChunk);
                 }
                 else
                 {

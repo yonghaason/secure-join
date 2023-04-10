@@ -15,6 +15,8 @@
 #include <list>
 #include <cryptoTools/Network/Channel.h>
 #include <cryptoTools/Common/Matrix.h>
+#include "secure-join/OleGenerator.h"
+
 namespace secJoin
 {
 
@@ -54,7 +56,7 @@ namespace secJoin
 
         oc::PRNG mPrng, mPhiPrng;
                 
-        span<block> mA, mB, mC, mC2, mD;
+        //span<block> mA, mB, mC, mC2, mD;
 
         u64 mDebugPrintIdx = -1;
         BetaCircuit::PrintIter mPrint;
@@ -63,23 +65,21 @@ namespace secJoin
         void init(
             u64 n,
             const BetaCircuit& cir,
-            u64 numThreads, 
-            u64 pIdx, 
-            block seed);
+            OleGenerator& ole);
 
-        void setTriples(span<block> a, span<block> b, span<block> c, span<block> d)
-        {
-            mA = a;
-            mB = b;
-            mC = c;
-            mC2 = c;
-            mD = d;
-        }
+        //void setTriples(span<block> a, span<block> b, span<block> c, span<block> d)
+        //{
+        //    mA = a;
+        //    mB = b;
+        //    mC = c;
+        //    mC2 = c;
+        //    mD = d;
+        //}
 
-        Proto generateTriple(
-            u64 batchSize,
-            u64 numThreads,
-            coproto::Socket& chl);
+        //Proto generateTriple(
+        //    u64 batchSize,
+        //    u64 numThreads,
+        //    coproto::Socket& chl);
 
         template<typename T>
         void setInput(u64 i, oc::MatrixView<T> input)
@@ -109,7 +109,8 @@ namespace secJoin
         oc::MatrixView<u8> getOutputView(u64 i);
         oc::MatrixView<u8> getMemView(BetaBundle& wires);
 
-        SilentTripleGen mSilent;
+        OleGenerator* mGen = nullptr;
+        //SilentTripleGen mSilent;
         //IknpTripleGen mIknp;
 
         u64 numRounds()
@@ -120,34 +121,54 @@ namespace secJoin
         Proto roundFunction(coproto::Socket& chl);
 
 
-        Proto multSendP1(span<block> x, coproto::Socket& chl, oc::GateType gt);
-        Proto multSendP2(span<block> x, coproto::Socket& chl, oc::GateType gt);
+        Proto multSendP1(span<block> x, coproto::Socket& chl, oc::GateType gt,
+            span<block> a);
+        Proto multSendP2(span<block> x, coproto::Socket& chl, oc::GateType gt,
+            span<block> c);
 
 
-        Proto multRecvP1(span<block> x, span<block> z, coproto::Socket& chl, oc::GateType gt);
-        Proto multRecvP2(span<block> x,  span<block> z, coproto::Socket& chl);
+        Proto multRecvP1(span<block> x, span<block> z, coproto::Socket& chl, oc::GateType gt,
+            span<block> b);
+        Proto multRecvP2(span<block> x,  span<block> z, coproto::Socket& chl,
+            span<block> c,
+            span<block> d);
 
 
-        Proto multSend(span<block> x, span<block> y, coproto::Socket& chl, oc::GateType gt)
+        Proto multSend(span<block> x, span<block> y, coproto::Socket& chl, oc::GateType gt,
+            span<block> a,
+            span<block> c)
         {
             if (mIdx == 0)
-                return multSendP1(x, y, chl, gt);
+                return multSendP1(x, y, chl, gt, a, c);
             else
-                return multSendP2(x, y, chl);
+                return multSendP2(x, y, chl, a, c);
         }
-        Proto multSendP1(span<block> x, span<block> y, coproto::Socket& chl, oc::GateType gt);
-        Proto multSendP2(span<block> x, span<block> y, coproto::Socket& chl);
+        Proto multSendP1(span<block> x, span<block> y, coproto::Socket& chl, oc::GateType gt,
+            span<block> a,
+            span<block> c);
+        Proto multSendP2(span<block> x, span<block> y, coproto::Socket& chl,
+            span<block> a,
+            span<block> c);
 
 
-        Proto multRecv(span<block> x, span<block> y, span<block> z, coproto::Socket& chl, oc::GateType gt)
+        Proto multRecv(span<block> x, span<block> y, span<block> z, coproto::Socket& chl, oc::GateType gt,
+            span<block> b,
+            span<block> c,
+            span<block> d)
         {
             if (mIdx == 0)
-                return multRecvP1(x, y, z, chl, gt);
+                return multRecvP1(x, y, z, chl, gt, b, c, d);
             else
-                return multRecvP2(x, y, z, chl);
+                return multRecvP2(x, y, z, chl, b, c, d);
         }
 
-        Proto multRecvP1(span<block> x, span<block> y, span<block> z, coproto::Socket& chl, oc::GateType gt);
-        Proto multRecvP2(span<block> x, span<block> y, span<block> z, coproto::Socket& chl);
+        Proto multRecvP1(span<block> x, span<block> y, span<block> z, coproto::Socket& chl, oc::GateType gt,
+            span<block> b,
+            span<block> c,
+            span<block> d);
+        Proto multRecvP2(span<block> x, span<block> y, span<block> z, coproto::Socket& chl,
+            span<block> b,
+            span<block> c,
+            span<block> d);
     };
 }

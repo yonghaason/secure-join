@@ -13,17 +13,16 @@ namespace secJoin
     void Gmw::init(
         u64 n,
         const BetaCircuit& cir,
-        u64 numThreads,
-        u64 pIdx,
-        block seed)
+        OleGenerator& gen)
     {
-        mIdx = pIdx;
+        mIdx = gen.mRole == OleGenerator::Role::Sender ? 1 : 0;
         mN = n;
+        mGen = &gen;
 
         mRoundIdx = 0;
         mCir = cir;
 
-        if(mCir.mLevelCounts.size() == 0)
+        if (mCir.mLevelCounts.size() == 0)
             mCir.levelByAndDepth(mLevelize);
 
         mNumRounds = mCir.mLevelCounts.size();
@@ -34,100 +33,13 @@ namespace secJoin
 
         memset(mWords.data(), 0, mWords.size() * sizeof(*mWords.data()));
 
-        mPrng.SetSeed(seed);
+        mPrng.SetSeed(gen.mPrng.get());
         mPhiPrng.SetSeed(mPrng.get(), mWords.cols());
 
         mNumOts = mWords.cols() * 128 * mCir.mNonlinearGateCount * 2;
 
-
         mPrint = mCir.mPrints.begin();
     }
-
-    Proto Gmw::generateTriple(
-        u64 batchSize,
-        u64 numThreads,
-        coproto::Socket& chl)
-    {
-        MC_BEGIN(Proto,this, &tg = mSilent, batchSize, numThreads, &chl,
-            A2 = std::vector<block>{},
-            B2 = std::vector<block>{},
-            C2 = std::vector<block>{},
-            D2 = std::vector<block>{},
-            mid = mNumOts / 128 / 2
-        );
-
-        if (mNumOts == 0)
-            MC_RETURN_VOID();
-
-        setTimePoint("Gmw::generateTriple begin");
-        if (mTimer)
-            tg.setTimer(*mTimer);
-
-        tg.init(mNumOts, batchSize, numThreads, mIdx ? Mode::Receiver : Mode::Sender, mPrng.get());
-
-#ifndef SECUREJOIN_ENABLE_FAKE_GEN
-
-        if (tg.hasBaseOts() == false)
-            MC_AWAIT(tg.generateBaseOts(mIdx, mPrng, chl));
-#endif
-
-        MC_AWAIT(tg.expand(chl));
-        if (mIdx)
-        {
-            mA = tg.mMult.subspan(0, mid);
-            mC = tg.mMult.subspan(mid);
-            mC2 = tg.mMult.subspan(mid);
-            mB = tg.mAdd.subspan(0, mid);
-            mD = tg.mAdd.subspan(mid);
-        }
-        else
-        {
-            mA = tg.mMult.subspan(mid);
-            mC = tg.mMult.subspan(0, mid);
-            mC2 = tg.mMult.subspan(0, mid);
-            mB = tg.mAdd.subspan(mid);
-            mD = tg.mAdd.subspan(0, mid);
-        }
-
-        if (mO.mDebug)
-        {
-
-            A2.resize(mA.size());
-            B2.resize(mA.size());
-            C2.resize(mA.size());
-            D2.resize(mA.size());
-
-            MC_AWAIT(chl.send(coproto::copy(mA)));
-            MC_AWAIT(chl.send(coproto::copy(mB)));
-            MC_AWAIT(chl.send(coproto::copy(mC)));
-            MC_AWAIT(chl.send(coproto::copy(mD)));
-
-            MC_AWAIT(chl.recv(A2));
-            MC_AWAIT(chl.recv(B2));
-            MC_AWAIT(chl.recv(C2));
-            MC_AWAIT(chl.recv(D2));
-
-            for (u64 i = 0; i < mA.size(); ++i)
-            {
-                if (neq((mA[i] & C2[i]) ^ mB[i], D2[i]))
-                {
-                    std::cout << "bad triple at 0." << i << ", n " << mNumOts << std::endl;
-                    throw std::runtime_error("");
-                }
-
-                if (neq((A2[i] & mC[i]) ^ B2[i], mD[i]))
-                {
-                    std::cout << "bad triple at 1." << i << ", n " << mNumOts << std::endl;
-                    throw std::runtime_error("");
-                }
-
-            }
-        }
-
-        setTimePoint("Gmw::generateTriple end");
-        MC_END();
-    }
-
 
     void Gmw::implSetInput(u64 i, oc::MatrixView<u8> input, u64 alignment)
     {
@@ -157,12 +69,7 @@ namespace secJoin
 
     Proto Gmw::run(coproto::Socket& chl)
     {
-        MC_BEGIN(Proto,this, &chl, i = u64{});
-
-        if (mA.size() == 0)
-        {
-            MC_AWAIT(generateTriple(1 << 20, 2, chl));
-        }
+        MC_BEGIN(Proto, this, &chl, i = u64{});
 
         if (mO.mDebug)
         {
@@ -181,8 +88,6 @@ namespace secJoin
 
         for (i = 0; i < numRounds(); ++i)
             MC_AWAIT(roundFunction(chl));
-
-        mA = {};
 
         MC_END();
     }
@@ -242,6 +147,92 @@ namespace secJoin
     //    mSilent.requiredBaseOts()
     //}
 
+//    Proto Gmw::generateTriple(
+//        u64 batchSize,
+//        u64 numThreads,
+//        coproto::Socket& chl)
+//    {
+//        MC_BEGIN(Proto, this, &tg = mSilent, batchSize, numThreads, &chl,
+//            A2 = std::vector<block>{},
+//            B2 = std::vector<block>{},
+//            C2 = std::vector<block>{},
+//            D2 = std::vector<block>{},
+//            mid = mNumOts / 128 / 2
+//        );
+//
+//        if (mNumOts == 0)
+//            MC_RETURN_VOID();
+//
+//        setTimePoint("Gmw::generateTriple begin");
+//        if (mTimer)
+//            tg.setTimer(*mTimer);
+//
+//        tg.init(mNumOts, batchSize, numThreads, mIdx ? Mode::Receiver : Mode::Sender, mPrng.get());
+//
+//#ifndef SECUREJOIN_ENABLE_FAKE_GEN
+//
+//        if (tg.hasBaseOts() == false)
+//            MC_AWAIT(tg.generateBaseOts(mIdx, mPrng, chl));
+//#endif
+//
+//        MC_AWAIT(tg.expand(chl));
+//        if (mIdx)
+//        {
+//            mA = tg.mMult.subspan(0, mid);
+//            mC = tg.mMult.subspan(mid);
+//            mC2 = tg.mMult.subspan(mid);
+//            mB = tg.mAdd.subspan(0, mid);
+//            mD = tg.mAdd.subspan(mid);
+//        }
+//        else
+//        {
+//            mA = tg.mMult.subspan(mid);
+//            mC = tg.mMult.subspan(0, mid);
+//            mC2 = tg.mMult.subspan(0, mid);
+//            mB = tg.mAdd.subspan(mid);
+//            mD = tg.mAdd.subspan(0, mid);
+//        }
+//
+//        if (mO.mDebug)
+//        {
+//
+//            A2.resize(mA.size());
+//            B2.resize(mA.size());
+//            C2.resize(mA.size());
+//            D2.resize(mA.size());
+//
+//            MC_AWAIT(chl.send(coproto::copy(mA)));
+//            MC_AWAIT(chl.send(coproto::copy(mB)));
+//            MC_AWAIT(chl.send(coproto::copy(mC)));
+//            MC_AWAIT(chl.send(coproto::copy(mD)));
+//
+//            MC_AWAIT(chl.recv(A2));
+//            MC_AWAIT(chl.recv(B2));
+//            MC_AWAIT(chl.recv(C2));
+//            MC_AWAIT(chl.recv(D2));
+//
+//            for (u64 i = 0; i < mA.size(); ++i)
+//            {
+//                if (neq((mA[i] & C2[i]) ^ mB[i], D2[i]))
+//                {
+//                    std::cout << "bad triple at 0." << i << ", n " << mNumOts << std::endl;
+//                    throw std::runtime_error("");
+//                }
+//
+//                if (neq((A2[i] & mC[i]) ^ B2[i], mD[i]))
+//                {
+//                    std::cout << "bad triple at 1." << i << ", n " << mNumOts << std::endl;
+//                    throw std::runtime_error("");
+//                }
+//
+//            }
+//        }
+//
+//        setTimePoint("Gmw::generateTriple end");
+//        MC_END();
+//    }
+//
+
     // The basic protocol where the inputs are not shared:
     // Sender has 
     //   > input x
@@ -280,7 +271,7 @@ namespace secJoin
     //                    = x2y2 + r
     Proto Gmw::roundFunction(coproto::Socket& chl)
     {
-        MC_BEGIN(Proto,this, &chl,
+        MC_BEGIN(Proto, this, &chl,
             gates = span<oc::BetaGate>{},
             gate = span<oc::BetaGate>::iterator{},
             dirtyBits = std::vector<u8>{},
@@ -288,8 +279,16 @@ namespace secJoin
             in = std::array<span<block>, 2>{},
             out = span<block>{},
             ww = std::vector<block>{},
-            print = std::move(coproto::unique_function<void(u64)>{})
+            print = std::move(coproto::unique_function<void(u64)>{}),
+            a = oc::AlignedUnVector<block>{},
+            b = oc::AlignedUnVector<block>{},
+            c = oc::AlignedUnVector<block>{},
+            d = oc::AlignedUnVector<block>{},
+            triple = SharedTriple{},
+            j = u64{}
         );
+        if (!mGen)
+            throw RTE_LOC;
 
         if (mRoundIdx >= mNumRounds)
             throw std::runtime_error("round function called too many times");
@@ -300,12 +299,68 @@ namespace secJoin
         gates = mGates.subspan(0, mCir.mLevelCounts[mRoundIdx]);
         mGates = mGates.subspan(mCir.mLevelCounts[mRoundIdx]);
 
+
         if (mO.mDebug)
         {
             dirtyBits.resize(mCir.mWireCount, 0);
             pinnedInputs.resize(mCir.mWireCount, 0);
         }
 
+
+        a.resize(mWords.cols() * mCir.mLevelAndCounts[mRoundIdx]);
+        b.resize(mWords.cols() * mCir.mLevelAndCounts[mRoundIdx]);
+        c.resize(mWords.cols() * mCir.mLevelAndCounts[mRoundIdx]);
+        d.resize(mWords.cols() * mCir.mLevelAndCounts[mRoundIdx]);
+
+        j = 0;
+        while (j != a.size())
+        {
+            if (triple.size() == 0)
+                MC_AWAIT(mGen->get(triple));
+
+            // a  * c  = b  + d
+            // a' * c' = b' + d'
+            auto min = std::min<u64>(a.size() - j, triple.size() / 128 / 2);
+
+            span<block> aa, bb, cc, dd;
+            if (mIdx == 0)
+            {
+                aa = triple.mMult.subspan(0, min);
+                cc = triple.mMult.subspan(min, min);
+                bb = triple.mAdd.subspan(0, min);
+                dd = triple.mAdd.subspan(min, min);
+            }
+            else
+            {
+                cc = triple.mMult.subspan(0, min);
+                aa = triple.mMult.subspan(min, min);
+                dd = triple.mAdd.subspan(0, min);
+                bb = triple.mAdd.subspan(min, min);
+            }
+
+            std::copy(aa.begin(), aa.end(), a.begin() + j);
+            std::copy(bb.begin(), bb.end(), b.begin() + j);
+            std::copy(cc.begin(), cc.end(), c.begin() + j);
+            std::copy(dd.begin(), dd.end(), d.begin() + j);
+
+            //if (mIdx == 0)
+            //{
+            //    std::cout << "0 a " << a[j] << " * c = b " << b[j] << " ^ d" << std::endl;
+            //    std::cout << "0 a * c " << c[j] << " = b ^ d " << d[j] << std::endl;
+            //}
+            //else
+            //{
+            //    std::cout << "1 a * c " << c[j] << " = b ^ d " << d[j] << std::endl;
+            //    std::cout << "1 a " << a[j] << " * c = b " << b[j] << " ^ d" << std::endl;
+            //}
+            triple.mMult = triple.mMult.subspan(min * 2);
+            triple.mAdd = triple.mAdd.subspan(min * 2);
+            j += min;
+
+        }
+
+
+        j = 0;
         for (gate = gates.begin(); gate < gates.end(); ++gate)
         {
             //in = { mWords[gate->mInput[0]], mWords[gate->mInput[1]] };
@@ -344,15 +399,14 @@ namespace secJoin
                 for (u64 i = 0; i < out.size(); ++i)
                     out[i] = in[0][i];
             }
-            else if (
-                gate->mType == oc::GateType::na_And ||
+            else if (gate->mType == oc::GateType::na_And ||
                 gate->mType == oc::GateType::nb_And ||
                 gate->mType == oc::GateType::And ||
                 gate->mType == oc::GateType::Nor ||
                 gate->mType == oc::GateType::Or)
             {
-
-                MC_AWAIT(multSend(in[0], in[1], chl, gate->mType));
+                MC_AWAIT(multSend(in[0], in[1], chl, gate->mType, a.subspan(j, mWords.cols()), c.subspan(j, mWords.cols())));
+                j += mWords.cols();
 
                 if (mO.mDebug)
                 {
@@ -379,11 +433,12 @@ namespace secJoin
                 throw RTE_LOC;
         }
 
+        j = 0;
         for (gate = gates.begin(); gate < gates.end(); ++gate)
         {
             in[0] = oc::span<oc::block>(mWords.data() + gate->mInput[0] * mWords.cols(), mWords.cols());
             in[1] = oc::span<oc::block>(mWords.data() + gate->mInput[1] * mWords.cols(), mWords.cols());
-            out = oc::span<oc::block>(mWords.data() + gate->mOutput * mWords.cols(), mWords.cols()); 
+            out = oc::span<oc::block>(mWords.data() + gate->mOutput * mWords.cols(), mWords.cols());
             //, mWords[gate->mInput[1]]
                 //  };
 
@@ -393,7 +448,11 @@ namespace secJoin
                 gate->mType == oc::GateType::Or ||
                 gate->mType == oc::GateType::Nor)
             {
-                MC_AWAIT(multRecv(in[0], in[1], out, chl, gate->mType));
+                MC_AWAIT(multRecv(in[0], in[1], out, chl, gate->mType, 
+                    b.subspan(j, mWords.cols()), 
+                    c.subspan(j, mWords.cols()), 
+                    d.subspan(j, mWords.cols())));
+                j += mWords.cols();
             }
         }
 
@@ -496,12 +555,14 @@ namespace secJoin
                     auto row = (i / mWords.cols());
                     auto col = (i % mWords.cols());
 
-                    oc::lout << "p" << mIdx << " mem[" << row << ", " << col << "] exp: " << exp << ", act: " << act << std::endl;
+                    oc::lout << "p" << mIdx << " mem[" << row << ", " << col << 
+                        "] exp: " << exp <<
+                        ", act: " << act  <<
+                        "\ndiff:" <<(exp^act)<< std::endl;
 
                     throw RTE_LOC;
                 }
             }
-
         }
 
         ++mRoundIdx;
@@ -593,15 +654,15 @@ namespace secJoin
     //                            = ac + xc + (ac + b)
     //                            = cx + b
     // Observer z1 + z2 = xy
-    Proto Gmw::multSendP1(span<block> x, coproto::Socket& chl, oc::GateType gt)
+    Proto Gmw::multSendP1(span<block> x, coproto::Socket& chl, oc::GateType gt,
+        span<block> a)
     {
-        MC_BEGIN(Proto,this, x, &chl, gt,
+        MC_BEGIN(Proto, this, x, &chl, gt, a,
             width = x.size(),
-            a = span<block>{},
             u = std::vector<block>{}
         );
-        a = mA.subspan(0, width);
-        mA = mA.subspan(width);
+        //a = mA.subspan(0, width);
+        //mA = mA.subspan(width);
 
         u.reserve(width);
         if (invertA(gt) == false)
@@ -621,16 +682,16 @@ namespace secJoin
         MC_END();
     }
 
-    Proto Gmw::multSendP2(span<block> y, coproto::Socket& chl, oc::GateType gt)
+    Proto Gmw::multSendP2(span<block> y, coproto::Socket& chl, oc::GateType gt,
+        span<block> c)
     {
 
-        MC_BEGIN(Proto,this, y, &chl, gt,
+        MC_BEGIN(Proto, this, y, &chl, gt, c,
             width = y.size(),
-            c = span<block>{},
             w = std::vector<block>{}
         );
-        c = mC.subspan(0, width);
-        mC = mC.subspan(width);
+        //c = mC.subspan(0, width);
+        //mC = mC.subspan(width);
 
         w.reserve(width);
         if (invertB(gt) == false)
@@ -651,18 +712,18 @@ namespace secJoin
         MC_END();
     }
 
-    Proto Gmw::multRecvP1(span<block> x, span<block> z, coproto::Socket& chl, oc::GateType gt)
+    Proto Gmw::multRecvP1(span<block> x, span<block> z, coproto::Socket& chl, oc::GateType gt,
+        span<block> b)
     {
-        MC_BEGIN(Proto,this, x, z, &chl, gt,
+        MC_BEGIN(Proto, this, x, z, &chl, gt, b,
             width = x.size(),
-            b = span<block>{},
             w = std::vector<block>{}
         );
         w.resize(width);
         MC_AWAIT(chl.recv(w));
 
-        b = mB.subspan(0, width);
-        mB = mB.subspan(width);
+        //b = mB.subspan(0, width);
+        //mB = mB.subspan(width);
 
         if (invertA(gt) == false)
         {
@@ -683,22 +744,26 @@ namespace secJoin
         //oc::lout << mIdx << " " << "z1 = x * w" << std::endl << view(z[0]) << " = " << view(x[0]) << " * " << view(w[0]) << std::endl;
     }
 
-    Proto Gmw::multRecvP2(span<block> y, span<block> z, coproto::Socket& chl)
+    Proto Gmw::multRecvP2(
+        span<block> y,
+        span<block> z,
+        coproto::Socket& chl,
+        span<block> c,
+        span<block> d
+    )
     {
 
-        MC_BEGIN(Proto,this, z, &chl,
+        MC_BEGIN(Proto, this, z, &chl, c, d,
             width = y.size(),
-            c = span<block>{},
-            d = span<block>{},
             u = std::vector<block>{}
         );
         u.resize(width);
         MC_AWAIT(chl.recv(u));
 
-        c = mC2.subspan(0, width);
-        mC2 = mC2.subspan(width);
-        d = mD.subspan(0, width);
-        mD = mD.subspan(width);
+        //c = mC2.subspan(0, width);
+        //mC2 = mC2.subspan(width);
+        //d = mD.subspan(0, width);
+        //mD = mD.subspan(width);
 
         for (u64 i = 0; i < width; ++i)
         {
@@ -711,28 +776,35 @@ namespace secJoin
 
     }
 
-    Proto Gmw::multSendP1(span<block> x, span<block> y, coproto::Socket& chl, oc::GateType gt)
+    Proto Gmw::multSendP1(span<block> x, span<block> y, coproto::Socket& chl, oc::GateType gt,
+        span<block> a,
+        span<block> c)
     {
-        MC_BEGIN(Proto,this, x, y, &chl, gt);
-        MC_AWAIT(multSendP1(x, chl, gt));
-        MC_AWAIT(multSendP2(y, chl, gt));
+        MC_BEGIN(Proto, this, x, y, &chl, gt, a, c);
+        MC_AWAIT(multSendP1(x, chl, gt, a));
+        MC_AWAIT(multSendP2(y, chl, gt, c));
         MC_END();
     }
 
-    Proto Gmw::multSendP2(span<block> x, span<block> y, coproto::Socket& chl)
+    Proto Gmw::multSendP2(span<block> x, span<block> y, coproto::Socket& chl,
+        span<block> a,
+        span<block> c)
     {
-        MC_BEGIN(Proto,this, x, y, &chl);
+        MC_BEGIN(Proto, this, x, y, &chl, a, c);
 
-        MC_AWAIT(multSendP2(y, chl, oc::GateType::And));
-        MC_AWAIT(multSendP1(x, chl, oc::GateType::And));
+        MC_AWAIT(multSendP2(y, chl, oc::GateType::And, c));
+        MC_AWAIT(multSendP1(x, chl, oc::GateType::And, a));
 
         MC_END();
     }
 
 
-    Proto Gmw::multRecvP1(span<block> x, span<block> y, span<block> z, coproto::Socket& chl, oc::GateType gt)
+    Proto Gmw::multRecvP1(span<block> x, span<block> y, span<block> z, coproto::Socket& chl, oc::GateType gt,
+        span<block> b,
+        span<block> c,
+        span<block> d)
     {
-        MC_BEGIN(Proto,this, x, y, z, &chl, gt,
+        MC_BEGIN(Proto, this, x, y, z, &chl, gt, b, c, d,
             zz = std::vector<block>{},
             zz2 = std::vector<block>{},
             xm = block{},
@@ -742,8 +814,8 @@ namespace secJoin
 
         zz.resize(z.size());
         zz2.resize(z.size());
-        MC_AWAIT(multRecvP1(x, zz, chl, gt));
-        MC_AWAIT(multRecvP2(y, zz2, chl));
+        MC_AWAIT(multRecvP1(x, zz, chl, gt, b));
+        MC_AWAIT(multRecvP2(y, zz2, chl, c, d));
 
         xm = invertA(gt) ? oc::AllOneBlock : oc::ZeroBlock;
         ym = invertB(gt) ? oc::AllOneBlock : oc::ZeroBlock;
@@ -762,9 +834,12 @@ namespace secJoin
         MC_END();
     }
 
-    Proto Gmw::multRecvP2(span<block> x, span<block> y, span<block> z, coproto::Socket& chl)
+    Proto Gmw::multRecvP2(span<block> x, span<block> y, span<block> z, coproto::Socket& chl,
+        span<block> b,
+        span<block> c,
+        span<block> d)
     {
-        MC_BEGIN(Proto,this, x, y, z, &chl,
+        MC_BEGIN(Proto, this, x, y, z, &chl, b, c, d,
             zz = std::vector<block>{},
             zz2 = std::vector<block>{}
         );
@@ -772,8 +847,8 @@ namespace secJoin
         zz.resize(z.size());
         zz2.resize(z.size());
 
-        MC_AWAIT(multRecvP2(y, zz, chl));
-        MC_AWAIT(multRecvP1(x, zz2, chl, oc::GateType::And));
+        MC_AWAIT(multRecvP2(y, zz, chl, c, d));
+        MC_AWAIT(multRecvP1(x, zz2, chl, oc::GateType::And, b));
 
         for (u64 i = 0; i < zz.size(); i++)
         {
