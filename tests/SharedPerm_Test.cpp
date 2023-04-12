@@ -1,8 +1,8 @@
-#include "SharePerm_Test.h"
+#include "SharedPerm_Test.h"
 using namespace secJoin;
 #include "util.h"
 
-void SharePerm_replicated_perm_test()
+void SharedPerm_replicated_perm_test()
 {
 
 
@@ -41,8 +41,8 @@ void SharePerm_replicated_perm_test()
     Perm p0(pi[0]);
     Perm p1(pi[1]);
 
-    SharePerm perm1(p0, 0); 
-    SharePerm perm2(p1, 1);
+    SharedPerm perm1(p0, 0); 
+    SharedPerm perm2(p1, 1);
 
     auto proto0 = perm1.apply(xShares[0], sout[0], chls[0], ole0);
     auto proto1 = perm2.apply(xShares[1], sout[1], chls[1], ole1);

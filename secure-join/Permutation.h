@@ -31,16 +31,7 @@ namespace secJoin
 		//initializing perm with prng
 		Perm(u64 n, PRNG& prng)
 		{
-			mPerm.resize(n);
-			for (u64 i = 0; i < size(); i++)
-				mPerm[i] = i;
-
-			assert(n < ~u32(0));
-			for (u64 i = 0; i < size(); i++)
-			{
-				auto idx = (prng.get<u32>() % (size() - i)) + i;
-				std::swap(mPerm[i], mPerm[idx]);
-			}
+			randomize(n, prng);
 		}
 
 		Perm(u64 n)
@@ -57,6 +48,20 @@ namespace secJoin
 			assert(size() == s);
 		}
 
+
+		void randomize(u64 n, PRNG& prng)
+		{
+			mPerm.resize(n);
+			for (u64 i = 0; i < size(); i++)
+				mPerm[i] = i;
+
+			assert(n < ~u32(0));
+			for (u64 i = 0; i < size(); i++)
+			{
+				auto idx = (prng.get<u32>() % (size() - i)) + i;
+				std::swap(mPerm[i], mPerm[idx]);
+			}
+		}
 
 		Perm operator*(const Perm& rhs) const { return compose(rhs); }
 		Perm compose(const Perm& rsh)const;

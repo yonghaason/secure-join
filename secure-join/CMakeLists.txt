@@ -5,11 +5,12 @@ set(SRCS
     "DLpnPrf.cpp"
     "OleGenerator.cpp"
     "Permutation.cpp"
-    "SharePerm.cpp"
+    "SharedPerm.cpp"
     "LowMCPerm.cpp"
     "DarkMatter22Prf.cpp"
     "GMW/Circuit.cpp"
     "GMW/Gmw.cpp"
+    "RadixSort.cpp"
     
     )
 
