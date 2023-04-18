@@ -1,9 +1,17 @@
 #include "OleGenerator.h"
 
-#define LOG(X) 
+#define LOG(X) log(X)
 
 namespace secJoin
 {
+    const int inplace = 0;
+    template<typename T>
+    inline std::string str(T&& t)
+    {
+        std::stringstream ss;
+        ss << t;
+        return ss.str();
+    }
 
     macoro::task<> OleGenerator::Gen::start()
     {
@@ -14,22 +22,43 @@ namespace secJoin
             recvMsg = oc::AlignedUnVector<oc::block>{},
             bv = oc::BitVector{},
             diff = oc::BitVector{},
-            chunk = Chunk{}
+            delta = oc::block{},
+            rec = CorRequest{},
+            //chunk = Chunk{},
+            buff = std::vector<u8>{}
         );
 
         LOG("start");
 
         while (true)
         {
-            MC_AWAIT_SET(chunk, mInQueue->pop());
-            LOG("pop chunk " + std::to_string(chunk.mIdx));
-            MC_AWAIT(macoro::transfer_to(*mParent->mThreadPool));
-            LOG("transfered " + std::to_string(chunk.mIdx));
-            //A// std::cout << "pop chunk" << std::endl;
-
-            if (chunk.mBaseRecv.size() == 0 && chunk.mBaseSend.size() == 0)
+            if (mParent->mRole == Role::Sender)
             {
-                MC_AWAIT(mParent->mControlQueue->push({ Command::GenStopped{chunk.mIdx} }));
+
+                MC_AWAIT_SET(rec, mInQueue->pop());
+                LOG("pop chunk " + std::to_string(rec.mSequence) +" " + str(rec.mSessionID));
+                MC_AWAIT(macoro::transfer_to(*mParent->mThreadPool));
+                LOG("transfered " + std::to_string(rec.mSequence) + " " + str(rec.mSessionID));
+
+                buff.resize(rec.sizeBytes());
+                rec.toBytes(buff);
+                MC_AWAIT(mChl.send(std::move(buff)));
+            }
+            else
+            {
+                buff.resize(rec.sizeBytes());
+                MC_AWAIT(mChl.recv(buff));
+                rec.fromBytes(buff);
+
+                LOG("recv chunk " + std::to_string(rec.mSequence) + " " + str(rec.mSessionID));
+
+            }
+
+
+            //A// std::cout << "pop chunk" << std::endl;
+            if (rec.mSequence == -1)
+            {
+                MC_AWAIT(mParent->mControlQueue->push({ Command::GenStopped{mIdx} }));
                 LOG("genStop");
 
                 MC_RETURN_VOID();
@@ -37,33 +66,76 @@ namespace secJoin
 
             if (mParent->mRole == Role::Sender)
             {
-                sendMsg.resize(mParent->mChunkSize);
-                MC_AWAIT(mSender->silentSend(sendMsg, mPrng, mChl));
-                LOG("silentSend " + std::to_string(chunk.mIdx));
-                //A// std::cout << "send ot " << sendMsg[0][0] << " " << sendMsg[0][1] << std::endl;
+                if (rec.mOp.index() == 0)
+                {
+                    if (inplace)
+                    {
+                        delta = mPrng.get();
+                        MC_AWAIT(mSender->silentSendInplace(delta, mParent->mChunkSize, mPrng, mChl));
+                    }
+                    else
+                    {
+                        sendMsg.resize(mParent->mChunkSize);
+                        MC_AWAIT(mSender->silentSend(sendMsg, mPrng, mChl));
+                    }
+                    LOG("silentSend " + std::to_string(rec.mSequence));
+                    //A// std::cout << "send ot " << sendMsg[0][0] << " " << sendMsg[0][1] << std::endl;
 
-                chunk.mAdd.resize(mParent->mChunkSize / 128);
-                chunk.mMult.resize(mParent->mChunkSize / 128);
-                compressSender(sendMsg, chunk.mAdd, chunk.mMult);
+                    rec.mOp.get<0>().mAdd.resize(mParent->mChunkSize / 128);
+                    rec.mOp.get<0>().mMult.resize(mParent->mChunkSize / 128);
+                    if (inplace)
+                        compressSender(mSender->mB, delta, rec.mOp.get<0>().mAdd, rec.mOp.get<0>().mMult);
+                    else
+                        compressSender(sendMsg, rec.mOp.get<0>().mAdd, rec.mOp.get<0>().mMult);
+
+                }
+                else if (rec.mOp.index() == 2)
+                {
+                    rec.mOp.get<2>().mMsg.resize(mParent->mChunkSize);
+                    MC_AWAIT(mSender->silentSend(rec.mOp.get<2>().mMsg, mPrng, mChl));
+                }
+                else
+                    std::terminate();
             }
             else
             {
-                recvMsg.resize(mParent->mChunkSize);
-                bv.resize(mParent->mChunkSize);
-                MC_AWAIT(mRecver->silentReceive(bv, recvMsg, mPrng, mChl));
-                LOG("silentReceive " + std::to_string(chunk.mIdx));
-                //A// std::cout << "recv ot " << recvMsg[0] << " " << bv[0] << std::endl;
 
-                chunk.mAdd.resize(mParent->mChunkSize / 128);
-                chunk.mMult.resize(mParent->mChunkSize / 128);
-                compressRecver(bv, recvMsg, chunk.mAdd, chunk.mMult);
+                if (rec.mOp.index() == 0)
+                {
+                    if (inplace)
+                    {
+                        MC_AWAIT(mRecver->silentReceiveInplace(mParent->mChunkSize, mPrng, mChl, oc::ChoiceBitPacking::True));
+                        LOG("silentReceive " + std::to_string(rec.mSequence));
+                        rec.mOp.get<0>().mAdd.resize(mParent->mChunkSize / 128);
+                        rec.mOp.get<0>().mMult.resize(mParent->mChunkSize / 128);
+                        compressRecver(recvMsg, rec.mOp.get<0>().mAdd, rec.mOp.get<0>().mMult);
+                    }
+                    else
+                    {
+
+                        recvMsg.resize(mParent->mChunkSize);
+                        bv.resize(mParent->mChunkSize);
+                        MC_AWAIT(mRecver->silentReceive(bv, recvMsg, mPrng, mChl));
+                        LOG("silentReceive " + std::to_string(rec.mSequence));
+
+                        rec.mOp.get<0>().mAdd.resize(mParent->mChunkSize / 128);
+                        rec.mOp.get<0>().mMult.resize(mParent->mChunkSize / 128);
+                        compressRecver(bv, recvMsg, rec.mOp.get<0>().mAdd, rec.mOp.get<0>().mMult);
+                    }
+                }
+                else if (rec.mOp.index() == 1)
+                {
+                    rec.mOp.get<1>().mChoice.resize(mParent->mChunkSize);
+                    rec.mOp.get<1>().mMsg.resize(mParent->mChunkSize);
+                    MC_AWAIT(mRecver->silentReceive(bv, recvMsg, mPrng, mChl));
+                }
+                else
+                    std::terminate();
             }
 
-            //A// std::cout << "push" << std::endl;
-            LOG("publish " + std::to_string(chunk.mIdx));
-
-            MC_AWAIT(mParent->mControlQueue->push({ Command::ChunkComplete{std::move(chunk)} }));
-            LOG("published " + std::to_string(chunk.mIdx));
+            LOG("publish " + std::to_string(rec.mSequence));
+            MC_AWAIT(mParent->mControlQueue->push({ Command::ChunkComplete{mIdx, std::move(rec)} }));
+            LOG("published " + std::to_string(rec.mSequence));
         }
 
         MC_END();
@@ -89,14 +161,21 @@ namespace secJoin
     {
         MC_BEGIN(macoro::task<>, this,
             i = u64{},
-            chunk = Chunk{},
+            wid = u64{},
+            sid = oc::block{},
+            chunk = CorRequest{},
             cmd = Command{},
             pushIdxs = std::vector<u64>{},
-            popIdx = u64{},
+            //popIdx = u64{},
             numTasks = u64{},
             getEvent = (macoro::async_manual_reset_event*)nullptr,
             baseSender = oc::SoftSpokenMalOtSender{},
-            baseRecver = oc::SoftSpokenMalOtReceiver{}
+            baseRecver = oc::SoftSpokenMalOtReceiver{},
+            sessions = std::map<oc::block, CorRequest>{},
+            completed = std::map<oc::block, CorRequest>{},
+            queue = std::list<CorRequest>{},
+            idle = std::vector<u64>{},
+            curReq = (CorRequest*)nullptr
         );
 
         //A// std::cout << "control " << std::endl;
@@ -139,7 +218,7 @@ namespace secJoin
 
             ++numTasks;
             mGens[i].mIdx = i;
-            mGens[i].mInQueue.reset(new macoro::spsc::channel<Chunk>(oc::divCeil(mReservoirSize, mNumConcurrent)));
+            mGens[i].mInQueue.reset(new macoro::spsc::channel<CorRequest>(2));
             mGens[i].mParent = this;
             mGens[i].mPrng.SetSeed(mPrng.get());
 
@@ -148,25 +227,14 @@ namespace secJoin
 
             mGens[i].mTask = mGens[i].start()
                 | macoro::make_eager();
+
+            idle.push_back(i);
         }
 
 
         pushIdxs.resize(mNumConcurrent);
-        for (i = 0;
-            i < std::min<u64>(mReservoirSize, mNumChunks);
-            ++i)
-        {
 
-            chunk.mIdx = i;
-            getBaseOts(chunk);
-            LOG("control: push chunk " + std::to_string(i));
-
-            pushIdxs[i % mNumConcurrent] = i;
-            MC_AWAIT(mGens[i % mNumConcurrent].mInQueue->push(std::move(chunk)));
-        }
-
-
-        popIdx = 0;
+        //popIdx = 0;
         while (true)
         {
             MC_AWAIT_SET(cmd, mControlQueue->pop());
@@ -174,33 +242,73 @@ namespace secJoin
             if (cmd.mOp.index() == cmd.mOp.index_of<Command::ChunkComplete>())
             {
 
-                i = cmd.mOp.get<Command::ChunkComplete>().mChunk.mIdx;
-                LOG("control: ChunkComplete " + std::to_string(i));
+                wid = cmd.mOp.get<Command::ChunkComplete>().mWorkerId;
+                sid = cmd.mOp.get<Command::ChunkComplete>().mChunk.mSessionID;
+                chunk = std::move(cmd.mOp.get<Command::ChunkComplete>().mChunk);
+                LOG("control: ChunkComplete " + str(sid));
 
-                //assert((mChunks.size() == 0 && pushIdx == 0) || mChunks.back().mIdx + 1 == pushIdx);
-                if (popIdx == i && getEvent)
+                if (sessions.find(sid) != sessions.end())
                 {
-                    ++popIdx;
-                    mCurChunk = std::move(cmd.mOp.get<Command::ChunkComplete>().mChunk);
-                    getEvent->set();
-                    getEvent = nullptr;
+                    curReq = &sessions[sid];
+                    assert(chunk.mSequence != -1);
+                    //sessions[sid].publish(std::move(cmd.mOp.get<Command::ChunkComplete>().mChunk));
+                    if (curReq->mOp.index() == 0)
+                    {
+                        MC_AWAIT(curReq->mOp.get<0>().mQueue->push({ 
+                            chunk.mSequence,
+                            std::move(chunk.mOp.get<0>()) }));
+                    }
+                    else if (curReq->mOp.index() == 1)
+                    {
+                        MC_AWAIT(curReq->mOp.get<1>().mQueue->push({
+                            chunk.mSequence,
+                            std::move(chunk.mOp.get<1>()) }));
+                    }
+                    else if (curReq->mOp.index() == 2)
+                    {
+                        MC_AWAIT(curReq->mOp.get<2>().mQueue->push({
+                            chunk.mSequence,
+                            std::move(chunk.mOp.get<2>()) }));
+                    }
+                    else if (curReq->mOp.index() == 3)
+                    {
+                        MC_AWAIT(curReq->mOp.get<3>().mQueue->push({
+                            chunk.mSequence,
+                            std::move(chunk.mOp.get<3>()) }));
+                    }
+                    else
+                        std::terminate();
+
+                    sessions.erase(sid);
                 }
-                else 
-                    mChunks.emplace(i, std::move(cmd.mOp.get<Command::ChunkComplete>().mChunk));
-
-
-                pushIdxs[i % mNumConcurrent] += mNumConcurrent;
-                i = pushIdxs[i % mNumConcurrent];
-                //A// std::cout << "chunk complete " << cmd.mOp.get<Command::ChunkComplete>().mChunk.mIdx << std::endl;
-
-                if (i < mNumChunks)
+                else
                 {
-                    chunk.mIdx = i;
-                    getBaseOts(chunk);
-                    //A//  std::cout << "\n\npush chunk " << i << std::endl;
-                    LOG("control: push chunk " + std::to_string(i));
-                    MC_AWAIT(mGens[i % mNumConcurrent].mInQueue->push(std::move(chunk)));
+                    if (completed.find(sid) != completed.end())
+                    {
+                        std::cout << "session id already completed. "<< sid << " " << LOCATION << std::endl;
+                        std::terminate();
+                    }
+                    completed[sid] = std::move(cmd.mOp.get<Command::ChunkComplete>().mChunk);
+                }
 
+                //cmd.mOp.get<Command::ChunkComplete>().mChunk
+
+                if (mRole == Role::Sender)
+                {
+                    if (queue.size())
+                    {
+                        //sid = queue.front();
+                        //queue.splice(queue.end(), queue, queue.begin());
+                        //getBaseOts(chunk, queue.front());
+
+                        //A//  std::cout << "\n\npush chunk " << i << std::endl;
+                        LOG("control: push chunk " + std::to_string(chunk.mSequence) + " " + str(chunk.mSessionID));
+                        MC_AWAIT(mGens[wid].mInQueue->push(std::move(chunk)));
+                    }
+                    else
+                    {
+                        idle.push_back(wid);
+                    }
                 }
             }
             else if (cmd.mOp.index() == cmd.mOp.index_of<Command::Stop>())
@@ -209,7 +317,7 @@ namespace secJoin
                 mStopRequested = true;
                 for (i = 0; i < mNumConcurrent; ++i)
                 {
-                    chunk.mIdx = i;
+                    chunk.mSequence = -1;
                     MC_AWAIT(mGens[i].mInQueue->push(std::move(chunk)));
                     LOG("control: gen stop sent " + std::to_string(i));
 
@@ -229,35 +337,79 @@ namespace secJoin
                     MC_RETURN_VOID();
                 }
             }
-            else if (cmd.mOp.index() == cmd.mOp.index_of<Command::GetChunk>())
+            else if (cmd.mOp.index() == cmd.mOp.index_of<CorRequest>())
             {
-                LOG("control: get ");
-                assert(getEvent == nullptr);
-                if (popIdx == mNumChunks)
+                curReq = &cmd.mOp.get<3>();
+                sid = curReq->mSessionID;
+                assert(curReq->mSequence != -1);
+                if (mRole == Role::Sender)
                 {
-                    mCurChunk = {};
-                    mCurChunk.mIdx = ~0ull;
-                    cmd.mOp.get<Command::GetChunk>().mEvent->set();
-                }
-                else if (mChunks.find(popIdx) != mChunks.end())
-                {
-                    mCurChunk = std::move(mChunks[popIdx]);
-                    mChunks.erase(mChunks.find(popIdx));
-                    assert(mCurChunk.mIdx == popIdx);
-                    ++popIdx;
+                    sessions.emplace(sid, *curReq);
 
-                    //A// std::cout << "control get " << mCurChunk.mIdx << std::endl;
-                    cmd.mOp.get<Command::GetChunk>().mEvent->set();
+                    if (idle.size())
+                    {
+                        wid = idle.back();
+                        idle.pop_back();
+
+                        LOG("control: push chunk " + std::to_string(curReq->mSequence) + " " + str(curReq->mSessionID));
+                        MC_AWAIT(mGens[wid].mInQueue->push(std::move(*curReq)));
+                    }
+                    else
+                    {
+                        queue.push_back(std::move(*curReq));
+                    }
                 }
                 else
                 {
-                    //A// std::cout << "control get pending " << popIdx << std::endl;
-                    getEvent = cmd.mOp.get<Command::GetChunk>().mEvent;
-                }
-            }
-            else if (cmd.mOp.index() == cmd.mOp.index_of<Command::BaseOt>())
-            {
+                    if (completed.find(sid) != completed.end())
+                    {
+                        chunk = std::move(completed.find(sid)->second);
+                        if (curReq->mOp.index() != chunk.mOp.index())
+                        {
+                            std::cout << "mixed correlation type for session id. " << LOCATION << std::endl;
+                            std::terminate();
+                        }
+                        if (curReq->mN != chunk.mN)
+                        {
+                            std::cout << "mixed correlation size for session id. " << LOCATION << std::endl;
+                            std::terminate();
+                        }
+                        assert(chunk.mSequence != -1);
 
+                        if (curReq->mOp.index() == 0)
+                        {
+                            MC_AWAIT(curReq->mOp.get<0>().mQueue->push({
+                                chunk.mSequence,
+                                std::move(chunk.mOp.get<0>()) }));
+                        }
+                        else if (curReq->mOp.index() == 1)
+                        {
+                            MC_AWAIT(curReq->mOp.get<1>().mQueue->push({
+                                chunk.mSequence,
+                                std::move(chunk.mOp.get<1>()) }));
+                        }
+                        else if (curReq->mOp.index() == 2)
+                        {
+                            MC_AWAIT(curReq->mOp.get<2>().mQueue->push({
+                                chunk.mSequence,
+                                std::move(chunk.mOp.get<2>()) }));
+                        }
+                        else if (curReq->mOp.index() == 3)
+                        {
+                            MC_AWAIT(curReq->mOp.get<3>().mQueue->push({
+                                chunk.mSequence,
+                                std::move(chunk.mOp.get<3>()) }));
+                        }
+                        else
+                            std::terminate();
+
+                        completed.erase(sid);
+                    }
+                    else
+                    {
+                        sessions.emplace(sid, std::move(*curReq));
+                    }
+                }
             }
             else
             {
@@ -268,54 +420,204 @@ namespace secJoin
         MC_END();
     }
 
-    void OleGenerator::getBaseOts(Chunk& chunk)
-    {
-        if (mRole == Role::Sender)
-        {
-            chunk.mBaseSend.resize(mBaseSize);
-            for (u64 j = 0; j < mBaseSize; ++j)
-            {
-                chunk.mBaseSend[j][0] = oc::block(123 * j, 23423 * j);
-                chunk.mBaseSend[j][1] = oc::block(123 * j, 23423 * j + 324);
-            }
-        }
-        else
-        {
-            chunk.mBaseChoice.resize(mBaseSize);
-            chunk.mBaseRecv.resize(mBaseSize);
-            for (u64 j = 0; j < mBaseSize; ++j)
-            {
-                chunk.mBaseChoice[j] = j & 1;
-                chunk.mBaseRecv[j] = oc::block(123 * j, 23423 * j + (324 * (j & 1)));
-            }
-        }
-    }
+    //void OleGenerator::getBaseOts(Chunk& chunk, CorRequest& rec)
+    //{
+    //    if (mRole == Role::Sender)
+    //    {
+    //        chunk.mBaseSend.resize(mBaseSize);
+    //        for (u64 j = 0; j < mBaseSize; ++j)
+    //        {
+    //            chunk.mBaseSend[j][0] = oc::block(123 * j, 23423 * j);
+    //            chunk.mBaseSend[j][1] = oc::block(123 * j, 23423 * j + 324);
+    //        }
+    //    }
+    //    else
+    //    {
+    //        chunk.mBaseChoice.resize(mBaseSize);
+    //        chunk.mBaseRecv.resize(mBaseSize);
+    //        for (u64 j = 0; j < mBaseSize; ++j)
+    //        {
+    //            chunk.mBaseChoice[j] = j & 1;
+    //            chunk.mBaseRecv[j] = oc::block(123 * j, 23423 * j + (324 * (j & 1)));
+    //        }
+    //    }
+    //}
 
 
-    void OleGenerator::init(Role role, macoro::thread_pool& threadPool, coproto::Socket chl, oc::PRNG& prng, u64 totalSize, u64 reservoirSize, u64 numConcurrent, u64 chunkSize)
+    void OleGenerator::init(Role role, macoro::thread_pool& threadPool, coproto::Socket chl, oc::PRNG& prng, u64 numConcurrent, u64 chunkSize)
     {
         if (!numConcurrent)
             throw std::runtime_error("OleGenerator::numConcurrent must be non-zero");
-
-        // not implemented.
-        if (totalSize == 0)
-            throw RTE_LOC;
 
         mRole = role;
         mThreadPool = &threadPool;
         mChl = chl.fork();
         mChl.setExecutor(threadPool);
         mPrng.SetSeed(prng.get());
-        mCurSize = 0;
-        mChunkSize = oc::roundUpTo(1ull<<oc::log2ceil(chunkSize), 128);
-        mReservoirSize = oc::divCeil(reservoirSize, mChunkSize);
+        mChunkSize = oc::roundUpTo(1ull << oc::log2ceil(chunkSize), 128);
         mNumConcurrent = numConcurrent;
-        mNumChunks = totalSize ? oc::divCeil(totalSize, mChunkSize) : ~0ull;
         mControlQueue.reset(new macoro::mpsc::channel<Command>(1024));
 
-        if(!mFakeGen)
+        if (!mFakeGen)
             mCtrl = control() | macoro::make_eager();
     }
+
+    void OleGenerator::Gen::compressSender(span<oc::block> sendMsg, oc::block delta, span<oc::block> add, span<oc::block> mult)
+    {
+
+        auto bIter8 = (u8*)add.data();
+        auto aIter8 = (u8*)mult.data();
+
+        if (add.size() * 128 != sendMsg.size())
+            throw RTE_LOC;
+        if (mult.size() * 128 != sendMsg.size())
+            throw RTE_LOC;
+        using block = oc::block;
+
+        auto shuffle = std::array<block, 16>{};
+        memset(shuffle.data(), 1 << 7, sizeof(*shuffle.data()) * shuffle.size());
+        for (u64 i = 0; i < 16; ++i)
+            shuffle[i].set<u8>(i, 0);
+
+        oc::AlignedArray<block, 16> m;
+        auto m0 = m.data();
+        auto m1 = m.data() + 8;
+        oc::block mask = ~oc::OneBlock;
+        for (u64 i = 0; i < sendMsg.size(); i += 8)
+        {
+            for (u64 j = 0; j < 8; ++j)
+            {
+                m0[j] = sendMsg[i + j] & mask;
+                m1[j] = sendMsg[i + j] & mask ^ delta;
+            }
+
+            oc::mAesFixedKey.hashBlocks<16>(m.data(), m.data());
+
+            auto a0 = m0[0].testc(oc::OneBlock);
+            auto a1 = m0[1].testc(oc::OneBlock);
+            auto a2 = m0[2].testc(oc::OneBlock);
+            auto a3 = m0[3].testc(oc::OneBlock);
+            auto a4 = m0[4].testc(oc::OneBlock);
+            auto a5 = m0[5].testc(oc::OneBlock);
+            auto a6 = m0[6].testc(oc::OneBlock);
+            auto a7 = m0[7].testc(oc::OneBlock);
+
+            auto ap =
+                a0 ^
+                (a1 << 1) ^
+                (a2 << 2) ^
+                (a3 << 3) ^
+                (a4 << 4) ^
+                (a5 << 5) ^
+                (a6 << 6) ^
+                (a7 << 7);
+
+            auto b0 = m1[0].testc(oc::OneBlock);
+            auto b1 = m1[1].testc(oc::OneBlock);
+            auto b2 = m1[2].testc(oc::OneBlock);
+            auto b3 = m1[3].testc(oc::OneBlock);
+            auto b4 = m1[4].testc(oc::OneBlock);
+            auto b5 = m1[5].testc(oc::OneBlock);
+            auto b6 = m1[6].testc(oc::OneBlock);
+            auto b7 = m1[7].testc(oc::OneBlock);
+
+            auto bp =
+                b0 ^
+                (b1 << 1) ^
+                (b2 << 2) ^
+                (b3 << 3) ^
+                (b4 << 4) ^
+                (b5 << 5) ^
+                (b6 << 6) ^
+                (b7 << 7);
+
+            *aIter8++ = ap ^ bp;
+            *bIter8++ = ap;
+        }
+    }
+
+    void OleGenerator::Gen::compressRecver(span<oc::block> recvMsg, span<oc::block> add, span<oc::block> mult)
+    {
+        auto aIter8 = (u8*)add.data();
+        auto bIter8 = (u8*)mult.data();
+
+        //if (bv.size() != recvMsg.size())
+        //    throw RTE_LOC;
+        if (add.size() * 128 != recvMsg.size())
+            throw RTE_LOC;
+        if (mult.size() * 128 != recvMsg.size())
+            throw RTE_LOC;
+        using block = oc::block;
+
+        auto shuffle = std::array<block, 16>{};
+        memset(shuffle.data(), 1 << 7, sizeof(*shuffle.data()) * shuffle.size());
+        for (u64 i = 0; i < 16; ++i)
+            shuffle[i].set<u8>(i, 0);
+
+        block mask = oc::OneBlock ^ oc::AllOneBlock;
+
+        oc::AlignedArray<oc::block, 8> m;
+        for (u64 i = 0; i < recvMsg.size(); i += 8)
+        {
+            auto r = &recvMsg[i];
+            // extract the choice bit from the LSB of r
+            u32 b0 = r[0].testc(oc::OneBlock);
+            u32 b1 = r[1].testc(oc::OneBlock);
+            u32 b2 = r[2].testc(oc::OneBlock);
+            u32 b3 = r[3].testc(oc::OneBlock);
+            u32 b4 = r[4].testc(oc::OneBlock);
+            u32 b5 = r[5].testc(oc::OneBlock);
+            u32 b6 = r[6].testc(oc::OneBlock);
+            u32 b7 = r[7].testc(oc::OneBlock);
+
+            // pack the choice bits.
+            *bIter8++ =
+                b0 ^
+                (b1 << 1) ^
+                (b2 << 2) ^
+                (b3 << 3) ^
+                (b4 << 4) ^
+                (b5 << 5) ^
+                (b6 << 6) ^
+                (b7 << 7);
+
+            // mask of the choice bit which is stored in the LSB
+            m[0] = r[0] & mask;
+            m[1] = r[1] & mask;
+            m[2] = r[2] & mask;
+            m[3] = r[3] & mask;
+            m[4] = r[4] & mask;
+            m[5] = r[5] & mask;
+            m[6] = r[6] & mask;
+            m[7] = r[7] & mask;
+
+            oc::mAesFixedKey.hashBlocks<8>(m.data(), m.data());
+
+            auto a0 = m[0].testc(oc::OneBlock);
+            auto a1 = m[1].testc(oc::OneBlock);
+            auto a2 = m[2].testc(oc::OneBlock);
+            auto a3 = m[3].testc(oc::OneBlock);
+            auto a4 = m[4].testc(oc::OneBlock);
+            auto a5 = m[5].testc(oc::OneBlock);
+            auto a6 = m[6].testc(oc::OneBlock);
+            auto a7 = m[7].testc(oc::OneBlock);
+
+            // pack the choice bits.
+            *aIter8++ =
+                a0 ^
+                (a1 << 1) ^
+                (a2 << 2) ^
+                (a3 << 3) ^
+                (a4 << 4) ^
+                (a5 << 5) ^
+                (a6 << 6) ^
+                (a7 << 7);
+
+
+        }
+    }
+
+
 
     void OleGenerator::Gen::compressSender(span<std::array<oc::block, 2>> sendMsg, span<oc::block> add, span<oc::block> mult)
     {

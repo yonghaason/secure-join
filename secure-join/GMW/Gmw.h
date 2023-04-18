@@ -45,20 +45,16 @@ namespace secJoin
         // based on their AND depth.
         BetaCircuit::LevelizeType mLevelize = BetaCircuit::LevelizeType::Reorder;
 
-        u64 mN = 0, mNumOts = 0, mIdx;
+        u64 mN = 0, mIdx = -1;
         OtExtType mOtExtType;
-        //u64 mBitCount;
         oc::Matrix<block> mWords;
-        u64 mRoundIdx = 0, mNumRounds;
+        u64 mNumRounds;
         BetaCircuit mCir;
         span<oc::BetaGate> mGates;
-
-        oc::PRNG mPrng, mPhiPrng;
-                
-        //span<block> mA, mB, mC, mC2, mD;
-
+        oc::PRNG mPrng;
         u64 mDebugPrintIdx = -1;
         BetaCircuit::PrintIter mPrint;
+        Request<BinOle> mTriples;
 
 
         void init(
@@ -108,7 +104,8 @@ namespace secJoin
         oc::MatrixView<u8> getOutputView(u64 i);
         oc::MatrixView<u8> getMemView(BetaBundle& wires);
 
-        OleGenerator* mGen = nullptr;
+
+        //OleGenerator* mGen = nullptr;
         //SilentTripleGen mSilent;
         //IknpTripleGen mIknp;
 

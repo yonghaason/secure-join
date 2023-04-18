@@ -325,10 +325,14 @@ namespace secJoin
         }
 
 
-        coproto::task<> evaluate(span<oc::block> y, coproto::Socket& sock, oc::PRNG& prng, OleGenerator& ole)
+        coproto::task<> evaluate(
+            span<oc::block> y, 
+            coproto::Socket& sock, 
+            oc::PRNG& prng,
+            OleGenerator& gen)
         {
 
-            MC_BEGIN(coproto::task<>, y, this, &sock, &prng, &ole,
+            MC_BEGIN(coproto::task<>, y, this, &sock, &prng, &gen,
                 buffer = oc::AlignedUnVector<u8>{},
                 //uu = oc::AlignedUnVector<u16>{},
                 f = oc::BitVector{},
@@ -336,11 +340,14 @@ namespace secJoin
                 ots = oc::AlignedUnVector<std::array<oc::block, 2>>{},
                 i = u64{},
                 compressedSizeAct = u64{},
-                compressedSize = u64{}
+                compressedSize = u64{},
+                ole = Request<BinOle>{}
             );
 
             setTimePoint("DarkMatter.sender.begin");
             mU.resize(y.size());
+
+            MC_AWAIT_SET(ole, gen.binOleRequest(y.size() * m * 2));
 
             //xk
             //uu.resize(y.size());
@@ -562,11 +569,11 @@ namespace secJoin
             span<std::array<u16, m>> u,
             span<oc::block> out,
             coproto::Socket& sock,
-            OleGenerator& ole)
+            Request<BinOle>& ole)
         {
             MC_BEGIN(macoro::task<>, u, out, &sock, &ole,
-                triple = SharedTriple{},
-                tIter = std::vector<SharedTriple>::iterator{},
+                triple = BinOle{},
+                tIter = std::vector<BinOle>::iterator{},
                 tIdx = u64{},
                 tSize = u64{},
                 i = u64{},
@@ -587,7 +594,9 @@ namespace secJoin
             tSize = 0;
             for (i = 0; i < u.size();)
             {
-                MC_AWAIT(ole.get(triple));
+                MC_AWAIT_SET(triple, ole.get());
+
+
                 tSize = triple.mAdd.size();
                 tIdx = 0;
                 buff.resize(tSize);
@@ -770,9 +779,14 @@ namespace secJoin
         }
 
 
-        coproto::task<> evaluate(span<oc::block> x, span<oc::block> y, coproto::Socket& sock, oc::PRNG& prng, OleGenerator& ole)
+        coproto::task<> evaluate(
+            span<oc::block> x, 
+            span<oc::block> y, 
+            coproto::Socket& sock, 
+            oc::PRNG& prng, 
+            OleGenerator& gen)
         {
-            MC_BEGIN(coproto::task<>, x, y, this, &sock, &prng, &ole,
+            MC_BEGIN(coproto::task<>, x, y, this, &sock, &prng, &gen,
                 X = oc::AlignedUnVector<std::array<oc::block, DLpnPrf::KeySize / 128>>{},
                 buffer = oc::AlignedUnVector<u8>{},
                 //h = oc::AlignedUnVector<u16>{},
@@ -784,10 +798,12 @@ namespace secJoin
                 block3 = oc::block{},
                 xPtr = (u32*)nullptr,
                 compressedSizeAct = u64{},
-                compressedSize = u64{}
+                compressedSize = u64{},
+                ole = Request<BinOle>{}
             );
             setTimePoint("DarkMatter.recver.begin");
 
+            MC_AWAIT_SET(ole, gen.binOleRequest(y.size() * m * 2));
             block3 = std::array<u16, 8>{3, 3, 3, 3, 3, 3, 3, 3};
             mU.resize(x.size());
 
@@ -979,11 +995,11 @@ namespace secJoin
             span<std::array<u16, m>> u, 
             span<oc::block> out,
             coproto::Socket& sock, 
-            OleGenerator& ole)
+            Request<BinOle>& ole)
         {
             MC_BEGIN(macoro::task<>, u, out, &sock, &ole,
-                triple = std::vector<SharedTriple>{},
-                tIter = std::vector<SharedTriple>::iterator{},
+                triple = std::vector<BinOle>{},
+                tIter = std::vector<BinOle>::iterator{},
                 tIdx = u64{},
                 tSize = u64{},
                 i = u64{},
@@ -1006,14 +1022,15 @@ namespace secJoin
             memset(&mask0, 0b01010101, sizeof(mask0));
             memset(&mask1, 0b10101010, sizeof(mask1));
 
-            triple.reserve(oc::divCeil(u.size() * 2 * m, ole.mChunkSize) + 1);
+            triple.reserve(ole.mCorrelations.size());
             tIdx = 0;
             tSize = 0;
             packedU.resize(u.size());
             for (i = 0; i < u.size();)
             {
                 triple.emplace_back();
-                MC_AWAIT(ole.get(triple.back()));
+                MC_AWAIT_SET(triple.back(), ole.get());
+
                 tSize = triple.back().mAdd.size();
                 tIdx = 0;
                 buff.resize(tSize);

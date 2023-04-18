@@ -17,27 +17,20 @@ namespace secJoin
     {
         mIdx = gen.mRole == OleGenerator::Role::Sender ? 1 : 0;
         mN = n;
-        mGen = &gen;
+        //mGen = &gen;
+        mTriples = macoro::sync_wait(gen.binOleRequest(2*cir.mNonlinearGateCount * oc::roundUpTo(mN, 128)));
 
-        mRoundIdx = 0;
         mCir = cir;
 
         if (mCir.mLevelCounts.size() == 0)
             mCir.levelByAndDepth(mLevelize);
 
         mNumRounds = mCir.mLevelCounts.size();
-
-
         mGates = mCir.mGates;
         mWords.resize(mCir.mWireCount, oc::divCeil(mN, 128));
 
         memset(mWords.data(), 0, mWords.size() * sizeof(*mWords.data()));
-
         mPrng.SetSeed(gen.mPrng.get());
-        mPhiPrng.SetSeed(mPrng.get(), mWords.cols());
-
-        mNumOts = mWords.cols() * 128 * mCir.mNonlinearGateCount * 2;
-
         mPrint = mCir.mPrints.begin();
     }
 
@@ -67,30 +60,30 @@ namespace secJoin
         memset(memView.data(), 0, memView.size());
     }
 
-    coproto::task<> Gmw::run(coproto::Socket& chl)
-    {
-        MC_BEGIN(coproto::task<>, this, &chl, i = u64{});
+    //coproto::task<> Gmw::run(coproto::Socket& chl)
+    //{
+    //    MC_BEGIN(coproto::task<>, this, &chl, i = u64{});
 
-        if (mO.mDebug)
-        {
-            mO.mWords.resize(mWords.rows(), mWords.cols());
+    //    if (mO.mDebug)
+    //    {
+    //        mO.mWords.resize(mWords.rows(), mWords.cols());
 
-            MC_AWAIT(chl.send(coproto::copy(mWords)));
-            MC_AWAIT(chl.recv(mO.mWords));
+    //        MC_AWAIT(chl.send(coproto::copy(mWords)));
+    //        MC_AWAIT(chl.recv(mO.mWords));
 
-            for (i = 0; i < mWords.size(); i++)
-            {
-                mO.mWords(i) = mO.mWords(i) ^ mWords(i);
-            }
-        }
+    //        for (i = 0; i < mWords.size(); i++)
+    //        {
+    //            mO.mWords(i) = mO.mWords(i) ^ mWords(i);
+    //        }
+    //    }
 
-        mRoundIdx = 0;
+    //    mRoundIdx = 0;
 
-        for (i = 0; i < numRounds(); ++i)
-            MC_AWAIT(roundFunction(chl));
+    //    for (i = 0; i < numRounds(); ++i)
+    //        MC_AWAIT(roundFunction(chl));
 
-        MC_END();
-    }
+    //    MC_END();
+    //}
 
     void Gmw::implGetOutput(u64 i, oc::MatrixView<u8> out, u64 alignment)
     {
@@ -269,7 +262,7 @@ namespace secJoin
     // Recver outputs: z2 = x2y2 + z12 + z22 
     //                    = x2y2 + r1 + r2
     //                    = x2y2 + r
-    coproto::task<> Gmw::roundFunction(coproto::Socket& chl)
+    coproto::task<> Gmw::run(coproto::Socket& chl)
     {
         MC_BEGIN(coproto::task<>, this, &chl,
             gates = span<oc::BetaGate>{},
@@ -284,288 +277,311 @@ namespace secJoin
             b = oc::AlignedUnVector<block>{},
             c = oc::AlignedUnVector<block>{},
             d = oc::AlignedUnVector<block>{},
-            triple = SharedTriple{},
-            j = u64{}
+            triple = BinOle{},
+            mult = span<oc::block>{},
+            add = span<oc::block>{},
+            j = u64{},
+            roundIdx = u64{}
         );
-        if (!mGen)
-            throw RTE_LOC;
 
-        if (mRoundIdx >= mNumRounds)
-            throw std::runtime_error("round function called too many times");
-
-        //if (mIdx && mO.mDebug)
-        //    oc::lout << "round " << mRoundIdx << std::endl;
-
-        gates = mGates.subspan(0, mCir.mLevelCounts[mRoundIdx]);
-        mGates = mGates.subspan(mCir.mLevelCounts[mRoundIdx]);
-
+        if (mIdx == -1)
+            throw std::runtime_error("Gmw::init(...) was not called");
 
         if (mO.mDebug)
         {
-            dirtyBits.resize(mCir.mWireCount, 0);
-            pinnedInputs.resize(mCir.mWireCount, 0);
+            mO.mWords.resize(mWords.rows(), mWords.cols());
+
+            MC_AWAIT(chl.send(coproto::copy(mWords)));
+            MC_AWAIT(chl.recv(mO.mWords));
+
+            for (u64 i = 0; i < mWords.size(); i++)
+            {
+                mO.mWords(i) = mO.mWords(i) ^ mWords(i);
+            }
         }
 
-
-        a.resize(mWords.cols() * mCir.mLevelAndCounts[mRoundIdx]);
-        b.resize(mWords.cols() * mCir.mLevelAndCounts[mRoundIdx]);
-        c.resize(mWords.cols() * mCir.mLevelAndCounts[mRoundIdx]);
-        d.resize(mWords.cols() * mCir.mLevelAndCounts[mRoundIdx]);
-
-        j = 0;
-        while (j != a.size())
+        for (roundIdx = 0; roundIdx < numRounds(); ++roundIdx)
         {
-            if (triple.size() == 0)
-                MC_AWAIT(mGen->get(triple));
-
-            // a  * c  = b  + d
-            // a' * c' = b' + d'
-            auto min = std::min<u64>(a.size() - j, triple.size() / 128 / 2);
-
-            span<block> aa, bb, cc, dd;
-            if (mIdx == 0)
-            {
-                aa = triple.mMult.subspan(0, min);
-                cc = triple.mMult.subspan(min, min);
-                bb = triple.mAdd.subspan(0, min);
-                dd = triple.mAdd.subspan(min, min);
-            }
-            else
-            {
-                cc = triple.mMult.subspan(0, min);
-                aa = triple.mMult.subspan(min, min);
-                dd = triple.mAdd.subspan(0, min);
-                bb = triple.mAdd.subspan(min, min);
-            }
-
-            std::copy(aa.begin(), aa.end(), a.begin() + j);
-            std::copy(bb.begin(), bb.end(), b.begin() + j);
-            std::copy(cc.begin(), cc.end(), c.begin() + j);
-            std::copy(dd.begin(), dd.end(), d.begin() + j);
-
-            //if (mIdx == 0)
-            //{
-            //    std::cout << "0 a " << a[j] << " * c = b " << b[j] << " ^ d" << std::endl;
-            //    std::cout << "0 a * c " << c[j] << " = b ^ d " << d[j] << std::endl;
-            //}
-            //else
-            //{
-            //    std::cout << "1 a * c " << c[j] << " = b ^ d " << d[j] << std::endl;
-            //    std::cout << "1 a " << a[j] << " * c = b " << b[j] << " ^ d" << std::endl;
-            //}
-            triple.mMult = triple.mMult.subspan(min * 2);
-            triple.mAdd = triple.mAdd.subspan(min * 2);
-            j += min;
-
-        }
 
 
-        j = 0;
-        for (gate = gates.begin(); gate < gates.end(); ++gate)
-        {
-            //in = { mWords[gate->mInput[0]], mWords[gate->mInput[1]] };
-            //out = mWords[gate->mOutput];
+            gates = mGates.subspan(0, mCir.mLevelCounts[roundIdx]);
+            mGates = mGates.subspan(mCir.mLevelCounts[roundIdx]);
 
-            in[0] = oc::span<oc::block>(mWords.data() + gate->mInput[0] * mWords.cols(), mWords.cols());
-            in[1] = oc::span<oc::block>(mWords.data() + gate->mInput[1] * mWords.cols(), mWords.cols());
-            out = oc::span<oc::block>(mWords.data() + gate->mOutput * mWords.cols(), mWords.cols());
 
-            //if (mIdx && mO.mDebug)
-            //{
-            //    oc::RandomOracle ro(16);
-            //    ro.Update(mWords.data(), mWords.size());
-            //    block h;
-            //    ro.Final(h);
-
-            //    oc::lout << "g " << gate->mInput[0] << " " << gate->mInput[1] << " " <<
-            //        gateToString(gate->mType) << " " << gate->mOutput << " ~ " << h << std::endl;
-            //}
             if (mO.mDebug)
             {
-                if (dirtyBits[gate->mInput[0]] ||
-                    (dirtyBits[gate->mInput[1]] && gate->mType != oc::GateType::a))
-                {
-                    throw std::runtime_error("incorrect levelization, input to current gate depends on the output of the current round. " LOCATION);
-                }
-
-                if (pinnedInputs[gate->mOutput])
-                {
-                    throw std::runtime_error("incorrect levelization, overwriting an input which is being used in the current round. " LOCATION);
-                }
+                dirtyBits.resize(0);
+                pinnedInputs.resize(0);
+                dirtyBits.resize(mCir.mWireCount, 0);
+                pinnedInputs.resize(mCir.mWireCount, 0);
             }
 
-            if (gate->mType == oc::GateType::a)
-            {
-                for (u64 i = 0; i < out.size(); ++i)
-                    out[i] = in[0][i];
-            }
-            else if (gate->mType == oc::GateType::na_And ||
-                gate->mType == oc::GateType::nb_And ||
-                gate->mType == oc::GateType::And ||
-                gate->mType == oc::GateType::Nor ||
-                gate->mType == oc::GateType::Or)
-            {
-                MC_AWAIT(multSend(in[0], in[1], chl, gate->mType, a.subspan(j, mWords.cols()), c.subspan(j, mWords.cols())));
-                j += mWords.cols();
 
+            a.resize(mWords.cols() * mCir.mLevelAndCounts[roundIdx]);
+            b.resize(mWords.cols() * mCir.mLevelAndCounts[roundIdx]);
+            c.resize(mWords.cols() * mCir.mLevelAndCounts[roundIdx]);
+            d.resize(mWords.cols() * mCir.mLevelAndCounts[roundIdx]);
+
+            j = 0;
+            while (j != a.size())
+            {
+                if (add.size() == 0)
+                {
+                    MC_AWAIT_SET(triple, mTriples.get());
+                    add = triple.mAdd;
+                    mult = triple.mMult;
+                }
+
+                // a  * c  = b  + d
+                // a' * c' = b' + d'
+                auto min = std::min<u64>(a.size() - j, add.size() / 2);
+
+                span<block> aa, bb, cc, dd;
+                if (mIdx == 0)
+                {
+                    aa = mult.subspan(0, min);
+                    cc = mult.subspan(min, min);
+                    bb = add.subspan(0, min);
+                    dd = add.subspan(min, min);
+                }
+                else
+                {
+                    cc = mult.subspan(0, min);
+                    aa = mult.subspan(min, min);
+                    dd = add.subspan(0, min);
+                    bb = add.subspan(min, min);
+                }
+
+                std::copy(aa.begin(), aa.end(), a.begin() + j);
+                std::copy(bb.begin(), bb.end(), b.begin() + j);
+                std::copy(cc.begin(), cc.end(), c.begin() + j);
+                std::copy(dd.begin(), dd.end(), d.begin() + j);
+
+                //if (mIdx == 0)
+                //{
+                //    std::cout << "0 a " << a[j] << " * c = b " << b[j] << " ^ d" << std::endl;
+                //    std::cout << "0 a * c " << c[j] << " = b ^ d " << d[j] << std::endl;
+                //}
+                //else
+                //{
+                //    std::cout << "1 a * c " << c[j] << " = b ^ d " << d[j] << std::endl;
+                //    std::cout << "1 a " << a[j] << " * c = b " << b[j] << " ^ d" << std::endl;
+                //}
+
+                mult = mult.subspan(min * 2);
+                add = add.subspan(min * 2);
+
+                j += min;
+
+            }
+
+
+            j = 0;
+            for (gate = gates.begin(); gate < gates.end(); ++gate)
+            {
+                //in = { mWords[gate->mInput[0]], mWords[gate->mInput[1]] };
+                //out = mWords[gate->mOutput];
+
+                in[0] = oc::span<oc::block>(mWords.data() + gate->mInput[0] * mWords.cols(), mWords.cols());
+                in[1] = oc::span<oc::block>(mWords.data() + gate->mInput[1] * mWords.cols(), mWords.cols());
+                out = oc::span<oc::block>(mWords.data() + gate->mOutput * mWords.cols(), mWords.cols());
+
+                //if (mIdx && mO.mDebug)
+                //{
+                //    oc::RandomOracle ro(16);
+                //    ro.Update(mWords.data(), mWords.size());
+                //    block h;
+                //    ro.Final(h);
+
+                //    oc::lout << "g " << gate->mInput[0] << " " << gate->mInput[1] << " " <<
+                //        gateToString(gate->mType) << " " << gate->mOutput << " ~ " << h << std::endl;
+                //}
                 if (mO.mDebug)
                 {
-                    pinnedInputs[gate->mInput[0]] = 1;
-                    pinnedInputs[gate->mInput[1]] = 1;
-                    dirtyBits[gate->mOutput] = 1;
+                    if (dirtyBits[gate->mInput[0]] ||
+                        (dirtyBits[gate->mInput[1]] && gate->mType != oc::GateType::a))
+                    {
+                        throw std::runtime_error("incorrect levelization, input to current gate depends on the output of the current round. " LOCATION);
+                    }
+
+                    if (pinnedInputs[gate->mOutput])
+                    {
+                        throw std::runtime_error("incorrect levelization, overwriting an input which is being used in the current round. " LOCATION);
+                    }
                 }
-            }
-            else if (
-                gate->mType == oc::GateType::Xor ||
-                gate->mType == oc::GateType::Nxor)
-            {
 
-                for (u64 i = 0; i < out.size(); ++i)
-                    out[i] = in[0][i] ^ in[1][i];
-
-                if (gate->mType == oc::GateType::Nxor && mIdx == 0)
+                if (gate->mType == oc::GateType::a)
                 {
                     for (u64 i = 0; i < out.size(); ++i)
-                        out[i] = out[i] ^ oc::AllOneBlock;
+                        out[i] = in[0][i];
                 }
-            }
-            else
-                throw RTE_LOC;
-        }
-
-        j = 0;
-        for (gate = gates.begin(); gate < gates.end(); ++gate)
-        {
-            in[0] = oc::span<oc::block>(mWords.data() + gate->mInput[0] * mWords.cols(), mWords.cols());
-            in[1] = oc::span<oc::block>(mWords.data() + gate->mInput[1] * mWords.cols(), mWords.cols());
-            out = oc::span<oc::block>(mWords.data() + gate->mOutput * mWords.cols(), mWords.cols());
-            //, mWords[gate->mInput[1]]
-                //  };
-
-            if (gate->mType == oc::GateType::na_And ||
-                gate->mType == oc::GateType::nb_And ||
-                gate->mType == oc::GateType::And ||
-                gate->mType == oc::GateType::Or ||
-                gate->mType == oc::GateType::Nor)
-            {
-                MC_AWAIT(multRecv(in[0], in[1], out, chl, gate->mType, 
-                    b.subspan(j, mWords.cols()), 
-                    c.subspan(j, mWords.cols()), 
-                    d.subspan(j, mWords.cols())));
-                j += mWords.cols();
-            }
-        }
-
-
-
-        if (mO.mDebug)
-        {
-            print = [&](u64 gIdx) {
-                while (
-                    mDebugPrintIdx < mN &&
-                    mPrint != mCir.mPrints.end() &&
-                    mPrint->mGateIdx <= gIdx &&
-                    mIdx)
+                else if (gate->mType == oc::GateType::na_And ||
+                    gate->mType == oc::GateType::nb_And ||
+                    gate->mType == oc::GateType::And ||
+                    gate->mType == oc::GateType::Nor ||
+                    gate->mType == oc::GateType::Or)
                 {
-                    auto wireIdx = mPrint->mWire;
-                    auto invert = mPrint->mInvert;
+                    MC_AWAIT(multSend(in[0], in[1], chl, gate->mType, a.subspan(j, mWords.cols()), c.subspan(j, mWords.cols())));
+                    j += mWords.cols();
 
-                    if (wireIdx != ~u32(0))
+                    if (mO.mDebug)
                     {
-                        oc::BitIterator iter((u8*)mO.mWords[wireIdx].data(), mDebugPrintIdx);
-                        auto mem = u64(*iter);
-                        std::cout << (u64)(mem ^ (invert ? 1 : 0));
+                        pinnedInputs[gate->mInput[0]] = 1;
+                        pinnedInputs[gate->mInput[1]] = 1;
+                        dirtyBits[gate->mOutput] = 1;
                     }
-                    if (mPrint->mMsg.size())
-                        std::cout << mPrint->mMsg;
-
-                    ++mPrint;
                 }
-            };
-
-            for (auto& gate : gates)
-            {
-
-                auto gIdx = &gate - mCir.mGates.data();
-                print(gIdx);
-
-                for (u64 i = 0; i < mWords.cols(); ++i)
+                else if (
+                    gate->mType == oc::GateType::Xor ||
+                    gate->mType == oc::GateType::Nxor)
                 {
-                    auto& a = mO.mWords(gate.mInput[0], i);
-                    auto& b = mO.mWords(gate.mInput[1], i);
-                    auto& c = mO.mWords(gate.mOutput, i);
-                    //if (gate.mOutput == 129)
-                    //{
-                    //    auto cc=
-                    //        (oc::AllOneBlock ^ a) & b;
-                    //    std::cout << "~" << a << " & " << b << " -> " << cc << std::endl;
-                    //}
 
-                    switch (gate.mType)
+                    for (u64 i = 0; i < out.size(); ++i)
+                        out[i] = in[0][i] ^ in[1][i];
+
+                    if (gate->mType == oc::GateType::Nxor && mIdx == 0)
                     {
-                    case oc::GateType::a:
-                        c = a;
-                        break;
-                    case oc::GateType::And:
-                        c = a & b;
-                        break;
-                    case oc::GateType::Or:
-                        c = a | b;
-                        break;
-                    case oc::GateType::Nor:
-                        c = (a | b) ^ oc::AllOneBlock;
-                        break;
-                    case oc::GateType::nb_And:
-                        //oc::lout << "* ~" << a << " & " << b << " -> " << ((oc::AllOneBlock ^ a) & b) << std::endl;
-                        c = a & (oc::AllOneBlock ^ b);
-                        break;
-                    case oc::GateType::na_And:
-                        //oc::lout << "* ~" << a << " & " << b << " -> " << ((oc::AllOneBlock ^ a) & b) << std::endl;
-                        c = (oc::AllOneBlock ^ a) & b;
-                        break;
-                    case oc::GateType::Xor:
-                        c = a ^ b;
-                        break;
-                    case oc::GateType::Nxor:
-                        c = a ^ b ^ oc::AllOneBlock;
-                        break;
-                    default:
+                        for (u64 i = 0; i < out.size(); ++i)
+                            out[i] = out[i] ^ oc::AllOneBlock;
+                    }
+                }
+                else
+                    throw RTE_LOC;
+            }
+
+            j = 0;
+            for (gate = gates.begin(); gate < gates.end(); ++gate)
+            {
+                in[0] = oc::span<oc::block>(mWords.data() + gate->mInput[0] * mWords.cols(), mWords.cols());
+                in[1] = oc::span<oc::block>(mWords.data() + gate->mInput[1] * mWords.cols(), mWords.cols());
+                out = oc::span<oc::block>(mWords.data() + gate->mOutput * mWords.cols(), mWords.cols());
+                //, mWords[gate->mInput[1]]
+                    //  };
+
+                if (gate->mType == oc::GateType::na_And ||
+                    gate->mType == oc::GateType::nb_And ||
+                    gate->mType == oc::GateType::And ||
+                    gate->mType == oc::GateType::Or ||
+                    gate->mType == oc::GateType::Nor)
+                {
+                    MC_AWAIT(multRecv(in[0], in[1], out, chl, gate->mType,
+                        b.subspan(j, mWords.cols()),
+                        c.subspan(j, mWords.cols()),
+                        d.subspan(j, mWords.cols())));
+                    j += mWords.cols();
+                }
+            }
+
+
+
+            if (mO.mDebug)
+            {
+                print = [&](u64 gIdx) {
+                    while (
+                        mDebugPrintIdx < mN &&
+                        mPrint != mCir.mPrints.end() &&
+                        mPrint->mGateIdx <= gIdx &&
+                        mIdx)
+                    {
+                        auto wireIdx = mPrint->mWire;
+                        auto invert = mPrint->mInvert;
+
+                        if (wireIdx != ~u32(0))
+                        {
+                            oc::BitIterator iter((u8*)mO.mWords[wireIdx].data(), mDebugPrintIdx);
+                            auto mem = u64(*iter);
+                            std::cout << (u64)(mem ^ (invert ? 1 : 0));
+                        }
+                        if (mPrint->mMsg.size())
+                            std::cout << mPrint->mMsg;
+
+                        ++mPrint;
+                    }
+                };
+
+                for (auto& gate : gates)
+                {
+
+                    auto gIdx = &gate - mCir.mGates.data();
+                    print(gIdx);
+
+                    for (u64 i = 0; i < mWords.cols(); ++i)
+                    {
+                        auto& a = mO.mWords(gate.mInput[0], i);
+                        auto& b = mO.mWords(gate.mInput[1], i);
+                        auto& c = mO.mWords(gate.mOutput, i);
+                        //if (gate.mOutput == 129)
+                        //{
+                        //    auto cc=
+                        //        (oc::AllOneBlock ^ a) & b;
+                        //    std::cout << "~" << a << " & " << b << " -> " << cc << std::endl;
+                        //}
+
+                        switch (gate.mType)
+                        {
+                        case oc::GateType::a:
+                            c = a;
+                            break;
+                        case oc::GateType::And:
+                            c = a & b;
+                            break;
+                        case oc::GateType::Or:
+                            c = a | b;
+                            break;
+                        case oc::GateType::Nor:
+                            c = (a | b) ^ oc::AllOneBlock;
+                            break;
+                        case oc::GateType::nb_And:
+                            //oc::lout << "* ~" << a << " & " << b << " -> " << ((oc::AllOneBlock ^ a) & b) << std::endl;
+                            c = a & (oc::AllOneBlock ^ b);
+                            break;
+                        case oc::GateType::na_And:
+                            //oc::lout << "* ~" << a << " & " << b << " -> " << ((oc::AllOneBlock ^ a) & b) << std::endl;
+                            c = (oc::AllOneBlock ^ a) & b;
+                            break;
+                        case oc::GateType::Xor:
+                            c = a ^ b;
+                            break;
+                        case oc::GateType::Nxor:
+                            c = a ^ b ^ oc::AllOneBlock;
+                            break;
+                        default:
+                            throw RTE_LOC;
+                        }
+                    }
+                }
+
+                if (mGates.size() == 0)
+                {
+                    print(mCir.mGates.size());
+                }
+
+                MC_AWAIT(chl.send(coproto::copy(mWords)));
+
+                ww.resize(mWords.size());
+                MC_AWAIT(chl.recv(ww));
+
+                for (u64 i = 0; i < mWords.size(); ++i)
+                {
+                    auto exp = mO.mWords(i);
+                    auto act = ww[i] ^ mWords(i);
+
+                    if (neq(exp, act))
+                    {
+                        auto row = (i / mWords.cols());
+                        auto col = (i % mWords.cols());
+
+                        oc::lout << "p" << mIdx << " mem[" << row << ", " << col <<
+                            "] exp: " << exp <<
+                            ", act: " << act <<
+                            "\ndiff:" << (exp ^ act) << std::endl;
+
                         throw RTE_LOC;
                     }
                 }
             }
 
-            if (mGates.size() == 0)
-            {
-                print(mCir.mGates.size());
-            }
-
-            MC_AWAIT(chl.send(coproto::copy(mWords)));
-
-            ww.resize(mWords.size());
-            MC_AWAIT(chl.recv(ww));
-
-            for (u64 i = 0; i < mWords.size(); ++i)
-            {
-                auto exp = mO.mWords(i);
-                auto act = ww[i] ^ mWords(i);
-
-                if (neq(exp, act))
-                {
-                    auto row = (i / mWords.cols());
-                    auto col = (i % mWords.cols());
-
-                    oc::lout << "p" << mIdx << " mem[" << row << ", " << col << 
-                        "] exp: " << exp <<
-                        ", act: " << act  <<
-                        "\ndiff:" <<(exp^act)<< std::endl;
-
-                    throw RTE_LOC;
-                }
-            }
         }
-
-        ++mRoundIdx;
 
         MC_END();
     }

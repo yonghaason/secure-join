@@ -606,8 +606,11 @@ void DLpnPrf_proto_test(const oc::CLP& cmd)
     tp.create_threads(6);
     //ole0.mFakeGen = true;
     //ole1.mFakeGen = true;
-    ole0.init(OleGenerator::Role::Sender, tp, sock[0], prng0, n * 512, n * 512, 4);
-    ole1.init(OleGenerator::Role::Receiver, tp, sock[1], prng1, n * 512, n * 512, 4);
+    //ole0.init(OleGenerator::Role::Sender, tp, sock[0], prng0, 4, 1<< 18);
+    //ole1.init(OleGenerator::Role::Receiver, tp, sock[1], prng1, 4, 1 << 18);
+    ole0.fakeInit(OleGenerator::Role::Sender);
+    ole1.fakeInit(OleGenerator::Role::Receiver);
+
 
     prng0.get(x.data(), x.size());
     //memset(x.data(), -1, n * sizeof(block256));
