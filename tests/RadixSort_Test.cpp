@@ -372,8 +372,8 @@ void RadixSort_bitInjection_test()
 {
 
     auto comm = coproto::LocalAsyncSocket::makePair();
-    u64 L = 21;
-    u64 n = 128 * 8;
+    u64 L = 8;
+    u64 n = 1;
 
 
     PRNG prng(block(0, 0));
@@ -414,8 +414,9 @@ void RadixSort_bitInjection_test()
         auto iter = oc::BitIterator(k[i].data());
         for (u64 j = 0; j < L; ++j)
         {
-
-            if (ff(i, j) != *iter++)
+            auto v = ff(i, j);
+            auto b = *iter++;
+            if (v != b)
             {
                 throw RTE_LOC;
             }

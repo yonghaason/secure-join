@@ -12,7 +12,9 @@ namespace secJoin_Tests
 {
     oc::TestCollection Tests([](oc::TestCollection& t) {
         
-        t.add("OleGenerator_Basic_Test                       ", OleGenerator_Basic_Test);
+        t.add("Generator_BinOle_Test                         ", Generator_BinOle_Test);
+        t.add("Generator_Ot_Test                             ", Generator_Ot_Test);
+        t.add("Generator_ArithTriple_Test                    ", Generator_ArithTriple_Test);
 
         t.add("Gmw_half_test                                 ", Gmw_half_test);
         t.add("Gmw_basic_test                                ", Gmw_basic_test);

@@ -11,6 +11,48 @@
 
 namespace secJoin
 {
+	inline void unpack(span<const u8> in, u64 bitCount, span<u32> out)
+	{
+		auto n = oc::divCeil(bitCount, 8);
+		if (out.size() * n != in.size())
+			throw RTE_LOC;
+
+		if (n == sizeof(u32))
+			memcpy(out.data(), in.data(), in.size());
+		else
+		{
+			for (u64 j = 0; j < out.size(); ++j)
+				out[j] = *(u32*)&in[j * n];
+		}
+
+	}
+	inline void pack(span<const u32> in, u64 bitCount, span<u8> out)
+	{
+		auto n = oc::divCeil(bitCount, 8);
+		if (in.size() * n != out.size())
+			throw RTE_LOC;
+
+
+		if (n == sizeof(u32))
+			memcpy(out.data(), in.data(), out.size());
+		else
+		{
+			auto s = in.data();
+			auto iter = out.begin();
+			for (u64 j = 0; j < in.size(); ++j)
+			{
+				std::copy((u8 const*)s, (u8 const* )s + n, iter);
+				iter += n;
+				++s;
+			}
+		}
+	}
+
+	// convert each bit of the binary secret sharing `in`
+	// to integer Z_{2^outBitCount} arithmetic sharings.
+	// Each row of `in` should have `inBitCount` bits.
+	// out will therefore have dimension `in.rows()` rows 
+	// and `inBitCount` columns.
 	inline macoro::task<> bitInjection(
 		u64 inBitCount,
 		const oc::Matrix<u8>& in, 
@@ -21,43 +63,112 @@ namespace secJoin
 	{
 		MC_BEGIN(macoro::task<>, inBitCount ,&in, outBitCount, &out, &sock, &gen,
 			in2 = oc::Matrix<u8>{},
-			ec = macoro::result<void>{});
+			ec = macoro::result<void>{},
+			recvReq = Request<OtRecv>{},
+			sendReq = Request<OtSend>{},
+			recvs = std::vector<OtRecv>{},
+			send = OtSend{},
+			i = u64{ 0 },
+			k = u64{ 0 },
+			m = u64{ 0 },
+			diff = oc::BitVector{},
+			buff = oc::AlignedUnVector<u8>{},
+			updates = oc::AlignedUnVector<u32>{},
+			mask = u32{}
+			);
 
-		
 		out.resize(in.rows(), inBitCount);
-		{
-			oc::PRNG prng(oc::CCBlock);
-			for (u64 i = 0; i < out.size(); ++i)
-			{
-				out(i) = prng.get<u32>();
-			}
-		}
+		mask = outBitCount == 32 ? -1 : ((1 << outBitCount) - 1);
 
-		if (gen.mRole == OleGenerator::Role::Sender)
+		if (gen.mRole == OleGenerator::Role::Receiver)
 		{
-			in2.resize(in.rows(), in.cols());
-			MC_AWAIT_TRY(ec, macoro::wrap(sock.recv(in2)));
-			if (ec.has_error())
+			MC_AWAIT_SET(recvReq, gen.otRecvRequest(in.rows() * inBitCount));
+
+			while (i < out.size())
 			{
-				try { std::rethrow_exception(ec.error()); }
-				catch (std::exception& e) {
-					std::cout << e.what() << std::endl;
+				recvs.emplace_back();
+				MC_AWAIT_SET(recvs.back(), recvReq.get());
+
+				m = std::min<u64>(recvs.back().size(), out.size() - i);
+				recvs.back().mChoice.resize(m);
+				recvs.back().mMsg.resize(m);
+
+				diff.reserve(m);
+				for(u64 j = 0; j < m; )
+				{
+					auto row = i / inBitCount;
+					auto off = i % inBitCount;
+					auto rem = std::min<u64>(m-j, inBitCount - off);
+
+					diff.append((u8*)&in(row, 0), rem, off);
+
+					i += rem;
+					j += rem;
 				}
+
+				diff ^= recvs.back().mChoice;
+				recvs.back().mChoice ^= diff;
+				MC_AWAIT(sock.send(std::move(diff)));
 			}
 
-			for (u64 i = 0; i < in.rows(); ++i)
+			i = 0; k = 0;
+			while (i < out.size())
 			{
-				for (u64 j = 0; j < in.cols(); ++j)
-					in2(i, j) ^= in(i, j);
+				m = recvs[k].size();
+				buff.resize(m * oc::divCeil(outBitCount, 8));
+				MC_AWAIT(sock.recv(buff));
 
-				auto iter = oc::BitIterator((u8*)in2[i].data());
-				for(u64 j = 0; j < out.cols(); ++j)
-					out(i, j) = *iter++ - out(i, j);
+				updates.resize(m);
+				unpack(buff, outBitCount, updates);
+
+				for (u64 j = 0; j < m; ++j, ++i)
+				{
+					//recvs[k].mMsg[j].set<u32>(0, 0);
+
+					if (recvs[k].mChoice[j])
+						out(i) = (recvs[k].mMsg[j].get<u32>(0) + updates[j]) & mask;
+					else
+						out(i) = recvs[k].mMsg[j].get<u32>(0) & mask;
+				}
+
+				++k;
 			}
 		}
 		else
 		{
-			MC_AWAIT(sock.send(coproto::copy(in)));
+
+			MC_AWAIT_SET(sendReq, gen.otSendRequest(in.rows() * inBitCount));
+
+			while (i < out.size())
+			{
+				MC_AWAIT_SET(send, sendReq.get());
+
+				m = std::min<u64>(send.size(), out.size() - i);
+				diff.resize(m);
+				MC_AWAIT(sock.recv(diff));
+
+				updates.resize(m);
+				for (u64 j = 0; j < m; ++j, ++i)
+				{
+					auto row = i / inBitCount;
+					auto off = i % inBitCount;
+
+					auto y = (u8)*oc::BitIterator((u8*)&in(row, 0), off);
+					auto b = (u8)diff[j];
+					auto m0 = send.mMsg[j][b];
+					auto m1 = send.mMsg[j][b ^ 1];
+
+					auto v0 = m0.get<u32>(0);
+					auto v1 = v0 + (-2 * y + 1);
+					out(i) = (-v0 + y) & mask;
+					updates[j] = (v1 - m1.get<u32>(0)) & mask;
+				}
+
+				buff.resize(m * oc::divCeil(outBitCount, 8));
+				pack(updates, outBitCount, buff);
+
+				MC_AWAIT(sock.send(std::move(buff)));
+			}
 		}
 		MC_END();
 	}
@@ -466,7 +577,7 @@ namespace secJoin
 
 					eval.setInput(0, k);
 
-					 MC_AWAIT(eval.run(comm));
+					MC_AWAIT(eval.run(comm));
 
 					eval.getOutput(0, bits);
 

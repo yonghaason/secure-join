@@ -24,8 +24,6 @@ namespace secJoin
     struct OtSend
     {
         oc::AlignedUnVector<std::array<oc::block, 2>> mMsg;
-        //oc::AlignedUnVector<std::array<oc::block, 2>> mMem;
-
         u64 size() const
         {
             return mMsg.size();
@@ -36,7 +34,6 @@ namespace secJoin
     {
         oc::BitVector mChoice;
         oc::AlignedUnVector<oc::block> mMsg;
-        //oc::AlignedUnVector<oc::block> mMem;
 
         u64 size() const
         {
@@ -47,8 +44,6 @@ namespace secJoin
     struct BinOle
     {
         oc::AlignedUnVector<oc::block> mMult, mAdd;
-        //oc::AlignedUnVector<oc::block> mMemAdd, mMemMult;
-
         u64 size() const
         {
             return mMult.size() * 128;
@@ -58,8 +53,9 @@ namespace secJoin
     struct ArithTriple {
 
         u64 mBitCount;
-        //oc::AlignedUnVector<oc::block> mMemA, mMemB, mMemC;
-        oc::AlignedUnVector<oc::block> mA, mB, mC;
+        oc::AlignedUnVector<u32> mA, mB, mC;
+
+        u64 size() { return mA.size(); }
     };
 
 
@@ -354,9 +350,11 @@ namespace secJoin
 
         //void getBaseOts(Chunk& chunk, CorRequest& ses);
 
-        void fakeFill(BinOle& ole)
+        void fakeFill(u64 m, BinOle& ole, const BinOle&)
         {
             //oc::PRNG prng(oc::block(mCurSize++));
+            ole.mAdd.resize(m);
+            ole.mMult.resize(m);
 
             for (u32 i = 0; i < ole.mAdd.size(); ++i)
             {
@@ -377,50 +375,112 @@ namespace secJoin
                 }
             }
         }
-        macoro::task<Request<BinOle>> binOleRequest(u64 numCorrelations, u64 reservoirSize = 0, oc::block sessionID = oc::ZeroBlock)
+        void fakeFill(u64 m, OtRecv& ole, const OtRecv&)
         {
-            MC_BEGIN(macoro::task<Request<BinOle>>, this, numCorrelations, reservoirSize, sessionID,
-                c = std::shared_ptr<macoro::mpsc::channel<std::pair<u64, BinOle>>>{},
+            //oc::PRNG prng(oc::block(mCurSize++));
+            ole.mMsg.resize(m);
+            ole.mChoice.resize(m);
+            memset(ole.mChoice.data(), 0b10101100, ole.mChoice.sizeBytes());
+
+            for (u32 i = 0; i < ole.mMsg.size(); ++i)
+            {
+                oc::block m0 = std::array<u32, 4>{i, i, i, i};// prng.get();
+                oc::block m1 = std::array<u32, 4>{~i, ~i, ~i, ~i};//prng.get();
+                ole.mMsg[i] = ole.mChoice[i] ? m1 : m0;
+            }
+        }
+
+        void fakeFill(u64 m, OtSend& ole, const OtSend&)
+        {
+            ole.mMsg.resize(m);
+            for (u32 i = 0; i < ole.mMsg.size(); ++i)
+            {
+                ole.mMsg[i][0] = std::array<u32, 4>{i, i, i, i};// prng.get();
+                ole.mMsg[i][1] = std::array<u32, 4>{~i, ~i, ~i, ~i};//prng.get();
+            }
+        }
+
+        void fakeFill(u64 m, ArithTriple& ole, const ArithTriple&at)
+        {
+            oc::PRNG prng(oc::block(0,0));
+            ole.mBitCount = at.mBitCount;
+            ole.mA.resize(m);
+            ole.mB.resize(m);
+            ole.mC.resize(m);
+            u32 mask = (1 << ole.mBitCount) - 1;
+            if (!mask)
+                mask = -1;
+            for (u32 i = 0; i < m; ++i)
+            {
+                u32 a[2];
+                u32 b[2];
+                u32 c[2];
+
+                a[0] = prng.get<u32>() & mask;
+                b[0] = prng.get<u32>() & mask;
+                c[0] = prng.get<u32>() & mask;
+                a[1] = prng.get<u32>() & mask;
+                b[1] = prng.get<u32>() & mask;
+                c[1] = (a[1] * b[1]) & mask;
+
+                a[1] = (a[1] - a[0]) & mask;
+                b[1] = (b[1] - b[0]) & mask;
+                c[1] = (c[1] - c[0]) & mask;
+
+                ole.mA[i] = a[(int)mRole];
+                ole.mB[i] = b[(int)mRole];
+                ole.mC[i] = c[(int)mRole];
+            }
+        }
+
+        oc::block nextSID()
+        {
+            auto s = mCurSessionID;
+            mCurSessionID += oc::block(2452345343234, 43253453452);
+            return s;
+        }
+
+        template<typename Cor>
+        macoro::task<Request<Cor>> request(u64 numCorrelations, Cor cor, u64 reservoirSize = 0, oc::block sessionID = oc::ZeroBlock)
+        {
+
+            MC_BEGIN(macoro::task<Request<Cor>>, this, numCorrelations, reservoirSize, sessionID, cor,
+                c = std::shared_ptr<macoro::mpsc::channel<std::pair<u64, Cor>>>{},
                 rem = std::vector<CorRequest>{},
                 req = CorRequest{},
-                cor = Request<BinOle>{},
-                n = u64{}, m = u64{}, i = u64{});
+                ReqCor = Request<Cor>{},
+                n = u64{ 0 }, m = u64{}, i = u64{ 0 });
 
             if (reservoirSize == 0)
                 reservoirSize = numCorrelations;
 
             if (sessionID == oc::ZeroBlock)
             {
-                sessionID = mCurSessionID;
-                mCurSessionID += oc::block(2452345343234, 43253453452);
+                sessionID = nextSID();
             }
-            i = 0;
-            n = 0;
 
             if (mFakeGen)
             {
-                cor.mSessionID = sessionID;
-                cor.mSize = numCorrelations;
-                cor.mCorrelations.resize(oc::divCeil(numCorrelations, mChunkSize));
+                ReqCor.mSessionID = sessionID;
+                ReqCor.mSize = numCorrelations;
+                ReqCor.mCorrelations.resize(oc::divCeil(numCorrelations, mChunkSize));
 
-                for (u64 i = 0; i < cor.mCorrelations.size(); ++i)
+                for (u64 i = 0; i < ReqCor.mCorrelations.size(); ++i)
                 {
                     m = std::min<u64>(numCorrelations - n, mChunkSize);
                     m = 1ull << oc::log2ceil(m);
                     n += m;
 
-                    cor.mCorrelations[i].emplace();
-                    cor.mCorrelations[i]->mAdd.resize(m);
-                    cor.mCorrelations[i]->mMult.resize(m);
-                    fakeFill(*cor.mCorrelations[i]);
+                    ReqCor.mCorrelations[i].emplace();
+                    fakeFill(m, *ReqCor.mCorrelations[i], cor);
                 }
 
-                MC_RETURN(std::move(cor));
+                MC_RETURN(std::move(ReqCor));
             }
             else
             {
 
-                c.reset(new macoro::mpsc::channel<std::pair<u64, BinOle>>(1ull << oc::log2ceil(oc::divCeil(numCorrelations, mChunkSize))));
+                c.reset(new macoro::mpsc::channel<std::pair<u64, Cor>>(1ull << oc::log2ceil(oc::divCeil(numCorrelations, mChunkSize))));
                 while (n < numCorrelations)
                 {
                     m = std::min<u64>(numCorrelations - n, mChunkSize);
@@ -430,8 +490,8 @@ namespace secJoin
                         sessionID ^ oc::block(i * 31212 ^ i,i),
                         m,
                         i++,
-                        CorRequest::Req<BinOle>{
-                            BinOle{},
+                        CorRequest::Req<Cor>{
+                            cor,
                             c
                         }
                     };
@@ -450,7 +510,7 @@ namespace secJoin
 
                 std::reverse(rem.begin(), rem.end());
 
-                MC_RETURN((Request<BinOle>{
+                MC_RETURN((Request<Cor>{
                     sessionID,
                         numCorrelations,
                         oc::divCeil(numCorrelations, mChunkSize),
@@ -462,9 +522,102 @@ namespace secJoin
             }
             MC_END();
         }
-        macoro::task<Request<OtRecv>> otRecvRequest(u64 numCorrelations, u64 reservoirSize = 0, oc::block sessionID = oc::ZeroBlock);
-        macoro::task<Request<OtSend>> otSendRequest(u64 numCorrelations, u64 reservoirSize = 0, oc::block sessionID = oc::ZeroBlock);
-        macoro::task<Request<ArithTriple>> arithTripleRequest(u64 numCorrelations, u64 reservoirSize = 0, oc::block sessionID = oc::ZeroBlock);
+
+        macoro::task<Request<BinOle>> binOleRequest(u64 numCorrelations, u64 reservoirSize = 0, oc::block sessionID = oc::ZeroBlock)
+        {
+            return request<BinOle>(numCorrelations, BinOle{}, reservoirSize, sessionID);
+            //MC_BEGIN(macoro::task<Request<BinOle>>, this, numCorrelations, reservoirSize, sessionID,
+            //    c = std::shared_ptr<macoro::mpsc::channel<std::pair<u64, BinOle>>>{},
+            //    rem = std::vector<CorRequest>{},
+            //    req = CorRequest{},
+            //    cor = Request<BinOle>{},
+            //    n = u64{0}, m = u64{}, i = u64{0});
+
+            //if (reservoirSize == 0)
+            //    reservoirSize = numCorrelations;
+
+            //if (sessionID == oc::ZeroBlock)
+            //{
+            //    sessionID = nextSID();
+            //}
+
+            //if (mFakeGen)
+            //{
+            //    cor.mSessionID = sessionID;
+            //    cor.mSize = numCorrelations;
+            //    cor.mCorrelations.resize(oc::divCeil(numCorrelations, mChunkSize));
+
+            //    for (u64 i = 0; i < cor.mCorrelations.size(); ++i)
+            //    {
+            //        m = std::min<u64>(numCorrelations - n, mChunkSize);
+            //        m = 1ull << oc::log2ceil(m);
+            //        n += m;
+
+            //        cor.mCorrelations[i].emplace();
+            //        cor.mCorrelations[i]->mAdd.resize(m);
+            //        cor.mCorrelations[i]->mMult.resize(m);
+            //        fakeFill(*cor.mCorrelations[i]);
+            //    }
+
+            //    MC_RETURN(std::move(cor));
+            //}
+            //else
+            //{
+
+            //    c.reset(new macoro::mpsc::channel<std::pair<u64, BinOle>>(1ull << oc::log2ceil(oc::divCeil(numCorrelations, mChunkSize))));
+            //    while (n < numCorrelations)
+            //    {
+            //        m = std::min<u64>(numCorrelations - n, mChunkSize);
+            //        m = 1ull << oc::log2ceil(m);
+
+            //        req = CorRequest{
+            //            sessionID ^ oc::block(i * 31212 ^ i,i),
+            //            m,
+            //            i++,
+            //            CorRequest::Req<BinOle>{
+            //                BinOle{},
+            //                c
+            //            }
+            //        };
+
+            //        if (n < reservoirSize)
+            //        {
+            //            MC_AWAIT(mControlQueue->push(OleGenerator::Command{ std::move(req) }));
+            //        }
+            //        else
+            //        {
+            //            rem.push_back(std::move(req));
+            //        }
+
+            //        n += m;
+            //    }
+
+            //    std::reverse(rem.begin(), rem.end());
+
+            //    MC_RETURN((Request<BinOle>{
+            //        sessionID,
+            //            numCorrelations,
+            //            oc::divCeil(numCorrelations, mChunkSize),
+            //            std::move(rem),
+            //            this,
+            //            std::move(c)
+            //    }));
+
+            //}
+            //MC_END();
+        }
+        macoro::task<Request<OtRecv>> otRecvRequest(u64 numCorrelations, u64 reservoirSize = 0, oc::block sessionID = oc::ZeroBlock)
+        {
+            return request<OtRecv>(numCorrelations, OtRecv{}, reservoirSize, sessionID);
+        }
+        macoro::task<Request<OtSend>> otSendRequest(u64 numCorrelations, u64 reservoirSize = 0, oc::block sessionID = oc::ZeroBlock)
+        {
+            return request<OtSend>(numCorrelations, OtSend{}, reservoirSize, sessionID);
+        }
+        macoro::task<Request<ArithTriple>> arithTripleRequest(u64 numCorrelations, u64 bitCount, u64 reservoirSize = 0, oc::block sessionID = oc::ZeroBlock)
+        {
+            return request<ArithTriple>(numCorrelations, ArithTriple{ bitCount }, reservoirSize, sessionID);
+        }
 
         void log(std::string m)
         {
