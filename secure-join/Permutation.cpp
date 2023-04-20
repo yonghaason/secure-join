@@ -7,7 +7,7 @@ namespace secJoin
     // returns the inverse permutation
     Perm Perm::inverse() const
     {
-        std::vector<u64> retd(size());
+        std::vector<u32> retd(size());
         for (auto i = 0ull; i < size(); i++)
             retd[mPerm[i]] = i;
             

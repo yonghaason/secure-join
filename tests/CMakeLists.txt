@@ -7,7 +7,7 @@
 set(SRCS
 	UnitTests.cpp
 	LowMCPerm_Test.cpp
-	SharedPerm_Test.cpp
+	ComposedPerm_Test.cpp
 	PaillierPerm_Test.cpp
 	DarkMatterPrf_Test.cpp
 	OleGenerator_Test.cpp

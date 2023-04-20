@@ -152,7 +152,7 @@ namespace secJoin
 
         static macoro::task<> applyVecPerm(
             oc::Matrix<u8>& x2,
-            std::vector<u64>& pi,
+            Perm& pi,
             oc::PRNG& prng,
             Gmw& gmw1,
             coproto::Socket& chl,
@@ -199,7 +199,7 @@ namespace secJoin
 
 
         static macoro::task<> applyPerm(
-            std::vector<u64>& pi,
+            Perm& pi,
             oc::PRNG& prng,
             u64 n,
             u64 bytesPerRow,

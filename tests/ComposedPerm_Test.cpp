@@ -1,8 +1,8 @@
-#include "SharedPerm_Test.h"
+#include "ComposedPerm_Test.h"
 using namespace secJoin;
 #include "util.h"
 
-void SharedPerm_replicated_perm_test()
+void ComposedPerm_replicated_perm_test()
 {
 
 
@@ -19,19 +19,19 @@ void SharedPerm_replicated_perm_test()
     ole0.fakeInit(OleGenerator::Role::Sender);
     ole1.fakeInit(OleGenerator::Role::Receiver);
     // std::vector<u64> pi0(n), pi1(n);
-    std::array<std::vector<u64>, 2> pi;
+    std::array<Perm, 2> pi;
     
     
-    pi[0].resize(n);
-    pi[1].resize(n);
+    pi[0].mPerm.resize(n);
+    pi[1].mPerm.resize(n);
 
     // Initializing the vector x & permutation pi
     for(u64 i =0; i < n; ++i)
     { 
         prng.get((u8*) &x[i][0], x[i].size());
 
-        pi[0][i] = (i+2) % n;
-        pi[1][i] = (i+1) % n;
+        pi[0].mPerm[i] = (i+2) % n;
+        pi[1].mPerm[i] = (i+1) % n;
     }
 
 
@@ -41,8 +41,8 @@ void SharedPerm_replicated_perm_test()
     Perm p0(pi[0]);
     Perm p1(pi[1]);
 
-    SharedPerm perm1(p0, 0); 
-    SharedPerm perm2(p1, 1);
+    ComposedPerm perm1(p0, 0); 
+    ComposedPerm perm2(p1, 1);
 
     auto proto0 = perm1.apply(xShares[0], sout[0], chls[0], ole0);
     auto proto1 = perm2.apply(xShares[1], sout[1], chls[1], ole1);

@@ -4,25 +4,31 @@
 
 namespace secJoin
 {
-
-    class SharedPerm
+    // A shared permutation where P0 holds pi_0 and P1 holds pi_1
+    // such that the combined permutation is pi = pi_1 o pi_0.
+    class ComposedPerm
     {
     public:
         u64 mPartyIdx;
         Perm mPerm;
 
-        SharedPerm() = default;
+        ComposedPerm() = default;
 
         //initializing the permutation
-        SharedPerm(Perm perm, u8 partyIdx)
+        ComposedPerm(Perm perm, u8 partyIdx)
             : mPartyIdx(partyIdx)
             , mPerm(std::move(perm))
         {}
-        SharedPerm(u64 n, u8 partyIdx, PRNG& prng)
+        ComposedPerm(u64 n, u8 partyIdx, PRNG& prng)
             : mPartyIdx(partyIdx)
             , mPerm(n, prng)
         {}
 
+
+        u64 size() const
+        {
+            return mPerm.size();
+        }
 
         void init(u64 n, u8 partyIdx, PRNG& prng)
         {
@@ -50,12 +56,12 @@ namespace secJoin
             if (mPartyIdx == 0)
             {
                 MC_AWAIT(LowMCPerm::applyVec(in, prng, gmw0, chl, soutperm, ole));
-                MC_AWAIT(LowMCPerm::applyVecPerm(soutperm, mPerm.mPerm, prng, gmw1, chl, out, inv, ole));
+                MC_AWAIT(LowMCPerm::applyVecPerm(soutperm, mPerm, prng, gmw1, chl, out, inv, ole));
             }
             else
             {
 
-                MC_AWAIT(LowMCPerm::applyVecPerm(in, mPerm.mPerm, prng, gmw0, chl, soutperm, inv, ole));
+                MC_AWAIT(LowMCPerm::applyVecPerm(in, mPerm, prng, gmw0, chl, soutperm, inv, ole));
                 MC_AWAIT(LowMCPerm::applyVec(soutperm, prng, gmw1, chl, out, ole));
             }
 
@@ -65,8 +71,8 @@ namespace secJoin
 
 
         macoro::task<> compose(
-            const SharedPerm& in,
-            SharedPerm& out,
+            const ComposedPerm& in,
+            ComposedPerm& out,
             coproto::Socket& chl,
             OleGenerator& ole)
         {

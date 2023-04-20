@@ -5,7 +5,8 @@ set(SRCS
     "DLpnPrf.cpp"
     "OleGenerator.cpp"
     "Permutation.cpp"
-    "SharedPerm.cpp"
+    "ComposedPerm.cpp"
+    
     "LowMCPerm.cpp"
     "DarkMatter22Prf.cpp"
     "GMW/Circuit.cpp"

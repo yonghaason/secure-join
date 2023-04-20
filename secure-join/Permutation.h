@@ -11,9 +11,7 @@
 namespace secJoin
 {
 	
-	using sia64 = i64;
 	using PRNG = oc::PRNG;
-	
 
 	struct Xor
 	{
@@ -24,7 +22,7 @@ namespace secJoin
 	class Perm
 	{
 	public:
-		std::vector<u64> mPerm;
+		std::vector<u32> mPerm;
 
 		Perm() = default;
 
@@ -42,9 +40,9 @@ namespace secJoin
 		}
 
 		//initializing permutation with vector 
-		Perm(std::vector<u64> perm) : mPerm(std::move(perm)) {}
+		Perm(std::vector<u32> perm) : mPerm(std::move(perm)) {}
 		// Perm(const std::vector<u64>& perm) : mPerm(perm.begin(), perm.end()) {}
-		Perm(u64 s, std::vector<u64> perm) : mPerm(perm.begin(), perm.end()) {
+		Perm(u64 s, std::vector<u32> perm) : mPerm(perm.begin(), perm.end()) {
 			assert(size() == s);
 		}
 

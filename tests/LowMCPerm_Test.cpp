@@ -75,7 +75,7 @@ void LowMCPerm_perm_test(const oc::CLP& cmd)
     ole0.fakeInit(OleGenerator::Role::Sender);
     ole1.fakeInit(OleGenerator::Role::Receiver);
 
-    std::vector<u64> pi(n);
+    Perm pi(n);
 
     // Initializing the vector x & permutation pi
     for(u64 i =0; i < n; ++i)
@@ -85,7 +85,7 @@ void LowMCPerm_perm_test(const oc::CLP& cmd)
         oc::PRNG prng(oc::block(0, i));
         prng.get((u8*) &x[i][0], x[i].size());
         /*std::fi*/
-        pi[i] = (i+5) % n;
+        pi.mPerm[i] = (i+5) % n;
     }
 
 
@@ -122,13 +122,13 @@ void LowMCPerm_inv_perm_test()
     ole0.fakeInit(OleGenerator::Role::Sender);
     ole1.fakeInit(OleGenerator::Role::Receiver);
 
-    std::vector<u64> pi(n);
+    Perm pi(n);
 
     // Initializing the vector x & permutation pi
     for(u64 i =0; i < n; ++i)
     { 
         prng.get((u8*) &x[i][0], x[i].size());
-        pi[i] = (i+1) % n;
+        pi.mPerm[i] = (i+1) % n;
     }
 
 
@@ -174,13 +174,13 @@ void LowMCPerm_secret_shared_input_inv_perm_test()
     OleGenerator ole0, ole1;
     ole0.fakeInit(OleGenerator::Role::Sender);
     ole1.fakeInit(OleGenerator::Role::Receiver);
-    std::vector<u64> pi(n);
+    secJoin::Perm pi(n);
 
     // Initializing the vector x & permutation pi
     for(u64 i =0; i < n; ++i)
     { 
         prng.get((u8*) &x[i][0], x[i].size());
-        pi[i] = (i+1) % n;
+        pi.mPerm[i] = (i+1) % n;
     }
 
     std::array<oc::Matrix<u8>, 2> xShares = share(x,prng);
@@ -228,7 +228,7 @@ void LowMCPerm_secret_shared_input_perm_test()
     OleGenerator ole0, ole1;
     ole0.fakeInit(OleGenerator::Role::Sender);
     ole1.fakeInit(OleGenerator::Role::Receiver);
-    std::vector<u64> pi(n);
+    Perm pi(n);
 
     // Initializing the vector x & permutation pi
     for(u64 i =0; i < n; ++i)
@@ -237,7 +237,7 @@ void LowMCPerm_secret_shared_input_perm_test()
         // std::cout << "The size of offset * sizeof(LowMC2<>::block) is " << offset * sizeof(LowMC2<>::block) << std::endl;
         prng.get((u8*) &x[i][0], x[i].size());
 
-        pi[i] = (i+1) % n;
+        pi.mPerm[i] = (i+1) % n;
     }
 
 

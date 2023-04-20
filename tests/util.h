@@ -41,7 +41,7 @@ inline void check_inv_results(
 inline void check_results(
     oc::Matrix<oc::u8>& x,
     std::array<oc::Matrix<oc::u8>, 2>& sout,
-    std::vector<oc::u64>& pi,
+    secJoin::Perm& pi,
     bool invPerm)
 {
     // Checking the dimensions
@@ -97,8 +97,8 @@ inline void check_results(
 inline void check_results(
     oc::Matrix<oc::u8>& x,
     std::array<oc::Matrix<oc::u8>, 2>& sout,
-    std::vector<oc::u64>& pi0,
-    std::vector<oc::u64>& pi1
+    secJoin::Perm& pi0,
+    secJoin::Perm& pi1
 )
 {
     // Checking the dimensions
