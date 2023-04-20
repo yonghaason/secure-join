@@ -13,121 +13,26 @@ namespace secJoin
     void Gmw::init(
         u64 n,
         const BetaCircuit& cir,
-        u64 numThreads,
-        u64 pIdx,
-        block seed)
+        OleGenerator& gen)
     {
-        mIdx = pIdx;
+        mIdx = gen.mRole == OleGenerator::Role::Sender ? 1 : 0;
         mN = n;
+        //mGen = &gen;
+        mTriples = macoro::sync_wait(gen.binOleRequest(2*cir.mNonlinearGateCount * oc::roundUpTo(mN, 128)));
 
-        mRoundIdx = 0;
         mCir = cir;
 
-        if(mCir.mLevelCounts.size() == 0)
+        if (mCir.mLevelCounts.size() == 0)
             mCir.levelByAndDepth(mLevelize);
 
         mNumRounds = mCir.mLevelCounts.size();
-
-
         mGates = mCir.mGates;
         mWords.resize(mCir.mWireCount, oc::divCeil(mN, 128));
 
         memset(mWords.data(), 0, mWords.size() * sizeof(*mWords.data()));
-
-        mPrng.SetSeed(seed);
-        mPhiPrng.SetSeed(mPrng.get(), mWords.cols());
-
-        mNumOts = mWords.cols() * 128 * mCir.mNonlinearGateCount * 2;
-
-
+        mPrng.SetSeed(gen.mPrng.get());
         mPrint = mCir.mPrints.begin();
     }
-
-    Proto Gmw::generateTriple(
-        u64 batchSize,
-        u64 numThreads,
-        coproto::Socket& chl)
-    {
-        MC_BEGIN(Proto,this, &tg = mSilent, batchSize, numThreads, &chl,
-            A2 = std::vector<block>{},
-            B2 = std::vector<block>{},
-            C2 = std::vector<block>{},
-            D2 = std::vector<block>{},
-            mid = mNumOts / 128 / 2
-        );
-
-        if (mNumOts == 0)
-            MC_RETURN_VOID();
-
-        setTimePoint("Gmw::generateTriple begin");
-        if (mTimer)
-            tg.setTimer(*mTimer);
-
-        tg.init(mNumOts, batchSize, numThreads, mIdx ? Mode::Receiver : Mode::Sender, mPrng.get());
-
-#ifndef SECUREJOIN_ENABLE_FAKE_GEN
-
-        if (tg.hasBaseOts() == false)
-            MC_AWAIT(tg.generateBaseOts(mIdx, mPrng, chl));
-#endif
-
-        MC_AWAIT(tg.expand(chl));
-        if (mIdx)
-        {
-            mA = tg.mMult.subspan(0, mid);
-            mC = tg.mMult.subspan(mid);
-            mC2 = tg.mMult.subspan(mid);
-            mB = tg.mAdd.subspan(0, mid);
-            mD = tg.mAdd.subspan(mid);
-        }
-        else
-        {
-            mA = tg.mMult.subspan(mid);
-            mC = tg.mMult.subspan(0, mid);
-            mC2 = tg.mMult.subspan(0, mid);
-            mB = tg.mAdd.subspan(mid);
-            mD = tg.mAdd.subspan(0, mid);
-        }
-
-        if (mO.mDebug)
-        {
-
-            A2.resize(mA.size());
-            B2.resize(mA.size());
-            C2.resize(mA.size());
-            D2.resize(mA.size());
-
-            MC_AWAIT(chl.send(coproto::copy(mA)));
-            MC_AWAIT(chl.send(coproto::copy(mB)));
-            MC_AWAIT(chl.send(coproto::copy(mC)));
-            MC_AWAIT(chl.send(coproto::copy(mD)));
-
-            MC_AWAIT(chl.recv(A2));
-            MC_AWAIT(chl.recv(B2));
-            MC_AWAIT(chl.recv(C2));
-            MC_AWAIT(chl.recv(D2));
-
-            for (u64 i = 0; i < mA.size(); ++i)
-            {
-                if (neq((mA[i] & C2[i]) ^ mB[i], D2[i]))
-                {
-                    std::cout << "bad triple at 0." << i << ", n " << mNumOts << std::endl;
-                    throw std::runtime_error("");
-                }
-
-                if (neq((A2[i] & mC[i]) ^ B2[i], mD[i]))
-                {
-                    std::cout << "bad triple at 1." << i << ", n " << mNumOts << std::endl;
-                    throw std::runtime_error("");
-                }
-
-            }
-        }
-
-        setTimePoint("Gmw::generateTriple end");
-        MC_END();
-    }
-
 
     void Gmw::implSetInput(u64 i, oc::MatrixView<u8> input, u64 alignment)
     {
@@ -155,37 +60,30 @@ namespace secJoin
         memset(memView.data(), 0, memView.size());
     }
 
-    Proto Gmw::run(coproto::Socket& chl)
-    {
-        MC_BEGIN(Proto,this, &chl, i = u64{});
+    //coproto::task<> Gmw::run(coproto::Socket& chl)
+    //{
+    //    MC_BEGIN(coproto::task<>, this, &chl, i = u64{});
 
-        if (mA.size() == 0)
-        {
-            MC_AWAIT(generateTriple(1 << 20, 2, chl));
-        }
+    //    if (mO.mDebug)
+    //    {
+    //        mO.mWords.resize(mWords.rows(), mWords.cols());
 
-        if (mO.mDebug)
-        {
-            mO.mWords.resize(mWords.rows(), mWords.cols());
+    //        MC_AWAIT(chl.send(coproto::copy(mWords)));
+    //        MC_AWAIT(chl.recv(mO.mWords));
 
-            MC_AWAIT(chl.send(coproto::copy(mWords)));
-            MC_AWAIT(chl.recv(mO.mWords));
+    //        for (i = 0; i < mWords.size(); i++)
+    //        {
+    //            mO.mWords(i) = mO.mWords(i) ^ mWords(i);
+    //        }
+    //    }
 
-            for (i = 0; i < mWords.size(); i++)
-            {
-                mO.mWords(i) = mO.mWords(i) ^ mWords(i);
-            }
-        }
+    //    mRoundIdx = 0;
 
-        mRoundIdx = 0;
+    //    for (i = 0; i < numRounds(); ++i)
+    //        MC_AWAIT(roundFunction(chl));
 
-        for (i = 0; i < numRounds(); ++i)
-            MC_AWAIT(roundFunction(chl));
-
-        mA = {};
-
-        MC_END();
-    }
+    //    MC_END();
+    //}
 
     void Gmw::implGetOutput(u64 i, oc::MatrixView<u8> out, u64 alignment)
     {
@@ -242,6 +140,92 @@ namespace secJoin
     //    mSilent.requiredBaseOts()
     //}
 
+//    coproto::task<> Gmw::generateTriple(
+//        u64 batchSize,
+//        u64 numThreads,
+//        coproto::Socket& chl)
+//    {
+//        MC_BEGIN(coproto::task<>, this, &tg = mSilent, batchSize, numThreads, &chl,
+//            A2 = std::vector<block>{},
+//            B2 = std::vector<block>{},
+//            C2 = std::vector<block>{},
+//            D2 = std::vector<block>{},
+//            mid = mNumOts / 128 / 2
+//        );
+//
+//        if (mNumOts == 0)
+//            MC_RETURN_VOID();
+//
+//        setTimePoint("Gmw::generateTriple begin");
+//        if (mTimer)
+//            tg.setTimer(*mTimer);
+//
+//        tg.init(mNumOts, batchSize, numThreads, mIdx ? Mode::Receiver : Mode::Sender, mPrng.get());
+//
+//#ifndef SECUREJOIN_ENABLE_FAKE_GEN
+//
+//        if (tg.hasBaseOts() == false)
+//            MC_AWAIT(tg.generateBaseOts(mIdx, mPrng, chl));
+//#endif
+//
+//        MC_AWAIT(tg.expand(chl));
+//        if (mIdx)
+//        {
+//            mA = tg.mMult.subspan(0, mid);
+//            mC = tg.mMult.subspan(mid);
+//            mC2 = tg.mMult.subspan(mid);
+//            mB = tg.mAdd.subspan(0, mid);
+//            mD = tg.mAdd.subspan(mid);
+//        }
+//        else
+//        {
+//            mA = tg.mMult.subspan(mid);
+//            mC = tg.mMult.subspan(0, mid);
+//            mC2 = tg.mMult.subspan(0, mid);
+//            mB = tg.mAdd.subspan(mid);
+//            mD = tg.mAdd.subspan(0, mid);
+//        }
+//
+//        if (mO.mDebug)
+//        {
+//
+//            A2.resize(mA.size());
+//            B2.resize(mA.size());
+//            C2.resize(mA.size());
+//            D2.resize(mA.size());
+//
+//            MC_AWAIT(chl.send(coproto::copy(mA)));
+//            MC_AWAIT(chl.send(coproto::copy(mB)));
+//            MC_AWAIT(chl.send(coproto::copy(mC)));
+//            MC_AWAIT(chl.send(coproto::copy(mD)));
+//
+//            MC_AWAIT(chl.recv(A2));
+//            MC_AWAIT(chl.recv(B2));
+//            MC_AWAIT(chl.recv(C2));
+//            MC_AWAIT(chl.recv(D2));
+//
+//            for (u64 i = 0; i < mA.size(); ++i)
+//            {
+//                if (neq((mA[i] & C2[i]) ^ mB[i], D2[i]))
+//                {
+//                    std::cout << "bad triple at 0." << i << ", n " << mNumOts << std::endl;
+//                    throw std::runtime_error("");
+//                }
+//
+//                if (neq((A2[i] & mC[i]) ^ B2[i], mD[i]))
+//                {
+//                    std::cout << "bad triple at 1." << i << ", n " << mNumOts << std::endl;
+//                    throw std::runtime_error("");
+//                }
+//
+//            }
+//        }
+//
+//        setTimePoint("Gmw::generateTriple end");
+//        MC_END();
+//    }
+//
+
     // The basic protocol where the inputs are not shared:
     // Sender has 
     //   > input x
@@ -278,9 +262,9 @@ namespace secJoin
     // Recver outputs: z2 = x2y2 + z12 + z22 
     //                    = x2y2 + r1 + r2
     //                    = x2y2 + r
-    Proto Gmw::roundFunction(coproto::Socket& chl)
+    coproto::task<> Gmw::run(coproto::Socket& chl)
     {
-        MC_BEGIN(Proto,this, &chl,
+        MC_BEGIN(coproto::task<>, this, &chl,
             gates = span<oc::BetaGate>{},
             gate = span<oc::BetaGate>::iterator{},
             dirtyBits = std::vector<u8>{},
@@ -288,223 +272,316 @@ namespace secJoin
             in = std::array<span<block>, 2>{},
             out = span<block>{},
             ww = std::vector<block>{},
-            print = std::move(coproto::unique_function<void(u64)>{})
+            print = std::move(coproto::unique_function<void(u64)>{}),
+            a = oc::AlignedUnVector<block>{},
+            b = oc::AlignedUnVector<block>{},
+            c = oc::AlignedUnVector<block>{},
+            d = oc::AlignedUnVector<block>{},
+            triple = BinOle{},
+            mult = span<oc::block>{},
+            add = span<oc::block>{},
+            j = u64{},
+            roundIdx = u64{}
         );
 
-        if (mRoundIdx >= mNumRounds)
-            throw std::runtime_error("round function called too many times");
-
-        //if (mIdx && mO.mDebug)
-        //    oc::lout << "round " << mRoundIdx << std::endl;
-
-        gates = mGates.subspan(0, mCir.mLevelCounts[mRoundIdx]);
-        mGates = mGates.subspan(mCir.mLevelCounts[mRoundIdx]);
+        if (mIdx == -1)
+            throw std::runtime_error("Gmw::init(...) was not called");
 
         if (mO.mDebug)
         {
-            dirtyBits.resize(mCir.mWireCount, 0);
-            pinnedInputs.resize(mCir.mWireCount, 0);
+            mO.mWords.resize(mWords.rows(), mWords.cols());
+
+            MC_AWAIT(chl.send(coproto::copy(mWords)));
+            MC_AWAIT(chl.recv(mO.mWords));
+
+            for (u64 i = 0; i < mWords.size(); i++)
+            {
+                mO.mWords(i) = mO.mWords(i) ^ mWords(i);
+            }
         }
 
-        for (gate = gates.begin(); gate < gates.end(); ++gate)
+        for (roundIdx = 0; roundIdx < numRounds(); ++roundIdx)
         {
-            //in = { mWords[gate->mInput[0]], mWords[gate->mInput[1]] };
-            //out = mWords[gate->mOutput];
 
-            in[0] = oc::span<oc::block>(mWords.data() + gate->mInput[0] * mWords.cols(), mWords.cols());
-            in[1] = oc::span<oc::block>(mWords.data() + gate->mInput[1] * mWords.cols(), mWords.cols());
-            out = oc::span<oc::block>(mWords.data() + gate->mOutput * mWords.cols(), mWords.cols());
 
-            //if (mIdx && mO.mDebug)
-            //{
-            //    oc::RandomOracle ro(16);
-            //    ro.Update(mWords.data(), mWords.size());
-            //    block h;
-            //    ro.Final(h);
+            gates = mGates.subspan(0, mCir.mLevelCounts[roundIdx]);
+            mGates = mGates.subspan(mCir.mLevelCounts[roundIdx]);
 
-            //    oc::lout << "g " << gate->mInput[0] << " " << gate->mInput[1] << " " <<
-            //        gateToString(gate->mType) << " " << gate->mOutput << " ~ " << h << std::endl;
-            //}
+
             if (mO.mDebug)
             {
-                if (dirtyBits[gate->mInput[0]] ||
-                    (dirtyBits[gate->mInput[1]] && gate->mType != oc::GateType::a))
-                {
-                    throw std::runtime_error("incorrect levelization, input to current gate depends on the output of the current round. " LOCATION);
-                }
-
-                if (pinnedInputs[gate->mOutput])
-                {
-                    throw std::runtime_error("incorrect levelization, overwriting an input which is being used in the current round. " LOCATION);
-                }
+                dirtyBits.resize(0);
+                pinnedInputs.resize(0);
+                dirtyBits.resize(mCir.mWireCount, 0);
+                pinnedInputs.resize(mCir.mWireCount, 0);
             }
 
-            if (gate->mType == oc::GateType::a)
+
+            a.resize(mWords.cols() * mCir.mLevelAndCounts[roundIdx]);
+            b.resize(mWords.cols() * mCir.mLevelAndCounts[roundIdx]);
+            c.resize(mWords.cols() * mCir.mLevelAndCounts[roundIdx]);
+            d.resize(mWords.cols() * mCir.mLevelAndCounts[roundIdx]);
+
+            j = 0;
+            while (j != a.size())
             {
-                for (u64 i = 0; i < out.size(); ++i)
-                    out[i] = in[0][i];
+                if (add.size() == 0)
+                {
+                    MC_AWAIT_SET(triple, mTriples.get());
+                    add = triple.mAdd;
+                    mult = triple.mMult;
+                }
+
+                // a  * c  = b  + d
+                // a' * c' = b' + d'
+                auto min = std::min<u64>(a.size() - j, add.size() / 2);
+
+                span<block> aa, bb, cc, dd;
+                if (mIdx == 0)
+                {
+                    aa = mult.subspan(0, min);
+                    cc = mult.subspan(min, min);
+                    bb = add.subspan(0, min);
+                    dd = add.subspan(min, min);
+                }
+                else
+                {
+                    cc = mult.subspan(0, min);
+                    aa = mult.subspan(min, min);
+                    dd = add.subspan(0, min);
+                    bb = add.subspan(min, min);
+                }
+
+                std::copy(aa.begin(), aa.end(), a.begin() + j);
+                std::copy(bb.begin(), bb.end(), b.begin() + j);
+                std::copy(cc.begin(), cc.end(), c.begin() + j);
+                std::copy(dd.begin(), dd.end(), d.begin() + j);
+
+                //if (mIdx == 0)
+                //{
+                //    std::cout << "0 a " << a[j] << " * c = b " << b[j] << " ^ d" << std::endl;
+                //    std::cout << "0 a * c " << c[j] << " = b ^ d " << d[j] << std::endl;
+                //}
+                //else
+                //{
+                //    std::cout << "1 a * c " << c[j] << " = b ^ d " << d[j] << std::endl;
+                //    std::cout << "1 a " << a[j] << " * c = b " << b[j] << " ^ d" << std::endl;
+                //}
+
+                mult = mult.subspan(min * 2);
+                add = add.subspan(min * 2);
+
+                j += min;
+
             }
-            else if (
-                gate->mType == oc::GateType::na_And ||
-                gate->mType == oc::GateType::nb_And ||
-                gate->mType == oc::GateType::And ||
-                gate->mType == oc::GateType::Nor ||
-                gate->mType == oc::GateType::Or)
+
+
+            j = 0;
+            for (gate = gates.begin(); gate < gates.end(); ++gate)
             {
+                //in = { mWords[gate->mInput[0]], mWords[gate->mInput[1]] };
+                //out = mWords[gate->mOutput];
 
-                MC_AWAIT(multSend(in[0], in[1], chl, gate->mType));
+                in[0] = oc::span<oc::block>(mWords.data() + gate->mInput[0] * mWords.cols(), mWords.cols());
+                in[1] = oc::span<oc::block>(mWords.data() + gate->mInput[1] * mWords.cols(), mWords.cols());
+                out = oc::span<oc::block>(mWords.data() + gate->mOutput * mWords.cols(), mWords.cols());
 
+                //if (mIdx && mO.mDebug)
+                //{
+                //    oc::RandomOracle ro(16);
+                //    ro.Update(mWords.data(), mWords.size());
+                //    block h;
+                //    ro.Final(h);
+
+                //    oc::lout << "g " << gate->mInput[0] << " " << gate->mInput[1] << " " <<
+                //        gateToString(gate->mType) << " " << gate->mOutput << " ~ " << h << std::endl;
+                //}
                 if (mO.mDebug)
                 {
-                    pinnedInputs[gate->mInput[0]] = 1;
-                    pinnedInputs[gate->mInput[1]] = 1;
-                    dirtyBits[gate->mOutput] = 1;
+                    if (dirtyBits[gate->mInput[0]] ||
+                        (dirtyBits[gate->mInput[1]] && gate->mType != oc::GateType::a))
+                    {
+                        throw std::runtime_error("incorrect levelization, input to current gate depends on the output of the current round. " LOCATION);
+                    }
+
+                    if (pinnedInputs[gate->mOutput])
+                    {
+                        throw std::runtime_error("incorrect levelization, overwriting an input which is being used in the current round. " LOCATION);
+                    }
                 }
-            }
-            else if (
-                gate->mType == oc::GateType::Xor ||
-                gate->mType == oc::GateType::Nxor)
-            {
 
-                for (u64 i = 0; i < out.size(); ++i)
-                    out[i] = in[0][i] ^ in[1][i];
-
-                if (gate->mType == oc::GateType::Nxor && mIdx == 0)
+                if (gate->mType == oc::GateType::a)
                 {
                     for (u64 i = 0; i < out.size(); ++i)
-                        out[i] = out[i] ^ oc::AllOneBlock;
+                        out[i] = in[0][i];
                 }
-            }
-            else
-                throw RTE_LOC;
-        }
-
-        for (gate = gates.begin(); gate < gates.end(); ++gate)
-        {
-            in[0] = oc::span<oc::block>(mWords.data() + gate->mInput[0] * mWords.cols(), mWords.cols());
-            in[1] = oc::span<oc::block>(mWords.data() + gate->mInput[1] * mWords.cols(), mWords.cols());
-            out = oc::span<oc::block>(mWords.data() + gate->mOutput * mWords.cols(), mWords.cols()); 
-            //, mWords[gate->mInput[1]]
-                //  };
-
-            if (gate->mType == oc::GateType::na_And ||
-                gate->mType == oc::GateType::nb_And ||
-                gate->mType == oc::GateType::And ||
-                gate->mType == oc::GateType::Or ||
-                gate->mType == oc::GateType::Nor)
-            {
-                MC_AWAIT(multRecv(in[0], in[1], out, chl, gate->mType));
-            }
-        }
-
-
-
-        if (mO.mDebug)
-        {
-            print = [&](u64 gIdx) {
-                while (
-                    mDebugPrintIdx < mN &&
-                    mPrint != mCir.mPrints.end() &&
-                    mPrint->mGateIdx <= gIdx &&
-                    mIdx)
+                else if (gate->mType == oc::GateType::na_And ||
+                    gate->mType == oc::GateType::nb_And ||
+                    gate->mType == oc::GateType::And ||
+                    gate->mType == oc::GateType::Nor ||
+                    gate->mType == oc::GateType::Or)
                 {
-                    auto wireIdx = mPrint->mWire;
-                    auto invert = mPrint->mInvert;
+                    MC_AWAIT(multSend(in[0], in[1], chl, gate->mType, a.subspan(j, mWords.cols()), c.subspan(j, mWords.cols())));
+                    j += mWords.cols();
 
-                    if (wireIdx != ~u32(0))
+                    if (mO.mDebug)
                     {
-                        oc::BitIterator iter((u8*)mO.mWords[wireIdx].data(), mDebugPrintIdx);
-                        auto mem = u64(*iter);
-                        std::cout << (u64)(mem ^ (invert ? 1 : 0));
+                        pinnedInputs[gate->mInput[0]] = 1;
+                        pinnedInputs[gate->mInput[1]] = 1;
+                        dirtyBits[gate->mOutput] = 1;
                     }
-                    if (mPrint->mMsg.size())
-                        std::cout << mPrint->mMsg;
-
-                    ++mPrint;
                 }
-            };
-
-            for (auto& gate : gates)
-            {
-
-                auto gIdx = &gate - mCir.mGates.data();
-                print(gIdx);
-
-                for (u64 i = 0; i < mWords.cols(); ++i)
+                else if (
+                    gate->mType == oc::GateType::Xor ||
+                    gate->mType == oc::GateType::Nxor)
                 {
-                    auto& a = mO.mWords(gate.mInput[0], i);
-                    auto& b = mO.mWords(gate.mInput[1], i);
-                    auto& c = mO.mWords(gate.mOutput, i);
-                    //if (gate.mOutput == 129)
-                    //{
-                    //    auto cc=
-                    //        (oc::AllOneBlock ^ a) & b;
-                    //    std::cout << "~" << a << " & " << b << " -> " << cc << std::endl;
-                    //}
 
-                    switch (gate.mType)
+                    for (u64 i = 0; i < out.size(); ++i)
+                        out[i] = in[0][i] ^ in[1][i];
+
+                    if (gate->mType == oc::GateType::Nxor && mIdx == 0)
                     {
-                    case oc::GateType::a:
-                        c = a;
-                        break;
-                    case oc::GateType::And:
-                        c = a & b;
-                        break;
-                    case oc::GateType::Or:
-                        c = a | b;
-                        break;
-                    case oc::GateType::Nor:
-                        c = (a | b) ^ oc::AllOneBlock;
-                        break;
-                    case oc::GateType::nb_And:
-                        //oc::lout << "* ~" << a << " & " << b << " -> " << ((oc::AllOneBlock ^ a) & b) << std::endl;
-                        c = a & (oc::AllOneBlock ^ b);
-                        break;
-                    case oc::GateType::na_And:
-                        //oc::lout << "* ~" << a << " & " << b << " -> " << ((oc::AllOneBlock ^ a) & b) << std::endl;
-                        c = (oc::AllOneBlock ^ a) & b;
-                        break;
-                    case oc::GateType::Xor:
-                        c = a ^ b;
-                        break;
-                    case oc::GateType::Nxor:
-                        c = a ^ b ^ oc::AllOneBlock;
-                        break;
-                    default:
+                        for (u64 i = 0; i < out.size(); ++i)
+                            out[i] = out[i] ^ oc::AllOneBlock;
+                    }
+                }
+                else
+                    throw RTE_LOC;
+            }
+
+            j = 0;
+            for (gate = gates.begin(); gate < gates.end(); ++gate)
+            {
+                in[0] = oc::span<oc::block>(mWords.data() + gate->mInput[0] * mWords.cols(), mWords.cols());
+                in[1] = oc::span<oc::block>(mWords.data() + gate->mInput[1] * mWords.cols(), mWords.cols());
+                out = oc::span<oc::block>(mWords.data() + gate->mOutput * mWords.cols(), mWords.cols());
+                //, mWords[gate->mInput[1]]
+                    //  };
+
+                if (gate->mType == oc::GateType::na_And ||
+                    gate->mType == oc::GateType::nb_And ||
+                    gate->mType == oc::GateType::And ||
+                    gate->mType == oc::GateType::Or ||
+                    gate->mType == oc::GateType::Nor)
+                {
+                    MC_AWAIT(multRecv(in[0], in[1], out, chl, gate->mType,
+                        b.subspan(j, mWords.cols()),
+                        c.subspan(j, mWords.cols()),
+                        d.subspan(j, mWords.cols())));
+                    j += mWords.cols();
+                }
+            }
+
+
+
+            if (mO.mDebug)
+            {
+                print = [&](u64 gIdx) {
+                    while (
+                        mDebugPrintIdx < mN &&
+                        mPrint != mCir.mPrints.end() &&
+                        mPrint->mGateIdx <= gIdx &&
+                        mIdx)
+                    {
+                        auto wireIdx = mPrint->mWire;
+                        auto invert = mPrint->mInvert;
+
+                        if (wireIdx != ~u32(0))
+                        {
+                            oc::BitIterator iter((u8*)mO.mWords[wireIdx].data(), mDebugPrintIdx);
+                            auto mem = u64(*iter);
+                            std::cout << (u64)(mem ^ (invert ? 1 : 0));
+                        }
+                        if (mPrint->mMsg.size())
+                            std::cout << mPrint->mMsg;
+
+                        ++mPrint;
+                    }
+                };
+
+                for (auto& gate : gates)
+                {
+
+                    auto gIdx = &gate - mCir.mGates.data();
+                    print(gIdx);
+
+                    for (u64 i = 0; i < mWords.cols(); ++i)
+                    {
+                        auto& a = mO.mWords(gate.mInput[0], i);
+                        auto& b = mO.mWords(gate.mInput[1], i);
+                        auto& c = mO.mWords(gate.mOutput, i);
+                        //if (gate.mOutput == 129)
+                        //{
+                        //    auto cc=
+                        //        (oc::AllOneBlock ^ a) & b;
+                        //    std::cout << "~" << a << " & " << b << " -> " << cc << std::endl;
+                        //}
+
+                        switch (gate.mType)
+                        {
+                        case oc::GateType::a:
+                            c = a;
+                            break;
+                        case oc::GateType::And:
+                            c = a & b;
+                            break;
+                        case oc::GateType::Or:
+                            c = a | b;
+                            break;
+                        case oc::GateType::Nor:
+                            c = (a | b) ^ oc::AllOneBlock;
+                            break;
+                        case oc::GateType::nb_And:
+                            //oc::lout << "* ~" << a << " & " << b << " -> " << ((oc::AllOneBlock ^ a) & b) << std::endl;
+                            c = a & (oc::AllOneBlock ^ b);
+                            break;
+                        case oc::GateType::na_And:
+                            //oc::lout << "* ~" << a << " & " << b << " -> " << ((oc::AllOneBlock ^ a) & b) << std::endl;
+                            c = (oc::AllOneBlock ^ a) & b;
+                            break;
+                        case oc::GateType::Xor:
+                            c = a ^ b;
+                            break;
+                        case oc::GateType::Nxor:
+                            c = a ^ b ^ oc::AllOneBlock;
+                            break;
+                        default:
+                            throw RTE_LOC;
+                        }
+                    }
+                }
+
+                if (mGates.size() == 0)
+                {
+                    print(mCir.mGates.size());
+                }
+
+                MC_AWAIT(chl.send(coproto::copy(mWords)));
+
+                ww.resize(mWords.size());
+                MC_AWAIT(chl.recv(ww));
+
+                for (u64 i = 0; i < mWords.size(); ++i)
+                {
+                    auto exp = mO.mWords(i);
+                    auto act = ww[i] ^ mWords(i);
+
+                    if (neq(exp, act))
+                    {
+                        auto row = (i / mWords.cols());
+                        auto col = (i % mWords.cols());
+
+                        oc::lout << "p" << mIdx << " mem[" << row << ", " << col <<
+                            "] exp: " << exp <<
+                            ", act: " << act <<
+                            "\ndiff:" << (exp ^ act) << std::endl;
+
                         throw RTE_LOC;
                     }
                 }
             }
 
-            if (mGates.size() == 0)
-            {
-                print(mCir.mGates.size());
-            }
-
-            MC_AWAIT(chl.send(coproto::copy(mWords)));
-
-            ww.resize(mWords.size());
-            MC_AWAIT(chl.recv(ww));
-
-            for (u64 i = 0; i < mWords.size(); ++i)
-            {
-                auto exp = mO.mWords(i);
-                auto act = ww[i] ^ mWords(i);
-
-                if (neq(exp, act))
-                {
-                    auto row = (i / mWords.cols());
-                    auto col = (i % mWords.cols());
-
-                    oc::lout << "p" << mIdx << " mem[" << row << ", " << col << "] exp: " << exp << ", act: " << act << std::endl;
-
-                    throw RTE_LOC;
-                }
-            }
-
         }
-
-        ++mRoundIdx;
 
         MC_END();
     }
@@ -593,15 +670,15 @@ namespace secJoin
     //                            = ac + xc + (ac + b)
     //                            = cx + b
     // Observer z1 + z2 = xy
-    Proto Gmw::multSendP1(span<block> x, coproto::Socket& chl, oc::GateType gt)
+    coproto::task<> Gmw::multSendP1(span<block> x, coproto::Socket& chl, oc::GateType gt,
+        span<block> a)
     {
-        MC_BEGIN(Proto,this, x, &chl, gt,
+        MC_BEGIN(coproto::task<>, this, x, &chl, gt, a,
             width = x.size(),
-            a = span<block>{},
             u = std::vector<block>{}
         );
-        a = mA.subspan(0, width);
-        mA = mA.subspan(width);
+        //a = mA.subspan(0, width);
+        //mA = mA.subspan(width);
 
         u.reserve(width);
         if (invertA(gt) == false)
@@ -621,16 +698,16 @@ namespace secJoin
         MC_END();
     }
 
-    Proto Gmw::multSendP2(span<block> y, coproto::Socket& chl, oc::GateType gt)
+    coproto::task<> Gmw::multSendP2(span<block> y, coproto::Socket& chl, oc::GateType gt,
+        span<block> c)
     {
 
-        MC_BEGIN(Proto,this, y, &chl, gt,
+        MC_BEGIN(coproto::task<>, this, y, &chl, gt, c,
             width = y.size(),
-            c = span<block>{},
             w = std::vector<block>{}
         );
-        c = mC.subspan(0, width);
-        mC = mC.subspan(width);
+        //c = mC.subspan(0, width);
+        //mC = mC.subspan(width);
 
         w.reserve(width);
         if (invertB(gt) == false)
@@ -651,18 +728,18 @@ namespace secJoin
         MC_END();
     }
 
-    Proto Gmw::multRecvP1(span<block> x, span<block> z, coproto::Socket& chl, oc::GateType gt)
+    coproto::task<> Gmw::multRecvP1(span<block> x, span<block> z, coproto::Socket& chl, oc::GateType gt,
+        span<block> b)
     {
-        MC_BEGIN(Proto,this, x, z, &chl, gt,
+        MC_BEGIN(coproto::task<>, this, x, z, &chl, gt, b,
             width = x.size(),
-            b = span<block>{},
             w = std::vector<block>{}
         );
         w.resize(width);
         MC_AWAIT(chl.recv(w));
 
-        b = mB.subspan(0, width);
-        mB = mB.subspan(width);
+        //b = mB.subspan(0, width);
+        //mB = mB.subspan(width);
 
         if (invertA(gt) == false)
         {
@@ -683,22 +760,26 @@ namespace secJoin
         //oc::lout << mIdx << " " << "z1 = x * w" << std::endl << view(z[0]) << " = " << view(x[0]) << " * " << view(w[0]) << std::endl;
     }
 
-    Proto Gmw::multRecvP2(span<block> y, span<block> z, coproto::Socket& chl)
+    coproto::task<> Gmw::multRecvP2(
+        span<block> y,
+        span<block> z,
+        coproto::Socket& chl,
+        span<block> c,
+        span<block> d
+    )
     {
 
-        MC_BEGIN(Proto,this, z, &chl,
+        MC_BEGIN(coproto::task<>, this, z, &chl, c, d,
             width = y.size(),
-            c = span<block>{},
-            d = span<block>{},
             u = std::vector<block>{}
         );
         u.resize(width);
         MC_AWAIT(chl.recv(u));
 
-        c = mC2.subspan(0, width);
-        mC2 = mC2.subspan(width);
-        d = mD.subspan(0, width);
-        mD = mD.subspan(width);
+        //c = mC2.subspan(0, width);
+        //mC2 = mC2.subspan(width);
+        //d = mD.subspan(0, width);
+        //mD = mD.subspan(width);
 
         for (u64 i = 0; i < width; ++i)
         {
@@ -711,28 +792,35 @@ namespace secJoin
 
     }
 
-    Proto Gmw::multSendP1(span<block> x, span<block> y, coproto::Socket& chl, oc::GateType gt)
+    coproto::task<> Gmw::multSendP1(span<block> x, span<block> y, coproto::Socket& chl, oc::GateType gt,
+        span<block> a,
+        span<block> c)
     {
-        MC_BEGIN(Proto,this, x, y, &chl, gt);
-        MC_AWAIT(multSendP1(x, chl, gt));
-        MC_AWAIT(multSendP2(y, chl, gt));
+        MC_BEGIN(coproto::task<>, this, x, y, &chl, gt, a, c);
+        MC_AWAIT(multSendP1(x, chl, gt, a));
+        MC_AWAIT(multSendP2(y, chl, gt, c));
         MC_END();
     }
 
-    Proto Gmw::multSendP2(span<block> x, span<block> y, coproto::Socket& chl)
+    coproto::task<> Gmw::multSendP2(span<block> x, span<block> y, coproto::Socket& chl,
+        span<block> a,
+        span<block> c)
     {
-        MC_BEGIN(Proto,this, x, y, &chl);
+        MC_BEGIN(coproto::task<>, this, x, y, &chl, a, c);
 
-        MC_AWAIT(multSendP2(y, chl, oc::GateType::And));
-        MC_AWAIT(multSendP1(x, chl, oc::GateType::And));
+        MC_AWAIT(multSendP2(y, chl, oc::GateType::And, c));
+        MC_AWAIT(multSendP1(x, chl, oc::GateType::And, a));
 
         MC_END();
     }
 
 
-    Proto Gmw::multRecvP1(span<block> x, span<block> y, span<block> z, coproto::Socket& chl, oc::GateType gt)
+    coproto::task<> Gmw::multRecvP1(span<block> x, span<block> y, span<block> z, coproto::Socket& chl, oc::GateType gt,
+        span<block> b,
+        span<block> c,
+        span<block> d)
     {
-        MC_BEGIN(Proto,this, x, y, z, &chl, gt,
+        MC_BEGIN(coproto::task<>, this, x, y, z, &chl, gt, b, c, d,
             zz = std::vector<block>{},
             zz2 = std::vector<block>{},
             xm = block{},
@@ -742,8 +830,8 @@ namespace secJoin
 
         zz.resize(z.size());
         zz2.resize(z.size());
-        MC_AWAIT(multRecvP1(x, zz, chl, gt));
-        MC_AWAIT(multRecvP2(y, zz2, chl));
+        MC_AWAIT(multRecvP1(x, zz, chl, gt, b));
+        MC_AWAIT(multRecvP2(y, zz2, chl, c, d));
 
         xm = invertA(gt) ? oc::AllOneBlock : oc::ZeroBlock;
         ym = invertB(gt) ? oc::AllOneBlock : oc::ZeroBlock;
@@ -762,9 +850,12 @@ namespace secJoin
         MC_END();
     }
 
-    Proto Gmw::multRecvP2(span<block> x, span<block> y, span<block> z, coproto::Socket& chl)
+    coproto::task<> Gmw::multRecvP2(span<block> x, span<block> y, span<block> z, coproto::Socket& chl,
+        span<block> b,
+        span<block> c,
+        span<block> d)
     {
-        MC_BEGIN(Proto,this, x, y, z, &chl,
+        MC_BEGIN(coproto::task<>, this, x, y, z, &chl, b, c, d,
             zz = std::vector<block>{},
             zz2 = std::vector<block>{}
         );
@@ -772,8 +863,8 @@ namespace secJoin
         zz.resize(z.size());
         zz2.resize(z.size());
 
-        MC_AWAIT(multRecvP2(y, zz, chl));
-        MC_AWAIT(multRecvP1(x, zz2, chl, oc::GateType::And));
+        MC_AWAIT(multRecvP2(y, zz, chl, c, d));
+        MC_AWAIT(multRecvP1(x, zz2, chl, oc::GateType::And, b));
 
         for (u64 i = 0; i < zz.size(); i++)
         {

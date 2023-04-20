@@ -1,8 +1,8 @@
-#include "SharePerm_Test.h"
+#include "SharedPerm_Test.h"
 using namespace secJoin;
 #include "util.h"
 
-void SharePerm_replicated_perm_test()
+void SharedPerm_replicated_perm_test()
 {
 
 
@@ -13,7 +13,6 @@ void SharePerm_replicated_perm_test()
     
     oc::PRNG prng(oc::block(0,0));
 
-    auto chls = coproto::LocalAsyncSocket::makePair();
 
     // Initializing the vector x & permutation pi
     for(u64 i =0; i < n; ++i)
@@ -30,8 +29,8 @@ void SharePerm_replicated_perm_test()
     Perm pi = p0.compose(p1);
     oc::Matrix<u8> t(n, rowSize),yExp(n, rowSize), yAct(n, rowSize);
 
-    SharePerm perm1(p0, 0); 
-    SharePerm perm2(p1, 1);
+    SharedPerm perm1(p0, 0); 
+    SharedPerm perm2(p1, 1);
 
     for(auto invPerm :  {false, true})
     {

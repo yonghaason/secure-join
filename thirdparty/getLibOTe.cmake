@@ -2,7 +2,7 @@
 set(USER_NAME           )      
 set(TOKEN               )      
 set(GIT_REPOSITORY      "https://github.com/osu-crypto/libOTe.git")
-set(GIT_TAG             "747b4fd3dcbc7618e78dbafdf975a8fb617a6bdd")
+set(GIT_TAG             "63cbec70e1c756f226c1b2f19c59976b3d6a9905")
 
 set(DEP_NAME            libOTe)          
 set(CLONE_DIR "${SECUREJOIN_THIRDPARTY_CLONE_DIR}/${DEP_NAME}")
@@ -47,6 +47,7 @@ if(NOT ${DEP_NAME}_FOUND OR LIBOTE_DEV)
                        -DOC_THIRDPARTY_CLONE_DIR=${SECUREJOIN_THIRDPARTY_CLONE_DIR}
                        -DENABLE_ASAN=${SECUREJOIN_ENABLE_ASAN}
                        -DENABLE_BOOST=${SECUREJOIN_ENABLE_BOOST}
+                       -DOC_THIRDPARTY_INSTALL_PREFIX=${SECUREJOIN_THIRDPARTY_DIR}
                        )
     set(BUILD_CMD     ${CMAKE_COMMAND} --build ${BUILD_DIR} --config ${CMAKE_BUILD_TYPE})
     set(INSTALL_CMD   ${CMAKE_COMMAND} --install ${BUILD_DIR} --config ${CMAKE_BUILD_TYPE} --prefix ${SECUREJOIN_THIRDPARTY_DIR})

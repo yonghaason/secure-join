@@ -40,7 +40,7 @@ namespace secJoin
                 std::array<oc::BetaBundle, rounds + 1> roundKeys;
             };
 
-            size_t getBlockSize() { return blocksize; };
+            static size_t getBlockSize() { return blocksize; };
 
             using block = std::bitset<blocksize>; // Store messages and states
             //struct block
@@ -207,7 +207,7 @@ namespace secJoin
 
 
 
-            void add_lowmc_gates(oc::BetaCircuit& cir, LowMCInputBetaBundle bundle)
+            void add_lowmc_gates(oc::BetaCircuit& cir, LowMCInputBetaBundle bundle) const
             {
                 for (int i = 0; i < (int)blocksize; ++i)
                 {
@@ -291,7 +291,7 @@ namespace secJoin
             }
 
 
-            void to_enc_circuit(oc::BetaCircuit& cir, bool isCounterModeEnabled)
+            void to_enc_circuit(oc::BetaCircuit& cir, bool isCounterModeEnabled) const
             {
                 LowMCInputBetaBundle bundle;
                 bundle.encryptMessage.mWires.resize(blocksize);

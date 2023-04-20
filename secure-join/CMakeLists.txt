@@ -2,13 +2,17 @@
 
 
 set(SRCS
+    "DLpnPrf.cpp"
+    "OleGenerator.cpp"
     "Permutation.cpp"
-    "SharePerm.cpp"
+    "SharedPerm.cpp"
     "LowMCPerm.cpp"
     "VectorPerm.cpp"
+    "DarkMatter22Prf.cpp"
     "GMW/Circuit.cpp"
     "GMW/Gmw.cpp"
-    "GMW/SilentTripleGen.cpp"
+    "RadixSort.cpp"
+    
     )
 
 if(SECUREJOIN_ENABLE_PAILLIER)
@@ -34,12 +38,15 @@ if(APPLE)
         "-Wno-delete-non-abstract-non-virtual-dtor"
     )
 elseif(MSVC)
-    set_target_properties(secureJoin
-        PROPERTIES
-            CXX_STANDARD ${SECUREJOIN_CPP_VER}
-            CXX_STANDARD_REQUIRED YES
-            CXX_EXTENSIONS NO
-    )
+    message("SECUREJOIN_CPP_VER=${SECUREJOIN_CPP_VER}")
+    target_compile_options(secureJoin PUBLIC "/std:c++${SECUREJOIN_CPP_VER}" "/Zc:__cplusplus")
+
+    #set_target_properties(secureJoin
+    #    PROPERTIES
+    #        CXX_STANDARD ${SECUREJOIN_CPP_VER}
+    #        CXX_STANDARD_REQUIRED YES
+    #        CXX_EXTENSIONS NO
+    #)
 
     if(SECUREJOIN_ENABLE_ASAN)
         target_compile_options(secureJoin PUBLIC "/fsanitize=address")
