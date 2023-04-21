@@ -8,6 +8,7 @@ set(SRCS
     "ComposedPerm.cpp"
     
     "LowMCPerm.cpp"
+    "AdditivePerm.cpp"
     "DarkMatter22Prf.cpp"
     "GMW/Circuit.cpp"
     "GMW/Gmw.cpp"

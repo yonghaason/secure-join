@@ -1,75 +1,10 @@
 #include "RadixSort_Test.h"
 #include"secure-join/RadixSort.h"
 #include "cryptoTools/Network/IOService.h"
+#include "util.h"
 
 using namespace oc;
 using namespace secJoin;
-
-
-void share(const Matrix<u32>& x, Matrix<u32>& x0, Matrix<u32>& x1, PRNG& prng)
-{
-    x0.resize(x.rows(), x.cols());
-    x1.resize(x.rows(), x.cols());
-    prng.get(x0.data(), x0.size());
-    //for (u64 i = 0; i < x.size(); ++i)
-    //{
-    //    x0(i) = x(i) / 2;
-    //}
-    for (u64 i = 0; i < x.size(); ++i)
-        x1(i) = x(i) - x0(i);
-}
-
-
-
-void share(const Matrix<u8>& x, u64 bitCount, Matrix<u8>& x0, Matrix<u8>& x1, PRNG& prng)
-{
-    x0.resize(x.rows(), x.cols());
-    x1.resize(x.rows(), x.cols());
-    prng.get(x0.data(), x0.size());
-    for (u64 i = 0; i < x.size(); ++i)
-        x1(i) = x(i) ^ x0(i);
-
-    if (bitCount % 8)
-    {
-        auto mask = (1 << (bitCount % 8)) - 1;
-        for (u64 i = 0; i < x.rows(); ++i)
-        {
-            x0[i].back() &= mask;
-            x1[i].back() &= mask;
-        }
-    }
-}
-
-void share(const Matrix<u8>& x, Matrix<u8>& x0, Matrix<u8>& x1, PRNG& prng)
-{
-    share(x, x.cols() * 8, x0, x1, prng);
-}
-Perm reveal(const ComposedPerm& x0, const ComposedPerm& x1)
-{
-    Perm p(x0.size());
-    for (u64 i = 0; i < p.size(); ++i)
-        p.mPerm[i] = x0.mPerm[i] + x1.mPerm[i];
-
-    //p.validate();
-    return p;
-}
-
-Matrix<u32> reveal(const Matrix<u32>& x0, const Matrix<u32>& x1)
-{
-    Matrix<u32> r(x0.rows(), x0.cols());
-    for (u64 i = 0; i < r.size(); ++i)
-        r(i) = x0(i) + x1(i);
-    return r;
-}
-
-
-Matrix<u8> reveal(const Matrix<u8>& x0, const Matrix<u8>& x1)
-{
-    Matrix<u8> r(x0.rows(), x0.cols());
-    for (u64 i = 0; i < r.size(); ++i)
-        r(i) = x0(i) ^ x1(i);
-    return r;
-}
 
 void RadixSort_aggregateSum_test()
 {
@@ -127,7 +62,7 @@ void RadixSort_hadamardSum_test()
     oc::Matrix<u32> l0(rows, cols), l1(rows, cols);
     oc::Matrix<u32> r0(rows, cols), r1(rows, cols);
     //oc::Matrix<u32> c0(rows, cols), c1(rows, cols);
-    ComposedPerm p0(rows,0), p1(rows, 1);
+    AdditivePerm p0, p1;
 
     for (u64 i = 0; i < rows; ++i)
     {
@@ -531,7 +466,7 @@ void RadixSort_genPerm_test()
     //				s0.mL = L;
     //				s1.mL = L;
     //				s2.mL = L;
-    //				VectorPerm p0, p1, p2;
+    //				AdditivePerm p0, p1, p2;
     //				Perm exp(n);
 
     //				oc::Matrix<i64> k(n, 1);

@@ -318,9 +318,9 @@ namespace secJoin
             A.resize(f.rows(), f.cols());
             B.resize(f.rows(), f.cols());
 
-            dst.mType = AdditivePerm::Type::Addition;
-            dst.mPerm.resize(0);
-            dst.mPerm.resize(f.rows());
+            dst.mType = AdditivePerm::Type::Add;
+            dst.mShare.resize(0, 0);
+            dst.mShare.resize(f.rows(), 1);
 
             MC_AWAIT_SET(tripleReq, gen.arithTripleRequest(f.size(), 32));
 
@@ -345,7 +345,7 @@ namespace secJoin
 
                     // z = (A + A') [s] + (-B - B')[a] + [c]
                     //      *               *             *  
-                    dst.mPerm[row] +=
+                    dst.mShare[row] +=
                         A(i) * s(i)
                         - B(i) * triple.mA[j]
                         + triple.mC[j];
@@ -380,7 +380,7 @@ namespace secJoin
 
                     // z = (A + A') [s] + (-B - B')[a] + [c]
                     //          *               *               
-                    dst.mPerm[row] +=
+                    dst.mShare[row] +=
                         A(i) * s(i)
                         - B(i) * a[k][j];
 
@@ -795,7 +795,7 @@ namespace secJoin
         macoro::task<> genPerm(
             u64 keyBitCount,
             const BinMatrix& k,
-            ComposedPerm& dst,
+            AdditivePerm& dst,
             OleGenerator& gen,
             coproto::Socket& comm)
         {
@@ -831,7 +831,7 @@ namespace secJoin
 
                 // apply the partial sort that we have so far 
                 // to the next L bits of the key.
-                MC_AWAIT(dst.apply(sk, ssk, comm, gen, true));
+                MC_AWAIT(dst.apply(sk, ssk, gen.mPrng, comm, gen, true));
 
                 // generate the sorting permutation for the
                 // next L bits of the key.
@@ -839,7 +839,7 @@ namespace secJoin
 
                 // compose the current partial sort with
                 // the permutation that sorts the next L bits
-                MC_AWAIT(rho.compose(dst, sigma2, comm, gen));
+                MC_AWAIT(rho.compose(dst, sigma2, gen.mPrng, comm, gen));
                 std::swap(dst, sigma2);
                 //dst.validate(comm);
             }

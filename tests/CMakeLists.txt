@@ -9,6 +9,7 @@ set(SRCS
 	LowMCPerm_Test.cpp
 	ComposedPerm_Test.cpp
 	PaillierPerm_Test.cpp
+	AdditivePerm_Test.cpp
 	DarkMatterPrf_Test.cpp
 	OleGenerator_Test.cpp
 	GMW_Test.cpp

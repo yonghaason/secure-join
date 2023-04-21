@@ -36,33 +36,36 @@ namespace secJoin
             mPerm.randomize(n, prng);
         }
 
+        template<typename T>
         macoro::task<> apply(
-            oc::Matrix<u8>& in,
-            oc::Matrix<u8>& out,
+            oc::MatrixView<const T> in,
+            oc::MatrixView<T> out,
             coproto::Socket& chl,
             OleGenerator& ole,
             bool inv = false
         )
         {
 
-            MC_BEGIN(macoro::task<>, &in, &out, &chl, &ole, inv,
-                gmw0 = std::move(Gmw()),
-                gmw1 = std::move(Gmw()),
+            MC_BEGIN(macoro::task<>, in, out, &chl, &ole, inv,
                 prng = oc::PRNG(ole.mPrng.get()),
                 this,
-                soutperm = oc::Matrix<u8>{}
+                soutperm = oc::Matrix<T>{}
             );
+            if (out.rows() != in.rows() ||
+                out.cols() != in.cols())
+                throw RTE_LOC;
 
-            if (mPartyIdx == 0)
+            soutperm.resize(in.rows(), in.cols());
+            if ((inv ^ bool(mPartyIdx)) == true)
             {
-                MC_AWAIT(LowMCPerm::applyVec(in, prng, gmw0, chl, soutperm, ole));
-                MC_AWAIT(LowMCPerm::applyVecPerm(soutperm, mPerm, prng, gmw1, chl, out, inv, ole));
+                MC_AWAIT(LowMCPerm::apply<T>(in, soutperm, prng, chl, ole));
+                MC_AWAIT(LowMCPerm::apply<T>(mPerm, soutperm, out, prng, chl, inv, ole));
             }
             else
             {
 
-                MC_AWAIT(LowMCPerm::applyVecPerm(in, mPerm, prng, gmw0, chl, soutperm, inv, ole));
-                MC_AWAIT(LowMCPerm::applyVec(soutperm, prng, gmw1, chl, out, ole));
+                MC_AWAIT(LowMCPerm::apply<T>(mPerm, in, soutperm, prng, chl, inv, ole));
+                MC_AWAIT(LowMCPerm::apply<T>(soutperm, out, prng, chl, ole));
             }
 
             MC_END();

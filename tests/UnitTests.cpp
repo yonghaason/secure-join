@@ -8,6 +8,13 @@
 #include "GMW_Test.h"
 #include "RadixSort_Test.h"
 
+#include <functional>
+
+#include "LowMCPerm_Test.h"
+#include "PaillierPerm_Test.h"
+#include "ComposedPerm_Test.h"
+#include "AdditivePerm_Test.h"
+
 namespace secJoin_Tests
 {
     oc::TestCollection Tests([](oc::TestCollection& t) {
@@ -34,10 +41,9 @@ namespace secJoin_Tests
         t.add("LocMC_eval_test                               ", LocMC_eval_test);
         
         t.add("LowMCPerm_perm_test                           ", LowMCPerm_perm_test);
-        t.add("LowMCPerm_inv_perm_test                       ", LowMCPerm_inv_perm_test);
         t.add("LowMCPerm_secret_shared_input_perm_test       ", LowMCPerm_secret_shared_input_perm_test);
-        t.add("LowMCPerm_secret_shared_input_inv_perm_test   ", LowMCPerm_secret_shared_input_inv_perm_test);
-        t.add("ComposedPerm_replicated_perm_test               ", ComposedPerm_replicated_perm_test);
+        t.add("ComposedPerm_replicated_perm_test             ", ComposedPerm_replicated_perm_test);
+        t.add("AdditivePerm_basic_test                       ", AdditivePerm_basic_test);
         t.add("DarkMatter22Prf_plain_test                    ", DarkMatter22Prf_plain_test);
         t.add("DarkMatter32Prf_plain_test                    ", DarkMatter32Prf_plain_test);
         t.add("DarkMatter22Prf_util_test                     ", DarkMatter22Prf_util_test);

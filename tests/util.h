@@ -3,131 +3,77 @@
 #include "cryptoTools/Crypto/PRNG.h"
 #include "secure-join/Defines.h"
 #include <vector>
+#include "secure-join/AdditivePerm.h"
 
-inline void check_inv_results(
-    oc::Matrix<oc::u8>& x,
-    std::array<oc::Matrix<oc::u8>, 2>& sout)
+using namespace secJoin;
+using oc::Matrix;
+using oc::PRNG;
+
+inline void share(const Matrix<u32>& x, Matrix<u32>& x0, Matrix<u32>& x1, PRNG& prng)
 {
-    // Checking the dimensions
-    if (sout[0].rows() != x.rows())
-        throw RTE_LOC;
-    if (sout[1].rows() != x.rows())
-        throw RTE_LOC;
-    if (sout[0].cols() != x.cols())
-        throw RTE_LOC;
-    if (sout[1].cols() != x.cols())
-        throw RTE_LOC;
-
-
-    // Checking if everything works
-    for (oc::u64 i = 0; i < x.rows(); ++i)
-    {
-
-        for (oc::u64 j = 0; j < x.cols(); j++)
-        {
-            auto act = x(i, j);
-            auto cur = sout[0](i, j) ^ sout[1](i, j);
-            if (act != cur)
-            {
-                std::cout << "Unit Test Failed" << std::endl;
-                throw RTE_LOC;
-            }
-
-        }
-    }
-
-}
-
-inline void check_results(
-    oc::Matrix<oc::u8>& x,
-    std::array<oc::Matrix<oc::u8>, 2>& sout,
-    secJoin::Perm& pi,
-    bool invPerm)
-{
-    // Checking the dimensions
-    if (sout[0].rows() != x.rows())
-        throw RTE_LOC;
-    if (sout[1].rows() != x.rows())
-        throw RTE_LOC;
-    if (sout[0].cols() != x.cols())
-        throw RTE_LOC;
-    if (sout[1].cols() != x.cols())
-        throw RTE_LOC;
-
-
-    // Checking if everything works
-    for (oc::u64 i = 0; i < x.rows(); ++i)
-    {
-
-        for (oc::u64 j = 0; j < x.cols(); j++)
-        {
-            oc::u8 act, cur, cur0, cur1;
-            if (invPerm)
-            {
-                act = x(pi[i], j);
-                cur0 = sout[0](i, j);
-                cur1 = sout[1](i, j);
-            }
-            else
-            {
-                act = x(i, j);
-                cur0 = sout[0](pi[i], j);
-                cur1 = sout[1](pi[i], j);
-            }
-
-            cur = cur0 ^ cur1;
-
-            if (act != cur)
-            {
-                //std::cout << "Unit Test Failed " << std::endl;
-
-                //std::cout << std::hex << std::setw(2) << std::setfill('0') << int(act) << std::endl;
-                //std::cout << std::hex << std::setw(2) << std::setfill('0') << int(cur) << std::endl;
-                //std::cout << std::hex << std::setw(2) << std::setfill('0') << int(cur0) << std::endl;
-                //std::cout << std::hex << std::setw(2) << std::setfill('0') << int(cur1) << std::endl;
-                throw RTE_LOC;
-            }
-
-        }
-
-    }
+    x0.resize(x.rows(), x.cols());
+    x1.resize(x.rows(), x.cols());
+    prng.get(x0.data(), x0.size());
+    //for (u64 i = 0; i < x.size(); ++i)
+    //{
+    //    x0(i) = x(i) / 2;
+    //}
+    for (u64 i = 0; i < x.size(); ++i)
+        x1(i) = x(i) - x0(i);
 }
 
 
-inline void check_results(
-    oc::Matrix<oc::u8>& x,
-    std::array<oc::Matrix<oc::u8>, 2>& sout,
-    secJoin::Perm& pi0,
-    secJoin::Perm& pi1
-)
+
+inline void share(const Matrix<u8>& x, u64 bitCount, Matrix<u8>& x0, Matrix<u8>& x1, PRNG& prng)
 {
-    // Checking the dimensions
-    if (sout[0].rows() != x.rows())
-        throw RTE_LOC;
-    if (sout[1].rows() != x.rows())
-        throw RTE_LOC;
-    if (sout[0].cols() != x.cols())
-        throw RTE_LOC;
-    if (sout[1].cols() != x.cols())
-        throw RTE_LOC;
+    x0.resize(x.rows(), x.cols());
+    x1.resize(x.rows(), x.cols());
+    prng.get(x0.data(), x0.size());
+    for (u64 i = 0; i < x.size(); ++i)
+        x1(i) = x(i) ^ x0(i);
 
-
-    // Checking if everything works
-    for (oc::u64 i = 0; i < x.rows(); ++i)
+    if (bitCount % 8)
     {
-
-        for (oc::u64 j = 0; j < x.cols(); j++)
+        auto mask = (1 << (bitCount % 8)) - 1;
+        for (u64 i = 0; i < x.rows(); ++i)
         {
-            auto act = sout[0](pi0[pi1[i]], j) ^ sout[1](pi0[pi1[i]], j);
-            if (act != x(i, j))
-            {
-                std::cout << "Unit Test Failed" << std::endl;
-                throw RTE_LOC;
-            }
-
+            x0[i].back() &= mask;
+            x1[i].back() &= mask;
         }
     }
 }
+
+inline void share(const Matrix<u8>& x, Matrix<u8>& x0, Matrix<u8>& x1, PRNG& prng)
+{
+    share(x, x.cols() * 8, x0, x1, prng);
+}
+inline Perm reveal(const AdditivePerm& x0, const AdditivePerm& x1)
+{
+    Perm p(x0.size());
+
+    if (x0.mType == AdditivePerm::Type::Xor)
+    {
+        for (u64 i = 0; i < p.size(); ++i)
+            p.mPerm[i] = x0.mShare[i] ^ x1.mShare[i];
+    }
+    else
+    {
+        for (u64 i = 0; i < p.size(); ++i)
+            p.mPerm[i] = x0.mShare[i] + x1.mShare[i];
+    }
+
+    //p.validate();
+    return p;
+}
+
+inline Matrix<u32> reveal(const Matrix<u32>& x0, const Matrix<u32>& x1)
+{
+    Matrix<u32> r(x0.rows(), x0.cols());
+    for (u64 i = 0; i < r.size(); ++i)
+        r(i) = x0(i) + x1(i);
+    return r;
+}
+
 
 inline std::array<oc::Matrix<oc::u8>, 2> share(
     oc::Matrix<oc::u8> v,
@@ -146,9 +92,27 @@ inline std::array<oc::Matrix<oc::u8>, 2> share(
     return { s0, s1 };
 }
 
-inline oc::Matrix<oc::u8> reconstruct_from_shares(
-    oc::Matrix<oc::u8> v1,
-    oc::Matrix<oc::u8> v2)
+inline std::array<std::vector<u32>, 2> xorShare(
+    const std::vector<u32>& v,
+    oc::PRNG& prng)
+{
+    auto n = v.size();
+    std::vector<u32>
+        s0(n),
+        s1(n);
+
+    prng.get(s0.data(), s0.size());
+    prng.get((u8*) s0.data(), n * sizeof(u32));
+
+    for (oc::u64 i = 0; i < v.size(); ++i)
+        s1[i] = v[i] ^ s0[i];
+
+    return { s0, s1 };
+}
+
+inline oc::Matrix<oc::u8> reveal(
+    const oc::Matrix<oc::u8>& v1,
+    const oc::Matrix<oc::u8>& v2)
 {
 
     // Checking the dimensions
@@ -164,4 +128,17 @@ inline oc::Matrix<oc::u8> reconstruct_from_shares(
         s(i) = v1(i) ^ v2(i);
 
     return s;
+}
+
+inline bool eq(
+    const oc::Matrix<oc::u8>& v1,
+    const oc::Matrix<oc::u8>& v2)
+{
+    // Checking the dimensions
+    if (v1.rows() != v2.rows())
+        throw RTE_LOC;
+    if (v1.cols() != v2.cols())
+        throw RTE_LOC;
+
+    return std::equal(v1.begin(), v1.end(), v2.begin());
 }
