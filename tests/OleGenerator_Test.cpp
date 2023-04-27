@@ -171,12 +171,12 @@ void Generator_ArithTriple_Test(const oc::CLP&cmd)
             g1.fakeInit(OleGenerator::Role::Receiver);
         }
 
-        auto r0 = macoro::sync_wait(g0.arithTripleRequest(totalSize, 32, reservoirSize));
+        auto r0 = macoro::sync_wait(g0.(totalSize, 32, reservoirSize));
         auto r1 = macoro::sync_wait(g1.arithTripleRequest(totalSize, 32, reservoirSize));
 
         u64 s = 0;
         while (s < totalSize)
-        {
+        {arithTripleRequest
             ArithTriple t0, t1;
             auto r = macoro::sync_wait(macoro::when_all_ready(
                 r0.get(),

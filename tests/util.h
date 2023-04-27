@@ -26,6 +26,9 @@ inline void share(const Matrix<u32>& x, Matrix<u32>& x0, Matrix<u32>& x1, PRNG& 
 
 inline void share(const Matrix<u8>& x, u64 bitCount, Matrix<u8>& x0, Matrix<u8>& x1, PRNG& prng)
 {
+    if (x.cols() != oc::divCeil(bitCount, 8))
+        throw RTE_LOC;
+
     x0.resize(x.rows(), x.cols());
     x1.resize(x.rows(), x.cols());
     prng.get(x0.data(), x0.size());
@@ -49,6 +52,10 @@ inline void share(const Matrix<u8>& x, Matrix<u8>& x0, Matrix<u8>& x1, PRNG& prn
 }
 inline Perm reveal(const AdditivePerm& x0, const AdditivePerm& x1)
 {
+    if (x0.mType != x1.mType)
+        throw RTE_LOC;
+    if (x0.mRho != x1.mRho)
+        throw RTE_LOC;
     Perm p(x0.size());
 
     if (x0.mType == AdditivePerm::Type::Xor)

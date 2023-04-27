@@ -9,7 +9,7 @@ using namespace secJoin;
 void RadixSort_aggregateSum_test()
 {
     u64 n = 123;
-    u64 L = 16;
+    u64 L = 1 << 5;
 
     oc::Matrix<u32> f(n, L);
     oc::Matrix<u32> s1(n, L);
@@ -48,7 +48,7 @@ void RadixSort_aggregateSum_test()
 void RadixSort_hadamardSum_test()
 {
     auto comm = coproto::LocalAsyncSocket::makePair();
-    u64 cols = 5;
+    u64 cols = 1<< 5;
     u64 rows = 10;
 
     oc::Matrix<u32> d0(rows, rows), d1(rows, rows);
@@ -309,6 +309,73 @@ void RadixSort_genValMasks2_test()
 
 }
 
+bool areEqual(
+    oc::span<u8> a,
+    oc::span<u8> b,
+    u64 bitCount)
+{
+    auto mod8 = bitCount & 7;
+    auto div8 = bitCount >> 3;
+    if (a.size() * 8 < bitCount)
+        throw RTE_LOC;
+    if (b.size() * 8 < bitCount)
+        throw RTE_LOC;
+
+    if (mod8)
+    {
+        u8 mask = mod8 ? ((1 << mod8) - 1) : ~0;
+
+        if (div8)
+        {
+            auto c1 = memcmp(a.data(), b.data(), div8);
+            if (c1)
+                return false;
+        }
+
+        if (mod8)
+        {
+            auto cc = a[div8] ^ b[div8];
+            if (mask & cc)
+                return false;
+        }
+        return true;
+    }
+    else
+    {
+        return memcmp(a.data(), b.data(), div8) == 0;
+    }
+}
+inline std::string hex(oc::span<u8> d)
+{
+    std::stringstream ss;
+    for (u64 i = d.size() - 1; i < d.size(); --i)
+        ss << std::hex << std::setw(2) << std::setfill('0') << int(d[i]);
+    return ss.str();
+}
+
+inline auto printDiff(oc::MatrixView<u8> x, oc::MatrixView<u8> y, u64 bitCount) -> void
+{
+    std::vector<u8> diff(x.cols());
+
+    std::cout << "left ~ right ^ diff " << bitCount << std::endl;
+    for (u64 i = 0; i < x.rows(); ++i)
+    {
+        std::cout << std::setw(3) << std::setfill(' ') << i;
+        if (areEqual(x[i], y[i], bitCount) == false)
+            std::cout << ">";
+        else
+            std::cout << " ";
+
+
+        for (u64 j = 0; j < diff.size(); ++j)
+            diff[j] = x(i, j) ^ y(i, j);
+
+        std::cout << hex(x[i]) << " ~ " << hex(y[i]) << " ^ " << hex(diff) << std::endl;
+    }
+    std::cout << std::dec;
+}
+
+
 void RadixSort_genBitPerm_test()
 {
 
@@ -318,109 +385,109 @@ void RadixSort_genBitPerm_test()
     //u64 n = 40;
     u64 trials = 5;
     for (auto m : { 3, 10, 15 })
-    	for (auto n : { 10, 40, 1000 })
-    	{
-    		for (auto L : { 1,3,5 })
-    		{
-    			for (u64 tt = 1; tt < trials; ++tt)
-    			{
-    				PRNG prng(block(tt, 0));
-    				RadixSort s[2];
-    				std::vector<ComposedPerm> p[2];
+        for (auto n : { 10, 40, 1000 })
+        {
+            for (auto L : { 1, 3, 5 })
+            {
 
-    				assert(m < 64);
-    				oc::Matrix<u8> k(n, oc::divCeil(m,8));
-    				oc::Matrix<u8> sk[2];
-    				std::future<void> f[3];
-    				//m = L;
-    				auto ll = oc::divCeil(m, L);
-    				std::vector<Perm> exp(ll);
-    				std::vector<oc::Matrix<i64>> ke(ll);
-    				for (u64 i = 0; i < 3; ++i)
-    				{
-    					p[i].resize(ll);
-    					s[i].init(i);
-    					sk[i].resize(n, m);
-    				}
+                if (L > m)
+                    continue;
 
-    				for (u64 j = 0; j < ll; ++j)
-    				{
-    					auto jj = ll - 1 - j;
-    					auto shift = std::min<u64>(L, m - L * jj);
-    					auto mask = ((1ull << shift) - 1);
+                for (u64 tt = 1; tt < trials; ++tt)
+                {
+                    PRNG prng(block(tt, 0));
+                    RadixSort s[2];
+                    std::vector<AdditivePerm> p[2];
 
-    					ke[jj].resize(n, 1);
-    					std::vector<std::vector<i64>> vals(1 << L);
-    					for (u64 i = 0; i < k.rows(); ++i)
-    					{
-    						u64 v = prng.get<u64>() & mask;
+                    assert(m < 64);
+                    oc::Matrix<u8> k(n, oc::divCeil(m, 8));
+                    oc::Matrix<u8> sk[2];
+                    OleGenerator g[2];
+                    g[0].fakeInit(OleGenerator::Role::Sender);
+                    g[1].fakeInit(OleGenerator::Role::Receiver);
 
-    						ke[jj](i) = v;
-    						k(i) = k(i) << shift | v;
-
-    						vals[v].push_back(i);
-    					}
-    					for (u64 i = 0; i < vals.size(); ++i)
-    						exp[jj].mPerm.insert(exp[jj].mPerm.end(), vals[i].begin(), vals[i].end());
-
-    					exp[jj] = exp[jj].inverse();
-    				}
-
-    				share(k, m, sk[0], sk[1], prng);
-
-
-    				for (u64 j = 0; j < ll; ++j)
-    				{
-    					oc::Matrix<u8> kk[2];
-    					for (u64 i = 0; i < 3; ++i)
-    						kk[i] = s[i].extract(j * L, L, sk[i]);
-    					auto kka = reveal(kk[0], kk[1]);
-    					auto d0 = kka.data();
-    					auto d1 = ke[j].data();
-    					if (
-    						kka.size() != ke[j].size() ||
-    						kka.rows() != ke[j].rows() ||
-    						memcmp(d0, d1, kka.size() * sizeof(i64))
-    						)
-    					{
-    						//print(kka, ke[j], kk->bitCount());
-    						throw RTE_LOC;
-    					}
-    				}
-
-                    throw RTE_LOC;
+                    //m = L;
+                    auto ll = oc::divCeil(m, L);
+                    std::vector<Perm> exp(ll);
+                    std::vector<oc::Matrix<u8>> ke(ll);
+                    for (u64 i = 0; i < 2; ++i)
                     {
-                        //for (u64 i = 0; i < 3; ++i)
-                        //{
-                        //	f[i] = std::async([&, i] {
-                        //		for (u64 j = 0; j < ll; ++j)
-                        //		{
-                        //			auto kk = s[i].extract(j * L, L, sk[i]);
-                        //			s[i].genBitPerm(kk, p[i][j], *g[i], comm[i]);
-                        //		}
-                        //		});
-                        //}
-                        //for (u64 i = 0; i < 3; ++i)
-                        //	f[i].get();
-
-                        //for (u64 j = 0; j < ll; ++j)
-                        //{
-
-                        //	aby3::eMatrix<i64> ff = reveal(p[0][j].mShare, p[1][j].mShare, p[2][j].mShare);
-                        //	Perm act;
-                        //	act.mPerm.insert(act.mPerm.begin(), ff.data(), ff.data() + ff.size());
-
-
-                        //	if (exp[j] != act)
-                        //	{
-                        //		std::cout << "\n" << exp[j] << "\n" << act << std::endl;
-                        //		throw RTE_LOC;
-                        //	}
-                        //}
+                        p[i].resize(ll);
+                        s[i].init(i);
+                        sk[i].resize(n, m);
                     }
-    			}
-    		}
-    	}
+
+                    for (u64 j = 0; j < ll; ++j)
+                    {
+                        auto jj = ll - 1 - j;
+                        auto shift = std::min<u64>(L, m - L * jj);
+                        auto mask = ((1ull << shift) - 1);
+
+                        ke[jj].resize(n, 1);
+                        std::vector<std::vector<i64>> vals(1 << L);
+                        for (u64 i = 0; i < k.rows(); ++i)
+                        {
+                            assert(m <= 64);
+                            u64 v = prng.get<u64>() & mask;
+
+                            ke[jj](i) = v;
+
+                            u64 kk = 0;
+                            memcpy(&kk, k[i].data(), k[i].size());
+
+                            kk = kk << shift | v;
+
+                            memcpy(k[i].data(), &kk, k[i].size());
+
+                            vals[v].push_back(i);
+                        }
+                        for (u64 i = 0; i < vals.size(); ++i)
+                            exp[jj].mPerm.insert(exp[jj].mPerm.end(), vals[i].begin(), vals[i].end());
+
+                        exp[jj] = exp[jj].inverse();
+                    }
+
+                    share(k, m, sk[0], sk[1], prng);
+
+
+                    for (u64 j = 0; j < ll; ++j)
+                    {
+                        oc::Matrix<u8> kk[2];
+                        for (u64 i = 0; i < 2; ++i)
+                            kk[i] = s[i].extract(j * L, L, sk[i]);
+                        auto kka = reveal(kk[0], kk[1]);
+                        auto d0 = kka.data();
+                        auto d1 = ke[j].data();
+                        if (
+                            kka.size() != ke[j].size() ||
+                            kka.rows() != ke[j].rows() ||
+                            memcmp(d0, d1, kka.size())
+                            )
+                        {
+                            printDiff(kka, ke[j], L);
+                            printDiff(k, k, m);
+                            throw RTE_LOC;
+                        }
+
+                        macoro::sync_wait(macoro::when_all_ready(
+                            s[0].genBitPerm(L, kk[0], p[0][j], g[0], comm[0]),
+                            s[1].genBitPerm(L, kk[1], p[1][j], g[1], comm[1])
+                        ));
+
+                        auto act = reveal(p[0][j], p[1][j]);
+
+                        if (exp[j] != act)
+                        {
+                            std::cout << j << " " << ll << std::endl;
+                            std::cout << "\n" << exp[j] << "\n" << act << std::endl;
+                            throw RTE_LOC;
+                        }
+                    }
+
+                    //std::cout << L << " passed" << std::endl;
+                }
+            }
+        }
 
 }
 

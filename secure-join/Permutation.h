@@ -280,8 +280,8 @@ namespace secJoin
 	{
 		o << "[";
 		for (auto pp : p.mPerm)
-			o << pp << " ";
-		o << "]";
+			o << std::hex << pp << " ";
+		o << "]" << std::dec;
 		return o;
 	}
 

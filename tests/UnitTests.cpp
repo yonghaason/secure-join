@@ -58,6 +58,7 @@ namespace secJoin_Tests
         t.add("RadixSort_bitInjection_test                   ", RadixSort_bitInjection_test);
         t.add("RadixSort_genValMasks2_test                   ", RadixSort_genValMasks2_test);
         t.add("RadixSort_hadamardSum_test                    ", RadixSort_hadamardSum_test);
+        t.add("RadixSort_genBitPerm_test                     ", RadixSort_genBitPerm_test);
         
 
     }); 

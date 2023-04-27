@@ -265,32 +265,53 @@ namespace secJoin
         //	MC_END();
         //}
 
-        //macoro::task<> checkHadamardSum(
-        //	Matrix32& f,
-        //	Matrix32& s,
-        //	Matrix32& dst,
-        //	coproto::Socket& comm)
-        //{
+        macoro::task<> checkHadamardSum(
+            Matrix32& f,
+            Matrix32& s,
+            span<u32> dst,
+            coproto::Socket& comm)
+        {
 
-        //	MC_BEGIN(macoro::task<>, this, &f, &s, &dst, &comm);
-        //	//Sh3Encryptor enc;
-        //	//auto ff = enc.revealAll(comm, f);
-        //	//auto ss = enc.revealAll(comm, s);
-        //	//auto dd = enc.revealAll(comm, dst);
+            MC_BEGIN(macoro::task<>, this, &f, &s, dst, &comm,
+                ff = Matrix32{},
+                ss = Matrix32{},
+                dd = std::vector<u32>{},
+                exp = std::vector<u32>{}
+            );
+            MC_AWAIT(comm.send(coproto::copy(f)));
+            MC_AWAIT(comm.send(coproto::copy(s)));
+            MC_AWAIT(comm.send(coproto::copy(dst)));
 
-        //	//assert(dd.cols() == 1);
-        //	//i64Matrix exp(dd.rows(), dd.cols());
-        //	//for (u64 i = 0; i < dd.rows(); ++i)
-        //	//{
-        //	//	exp(i) = 0;
-        //	//	for (u64 j = 0; j < ff.cols(); ++j)
-        //	//		exp(i) += ff(i, j) * ss(i, j);
-        //	//}
+            ff.resize(f.rows(), f.cols());
+            ss.resize(s.rows(), s.cols());
+            dd.resize(dst.size());
 
-        //	//if (exp != dd)
-        //	//	throw RTE_LOC;
-        //	MC_END();
-        //}
+            MC_AWAIT(comm.recv(ff));
+            MC_AWAIT(comm.recv(ss));
+            MC_AWAIT(comm.recv(dd));
+
+            assert(f.size() == s.size());
+            for (u64 i = 0; i < ff.size(); ++i)
+            {
+                ff(i) += f(i);
+                ss(i) += s(i);
+            }
+            for (u64 i = 0; i < dd.size(); ++i)
+                dd[i] += dst[i];
+
+            exp.resize(dd.size());
+            for (u64 i = 0; i < dd.size(); ++i)
+            {
+                exp[i] = 0;
+                for (u64 j = 0; j < ff.cols(); ++j)
+                    exp[i] += ff(i, j) * ss(i, j);
+            }
+
+            for (u64 i = 0; i < exp.size(); ++i)
+                if (exp[i] != dd[i])
+                    throw RTE_LOC;
+            MC_END();
+        }
 
         // compute dst = sum_i f.col(i) * s.col(i) where * 
         // is the hadamard (component-wise) product. 
@@ -319,8 +340,8 @@ namespace secJoin
             B.resize(f.rows(), f.cols());
 
             dst.mType = AdditivePerm::Type::Add;
-            dst.mShare.resize(0, 0);
-            dst.mShare.resize(f.rows(), 1);
+            dst.mShare.resize(0);
+            dst.mShare.resize(f.rows());
 
             MC_AWAIT_SET(tripleReq, gen.arithTripleRequest(f.size(), 32));
 
@@ -555,48 +576,60 @@ namespace secJoin
             MC_END();
         }
 
-        //macoro::task<> checkGenValMasks(
-        //	const BinMatrix& k,
-        //	Matrix32& f,
-        //	coproto::Socket& comm)
-        //{
-        //	MC_BEGIN(macoro::task<>, this, &k, &f, &comm);
-        //	//auto n = k.rows();
-        //	//auto L = k.bitCount();
-        //	//Sh3Encryptor enc;
-        //	//auto kk = enc.revealAll(comm, k);
-        //	//auto ff = enc.revealAll(comm, f);
+        macoro::task<> checkGenValMasks(
+            u64 L,
+            const BinMatrix& k,
+            Matrix32& f,
+            coproto::Socket& comm)
+        {
+            MC_BEGIN(macoro::task<>, this, L, &k, &f, &comm,
+                n = u64{},
+                kk = BinMatrix{},
+                ff = Matrix32{});
+            n = k.rows();
 
-        //	//if ((u64)ff.rows() != n)
-        //	//	throw RTE_LOC;
-        //	//if ((u64)ff.cols() != (1ull << L))
-        //	//	throw RTE_LOC;
+            MC_AWAIT(comm.send(coproto::copy(f)));
+            MC_AWAIT(comm.send(coproto::copy(k)));
 
-        //	//for (u64 i = 0; i < (1ull << L); ++i)
-        //	//{
+            ff.resize(f.rows(), f.cols());
+            kk.resize(k.rows(), k.cols());
 
+            MC_AWAIT(comm.recv(ff));
+            MC_AWAIT(comm.recv(kk));
 
-        //	//	for (u64 j = 0; j < n; ++j)
-        //	//	{
-        //	//		auto kj = (u64)kk(j);
-        //	//		auto fji = ff(j, i);
-        //	//		if (kj == i)
-        //	//		{
-        //	//			if (fji != 1)
-        //	//				throw RTE_LOC;
-        //	//		}
-        //	//		else
-        //	//		{
-        //	//			if (fji != 0)
-        //	//			{
+            for (u64 i = 0; i < ff.size(); ++i)
+                ff(i) += f(i);
+            for (u64 i = 0; i < kk.size(); ++i)
+                kk(i) ^= k(i);
 
-        //	//				throw RTE_LOC;
-        //	//			}
-        //	//		}
-        //	//	}
-        //	//}
-        //	MC_END();
-        //}
+            if ((u64)ff.rows() != n)
+                throw RTE_LOC;
+            if ((u64)ff.cols() != (1ull << L))
+                throw RTE_LOC;
+
+            for (u64 i = 0; i < (1ull << L); ++i)
+            {
+                for (u64 j = 0; j < n; ++j)
+                {
+                    auto kj = (u64)kk(j);
+                    auto fji = ff(j, i);
+                    if (kj == i)
+                    {
+                        if (fji != 1)
+                            throw RTE_LOC;
+                    }
+                    else
+                    {
+                        if (fji != 0)
+                        {
+
+                            throw RTE_LOC;
+                        }
+                    }
+                }
+            }
+            MC_END();
+        }
 
         // from each row, we generate a series of sharing flag bits
         // f.col(0) ,..., f.col(n) where f.col(i) is one if k=i.
@@ -666,21 +699,21 @@ namespace secJoin
                 auto fi = (block * __restrict) & f(i, 0);
                 auto si = (block * __restrict) & s(i, 0);
                 auto p = (block * __restrict) & partialSum[0];
-                for (; j < main; j += 16)
-                {
+                //for (; j < main; j += 16)
+                //{
 
-                    p[0] = p[0] + fi[0];
-                    p[1] = p[1] + fi[1];
-                    p[2] = p[2] + fi[2];
-                    p[3] = p[3] + fi[3];
-                    si[0] = p[0];
-                    si[1] = p[1];
-                    si[2] = p[2];
-                    si[3] = p[3];
-                    p += 4;
-                    si += 4;
-                    fi += 4;
-                }
+                //    p[0] = p[0] + fi[0];
+                //    p[1] = p[1] + fi[1];
+                //    p[2] = p[2] + fi[2];
+                //    p[3] = p[3] + fi[3];
+                //    si[0] = p[0];
+                //    si[1] = p[1];
+                //    si[2] = p[2];
+                //    si[3] = p[3];
+                //    p += 4;
+                //    si += 4;
+                //    fi += 4;
+                //}
 
                 for (; j < L2; ++j)
                 {
@@ -702,15 +735,15 @@ namespace secJoin
                 auto si = (block * __restrict) & s(i, 0);
                 auto p = (block * __restrict) & partialSum[0];
                 u64 j = 0;
-                for (; j < main; j += 16)
-                {
-                    si[0] = si[0] + p[0];
-                    si[1] = si[1] + p[1];
-                    si[2] = si[2] + p[2];
-                    si[3] = si[3] + p[3];
-                    p += 4;
-                    si += 4;
-                }
+                //for (; j < main; j += 16)
+                //{
+                //    si[0] = si[0] + p[0];
+                //    si[1] = si[1] + p[1];
+                //    si[2] = si[2] + p[2];
+                //    si[3] = si[3] + p[3];
+                //    p += 4;
+                //    si += 4;
+                //}
 
                 for (; j < L2; ++j)
                 {
@@ -720,6 +753,104 @@ namespace secJoin
 
         }
 
+
+        macoro::task<> checkAggregateSum(
+            const Matrix32& f0, 
+            Matrix32& s0, 
+            coproto::Socket& comm
+        )
+        {
+            MC_BEGIN(macoro::task<>, this, &f0, &s0, &comm,
+                L2 = u64{},
+                m = u64{},
+                sum = u32{},
+                ff = Matrix32{},
+                ss = Matrix32{},
+                s = Matrix32{}
+                );
+
+            ff.resize(f0.rows(), f0.cols());
+            ss.resize(s0.rows(), s0.cols());
+            s.resize(s0.rows(), s0.cols());
+
+            MC_AWAIT(comm.send(coproto::copy(f0)));
+            MC_AWAIT(comm.send(coproto::copy(s0)));
+
+            MC_AWAIT(comm.recv(ff));
+            MC_AWAIT(comm.recv(ss));
+
+            for (u64 i = 0; i < ff.size(); ++i)
+                ff(i) += f0(i);
+            for (u64 i = 0; i < ss.size(); ++i)
+                ss(i) += s0(i);
+
+            L2 = ff.cols();
+            m = ff.rows();
+            // sum = -1
+            sum = -1;
+
+            for (u64 i = 0; i < m; ++i)
+            {
+                auto w = 0ull;
+                for (u64 j = 0; j < L2; ++j)
+                {
+                    w += ff(i, j);
+                }
+                if (w != 1)
+                    throw RTE_LOC;
+            }
+
+            // sum over column j.
+            for (u64 j = 0; j < L2; ++j)
+            {
+                auto fff = ff.begin() + j;
+                auto sss = s.begin() + j;
+                for (u64 i = 0; i < m; ++i)
+                {
+                    sum += *fff;
+                    *sss = sum;
+                    fff += L2;
+                    sss += L2;
+                }
+            }
+
+
+            for (u64 i = 0; i < s.size(); ++i)
+                if (ss(i) != s(i))
+                {
+
+
+                    std::cout << "ff " << std::endl;
+                    for (u64 r = 0; r < ff.rows(); ++r) {
+                        for (u64 c = 0; c < ff.cols(); ++c) {
+                            std::cout << ff(r, c) << " ";
+                        }
+                        std::cout << std::endl;
+                    }
+                    std::cout << std::endl;
+                    std::cout << "ss " << std::endl;
+                    for (u64 r = 0; r < ss.rows(); ++r) {
+                        for (u64 c = 0; c < ss.cols(); ++c) {
+                            std::cout << (i32)ss(r, c) << " ";
+                        }
+                        std::cout << std::endl;
+                    }
+                    std::cout << std::endl;
+
+                    std::cout << "act s " << std::endl;
+                    for (u64 r = 0; r < ss.rows(); ++r) {
+                        for (u64 c = 0; c < ss.cols(); ++c) {
+                            std::cout << (i32)s(r, c) << " ";
+                        }
+                        std::cout << std::endl;
+                    }
+                    std::cout << std::endl;
+
+                    throw RTE_LOC;
+                }
+
+            MC_END();
+        }
 
         // Generate a permutation dst which will be the inverse of the
         // permutation that permutes the keys k into sorted order. 
@@ -751,10 +882,15 @@ namespace secJoin
 
             MC_AWAIT(genValMasks2(keyBitCount, k, f, gen, comm));
 
+            MC_AWAIT(checkGenValMasks(keyBitCount, k, f, comm));
+
             aggregateSum(f, s, mPartyIdx);
 
+            MC_AWAIT(checkAggregateSum(f, s, comm));
+
             MC_AWAIT(hadamardSum(f, s, dst, gen, comm));
-            //checkHadamardSum(f, s, dst.mShare, comm);
+
+            MC_AWAIT(checkHadamardSum(f, s, dst.mShare, comm));
 
             MC_END();
         }
@@ -765,7 +901,7 @@ namespace secJoin
         static BinMatrix extract(u64 begin, u64 size, const BinMatrix& k)
         {
             // we assume at most a byte size.
-            if (size > 32)
+            if (size > 8)
                 throw RTE_LOC;
             size = std::min<u64>(size, k.cols() * 8 - begin);
 
@@ -776,16 +912,21 @@ namespace secJoin
             u64 mask = (size % 64) ? (1ull << size) - 1 : ~0ull;
             BinMatrix sk(k.rows(), oc::divCeil(size, 8));
 
-            auto n = k.rows();
-            auto s0 = (u64*)(k.data() + byteIdx);
+            auto n = k.rows() - 1;
+            auto s0 = (k.data() + byteIdx);
+            auto main = (k.size() - byteIdx) / sizeof(u64);
 
-            TODO("mem bug at i=n-1, read over the end of the buffer");
             for (u64 i = 0; i < n; ++i)
             {
-                sk(i) = (*s0 >> shift) & mask;
+                u16 x = *(u16*)s0;
+                sk(i) = (x >> shift) & mask;
                 s0 += step;
             }
 
+            u16 x = 0;
+            auto s = std::min<u64>(2, k.size() - n * step);
+            memcpy(&x, s0, s);
+            sk(n) = (x >> shift) & mask;
             return sk;
         }
 

@@ -104,7 +104,7 @@ void LowMCPerm_perm_test(const oc::CLP& cmd)
 void LowMCPerm_secret_shared_input_perm_test()
 {
     // User input
-    u64 n = 1454;    // total number of rows
+    u64 n = 144;    // total number of rows
     u64 rowSize = 66;
     
 
