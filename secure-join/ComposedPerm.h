@@ -9,7 +9,7 @@ namespace secJoin
     class ComposedPerm
     {
     public:
-        u64 mPartyIdx;
+        u64 mPartyIdx=-1;
         Perm mPerm;
 
         ComposedPerm() = default;
@@ -42,18 +42,23 @@ namespace secJoin
             oc::MatrixView<T> out,
             coproto::Socket& chl,
             OleGenerator& ole,
-            bool inv = false
-        )
+            bool inv = false)
         {
+            if (out.rows() != in.rows() ||
+                out.cols() != in.cols())
+                throw RTE_LOC;
+
+            if (out.rows() != mPerm.size())
+                throw RTE_LOC;
+
+            if (mPartyIdx > 1)
+                throw RTE_LOC;
 
             MC_BEGIN(macoro::task<>, in, out, &chl, &ole, inv,
                 prng = oc::PRNG(ole.mPrng.get()),
                 this,
                 soutperm = oc::Matrix<T>{}
             );
-            if (out.rows() != in.rows() ||
-                out.cols() != in.cols())
-                throw RTE_LOC;
 
             soutperm.resize(in.rows(), in.cols());
             if ((inv ^ bool(mPartyIdx)) == true)

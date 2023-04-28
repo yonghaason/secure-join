@@ -48,7 +48,7 @@ void RadixSort_aggregateSum_test()
 void RadixSort_hadamardSum_test()
 {
     auto comm = coproto::LocalAsyncSocket::makePair();
-    u64 cols = 1<< 5;
+    u64 cols = 1 << 5;
     u64 rows = 10;
 
     oc::Matrix<u32> d0(rows, rows), d1(rows, rows);
@@ -494,88 +494,63 @@ void RadixSort_genBitPerm_test()
 
 void RadixSort_genPerm_test()
 {
+    auto comm = coproto::LocalAsyncSocket::makePair();
 
-    //IOService ios;
-    //Channel chl01 = Session(ios, "127.0.0.1:1212", SessionMode::Server, "12").addChannel();
-    //Channel chl10 = Session(ios, "127.0.0.1:1212", SessionMode::Client, "12").addChannel();
-    //Channel chl02 = Session(ios, "127.0.0.1:1212", SessionMode::Server, "13").addChannel();
-    //Channel chl20 = Session(ios, "127.0.0.1:1212", SessionMode::Client, "13").addChannel();
-    //Channel chl12 = Session(ios, "127.0.0.1:1212", SessionMode::Server, "23").addChannel();
-    //Channel chl21 = Session(ios, "127.0.0.1:1212", SessionMode::Client, "23").addChannel();
+    u64 trials = 5;
 
-    //aby3::CommPkg com0{ chl02, chl01 };
-    //aby3::CommPkg com1{ chl10, chl12 };
-    //aby3::CommPkg com2{ chl21, chl20 };
+    for (auto n : { 10,100, 1000 })
+    {
+        for (auto bitCount : { 7,17,24 })
+        {
+            for (auto L : { 3 })
+            {
+                for (u64 tt = 0; tt < trials; ++tt)
+                {
+                    OleGenerator g0, g1;
+                    g0.fakeInit(OleGenerator::Role::Sender);
+                    g1.fakeInit(OleGenerator::Role::Receiver);
 
-    //u64 trials = 5;
+                    PRNG prng(block(0, 0));
+                    RadixSort s0(0), s1(1);
+                    s0.mL = L;
+                    s1.mL = L;
+                    AdditivePerm p0, p1;
+                    Perm exp(n);
 
-    //for (auto n : { 10,100, 1000 })
-    //{
-    //	for (auto bitCount : {7,17,24})
-    //	{
-    //		for (auto L : { 3 })
-    //		{
-    //			for (u64 tt = 0; tt < trials; ++tt)
-    //			{
+                    oc::Matrix<u8> k(n, oc::divCeil(bitCount,8));
+                    oc::Matrix<u8> k0, k1;
 
-    //				si64Matrix d0(n, n), d1(n, n), d2(n, n);
+                    for (u64 i = 0; i < k.rows(); ++i)
+                    {
+                        u64 v = prng.get<u64>() & ((1ull << bitCount) - 1);
+                        k(i) = v;
+                    }
 
-    //				aby3::Sh3Encryptor e0, e1, e2;
-    //				e0.init(0, block(0, 0), block(1, 1));
-    //				e1.init(1, block(1, 1), block(2, 2));
-    //				e2.init(2, block(2, 2), block(0, 0));
-    //				auto& g0 = e0.mShareGen;
-    //				auto& g1 = e1.mShareGen;
-    //				auto& g2 = e2.mShareGen;
+                    std::stable_sort(exp.begin(), exp.end(),
+                        [&](const auto& a, const auto& b) {
+                            return (k(a) < k(b));
+                        });
+                    exp = exp.inverse();
 
-    //				PRNG prng(block(0, 0));
-    //				RadixSort s0(0), s1(1), s2(2);
-    //				s0.mL = L;
-    //				s1.mL = L;
-    //				s2.mL = L;
-    //				AdditivePerm p0, p1, p2;
-    //				Perm exp(n);
+                    share(k, bitCount, k0, k1, prng);
 
-    //				oc::Matrix<i64> k(n, 1);
-    //				aby3::sbMatrix k0, k1, k2;
+                    macoro::sync_wait(macoro::when_all_ready(
+                        s0.genPerm(bitCount, k0, p0, g0, comm[0]),
+                        s1.genPerm(bitCount, k1, p1, g1, comm[1])
+                    ));
 
-    //				for (u64 i = 0; i < k.rows(); ++i)
-    //				{
-    //					u64 v = prng.get<u64>() & ((1ull << bitCount) - 1);
-    //					k(i) = v;
-    //				}
+                    auto act = reveal(p0, p1);
 
-    //				std::stable_sort(exp.begin(), exp.end(),
-    //					[&](const auto& a, const auto& b) {
-    //						return (k(a) < k(b));
-    //					});
-    //				exp = exp.inverse();
+                    if (exp != act)
+                    {
+                        std::cout << "n " << n << " b " << bitCount << " L " << L << std::endl;
+                        std::cout << "\n" << exp << "\n" << act << std::endl;
+                        throw RTE_LOC;
+                    }
 
-    //				share(k, bitCount, k0, k1, k2, prng);
-
-    //				auto fu0 = std::async([&] { s0.genPerm(k0, p0, g0, com0); });
-    //				auto fu1 = std::async([&] { s1.genPerm(k1, p1, g1, com1); });
-    //				auto fu2 = std::async([&] { s2.genPerm(k2, p2, g2, com2); });
-
-    //				fu0.get();
-    //				fu1.get();
-    //				fu2.get();
-
-    //				aby3::eMatrix<i64> ff = reveal(p0.mShare, p1.mShare, p2.mShare);
-    //				Perm act;
-    //				act.mPerm.insert(act.mPerm.begin(), ff.data(), ff.data() + ff.size());
-
-
-    //				if (exp != act)
-    //				{
-    //					std::cout << "n " << n << " b " << bitCount << " L " << L << std::endl;
-    //					std::cout << "\n" << exp << "\n" << act << std::endl;
-    //					throw RTE_LOC;
-    //				}
-
-    //			}
-    //		}
-    //	}
-    //}
+                }
+            }
+        }
+    }
 
 }

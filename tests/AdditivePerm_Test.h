@@ -2,4 +2,5 @@
 #include "util.h"
 #include "secure-join/AdditivePerm.h"
 
-void AdditivePerm_basic_test();
+void AdditivePerm_xor_test();
+void AdditivePerm_add_test();

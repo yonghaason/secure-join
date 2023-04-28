@@ -14,14 +14,19 @@ inline void share(const Matrix<u32>& x, Matrix<u32>& x0, Matrix<u32>& x1, PRNG& 
     x0.resize(x.rows(), x.cols());
     x1.resize(x.rows(), x.cols());
     prng.get(x0.data(), x0.size());
-    //for (u64 i = 0; i < x.size(); ++i)
-    //{
-    //    x0(i) = x(i) / 2;
-    //}
+
     for (u64 i = 0; i < x.size(); ++i)
         x1(i) = x(i) - x0(i);
 }
 
+inline void share(const span<u32> x, std::vector<u32>& x0, std::vector<u32>& x1, PRNG& prng)
+{
+    x0.resize(x.size());
+    x1.resize(x.size());
+    prng.get(x0.data(), x0.size());
+    for (u64 i = 0; i < x.size(); ++i)
+        x1[i] = x[i] - x0[i];
+}
 
 
 inline void share(const Matrix<u8>& x, u64 bitCount, Matrix<u8>& x0, Matrix<u8>& x1, PRNG& prng)
@@ -52,22 +57,19 @@ inline void share(const Matrix<u8>& x, Matrix<u8>& x0, Matrix<u8>& x1, PRNG& prn
 }
 inline Perm reveal(const AdditivePerm& x0, const AdditivePerm& x1)
 {
-    if (x0.mType != x1.mType)
-        throw RTE_LOC;
     if (x0.mRho != x1.mRho)
         throw RTE_LOC;
     Perm p(x0.size());
 
-    if (x0.mType == AdditivePerm::Type::Xor)
     {
         for (u64 i = 0; i < p.size(); ++i)
             p.mPerm[i] = x0.mShare[i] ^ x1.mShare[i];
     }
-    else
-    {
-        for (u64 i = 0; i < p.size(); ++i)
-            p.mPerm[i] = x0.mShare[i] + x1.mShare[i];
-    }
+    //else
+    //{
+    //    for (u64 i = 0; i < p.size(); ++i)
+    //        p.mPerm[i] = x0.mShare[i] + x1.mShare[i];
+    //}
 
     //p.validate();
     return p;
@@ -95,6 +97,25 @@ inline std::array<oc::Matrix<oc::u8>, 2> share(
 
     for (oc::u64 i = 0; i < v.size(); ++i)
         s1(i) = v(i) ^ s0(i);
+
+    return { s0, s1 };
+}
+
+
+
+inline std::array<oc::Matrix<oc::u32>, 2> share(
+    oc::Matrix<oc::u32> v,
+    oc::PRNG& prng)
+{
+    auto n = v.rows();
+    oc::Matrix<oc::u32>
+        s0(n, v.cols()),
+        s1(n, v.cols());
+
+    prng.get(s0.data(), s0.size());
+
+    for (oc::u64 i = 0; i < v.size(); ++i)
+        s1(i) = v(i) - s0(i);
 
     return { s0, s1 };
 }
@@ -137,9 +158,22 @@ inline oc::Matrix<oc::u8> reveal(
     return s;
 }
 
+
 inline bool eq(
     const oc::Matrix<oc::u8>& v1,
     const oc::Matrix<oc::u8>& v2)
+{
+    // Checking the dimensions
+    if (v1.rows() != v2.rows())
+        throw RTE_LOC;
+    if (v1.cols() != v2.cols())
+        throw RTE_LOC;
+
+    return std::equal(v1.begin(), v1.end(), v2.begin());
+}
+inline bool eq(
+    const oc::Matrix<oc::u32>& v1,
+    const oc::Matrix<oc::u32>& v2)
 {
     // Checking the dimensions
     if (v1.rows() != v2.rows())

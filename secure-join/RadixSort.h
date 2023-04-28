@@ -192,7 +192,10 @@ namespace secJoin
         void init(u64 partyIdx)
         {
             mPartyIdx = partyIdx;
+            mArith2BinCir = {};
         }
+
+        oc::BetaCircuit mArith2BinCir;
 
         //// for each i, compute the Hadamard (component-wise) product between the columns of D[i]
         //// and write the result to f[i]. i.e.
@@ -327,11 +330,13 @@ namespace secJoin
                 tripleReq = Request<ArithTriple>{},
                 triple = ArithTriple{},
                 a = std::vector<oc::AlignedUnVector<u32>>{},
+                shares = std::vector<u32>{},
                 A = Matrix32{},
                 B = Matrix32{},
                 i = u64{},
                 m = u64{},
-                r = u64{}
+                r = u64{},
+                gmw = Gmw{}
             );
 
             // A = f + a
@@ -339,11 +344,19 @@ namespace secJoin
             A.resize(f.rows(), f.cols());
             B.resize(f.rows(), f.cols());
 
-            dst.mType = AdditivePerm::Type::Add;
-            dst.mShare.resize(0);
-            dst.mShare.resize(f.rows());
+            shares.resize(f.rows());
 
             MC_AWAIT_SET(tripleReq, gen.arithTripleRequest(f.size(), 32));
+
+            if (mArith2BinCir.mGates.size() == 0)
+            {
+                u64 bitCount = oc::log2ceil(shares.size());
+                oc::BetaLibrary lib;
+                mArith2BinCir = *lib.uint_uint_add(bitCount, bitCount, bitCount, oc::BetaLibrary::Optimized::Depth);
+                mArith2BinCir.levelByAndDepth();
+            }
+
+            gmw.init(shares.size(), mArith2BinCir, gen);
 
             for (i = 0, r = 0; i < f.size();)
             {
@@ -366,7 +379,7 @@ namespace secJoin
 
                     // z = (A + A') [s] + (-B - B')[a] + [c]
                     //      *               *             *  
-                    dst.mShare[row] +=
+                    shares[row] +=
                         A(i) * s(i)
                         - B(i) * triple.mA[j]
                         + triple.mC[j];
@@ -401,7 +414,7 @@ namespace secJoin
 
                     // z = (A + A') [s] + (-B - B')[a] + [c]
                     //          *               *               
-                    dst.mShare[row] +=
+                    shares[row] +=
                         A(i) * s(i)
                         - B(i) * a[k][j];
 
@@ -409,13 +422,13 @@ namespace secJoin
                 }
             }
 
-            //for (u64 i = 0; i < c.rows(); ++i)
-            //{
-            //    dst.mPerm.mPerm[i] = 0;
-            //    for (u64 j = 0; j < c.cols(); ++j)
-            //        dst.mPerm.mPerm[i] += c(i, j);
-            //}
+            gmw.setZeroInput((int)gen.mRole);
+            gmw.setInput((int)gen.mRole ^ 1, oc::MatrixView<u32>(shares.data(), 1, shares.size()));
 
+            MC_AWAIT(gmw.run(comm));
+
+            dst.mShare.resize(shares.size());
+            gmw.getOutput(0, oc::MatrixView<u32>(dst.mShare.data(), 1, dst.mShare.size()));
 
             MC_END();
         }

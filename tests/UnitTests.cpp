@@ -43,7 +43,8 @@ namespace secJoin_Tests
         t.add("LowMCPerm_perm_test                           ", LowMCPerm_perm_test);
         t.add("LowMCPerm_secret_shared_input_perm_test       ", LowMCPerm_secret_shared_input_perm_test);
         t.add("ComposedPerm_replicated_perm_test             ", ComposedPerm_replicated_perm_test);
-        t.add("AdditivePerm_basic_test                       ", AdditivePerm_basic_test);
+        t.add("AdditivePerm_xor_test                         ", AdditivePerm_xor_test);
+        t.add("AdditivePerm_add_test                         ", AdditivePerm_add_test);
         t.add("DarkMatter22Prf_plain_test                    ", DarkMatter22Prf_plain_test);
         t.add("DarkMatter32Prf_plain_test                    ", DarkMatter32Prf_plain_test);
         t.add("DarkMatter22Prf_util_test                     ", DarkMatter22Prf_util_test);
@@ -59,6 +60,7 @@ namespace secJoin_Tests
         t.add("RadixSort_genValMasks2_test                   ", RadixSort_genValMasks2_test);
         t.add("RadixSort_hadamardSum_test                    ", RadixSort_hadamardSum_test);
         t.add("RadixSort_genBitPerm_test                     ", RadixSort_genBitPerm_test);
+        t.add("RadixSort_genPerm_test                        ", RadixSort_genPerm_test);
         
 
     }); 

@@ -7,166 +7,183 @@
 namespace secJoin
 {
 
-	class AdditivePerm
-	{
-	public:
-		// Need to eventually change this to si64Matrix
-		enum class Type
-		{
-			Add,
-			Xor
-		};
+    class AdditivePerm
+    {
+    public:
+        std::vector<u32> mShare;
+        ComposedPerm mPi;
+        Perm mRho;
 
-		Type mType = Type::Xor;
-		std::vector<u32> mShare;
-		ComposedPerm mPi;
-		Perm mRho;
+        bool isSetup() const { return mRho.size(); }
 
-		bool isSetup() const { return mRho.size(); }
+        AdditivePerm() = default;
 
-		AdditivePerm() = default;
+        AdditivePerm(span<u32> shares, PRNG& prng, u8 partyIdx) :
+            mPi(shares.size(), partyIdx, prng)
+        {
+            mShare.resize(shares.size());
+            std::copy(shares.begin(), shares.end(), (u32*)mShare.data());
+        }
 
-		AdditivePerm(span<u32> shares, PRNG& prng, u8 partyIdx, Type type):
-			mType(type),
-			mPi(shares.size(), partyIdx, prng)
-		{
-			mShare.resize(shares.size());
-			std::copy(shares.begin(), shares.end(), (u32*)mShare.data());
-		}
-
-		//AdditivePerm(span<u32> data, Perm mPerm, u8 partyIdx):
-		//	mPi(std::move(mPerm), partyIdx)
-		//{
-		//	mShare.resize(data.size(), sizeof(u32));
-		//	std::copy(data.begin(), data.end(), (u32*)mShare.data());
-		//}
+        //AdditivePerm(span<u32> data, Perm mPerm, u8 partyIdx):
+        //	mPi(std::move(mPerm), partyIdx)
+        //{
+        //	mShare.resize(data.size(), sizeof(u32));
+        //	std::copy(data.begin(), data.end(), (u32*)mShare.data());
+        //}
 
 
-		// generate the masking (replicated) permutation mPi
-		// and then reveal mRhoPP = mPi(mShares).
-		//
-		// We can then apply our main permutation (mShares)
-		// or an input vector x by computing
-		//
-		// t = mRho(x)
-		// y = mPi^-1(t)
-		//
-		// mRho is public and mPi is replicated so we
-		// have protocols for both.
-		//
-		macoro::task<> setup(
-			coproto::Socket &chl,
-			OleGenerator& ole
-		)
-		{
-			MC_BEGIN(macoro::task<>, this, &chl, &ole,
-					rho1 = oc::Matrix<u32>{},
-					rho2 = oc::Matrix<u32>{}
-					);
+        // generate the masking (replicated) permutation mPi
+        // and then reveal mRhoPP = mPi(mShares).
+        //
+        // We can then apply our main permutation (mShares)
+        // or an input vector x by computing
+        //
+        // t = mRho(x)
+        // y = mPi^-1(t)
+        //
+        // mRho is public and mPi is replicated so we
+        // have protocols for both.
+        //
+        macoro::task<> setup(
+            coproto::Socket& chl,
+            OleGenerator& ole,
+            PRNG& prng
+        )
+        {
+            MC_BEGIN(macoro::task<>, this, &chl, &ole, &prng,
+                rho1 = oc::Matrix<u32>{},
+                rho2 = oc::Matrix<u32>{},
+                ss = std::vector<u32>{},
+                i = u64{}
+            );
 
-			//std::cout << "mPi.mPerm for party = " << mPi.mPartyIdx << " is ";
-			//std::cout << mPi.mPerm << " " << std::endl;
+            //std::cout << "mPi.mPerm for party = " << mPi.mPartyIdx << " is ";
+            //std::cout << mPi.mPerm << " " << std::endl;
 
-			// rho1 will resized() and initialed in the apply function
-			rho1.resize(mShare.size(), 1);
-			MC_AWAIT(mPi.apply<u32>( 
-				oc::MatrixView<u32>(mShare.data(), mShare.size(), 1), 
-				rho1, chl, ole, false));
+            mPi.init(mShare.size(), (int)ole.mRole, prng);
 
-			// Exchanging the [Rho]
-			if (mPi.mPartyIdx == 0)
-			{
-				// First party first sends the [rho] and then receives it
-				MC_AWAIT(chl.send(rho1));
+            // rho1 will resized() and initialed in the apply function
+            rho1.resize(mShare.size(), 1);
+            MC_AWAIT(mPi.apply<u32>(
+                oc::MatrixView<u32>(mShare.data(), mShare.size(), 1),
+                rho1, chl, ole, false));
 
-				rho2.resize(rho1.rows(), rho1.cols());
-				MC_AWAIT(chl.recv(rho2));
-			}
-			else
-			{
-				// Second party first receives the [rho] and then sends it
-				rho2.resize(rho1.rows(), rho1.cols());
-				MC_AWAIT(chl.recv(rho2));
+            // Exchanging the [Rho]
+            if (mPi.mPartyIdx == 0)
+            {
+                // First party first sends the [rho] and then receives it
+                MC_AWAIT(chl.send(rho1));
 
-				MC_AWAIT(chl.send(rho1));
-			}
+                rho2.resize(rho1.rows(), rho1.cols());
+                MC_AWAIT(chl.recv(rho2));
+            }
+            else
+            {
+                // Second party first receives the [rho] and then sends it
+                rho2.resize(rho1.rows(), rho1.cols());
+                MC_AWAIT(chl.recv(rho2));
 
-			// Constructing Rho
-			if (mShare.size() != rho2.rows())
-				throw RTE_LOC;
+                MC_AWAIT(chl.send(rho1));
+            }
 
-			if (mShare.size() != rho1.rows())
-				throw RTE_LOC;
+            // Constructing Rho
+            if (mShare.size() != rho2.rows())
+                throw RTE_LOC;
 
-			mRho.mPerm.resize(rho1.rows());
+            if (mShare.size() != rho1.rows())
+                throw RTE_LOC;
 
-			// std::cout << "Rho1 Rows " << rho1.rows() << std::endl;
-			// std::cout << "Rho1 Cols " << rho1.cols() << std::endl;
+            mRho.mPerm.resize(rho1.rows());
 
-			// std::cout << "Size of one row is " << sizeof(*(u32*)rho1(0)) << std::endl;
-			// std::cout << "Value of zero row is " << *(u32*)rho1.data(0) << std::endl;
+            // std::cout << "Rho1 Rows " << rho1.rows() << std::endl;
+            // std::cout << "Rho1 Cols " << rho1.cols() << std::endl;
 
-			if (mType == Type::Xor)
-			{
-				for (oc::u32 i = 0; i < rho1.rows(); ++i)
-				{
-					mRho.mPerm[i] = *(u32*)rho1.data(i) ^ *(u32*)rho2.data(i);
-				}
-			}
-			else
-			{
-				for (oc::u32 i = 0; i < rho1.rows(); ++i)
-				{
-					mRho.mPerm[i] = *(u32*)rho1.data(i) + *(u32*)rho2.data(i);
-				}
-			}
-			MC_END();
-		}
+            // std::cout << "Size of one row is " << sizeof(*(u32*)rho1(0)) << std::endl;
+            // std::cout << "Value of zero row is " << *(u32*)rho1.data(0) << std::endl;
 
-		u64 size() const { return mShare.size(); }
+            {
+                for (i = 0; i < rho1.rows(); ++i)
+                {
+                    mRho.mPerm[i] = *(u32*)rho1.data(i) ^ *(u32*)rho2.data(i);
+//#ifndef NDEBUG
+//                    if (mRho[i] >= size())
+//                    {
+//                        ss.resize(mShare.size());
+//                        MC_AWAIT(chl.send(coproto::copy(mShare)));
+//                        MC_AWAIT(chl.recv(ss));
+//
+//
+//                        for (u64 j = 0; j < size(); ++j)
+//                        {
+//                            if ((ss[j] ^ mShare[j]) > size())
+//                                throw RTE_LOC;
+//                        }
+//                    }
+//#endif
+
+                    assert(mRho[i] < size());
+                }
+            }
+
+            MC_END();
+        }
+
+        u64 size() const { return mShare.size(); }
+
+        template<typename T>
+        macoro::task<> apply(
+            oc::MatrixView<T>& in,
+            oc::MatrixView<T>& out,
+            oc::PRNG& prng,
+            coproto::Socket& chl,
+            OleGenerator& ole,
+            bool inv = false)
+        {
+            if (out.rows() != in.rows())
+                throw RTE_LOC;
+            if (out.cols() != in.cols())
+                throw RTE_LOC;
+            if (out.rows() != size())
+                throw RTE_LOC;
+
+            MC_BEGIN(macoro::task<>, this, &in, &out, &prng, &chl, &ole, inv,
+                temp = oc::Matrix<T>{},
+                soutInv = oc::Matrix<T>{}
+            );
+
+            if (isSetup() == false)
+                MC_AWAIT(setup(chl, ole, prng));
+
+            if (inv)
+            {
+                temp.resize(in.rows(), in.cols());
+                MC_AWAIT(mPi.apply<T>(in, temp, chl, ole, false));
+                mRho.apply<T>(temp, out, true);
+            }
+            else
+            {
+                // Local Permutation of [x]
+                temp.resize(in.rows(), in.cols());
+                mRho.apply<T>(in, temp);
+                MC_AWAIT(mPi.apply<T>(temp, out, chl, ole, true));
+            }
+
+            MC_END();
+        }
 
 
-		macoro::task<> apply(
-			oc::Matrix<u8> &in,
-			oc::Matrix<u8> &out,
-			oc::PRNG &prng,
-			coproto::Socket &chl,
-			OleGenerator& ole,
-			bool inv = false)
-		{
-			if (inv)
-				throw RTE_LOC;
+        macoro::task<> compose(
+            const AdditivePerm& pi,
+            AdditivePerm& out,
+            oc::PRNG& prng,
+            coproto::Socket& chl,
+            OleGenerator& gen
+        )
+        {
+            throw RTE_LOC;
+        }
 
-			MC_BEGIN(macoro::task<>, this, &in, &out, &prng, &chl, &ole,
-					 temp = oc::Matrix<u8>{},
-					 soutInv = oc::Matrix<u8>{}
-
-			);
-
-			out.resize(in.rows(), in.cols());
-
-			// Local Permutation of [x]
-			temp.resize(in.rows(), in.cols());
-			mRho.apply<u8>(in, temp);
-
-
-			MC_AWAIT(mPi.apply<u8>(temp, out, chl, ole, true));
-
-			MC_END();
-		}
-
-
-		macoro::task<> compose(
-			const AdditivePerm& pi,
-			AdditivePerm& out,
-			oc::PRNG& prng,
-			coproto::Socket& chl,
-			OleGenerator& gen
-		)
-		{
-			throw RTE_LOC;
-		}
-
-	};
+    };
 
 }
