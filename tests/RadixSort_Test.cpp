@@ -498,11 +498,11 @@ void RadixSort_genPerm_test()
 
     u64 trials = 5;
 
-    for (auto n : { 10,100, 1000 })
+    for (auto n : { 6,100, 1000 })
     {
         for (auto bitCount : { 7,17,24 })
         {
-            for (auto L : { 3 })
+            for (auto L : { 2 })
             {
                 for (u64 tt = 0; tt < trials; ++tt)
                 {
@@ -514,6 +514,10 @@ void RadixSort_genPerm_test()
                     RadixSort s0(0), s1(1);
                     s0.mL = L;
                     s1.mL = L;
+
+                    oc::Timer timer;
+                    s0.setTimer(timer);
+
                     AdditivePerm p0, p1;
                     Perm exp(n);
 
@@ -541,6 +545,8 @@ void RadixSort_genPerm_test()
 
                     auto act = reveal(p0, p1);
 
+
+                    std::cout << timer << std::endl;
                     if (exp != act)
                     {
                         std::cout << "n " << n << " b " << bitCount << " L " << L << std::endl;

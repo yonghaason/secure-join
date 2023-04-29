@@ -9,6 +9,7 @@
 #include "Defines.h"
 #include "coproto/Socket/Socket.h"
 #include "OleGenerator.h"
+#include "cryptoTools/Common/Timer.h"
 
 namespace secJoin
 {
@@ -174,7 +175,7 @@ namespace secJoin
         MC_END();
     }
 
-    class RadixSort
+    class RadixSort : public oc::TimerAdapter
     {
     public:
         u64 mPartyIdx = -1;
@@ -300,7 +301,7 @@ namespace secJoin
                 ss(i) += s(i);
             }
             for (u64 i = 0; i < dd.size(); ++i)
-                dd[i] += dst[i];
+                dd[i] ^= dst[i];
 
             exp.resize(dd.size());
             for (u64 i = 0; i < dd.size(); ++i)
@@ -336,7 +337,10 @@ namespace secJoin
                 i = u64{},
                 m = u64{},
                 r = u64{},
-                gmw = Gmw{}
+                gmw = Gmw{},
+                tt = std::vector<u32>{},
+                dd = std::vector<u32>{}
+
             );
 
             // A = f + a
@@ -423,12 +427,31 @@ namespace secJoin
             }
 
             gmw.setZeroInput((int)gen.mRole);
-            gmw.setInput((int)gen.mRole ^ 1, oc::MatrixView<u32>(shares.data(), 1, shares.size()));
+            gmw.setInput((int)gen.mRole ^ 1, oc::MatrixView<u32>(shares.data(), shares.size(), 1));
 
             MC_AWAIT(gmw.run(comm));
 
             dst.mShare.resize(shares.size());
-            gmw.getOutput(0, oc::MatrixView<u32>(dst.mShare.data(), 1, dst.mShare.size()));
+            gmw.getOutput(0, oc::MatrixView<u32>(dst.mShare.data(), dst.mShare.size(), 1));
+
+            {
+                tt.resize(shares.size());
+                dd.resize(shares.size());
+                MC_AWAIT(comm.send(coproto::copy(shares)));
+                MC_AWAIT(comm.send(coproto::copy(dst.mShare)));
+                MC_AWAIT(comm.recv(tt));
+                MC_AWAIT(comm.recv(dd));
+
+                for (u64 i = 0; i < shares.size(); ++i)
+                {
+                    tt[i] += shares[i];
+                    dd[i] ^= dst.mShare[i];
+
+                }
+                    
+                if (tt != dd)
+                    throw RTE_LOC;
+            }
 
             MC_END();
         }
@@ -966,6 +989,8 @@ namespace secJoin
 
             );
 
+            setTimePoint("genPerm begin");
+
             if (keyBitCount > k.cols() * 8)
                 throw RTE_LOC;
 
@@ -976,27 +1001,34 @@ namespace secJoin
             // generate the sorting permutation for the
             // first L bits of the key.
             MC_AWAIT(genBitPerm(mL, sk, dst, gen, comm));
+            setTimePoint("genBitPerm");
             //dst.validate(comm);
 
             for (i = 1; i < ll; ++i)
             {
                 // get the next L bits of the key.
                 sk = extract(kIdx, mL, k); kIdx += mL;
+                ssk.resize(sk.rows(), sk.cols());
 
                 // apply the partial sort that we have so far 
                 // to the next L bits of the key.
-                MC_AWAIT(dst.apply(sk, ssk, gen.mPrng, comm, gen, true));
+                MC_AWAIT(dst.apply<u8>(sk, ssk, gen.mPrng, comm, gen, true));
+                setTimePoint("apply(sk)");
 
                 // generate the sorting permutation for the
                 // next L bits of the key.
                 MC_AWAIT(genBitPerm(mL, ssk, rho, gen, comm));
+                setTimePoint("genBitPerm");
 
                 // compose the current partial sort with
                 // the permutation that sorts the next L bits
                 MC_AWAIT(rho.compose(dst, sigma2, gen.mPrng, comm, gen));
+                setTimePoint("compose");
                 std::swap(dst, sigma2);
                 //dst.validate(comm);
             }
+            setTimePoint("genPerm end");
+
 
             MC_END();
         }

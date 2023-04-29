@@ -53,8 +53,8 @@ void AdditivePerm_xor_test()
     yShare[0].resize(x.rows(), x.cols());
     yShare[1].resize(x.rows(), x.cols());
 
-    proto0 = vecPerm1.apply(xShares[0], yShare[0], prng, chls[0], ole0);
-    proto1 = vecPerm2.apply(xShares[1], yShare[1], prng, chls[1], ole1);
+    proto0 = vecPerm1.apply<u8>(xShares[0], yShare[0], prng, chls[0], ole0);
+    proto1 = vecPerm2.apply<u8>(xShares[1], yShare[1], prng, chls[1], ole1);
 
     auto res1 = macoro::sync_wait(macoro::when_all_ready(std::move(proto0), std::move(proto1)));
 
@@ -69,8 +69,8 @@ void AdditivePerm_xor_test()
     
 
     auto res2 = macoro::sync_wait(macoro::when_all_ready(
-        vecPerm1.apply(xShares[0], yShare[0], prng, chls[0], ole0, true),
-        vecPerm2.apply(xShares[1], yShare[1], prng, chls[1], ole1, true)
+        vecPerm1.apply<u8>(xShares[0], yShare[0], prng, chls[0], ole0, true),
+        vecPerm2.apply<u8>(xShares[1], yShare[1], prng, chls[1], ole1, true)
     ));
     std::get<0>(res2).result();
     std::get<1>(res2).result();
