@@ -9,7 +9,7 @@
 #include "Common.h"
 #include "coproto/Socket/LocalAsyncSock.h"
 
-
+#include "util.h"
 using coproto::LocalAsyncSocket;
 using namespace secJoin;
 
@@ -876,7 +876,10 @@ namespace secJoin_Tests
     {
         oc::BetaLibrary lib;
 
-        auto cir = *lib.int_int_add(64, 64, 64);
+        u64 bitCount = 4;
+        auto cir = *lib.uint_uint_add(bitCount, bitCount, bitCount, oc::BetaLibrary::Optimized::Depth);
+        cir.levelByAndDepth();
+        //auto cir = *lib.int_int_add(64, 64, 64);
 
         auto sockets = LocalAsyncSocket::makePair();
 
@@ -886,16 +889,23 @@ namespace secJoin_Tests
 
         u64 n = 100;
 
-        std::vector<i64> in0(n), in1(n), out(n);
-        std::array<Matrix<u8>, 2> sout;
-        sout[0].resize(n, sizeof(i64));
-        sout[1].resize(n, sizeof(i64));
+        std::vector<u32> in0(n), in1(n);
+        std::array<Matrix<u32>, 2> sout;
+        sout[0].resize(n, 1);
+        sout[1].resize(n, 1);
 
         prng.get(in0.data(), n);
         prng.get(in1.data(), n);
-        auto sin0 = share(in0, prng);
-        auto sin1 = share(in1, prng);
-
+        auto sin0_ = xorShare(in0, prng);
+        auto sin1_ = xorShare(in1, prng);
+        std::array<oc::MatrixView<u32>, 2> sin0{ {
+            oc::MatrixView<u32>(sin0_[0].data(), sin0_[0].size(), 1),
+            oc::MatrixView<u32>(sin0_[1].data(), sin0_[0].size(), 1)
+        } };
+        std::array<oc::MatrixView<u32>, 2> sin1{ {
+            oc::MatrixView<u32>(sin1_[0].data(), sin1_[0].size(), 1),
+            oc::MatrixView<u32>(sin1_[1].data(), sin1_[0].size(), 1)
+        } };
 
         OleGenerator ole0, ole1;
         ole0.fakeInit(OleGenerator::Role::Sender);
@@ -918,16 +928,18 @@ namespace secJoin_Tests
         gmw0.getOutput(0, sout[0]);
         gmw1.getOutput(0, sout[1]);
 
-        out = reconstruct<i64>(sout);
+        //out = reconstruct<u32>(sout);
 
         for (u64 i = 0; i < n; ++i)
         {
-            auto exp = (in0[i] + in1[i]);
-            auto act = out[i];
+            auto exp = (in0[i] + in1[i]) & ((1ull << bitCount) - 1);
+            auto act = sout[0](i)^sout[1](i);
             if (act != exp)
             {
                 std::cout << "i   " << i << std::endl;
-                std::cout << "exp " << exp << std::endl;
+                std::cout << "exp " << exp  << " = "
+                    << (in0[i] & ((1ull << bitCount) - 1)) << " + " 
+                    << (in1[i] & ((1ull << bitCount) - 1)) << " mod 2^" << bitCount << std::endl;
                 std::cout << "act " << act << std::endl;
                 throw RTE_LOC;
             }

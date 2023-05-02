@@ -68,10 +68,9 @@ void RadixSort_hadamardSum_test()
     {
         for (u64 j = 0; j < l[i].size(); ++j)
         {
-
-            r(i, j) = prng.get<u64>() % 4 + 1;
-            l(i, j) = prng.get<u64>() % 4 + 1;
+            r(i, j) = prng.get<u64>() % 4;
         }
+        l(i, prng.get<u64>() % cols) = 1;
     }
     //l1 = l;
     //r1 = r;
@@ -82,7 +81,8 @@ void RadixSort_hadamardSum_test()
     OleGenerator g0, g1;
     g0.fakeInit(OleGenerator::Role::Sender);
     g1.fakeInit(OleGenerator::Role::Receiver);
-
+    s0.mDebug = true;
+    s1.mDebug = true;
     macoro::sync_wait(macoro::when_all_ready(
         s0.hadamardSum(l0, r0, p0, g0, comm[0]),
         s1.hadamardSum(l1, r1, p1, g1, comm[1])
@@ -500,7 +500,7 @@ void RadixSort_genPerm_test()
 
     for (auto n : { 6,100, 1000 })
     {
-        for (auto bitCount : { 7,17,24 })
+        for (auto bitCount : { 9,17,24 })
         {
             for (auto L : { 2 })
             {
@@ -515,24 +515,32 @@ void RadixSort_genPerm_test()
                     s0.mL = L;
                     s1.mL = L;
 
+                    //s0.mDebug = true;
+                    //s1.mDebug = true;
+
                     oc::Timer timer;
                     s0.setTimer(timer);
+                    s1.setTimer(timer);
 
                     AdditivePerm p0, p1;
                     Perm exp(n);
 
-                    oc::Matrix<u8> k(n, oc::divCeil(bitCount,8));
+                    std::vector<u64> k64(n);
+                    oc::Matrix<u8> k(n, oc::divCeil(bitCount, 8));
                     oc::Matrix<u8> k0, k1;
 
+                    auto mask = ((1ull << bitCount) - 1);
                     for (u64 i = 0; i < k.rows(); ++i)
                     {
-                        u64 v = prng.get<u64>() & ((1ull << bitCount) - 1);
-                        k(i) = v;
+                        assert(bitCount < 64);
+                        u64 v = prng.get<u64>() & mask;
+                        k64[i] = v;
+                        memcpy(k[i].data(), &v, k[i].size());
                     }
 
                     std::stable_sort(exp.begin(), exp.end(),
                         [&](const auto& a, const auto& b) {
-                            return (k(a) < k(b));
+                            return (k64[a] < k64[b]);
                         });
                     exp = exp.inverse();
 
@@ -546,7 +554,7 @@ void RadixSort_genPerm_test()
                     auto act = reveal(p0, p1);
 
 
-                    std::cout << timer << std::endl;
+                    //std::cout << timer << std::endl;
                     if (exp != act)
                     {
                         std::cout << "n " << n << " b " << bitCount << " L " << L << std::endl;

@@ -3,18 +3,20 @@
 #include <vector>
 #include "ComposedPerm.h"
 #include "Permutation.h"
+#include "cryptoTools/Common/Timer.h"
 
 namespace secJoin
 {
 
-    class AdditivePerm
+    class AdditivePerm : public oc::TimerAdapter
     {
     public:
         std::vector<u32> mShare;
         ComposedPerm mPi;
         Perm mRho;
+        bool mIsSetup = false;
 
-        bool isSetup() const { return mRho.size(); }
+        bool isSetup() const { return mIsSetup; }
 
         AdditivePerm() = default;
 
@@ -23,6 +25,14 @@ namespace secJoin
         {
             mShare.resize(shares.size());
             std::copy(shares.begin(), shares.end(), (u32*)mShare.data());
+        }
+
+        void init(u64 size)
+        {
+            mShare.resize(size);
+            mPi.mPerm.mPerm.resize(size);
+            mRho.mPerm.resize(size);
+            mIsSetup = false;
         }
 
         //AdditivePerm(span<u32> data, Perm mPerm, u8 partyIdx):
@@ -126,6 +136,8 @@ namespace secJoin
                 }
             }
 
+            mIsSetup = true;
+
             MC_END();
         }
 
@@ -200,7 +212,7 @@ namespace secJoin
             if (pi.size() != size())
                 throw RTE_LOC;
             //dst.init(p2.size(), p2.mPi.mPartyIdx, gen);
-            dst.mShare.resize(size());
+            dst.init(size());
             return pi.apply<u32>(mShare, dst.mShare, prng, chl, gen);
         }
 

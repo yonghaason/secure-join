@@ -121,7 +121,7 @@ inline std::array<oc::Matrix<oc::u32>, 2> share(
 }
 
 inline std::array<std::vector<u32>, 2> xorShare(
-    const std::vector<u32>& v,
+    span<const u32> v,
     oc::PRNG& prng)
 {
     auto n = v.size();

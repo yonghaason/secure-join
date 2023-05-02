@@ -50,6 +50,21 @@ namespace secJoin
         }
     }
 
+    inline bool operator>(const oc::BitVector& v0, const oc::BitVector& v1)
+    {
+        if (v0.size() != v1.size())
+            throw RTE_LOC;
+        for (u64 i = v0.size() - 1; i < v0.size(); --i)
+        {
+            if (v0[i] > v1[i])
+                return true;
+            if (v1[i] > v0[i])
+                return false;
+        }
+
+        return false;
+    }
+
     // convert each bit of the binary secret sharing `in`
     // to integer Z_{2^outBitCount} arithmetic sharings.
     // Each row of `in` should have `inBitCount` bits.
@@ -179,6 +194,7 @@ namespace secJoin
     {
     public:
         u64 mPartyIdx = -1;
+        bool mDebug = false;
 
         using Matrix32 = oc::Matrix<u32>;
         using BinMatrix = oc::Matrix<u8>;
@@ -273,10 +289,11 @@ namespace secJoin
             Matrix32& f,
             Matrix32& s,
             span<u32> dst,
-            coproto::Socket& comm)
+            coproto::Socket& comm, 
+            bool additive)
         {
 
-            MC_BEGIN(macoro::task<>, this, &f, &s, dst, &comm,
+            MC_BEGIN(macoro::task<>, this, &f, &s, dst, &comm, additive,
                 ff = Matrix32{},
                 ss = Matrix32{},
                 dd = std::vector<u32>{},
@@ -301,7 +318,12 @@ namespace secJoin
                 ss(i) += s(i);
             }
             for (u64 i = 0; i < dd.size(); ++i)
-                dd[i] ^= dst[i];
+            {
+                if(additive)
+                    dd[i] += dst[i];
+                else
+                    dd[i] ^= dst[i];
+            }
 
             exp.resize(dd.size());
             for (u64 i = 0; i < dd.size(); ++i)
@@ -426,6 +448,10 @@ namespace secJoin
                 }
             }
 
+            if (mDebug)
+                MC_AWAIT(checkHadamardSum(f, s, shares, comm, true));
+
+
             gmw.setZeroInput((int)gen.mRole);
             gmw.setInput((int)gen.mRole ^ 1, oc::MatrixView<u32>(shares.data(), shares.size(), 1));
 
@@ -434,7 +460,9 @@ namespace secJoin
             dst.mShare.resize(shares.size());
             gmw.getOutput(0, oc::MatrixView<u32>(dst.mShare.data(), dst.mShare.size(), 1));
 
+            if(mDebug)
             {
+
                 tt.resize(shares.size());
                 dd.resize(shares.size());
                 MC_AWAIT(comm.send(coproto::copy(shares)));
@@ -448,10 +476,13 @@ namespace secJoin
                     dd[i] ^= dst.mShare[i];
 
                 }
-                    
+
                 if (tt != dd)
                     throw RTE_LOC;
+
+                MC_AWAIT(checkHadamardSum(f, s, dst.mShare, comm, false));
             }
+
 
             MC_END();
         }
@@ -710,6 +741,10 @@ namespace secJoin
 
             MC_AWAIT(bitInjection(1ull << bitCount, bits, 32, f, gen, comm));
 
+
+            if(mDebug)
+                MC_AWAIT(checkGenValMasks(bitCount, k, f, comm));
+
             MC_END();
         }
 
@@ -791,8 +826,8 @@ namespace secJoin
 
 
         macoro::task<> checkAggregateSum(
-            const Matrix32& f0, 
-            Matrix32& s0, 
+            const Matrix32& f0,
+            Matrix32& s0,
             coproto::Socket& comm
         )
         {
@@ -803,7 +838,7 @@ namespace secJoin
                 ff = Matrix32{},
                 ss = Matrix32{},
                 s = Matrix32{}
-                );
+            );
 
             ff.resize(f0.rows(), f0.cols());
             ss.resize(s0.rows(), s0.cols());
@@ -892,7 +927,7 @@ namespace secJoin
         // permutation that permutes the keys k into sorted order. 
         macoro::task<> genBitPerm(
             u64 keyBitCount,
-            BinMatrix& k,
+            const BinMatrix& k,
             AdditivePerm& dst,
             OleGenerator& gen,
             coproto::Socket& comm)
@@ -902,7 +937,9 @@ namespace secJoin
                 L = u64{},
                 L2 = u64{},
                 f = Matrix32{},
-                s = Matrix32{}
+                s = Matrix32{},
+                sk = BinMatrix{},
+                p = Perm{}
             );
 
             if (keyBitCount > k.cols() * 8)
@@ -918,15 +955,67 @@ namespace secJoin
 
             MC_AWAIT(genValMasks2(keyBitCount, k, f, gen, comm));
 
-            MC_AWAIT(checkGenValMasks(keyBitCount, k, f, comm));
 
             aggregateSum(f, s, mPartyIdx);
 
-            MC_AWAIT(checkAggregateSum(f, s, comm));
+            if (mDebug)
+                MC_AWAIT(checkAggregateSum(f, s, comm));
 
             MC_AWAIT(hadamardSum(f, s, dst, gen, comm));
 
-            MC_AWAIT(checkHadamardSum(f, s, dst.mShare, comm));
+            if (mDebug)
+            {
+
+                assert(k.cols() == 1);
+
+                sk.resize(k.rows(), k.cols());
+                MC_AWAIT(comm.send(coproto::copy(k)));
+                MC_AWAIT(comm.recv(sk));
+
+                p.mPerm.resize(k.rows());
+                MC_AWAIT(comm.send(coproto::copy(dst.mShare)));
+                MC_AWAIT(comm.recv(p.mPerm));
+
+                {
+
+                    for (auto i = 0ull; i < k.size(); ++i)
+                    {
+                        sk(i) ^= k(i);
+                        p.mPerm[i] ^= dst.mShare[i];
+                    }
+
+                    auto genBitPerm = [&](BinMatrix& k) {
+
+                        Perm exp(k.size());
+                        std::stable_sort(exp.begin(), exp.end(),
+                            [&](const auto& a, const auto& b) {
+                                return (k(a) < k(b));
+                            });
+                        return exp.inverse();
+                    };
+                    auto p2 = genBitPerm(sk);
+
+                    std::cout << "k ";
+                    for (auto i = 0ull; i < sk.size(); ++i)
+                        std::cout << " " << (int)sk(i);
+                    std::cout << std::endl;
+
+                    if (p2 != p)
+                        throw RTE_LOC;
+                    std::cout<< "bitPerm " << p << std::endl;
+                    //sk = extract(kIdx, mL, k); kIdx += mL;
+
+                    //for (auto i = 0ull; i < sk.size(); ++i)
+                    //    std::cout << "k[" << i << "] " << (int)sk(i) << std::endl;
+
+
+                    //std::vector<Perm> ret;
+                    //// generate the sorting permutation for the
+                    //// first L bits of the key.
+                    //ret.emplace_back(genBitPerm(sk));
+                    //std::cout << ret.back() << std::endl;
+                }
+            }
 
             MC_END();
         }
@@ -934,7 +1023,7 @@ namespace secJoin
 
         // get 'size' columns of k starting at column index 'begin'
         // Assumes 'size <= 8'. 
-        static BinMatrix extract(u64 begin, u64 size, const BinMatrix& k)
+        BinMatrix extract(u64 begin, u64 size, const BinMatrix& k)
         {
             // we assume at most a byte size.
             if (size > 8)
@@ -963,9 +1052,138 @@ namespace secJoin
             auto s = std::min<u64>(2, k.size() - n * step);
             memcpy(&x, s0, s);
             sk(n) = (x >> shift) & mask;
+
+            if (mDebug)
+            {
+                for (u64 i = 0; i < n; ++i)
+                {
+                    for (u64 j = 0; j < size; ++j)
+                    {
+                        if (*oc::BitIterator(k[i].data(), begin + j) !=
+                            *oc::BitIterator(sk[i].data(), j))
+                            throw RTE_LOC;
+                    }
+                }
+            }
+
             return sk;
         }
 
+
+        macoro::task<std::vector<Perm>> debugGenPerm(
+            u64 keyBitCount,
+            const BinMatrix& k,
+            coproto::Socket& comm)
+        {
+            MC_BEGIN(macoro::task<std::vector<Perm>>, this, keyBitCount, &k, &comm,
+                kk = BinMatrix{}                
+            );
+
+            kk.resize(k.rows(), k.cols());
+            MC_AWAIT(comm.send(coproto::copy(k)));
+            MC_AWAIT(comm.recv(kk));
+
+            {
+
+                for (auto i = 0ull; i < k.size(); ++i)
+                {
+                    kk(i) ^= k(i);
+                }
+
+                auto genBitPerm = [&](BinMatrix& k) {
+
+                    Perm exp(k.size());
+                    std::stable_sort(exp.begin(), exp.end(),
+                        [&](const auto& a, const auto& b) {
+                            return (k(a) < k(b));
+                        });
+                    return exp.inverse();
+                };
+
+                auto ll = oc::divCeil(keyBitCount, mL);
+                auto kIdx = 0;
+                auto sk = extract(kIdx, mL, kk); kIdx += mL;
+
+                std::cout << "k 0 { ";
+                for (auto i = 0ull; i < sk.size(); ++i)
+                    std::cout << " " << (int)sk(i);
+                std::cout<<"}" << std::endl;
+
+                std::vector<Perm> ret;
+                // generate the sorting permutation for the
+                // first L bits of the key.
+                ret.emplace_back(genBitPerm(sk));
+                std::cout << ret.back() << std::endl;
+
+                Perm dst = ret.back();
+                {
+                    auto kk2 = kk;
+                    sk.resize(kk.rows(), kk.cols());
+                    dst.apply<u8>(kk2, sk, true);
+
+                    for (u64 j = 1; j < k.rows(); ++j)
+                    {
+                        auto k0 = oc::BitVector((u8*)sk[j - 1].data(),
+                            std::min<u64>(kIdx, keyBitCount));
+                        auto k1 = oc::BitVector((u8*)sk[j].data(),
+                            std::min<u64>(kIdx, keyBitCount));
+
+                        if (k0 > k1)
+                        {
+                            std::cout << k0 << std::endl;
+                            std::cout << k1 << std::endl;
+                            throw RTE_LOC;
+                        }
+                    }
+                }
+                for (auto i = 1; i < ll; ++i)
+                {
+                    // get the next L bits of the key.
+                    sk = extract(kIdx, mL, kk); kIdx += mL;
+                    auto ssk = sk;
+
+                    std::cout << "k "<<i<<" { ";
+                    for (auto i = 0ull; i < sk.size(); ++i)
+                        std::cout << " " << (int)sk(i);
+                    std::cout << "}" << std::endl;
+
+                    // apply the partial sort that we have so far 
+                    // to the next L bits of the key.
+                    dst.apply<u8>(sk, ssk, true);
+
+                    // generate the sorting permutation for the
+                    // next L bits of the key.
+                    ret.emplace_back(genBitPerm(ssk));
+                    std::cout << ret.back() << std::endl;
+
+                    // compose the current partial sort with
+                    // the permutation that sorts the next L bits
+                    dst = ret.back().compose(dst);
+
+                    auto kk2 = kk;
+                    sk.resize(kk2.rows(), kk2.cols());
+                    dst.apply<u8>(kk2, sk, true);
+
+                    for (u64 j = 1; j < k.rows(); ++j)
+                    {
+                        auto k0 = oc::BitVector((u8*)sk[j-1].data(),
+                            std::min<u64>(kIdx, keyBitCount));
+                        auto k1 = oc::BitVector((u8*)sk[j].data(),
+                            std::min<u64>(kIdx, keyBitCount));
+
+                        if (k0 > k1)
+                            throw RTE_LOC;
+                    }
+
+                    //dst.validate(comm);
+                }
+                std::cout << std::endl;
+                std::cout << std::endl;
+
+                MC_RETURN(std::move(ret));
+            }
+            MC_END();
+        }
 
         u64 mL = 2;
         // generate the (inverse) permutation that sorts the keys k.
@@ -985,14 +1203,18 @@ namespace secJoin
                 ssk = BinMatrix{},
                 sigma2 = AdditivePerm{},
                 rho = AdditivePerm{},
-                i = u64{}
-
+                i = u64{},
+                debugPerms = std::vector<Perm>{},
+                debugPerm = Perm{}
             );
 
             setTimePoint("genPerm begin");
 
             if (keyBitCount > k.cols() * 8)
                 throw RTE_LOC;
+
+            if (mDebug)
+                MC_AWAIT_SET(debugPerms, debugGenPerm(keyBitCount, k, comm));
 
             ll = oc::divCeil(keyBitCount, mL);
             kIdx = 0;
@@ -1004,12 +1226,34 @@ namespace secJoin
             setTimePoint("genBitPerm");
             //dst.validate(comm);
 
+            if (mDebug)
+            {
+                MC_AWAIT(comm.send(coproto::copy(dst.mShare)));
+                debugPerm.mPerm.resize(dst.size());
+                MC_AWAIT(comm.recv(debugPerm.mPerm));
+
+                for (u64 j = 0; j < debugPerm.size(); ++j)
+                {
+                    debugPerm.mPerm[j] ^= dst.mShare[j];
+                }
+
+                if (debugPerm != debugPerms[0])
+                {
+                    std::cout << "exp " << debugPerms[0] << std::endl;
+                    std::cout << "act " << debugPerm << std::endl;
+                    throw RTE_LOC;
+                }
+            }
+
             for (i = 1; i < ll; ++i)
             {
                 // get the next L bits of the key.
                 sk = extract(kIdx, mL, k); kIdx += mL;
                 ssk.resize(sk.rows(), sk.cols());
 
+
+                if (mTimer)
+                    dst.setTimer(getTimer());
                 // apply the partial sort that we have so far 
                 // to the next L bits of the key.
                 MC_AWAIT(dst.apply<u8>(sk, ssk, gen.mPrng, comm, gen, true));

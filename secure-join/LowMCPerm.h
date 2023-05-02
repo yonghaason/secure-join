@@ -19,7 +19,6 @@ namespace coproto
 #include "secure-join/GMW/Gmw.h"
 #include "coproto/Socket/LocalAsyncSock.h"
 #include <bitset>
-#include "tests/Common.h"
 #include "cryptoTools/Common/Matrix.h"
 #include "coproto/coproto.h"
 
