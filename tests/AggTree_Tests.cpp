@@ -371,7 +371,7 @@ void AggTree_toPackedBin_Test()
     }
 }
 
-BinMatrix perfectShuffle(BinMatrix& x0, BinMatrix& x1)
+BinMatrix perfectShuffle(const BinMatrix& x0, const BinMatrix& x1)
 {
     if (x0.numEntries() != x1.numEntries() &&
         x0.numEntries() != (x1.numEntries() + 1))

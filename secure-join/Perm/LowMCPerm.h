@@ -4,16 +4,16 @@
 
 #include "coproto/Common/Defines.h"
 #include "coproto/Common/span.h"
-namespace coproto
-{
-    namespace internal
-    {
-        inline span<u8> asSpan(std::vector<std::bitset<256>>& v)
-        {
-            return span<u8>((u8*)v.data(), v.size() * sizeof(std::bitset<256>));
-        }
-    }
-}
+// namespace coproto
+// {
+//     namespace internal
+//     {
+//         inline span<u8> asSpan(std::vector<std::bitset<256>>& v)
+//         {
+//             return span<u8>((u8*)v.data(), v.size() * sizeof(std::bitset<256>));
+//         }
+//     }
+// }
 
 #include "Permutation.h"
 #include "secure-join/GMW/Gmw.h"
@@ -75,7 +75,7 @@ namespace secJoin
 
 
     template<typename T>
-    static macoro::task<> LowMCPerm::apply(
+    macoro::task<> LowMCPerm::apply(
         oc::MatrixView<const T> x1,
         oc::MatrixView<T> sout,
         oc::PRNG& prng,
@@ -89,7 +89,7 @@ namespace secJoin
     }
 
     template<>
-    static inline macoro::task<> LowMCPerm::apply<u8>(
+    inline macoro::task<> LowMCPerm::apply<u8>(
         oc::MatrixView<const u8> x1,
         oc::MatrixView<u8> sout,
         oc::PRNG& prng,
@@ -99,7 +99,8 @@ namespace secJoin
         MC_BEGIN(macoro::task<>, x1, &chl, sout, &prng, &ole,
             n = u64(x1.rows()),
             bytesPerRow = u64(x1.cols()),
-            xEncrypted = std::vector<LowMC2<>::block>{},
+            xEncrypted_ = std::vector<u8>{},
+            xEncrypted = span<LowMC2<>::block>{},
             roundkeysMatrix = std::vector<oc::Matrix<u8>>{},
             counterMode = u64(),
             blocksPerRow = u64(),
@@ -118,7 +119,8 @@ namespace secJoin
         }
 
         blocksPerRow = oc::divCeil(bytesPerRow, sizeof(LowMC2<>::block));
-        xEncrypted.resize(blocksPerRow * n);
+        xEncrypted_.resize(blocksPerRow * n * sizeof(LowMC2<>::block));
+        xEncrypted = span<LowMC2<>::block>((LowMC2<>::block*)xEncrypted_.data(),blocksPerRow * n); 
 
         // Encrypting the vector x
         counterMode = 0;
@@ -135,7 +137,7 @@ namespace secJoin
         }
 
 
-        MC_AWAIT(chl.send(std::move(xEncrypted)));
+        MC_AWAIT(chl.send(std::move(xEncrypted_)));
 
         // To enable debugging in the circuit
         // gmw0.mO.mDebug = true;
@@ -195,7 +197,7 @@ namespace secJoin
 
 
     template<typename T>
-    static macoro::task<> LowMCPerm::apply(
+    macoro::task<> LowMCPerm::apply(
         const Perm& pi,
         oc::MatrixView<T> sout,
         oc::PRNG& prng,
@@ -208,7 +210,7 @@ namespace secJoin
     }
 
     template<>
-    static inline macoro::task<> LowMCPerm::apply<u8>(
+    inline macoro::task<> LowMCPerm::apply<u8>(
         const Perm& pi,
         oc::MatrixView<u8> sout,
         oc::PRNG& prng,
@@ -217,7 +219,8 @@ namespace secJoin
         OleGenerator& ole)
     {
         MC_BEGIN(macoro::task<>, &pi, &chl, sout, &prng, invPerm, &ole,
-            xEncrypted = std::vector<LowMC2<>::block>{},
+            xEncrypted_ = std::vector<u8>{},
+            xEncrypted = span<LowMC2<>::block>{},
             xPermuted = std::vector<LowMC2<>::block>{},
             indexMatrix = std::vector<LowMC2<>::block>{},
             blocksPerRow = u64(),
@@ -231,16 +234,18 @@ namespace secJoin
 
         using lowBlock = LowMC2<>::block;
         blocksPerRow = oc::divCeil(bytesPerRow, sizeof(LowMC2<>::block));
-        xEncrypted.resize(n * blocksPerRow);
+        xEncrypted_.resize(n * blocksPerRow * sizeof(LowMC2<>::block));
+        xEncrypted = span<LowMC2<>::block>((LowMC2<>::block*)xEncrypted_.data(),blocksPerRow * n); 
 
-        MC_AWAIT(chl.recv(xEncrypted));
+        MC_AWAIT(chl.recv(xEncrypted_));
 
         indexMatrix.resize(n * blocksPerRow);
         xPermuted.resize(n * blocksPerRow);
 
         for (u64 i = 0; i < n; ++i)
         {
-            std::vector<LowMC2<>::block>::iterator dst, src, idx;
+            std::vector<LowMC2<>::block>::iterator dst, idx;
+            span<LowMC2<>::block>::iterator src;
             u64 srcIdx;
             auto counterMode = i * blocksPerRow;
             auto pi_i = pi[i] * blocksPerRow;
@@ -308,7 +313,7 @@ namespace secJoin
 
 
     template<typename T>
-    static macoro::task<> LowMCPerm::apply(
+    macoro::task<> LowMCPerm::apply(
         const Perm& pi,
         oc::MatrixView<const T> x2,
         oc::MatrixView<T> sout,
@@ -324,7 +329,7 @@ namespace secJoin
     }
 
     template<>
-    static inline macoro::task<> LowMCPerm::apply<u8>(
+    inline macoro::task<> LowMCPerm::apply<u8>(
         const Perm& pi,
         oc::MatrixView<const u8> x2,
         oc::MatrixView<u8> sout,

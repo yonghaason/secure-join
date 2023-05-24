@@ -347,7 +347,7 @@ namespace secJoin
 						auto& v1 = childUp.mPreVal[i * 2 + 1];
 						auto& d0 = childDn.mPreVal[i * 2];
 						auto& d1 = childDn.mPreVal[i * 2 + 1];
-						auto& p0 = childUp.mPreBit[i * 2];
+						auto p0 = childUp.mPreBit[i * 2];
 
 						assert(v.size());
 						assert(v0.size());
@@ -362,7 +362,7 @@ namespace secJoin
 						auto& v1 = childUp.mSufVal[i * 2 + 1];
 						auto& d0 = childDn.mSufVal[i * 2];
 						auto& d1 = childDn.mSufVal[i * 2 + 1];
-						auto& p1 = childUp.mSufBit[i * 2 + 1];
+						auto p1 = childUp.mSufBit[i * 2 + 1];
 
 						d0 = p1 ? op(v1, v) : v1;
 						d1 = v;

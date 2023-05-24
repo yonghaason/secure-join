@@ -47,7 +47,7 @@ namespace secJoin
 
 
     template<typename T>
-    static macoro::task<> InsecurePerm::apply(
+    macoro::task<> InsecurePerm::apply(
         oc::MatrixView<const T> x1,
         oc::MatrixView<T> sout,
         oc::PRNG& prng,
@@ -61,7 +61,7 @@ namespace secJoin
     }
 
     template<>
-    static inline macoro::task<> InsecurePerm::apply<u8>(
+    inline macoro::task<> InsecurePerm::apply<u8>(
         oc::MatrixView<const u8> x1,
         oc::MatrixView<u8> sout,
         oc::PRNG& prng,
@@ -86,7 +86,7 @@ namespace secJoin
 
 
     template<typename T>
-    static macoro::task<> InsecurePerm::apply(
+    macoro::task<> InsecurePerm::apply(
         const Perm& pi,
         oc::MatrixView<T> sout,
         oc::PRNG& prng,
@@ -99,7 +99,7 @@ namespace secJoin
     }
 
     template<>
-    static inline macoro::task<> InsecurePerm::apply<u8>(
+    inline macoro::task<> InsecurePerm::apply<u8>(
         const Perm& pi,
         oc::MatrixView<u8> sout,
         oc::PRNG& prng,
@@ -130,7 +130,7 @@ namespace secJoin
 
 
     template<typename T>
-    static macoro::task<> InsecurePerm::apply(
+    macoro::task<> InsecurePerm::apply(
         const Perm& pi,
         oc::MatrixView<const T> x2,
         oc::MatrixView<T> sout,
@@ -146,7 +146,7 @@ namespace secJoin
     }
 
     template<>
-    static inline macoro::task<> InsecurePerm::apply<u8>(
+    inline macoro::task<> InsecurePerm::apply<u8>(
         const Perm& pi,
         oc::MatrixView<const u8> x2,
         oc::MatrixView<u8> sout,

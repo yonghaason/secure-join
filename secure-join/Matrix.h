@@ -59,6 +59,10 @@ namespace secJoin
         {
             return mData.data(i);
         }
+        const u8* data(u64 i) const
+        {
+            return mData.data(i);
+        }
 
         u64 size() const
         {

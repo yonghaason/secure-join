@@ -402,7 +402,7 @@ namespace secJoin
 
 			auto r = ssePerfectUnshuffle(t);
 
-			auto min2 = std::min(output0.size() - n8 / 2, sizeof(u64));
+			auto min2 = std::min<u64>(output0.size() - n8 / 2, sizeof(u64));
 			memcpy(&output0[n8 / 2], &r[0], min2);
 			memcpy(&output1[n8 / 2], &r[1], min2);
 

@@ -125,7 +125,7 @@ namespace secJoin
             auto bv = [&](auto& d, u64 i) {
                 return oc::BitVector(d.data(i), d.bitsPerEntry()); 
             };
-            auto write = [](auto& d, u64 i, auto& v)
+            auto write = [](auto& d, u64 i, auto&& v)
             {
                 assert(d.bitsPerEntry() == v.size());
                 memcpy(d.data(i), v.data(), v.sizeBytes());
@@ -277,7 +277,7 @@ namespace secJoin
         auto bv = [&](BinMatrix& d, u64 i) {
             return oc::BitVector(d.data(i), d.bitsPerEntry()); 
         };
-        auto write = [](auto& d, u64 i, auto& v)
+        auto write = [](auto& d, u64 i, auto&& v)
         {
             assert(d.bitsPerEntry() == v.size());
             memcpy(d.data(i), v.data(), v.sizeBytes());

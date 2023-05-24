@@ -205,10 +205,10 @@ namespace secJoin
 
                 for (u64 j = 0; j < n; ++j)
                 {
-                    hk[j] += hk1[j];
-                    hk[j] %= 3;
+                    auto v = hk[j] + hk1[j];
+                    v %= 3;
 
-                    mU.data()[j].data()[k] = hk[j];
+                    mU.data()[j].data()[k] = v;
                 }
             }
         }
@@ -236,7 +236,7 @@ namespace secJoin
                     auto cur = prev + hk[j];
 
                     assert(cur < 6);
-                    __assume(cur < 6);
+                    //__assume(cur < 6);
                     cur %= 3;
 
                     mU.data()[j].data()[k] = cur;
