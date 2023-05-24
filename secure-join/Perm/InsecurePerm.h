@@ -5,7 +5,7 @@
 #include "cryptoTools/Common/Matrix.h"
 #include "coproto/coproto.h"
 
-#include"OleGenerator.h"
+#include "secure-join/OleGenerator.h"
 
 // using coproto::LocalAsyncSocket;
 

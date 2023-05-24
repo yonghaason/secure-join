@@ -1,5 +1,6 @@
 #include "AdditivePerm_Test.h"
 
+#include "secure-join/Perm/AdditivePerm.h"
 
 using namespace secJoin;
 

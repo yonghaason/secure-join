@@ -1,5 +1,5 @@
 
-#include "secure-join/PaillierPerm.h"
+#include "secure-join/Perm/PaillierPerm.h"
 #include "cryptoTools/Common/TestCollection.h"
 
 

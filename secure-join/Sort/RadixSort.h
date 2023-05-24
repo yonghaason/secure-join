@@ -1,14 +1,13 @@
 #pragma once
 
-#include "ComposedPerm.h"
-#include "AdditivePerm.h"
+#include "secure-join/Perm/ComposedPerm.h"
+#include "secure-join/Perm/AdditivePerm.h"
+#include "secure-join/Defines.h"
+#include "secure-join/OleGenerator.h"
+
 #include "cryptoTools/Circuit/BetaLibrary.h"
 #include "cryptoTools/Common/Log.h"
-//#include "BinEval.h"
-//#include "aby3/sh3/Sh3Converter.h"
-#include "Defines.h"
 #include "coproto/Socket/Socket.h"
-#include "OleGenerator.h"
 #include "cryptoTools/Common/Timer.h"
 
 namespace secJoin

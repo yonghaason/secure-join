@@ -1,7 +1,7 @@
 #pragma once
-#include "secure-join/LowMCPerm.h"
-#include "secure-join/InsecurePerm.h"
-#include "GMW/Gmw.h"
+#include "secure-join/Perm/LowMCPerm.h"
+#include "secure-join/Perm/InsecurePerm.h"
+#include "secure-join/GMW/Gmw.h"
 
 namespace secJoin
 {

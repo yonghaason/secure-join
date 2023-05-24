@@ -1,6 +1,6 @@
 #pragma once
 
-#include "LowMC.h"
+#include "secure-join/Prf/LowMC.h"
 
 #include "coproto/Common/Defines.h"
 #include "coproto/Common/span.h"

@@ -3,7 +3,7 @@
 #include "cryptoTools/Crypto/PRNG.h"
 #include "secure-join/Defines.h"
 #include <vector>
-#include "secure-join/AdditivePerm.h"
+#include "secure-join/Perm/AdditivePerm.h"
 
 using namespace secJoin;
 using oc::Matrix;
