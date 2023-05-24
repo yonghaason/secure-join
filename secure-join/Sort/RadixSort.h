@@ -1,14 +1,14 @@
 #pragma once
 
-#include "ComposedPerm.h"
-#include "AdditivePerm.h"
+#include "secure-join/Perm/ComposedPerm.h"
+#include "secure-join/Perm/AdditivePerm.h"
+#include "secure-join/Defines.h"
+#include "secure-join/OleGenerator.h"
+
 #include "cryptoTools/Circuit/BetaLibrary.h"
 #include "cryptoTools/Common/Log.h"
-//#include "BinEval.h"
-//#include "aby3/sh3/Sh3Converter.h"
-#include "Defines.h"
 #include "coproto/Socket/Socket.h"
-#include "OleGenerator.h"
+#include "cryptoTools/Common/Timer.h"
 
 namespace secJoin
 {
@@ -47,6 +47,21 @@ namespace secJoin
                 ++s;
             }
         }
+    }
+
+    inline bool operator>(const oc::BitVector& v0, const oc::BitVector& v1)
+    {
+        if (v0.size() != v1.size())
+            throw RTE_LOC;
+        for (u64 i = v0.size() - 1; i < v0.size(); --i)
+        {
+            if (v0[i] > v1[i])
+                return true;
+            if (v1[i] > v0[i])
+                return false;
+        }
+
+        return false;
     }
 
     // convert each bit of the binary secret sharing `in`
@@ -174,10 +189,11 @@ namespace secJoin
         MC_END();
     }
 
-    class RadixSort
+    class RadixSort : public oc::TimerAdapter
     {
     public:
         u64 mPartyIdx = -1;
+        bool mDebug = false;
 
         using Matrix32 = oc::Matrix<u32>;
         using BinMatrix = oc::Matrix<u8>;
@@ -197,89 +213,20 @@ namespace secJoin
 
         oc::BetaCircuit mArith2BinCir;
 
-        //// for each i, compute the Hadamard (component-wise) product between the columns of D[i]
-        //// and write the result to f[i]. i.e.
-        //// 
-        ////   f[i] = D[i].col(0) * ... * D[i].col(n-1) 
-        //// 
-        //// where * is component-wise. f[i] will be a column vector.
-        //macoro::task<> hadamardOfColumns(
-        //	std::vector<Matrix32>& D,
-        //	Matrix32& f,
-        //	OleGenerator& gen, 
-        //	coproto::Socket& comm)
-        //{
-        //	MC_BEGIN(macoro::task<>, this, &D, &f, &gen, &comm);
-        //	//u64 numSets = D.size();
-        //	//u64 numCols = D[0].cols();
-        //	//u64 numRows = D[0].rows();
-
-        //	//if (numCols == 1)
-        //	//{
-        //	//	f = std::move(D[0]);
-        //	//	return;
-        //	//}
-
-        //	//f.resize(numSets, numRows);
-        //	//// f = D.col(0)
-        //	//for (u64 i = 0; i < numSets; ++i)
-        //	//{
-        //	//	for(u64 j = 0; j < numRows; ++j)
-        //	//		f(j,i) = D[i](j,0);
-        //	//}
-
-        //	//// we could compute this in a binary tree to reduce depth. But probably doesn't
-        //	//// matter since numCols = 3 is the expected number of loops.
-        //	//for (u64 j = 1; j < numCols; ++j)
-        //	//{
-        //	//	// component-wise product over the columns
-        //	//	//    f = f * D[j] 
-        //	//	for (u64 i = 0; i < numSets; ++i)
-        //	//	{
-
-        //	//		//auto& ff0 = f.col(i);
-        //	//		auto& dd = D[i];
-        //	//		std::vector<i64> buff(numRows);
-        //	//		for (u64 k = 0; k < numRows; ++k)
-        //	//		{
-        //	//			ff0(k)
-        //	//				= ff0(k) * dd[0](k, j)
-        //	//				+ ff0(k) * dd[1](k, j)
-        //	//				+ ff1(k) * dd[0](k, j)
-        //	//				+ gen.getShare();
-
-        //	//			buff[k] = ff0(k);
-        //	//		}
-
-        //	//		//comm.mNext.asyncSend(std::move(buff));
-        //	//	}
-
-        //	//	//std::vector<i64> buff(numRows);
-        //	//	//for (u64 i = 0; i < numSets; ++i)
-        //	//	//{
-        //	//	//	auto ff1 = f[1].col(i);
-        //	//	//	comm.mPrev.recv(buff.data(), buff.size());
-        //	//	//	for (u64 k = 0; k < numRows; ++k)
-        //	//	//	{
-        //	//	//		ff1(k) = buff[k];
-        //	//	//	}
-        //	//	//}
-        //	//}
-        //	MC_END();
-        //}
-
         macoro::task<> checkHadamardSum(
-            Matrix32& f,
+            BinMatrix& f,
             Matrix32& s,
             span<u32> dst,
-            coproto::Socket& comm)
+            coproto::Socket& comm,
+            bool additive)
         {
 
-            MC_BEGIN(macoro::task<>, this, &f, &s, dst, &comm,
-                ff = Matrix32{},
+            MC_BEGIN(macoro::task<>, this, &f, &s, dst, &comm, additive,
+                ff = BinMatrix{},
                 ss = Matrix32{},
                 dd = std::vector<u32>{},
-                exp = std::vector<u32>{}
+                exp = std::vector<u32>{},
+                fIter = oc::BitIterator{}
             );
             MC_AWAIT(comm.send(coproto::copy(f)));
             MC_AWAIT(comm.send(coproto::copy(s)));
@@ -293,21 +240,27 @@ namespace secJoin
             MC_AWAIT(comm.recv(ss));
             MC_AWAIT(comm.recv(dd));
 
-            assert(f.size() == s.size());
             for (u64 i = 0; i < ff.size(); ++i)
-            {
-                ff(i) += f(i);
+                ff(i) ^= f(i);
+
+            for (u64 i = 0; i < ss.size(); ++i)
                 ss(i) += s(i);
-            }
+            
             for (u64 i = 0; i < dd.size(); ++i)
-                dd[i] += dst[i];
+            {
+                if (additive)
+                    dd[i] += dst[i];
+                else
+                    dd[i] ^= dst[i];
+            }
 
             exp.resize(dd.size());
+            fIter = oc::BitIterator(ff.data());
             for (u64 i = 0; i < dd.size(); ++i)
             {
                 exp[i] = 0;
-                for (u64 j = 0; j < ff.cols(); ++j)
-                    exp[i] += ff(i, j) * ss(i, j);
+                for (u64 j = 0; j < ss.cols(); ++j)
+                    exp[i] += *fIter++ * ss(i, j);
             }
 
             for (u64 i = 0; i < exp.size(); ++i)
@@ -319,7 +272,7 @@ namespace secJoin
         // compute dst = sum_i f.col(i) * s.col(i) where * 
         // is the hadamard (component-wise) product. 
         macoro::task<> hadamardSum(
-            Matrix32& f,
+            BinMatrix& f,
             Matrix32& s,
             AdditivePerm& dst,
             OleGenerator& gen,
@@ -327,177 +280,161 @@ namespace secJoin
         {
             MC_BEGIN(macoro::task<>, this, &f, &s, &dst, &gen, &comm,
                 nc = u64{},
-                tripleReq = Request<ArithTriple>{},
-                triple = ArithTriple{},
+                otRecvReq = Request<OtRecv>{},
+                otRecv = OtRecv{},
+                otSendReq = Request<OtSend>{},
+                otSend = OtSend{},
                 a = std::vector<oc::AlignedUnVector<u32>>{},
                 shares = std::vector<u32>{},
-                A = Matrix32{},
-                B = Matrix32{},
+                diff = oc::BitVector{},
+                //A = Matrix32{},
+                //B = Matrix32{},
                 i = u64{},
                 m = u64{},
+                role = u64{},
                 r = u64{},
-                gmw = Gmw{}
+                gmw = Gmw{},
+                tt = std::vector<u32>{},
+                dd = std::vector<u32>{},
+                fIter = (block*)nullptr
             );
 
             // A = f + a
             // B = s + b
-            A.resize(f.rows(), f.cols());
-            B.resize(f.rows(), f.cols());
+            //A.resize(f.rows(), f.cols());
+            //B.resize(f.rows(), f.cols());
 
-            shares.resize(f.rows());
+            shares.resize(s.rows());
 
-            MC_AWAIT_SET(tripleReq, gen.arithTripleRequest(f.size(), 32));
+            if (gen.mRole == OleGenerator::Role::Sender)
+            {
+                MC_AWAIT_SET(otRecvReq, gen.otRecvRequest(s.size()));
+                MC_AWAIT_SET(otSendReq, gen.otSendRequest(s.size()));
+            }
+            else
+            {
+                MC_AWAIT_SET(otSendReq, gen.otSendRequest(s.size()));
+                MC_AWAIT_SET(otRecvReq, gen.otRecvRequest(s.size()));
+            }
+
 
             if (mArith2BinCir.mGates.size() == 0)
             {
-                u64 bitCount = oc::log2ceil(shares.size());
+                u64 bitCount = std::max<u64>(1, oc::log2ceil(shares.size()));
                 oc::BetaLibrary lib;
                 mArith2BinCir = *lib.uint_uint_add(bitCount, bitCount, bitCount, oc::BetaLibrary::Optimized::Depth);
                 mArith2BinCir.levelByAndDepth();
             }
-
             gmw.init(shares.size(), mArith2BinCir, gen);
 
-            for (i = 0, r = 0; i < f.size();)
+            for (role = 0; role < 2; ++role)
             {
-                MC_AWAIT_SET(triple, tripleReq.get());
-                m = std::min<u64>(f.size() - i, triple.size());
-
-                //std::cout << "p " << mPartyIdx << std::endl;
-
-                //memset(triple.mA.data(), 0, triple.mA.size() * sizeof(u32));
-                //memset(triple.mB.data(), 0, triple.mB.size() * sizeof(u32));
-                //memset(triple.mC.data(), 0, triple.mC.size() * sizeof(u32));
-
-                for (u64 j = 0; j < m; ++j, ++i)
+                if (role ^ (gen.mRole == OleGenerator::Role::Sender))
                 {
-                    auto row = i / f.cols();
-                    auto col = i % f.cols();
+                    fIter = (block*)f.data();
+                    // recv
+                    for (i = 0; i < s.size();)
+                    {
+                        MC_AWAIT_SET(otRecv, otRecvReq.get());
+                        m = std::min<u64>(s.size() - i, otRecv.size());
 
-                    A(i) = f(i) + triple.mA[j];
-                    B(i) = s(i) + triple.mB[j];
+                        for (u64 j = 0; j < m; ++j, ++i)
+                        {
+                            auto row = i / s.cols();
+                            u8 fi = *oc::BitIterator((u8*)fIter, i);
+                            otRecv.mChoice[j] = otRecv.mChoice[j] ^ fi;
+                            shares[row] += otRecv.mMsg[j].get<u32>(0);
+                        }
 
-                    // z = (A + A') [s] + (-B - B')[a] + [c]
-                    //      *               *             *  
-                    shares[row] +=
-                        A(i) * s(i)
-                        - B(i) * triple.mA[j]
-                        + triple.mC[j];
+                        otRecv.mChoice.resize(m);
+                        MC_AWAIT(comm.send(std::move(otRecv.mChoice)));
+                    }
 
-                    //std::cout << "c " << row << " " << col << " = " << c(i) 
-                    //    << " = " << (A(i) * s(i))
-                    //    << " = " << A(i) <<" * " << s(i) << std::endl;
-                    //dst.mPerm.mPerm[row] += c(i);
+                    for (i = 0, r = 0; i < f.size();)
+                    {
+                        MC_AWAIT(comm.recvResize(tt));
+                        m = std::min<u64>(s.size() - i, tt.size());
+                        for (u64 j = 0; j < m; ++j, ++i)
+                        {
+                            auto row = i / s.cols();
+                            u8 fi = *oc::BitIterator((u8*)fIter, i);
+                            shares[row] += tt[j] * fi;
+                        }
+                    }
                 }
+                else
+                {
+                    fIter = (block*)f.data();
+                    // send
+                    for (i = 0, r = 0; i < f.size();)
+                    {
+                        MC_AWAIT_SET(otSend, otSendReq.get());
+                        m = std::min<u64>(s.size() - i, otSend.size());
+                        diff.resize(m);
+                        MC_AWAIT(comm.recv(diff));
 
-                a.emplace_back(std::move(triple.mA));
+                        tt.resize(m);
+                        for (u64 j = 0; j < m; ++j, ++i)
+                        {
+                            auto row = i / s.cols();
+                            u8 fi = *oc::BitIterator((u8*)fIter, i);
+                            auto d = diff[j];
+
+                            auto m0 = otSend.mMsg[j][0 ^ d].get<u32>(0);
+                            auto m1 = otSend.mMsg[j][1 ^ d].get<u32>(0);
+
+                            auto r = m0 - (fi * s(i));
+                            auto v0 = m0;
+                            auto v1 = (1 ^ fi) * s(i) + r;
+                            tt[j] = v1 - m1;
+
+                            shares[row] -= r;
+                        }
+
+                        MC_AWAIT(comm.send(std::move(tt)));
+                    }
+                }
             }
 
-            MC_AWAIT(comm.send(std::move(A)));
-            MC_AWAIT(comm.send(std::move(B)));
+            if (mDebug)
+                MC_AWAIT(checkHadamardSum(f, s, shares, comm, true));
 
-
-            A.resize(f.rows(), f.cols());
-            B.resize(f.rows(), f.cols());
-
-            MC_AWAIT(comm.recv(A));
-            MC_AWAIT(comm.recv(B));
-
-
-            for (u64 i = 0, k = 0; i < f.size(); ++k)
-            {
-                m = std::min<u64>(f.size() - i, a[k].size());
-
-                for (u64 j = 0; j < m; ++j, ++i)
-                {
-                    auto row = i / f.cols();
-
-                    // z = (A + A') [s] + (-B - B')[a] + [c]
-                    //          *               *               
-                    shares[row] +=
-                        A(i) * s(i)
-                        - B(i) * a[k][j];
-
-                    //dst.mPerm.mPerm[row] += c(i);
-                }
-            }
 
             gmw.setZeroInput((int)gen.mRole);
-            gmw.setInput((int)gen.mRole ^ 1, oc::MatrixView<u32>(shares.data(), 1, shares.size()));
+            gmw.setInput((int)gen.mRole ^ 1, oc::MatrixView<u32>(shares.data(), shares.size(), 1));
 
             MC_AWAIT(gmw.run(comm));
 
             dst.mShare.resize(shares.size());
-            gmw.getOutput(0, oc::MatrixView<u32>(dst.mShare.data(), 1, dst.mShare.size()));
+            gmw.getOutput(0, oc::MatrixView<u32>(dst.mShare.data(), dst.mShare.size(), 1));
+
+            if (mDebug)
+            {
+
+                tt.resize(shares.size());
+                dd.resize(shares.size());
+                MC_AWAIT(comm.send(coproto::copy(shares)));
+                MC_AWAIT(comm.send(coproto::copy(dst.mShare)));
+                MC_AWAIT(comm.recv(tt));
+                MC_AWAIT(comm.recv(dd));
+
+                for (u64 i = 0; i < shares.size(); ++i)
+                {
+                    tt[i] += shares[i];
+                    dd[i] ^= dst.mShare[i];
+
+                }
+
+                if (tt != dd)
+                    throw RTE_LOC;
+
+                MC_AWAIT(checkHadamardSum(f, s, dst.mShare, comm, false));
+            }
+
 
             MC_END();
         }
 
-        //// from each row, we generate a series of sharing flag bits
-        //// f.col(0) ,..., f.col(n) where f.col(i) is one if k=i.
-        //// Computes the same function as genValMask2 but is less efficient.
-        //macoro::task<> genValMasks(
-        //	u64 keyBitCount,
-        //	BinMatrix& kBin,
-        //	Matrix32& f,
-        //	OleGenerator& gen,
-        //	coproto::Socket& comm)
-        //{
-        //	assert(keyBitCount <= kBin.cols() * 8);
-        //	MC_BEGIN(macoro::task<>, this, keyBitCount, &kBin, &f, &gen, &comm);
-        //	//Matrix32 k(kBin.rows(), keyBitCount);
-
-        //	//Sh3Converter conv;
-        //	//conv.init(rt, gen);
-        //	//conv.bitInjection(rt, kBin, k, true).get();
-
-        //	//u64 m = k.rows();
-        //	//u64 L = k.cols();
-        //	//u64 L2 = 1ull << L;
-        //	//std::vector<si64Matrix> DD(L2);// (m, L);
-
-        //	//for (u64 j = 0; j < L2; ++j)
-        //	//{
-        //	//	std::vector<i64> B(L);
-        //	//	for (u64 i = 0; i < L; ++i)
-        //	//		B[i] = j & (1 << i);
-
-        //	//	auto& D = DD[j];
-        //	//	D.resize(m, L);
-
-        //	//	for (u64 kk = 0; kk < L; ++kk)
-        //	//	{
-        //	//		if (B[kk])
-        //	//		{
-        //	//			// D^{kk} = k^{kk}
-        //	//			D[0].col(kk) = k[0].col(kk);
-        //	//			D[1].col(kk) = k[1].col(kk);
-        //	//		}
-        //	//		else
-        //	//		{
-        //	//			// D^{kk} = 1 - k^{kk}
-        //	//			D[0].col(kk) = -k[0].col(kk);
-        //	//			D[1].col(kk) = -k[1].col(kk);
-
-        //	//			if (mPartyIdx != 2)
-        //	//			{
-        //	//				auto& DD0 = D[mPartyIdx];
-        //	//				for (u64 q = 0; q < m; ++q)
-        //	//				{
-        //	//					DD0(q, kk) += 1;
-        //	//				}
-        //	//			}
-        //	//		}
-        //	//	}
-        //	//}
-
-        //	//// f_i = \prod_t  D_{i,t}
-        //	//// 
-        //	//// f_i[j] = 1 if k[j] = i
-        //	//hadamardOfColumns(DD, f, gen, comm);
-
-        //	MC_END();
-        //}
 
         macoro::task<> checkGenValMasks(
             u64 bitCount,
@@ -652,16 +589,19 @@ namespace secJoin
             u64 bitCount,
             const BinMatrix& k,
             Matrix32& f,
+            BinMatrix& fBin,
             OleGenerator& gen,
             coproto::Socket& comm)
         {
-            MC_BEGIN(macoro::task<>, this, &k, &f, &gen, &comm, bitCount,
-                bits = BinMatrix{},
+            MC_BEGIN(macoro::task<>, this, &k, &f, &gen, &comm, bitCount, &fBin,
                 eval = Gmw{},
                 cir = oc::BetaCircuit{}
             );
 
-            bits.resize(k.rows(), oc::divCeil(1ull << bitCount, 8));
+
+            // we oversized fBin to make sure we have trailing zeros.
+            fBin.resize(k.rows() + sizeof(block), oc::divCeil(1ull << bitCount, 8), oc::AllocType::Uninitialized);
+            fBin.resize(k.rows(), oc::divCeil(1ull << bitCount, 8), oc::AllocType::Uninitialized);
 
             if (bitCount == 1)
             {
@@ -669,10 +609,10 @@ namespace secJoin
                 {
                     assert(k(i) < 2);
                     if (gen.mRole == OleGenerator::Role::Receiver)
-                        bits(i) = (k(i) << 1) | (~k(i) & 1);
+                        fBin(i) = (k(i) << 1) | (~k(i) & 1);
                     else
                     {
-                        bits(i) = (k(i) << 1) | (k(i) & 1);
+                        fBin(i) = (k(i) << 1) | (k(i) & 1);
                     }
                 }
             }
@@ -682,10 +622,70 @@ namespace secJoin
                 eval.init(k.rows(), cir, gen);
                 eval.setInput(0, k);
                 MC_AWAIT(eval.run(comm));
-                eval.getOutput(0, bits);
+                eval.getOutput(0, fBin);
             }
 
-            MC_AWAIT(bitInjection(1ull << bitCount, bits, 32, f, gen, comm));
+            if (bitCount == 1)
+            {
+                auto src = fBin.data(); 
+                auto dst = fBin.data();
+                auto main = fBin.rows() / 4;
+                for (u64 i = 0; i < main; ++i)
+                {
+                    *dst = 
+                        ((src[0] & 3) << 0) |
+                        ((src[1] & 3) << 2) |
+                        ((src[2] & 3) << 4) |
+                        ((src[3] & 3) << 6);
+
+                    ++dst;
+                    src += 4;
+                }
+
+                for (u64 j = 0; j < (fBin.rows() % 4); ++j)
+                {
+                    *dst = ((src[j] & 3) << (2 * j)) | (bool(j) * (*dst));
+                }
+
+                fBin.resize(1, oc::divCeil(fBin.rows(), 4));
+            }
+            else if (bitCount == 2)
+            {
+                auto src = fBin.data();
+                auto dst = fBin.data();
+                auto main = fBin.rows() / 2;
+                for (u64 i = 0; i < main; ++i)
+                {
+                    *dst =
+                        ((src[0] & 15) << 0) |
+                        ((src[1] & 15) << 4);
+
+                    ++dst;
+                    src += 2;
+                }
+
+                for (u64 j = 0; j < (fBin.rows() % 2); ++j)
+                {
+                    *dst = ((src[j] & 15) << (4 * j)) | (bool(j) * (*dst));
+                }
+                fBin.resize(1, oc::divCeil(fBin.rows(), 2));
+            }
+            else
+            {
+                fBin.resize(1, fBin.rows() * fBin.cols());
+            }
+
+            // we oversized fBin at the start of this fn to make sure we have trailing zeros.
+            // here is where we set the zero value.
+            memset(fBin.data() + fBin.size(), 0, sizeof(block));
+
+            TODO("determine min bit count required. currently 32");
+            MC_AWAIT(bitInjection((1ull << bitCount) * k.rows(), fBin, 32, f, gen, comm));
+
+            f.reshape(k.rows(), 1ull << bitCount);
+
+            if (mDebug)
+                MC_AWAIT(checkGenValMasks(bitCount, k, f, comm));
 
             MC_END();
         }
@@ -768,8 +768,8 @@ namespace secJoin
 
 
         macoro::task<> checkAggregateSum(
-            const Matrix32& f0, 
-            Matrix32& s0, 
+            const Matrix32& f0,
+            Matrix32& s0,
             coproto::Socket& comm
         )
         {
@@ -780,7 +780,7 @@ namespace secJoin
                 ff = Matrix32{},
                 ss = Matrix32{},
                 s = Matrix32{}
-                );
+            );
 
             ff.resize(f0.rows(), f0.cols());
             ss.resize(s0.rows(), s0.cols());
@@ -869,7 +869,7 @@ namespace secJoin
         // permutation that permutes the keys k into sorted order. 
         macoro::task<> genBitPerm(
             u64 keyBitCount,
-            BinMatrix& k,
+            const BinMatrix& k,
             AdditivePerm& dst,
             OleGenerator& gen,
             coproto::Socket& comm)
@@ -879,7 +879,10 @@ namespace secJoin
                 L = u64{},
                 L2 = u64{},
                 f = Matrix32{},
-                s = Matrix32{}
+                fBin = BinMatrix{},
+                s = Matrix32{},
+                sk = BinMatrix{},
+                p = Perm{}
             );
 
             if (keyBitCount > k.cols() * 8)
@@ -893,17 +896,69 @@ namespace secJoin
             f.resize(m, L2);
             s.resize(m, L2);
 
-            MC_AWAIT(genValMasks2(keyBitCount, k, f, gen, comm));
+            MC_AWAIT(genValMasks2(keyBitCount, k, f, fBin, gen, comm));
 
-            MC_AWAIT(checkGenValMasks(keyBitCount, k, f, comm));
 
             aggregateSum(f, s, mPartyIdx);
 
-            MC_AWAIT(checkAggregateSum(f, s, comm));
+            if (mDebug)
+                MC_AWAIT(checkAggregateSum(f, s, comm));
 
-            MC_AWAIT(hadamardSum(f, s, dst, gen, comm));
+            MC_AWAIT(hadamardSum(fBin, s, dst, gen, comm));
 
-            MC_AWAIT(checkHadamardSum(f, s, dst.mShare, comm));
+            if (mDebug)
+            {
+
+                assert(k.cols() == 1);
+
+                sk.resize(k.rows(), k.cols());
+                MC_AWAIT(comm.send(coproto::copy(k)));
+                MC_AWAIT(comm.recv(sk));
+
+                p.mPerm.resize(k.rows());
+                MC_AWAIT(comm.send(coproto::copy(dst.mShare)));
+                MC_AWAIT(comm.recv(p.mPerm));
+
+                {
+
+                    for (auto i = 0ull; i < k.size(); ++i)
+                    {
+                        sk(i) ^= k(i);
+                        p.mPerm[i] ^= dst.mShare[i];
+                    }
+
+                    auto genBitPerm = [&](BinMatrix& k) {
+
+                        Perm exp(k.size());
+                        std::stable_sort(exp.begin(), exp.end(),
+                            [&](const auto& a, const auto& b) {
+                                return (k(a) < k(b));
+                            });
+                        return exp.inverse();
+                    };
+                    auto p2 = genBitPerm(sk);
+
+                    std::cout << "k ";
+                    for (auto i = 0ull; i < sk.size(); ++i)
+                        std::cout << " " << (int)sk(i);
+                    std::cout << std::endl;
+
+                    if (p2 != p)
+                        throw RTE_LOC;
+                    std::cout << "bitPerm " << p << std::endl;
+                    //sk = extract(kIdx, mL, k); kIdx += mL;
+
+                    //for (auto i = 0ull; i < sk.size(); ++i)
+                    //    std::cout << "k[" << i << "] " << (int)sk(i) << std::endl;
+
+
+                    //std::vector<Perm> ret;
+                    //// generate the sorting permutation for the
+                    //// first L bits of the key.
+                    //ret.emplace_back(genBitPerm(sk));
+                    //std::cout << ret.back() << std::endl;
+                }
+            }
 
             MC_END();
         }
@@ -911,7 +966,7 @@ namespace secJoin
 
         // get 'size' columns of k starting at column index 'begin'
         // Assumes 'size <= 8'. 
-        static BinMatrix extract(u64 begin, u64 size, const BinMatrix& k)
+        BinMatrix extract(u64 begin, u64 size, const BinMatrix& k)
         {
             // we assume at most a byte size.
             if (size > 8)
@@ -940,9 +995,138 @@ namespace secJoin
             auto s = std::min<u64>(2, k.size() - n * step);
             memcpy(&x, s0, s);
             sk(n) = (x >> shift) & mask;
+
+            if (mDebug)
+            {
+                for (u64 i = 0; i < n; ++i)
+                {
+                    for (u64 j = 0; j < size; ++j)
+                    {
+                        if (*oc::BitIterator(k[i].data(), begin + j) !=
+                            *oc::BitIterator(sk[i].data(), j))
+                            throw RTE_LOC;
+                    }
+                }
+            }
+
             return sk;
         }
 
+
+        macoro::task<std::vector<Perm>> debugGenPerm(
+            u64 keyBitCount,
+            const BinMatrix& k,
+            coproto::Socket& comm)
+        {
+            MC_BEGIN(macoro::task<std::vector<Perm>>, this, keyBitCount, &k, &comm,
+                kk = BinMatrix{}
+            );
+
+            kk.resize(k.rows(), k.cols());
+            MC_AWAIT(comm.send(coproto::copy(k)));
+            MC_AWAIT(comm.recv(kk));
+
+            {
+
+                for (auto i = 0ull; i < k.size(); ++i)
+                {
+                    kk(i) ^= k(i);
+                }
+
+                auto genBitPerm = [&](BinMatrix& k) {
+
+                    Perm exp(k.size());
+                    std::stable_sort(exp.begin(), exp.end(),
+                        [&](const auto& a, const auto& b) {
+                            return (k(a) < k(b));
+                        });
+                    return exp.inverse();
+                };
+
+                auto ll = oc::divCeil(keyBitCount, mL);
+                auto kIdx = 0;
+                auto sk = extract(kIdx, mL, kk); kIdx += mL;
+
+                std::cout << "k 0 { ";
+                for (auto i = 0ull; i < sk.size(); ++i)
+                    std::cout << " " << (int)sk(i);
+                std::cout << "}" << std::endl;
+
+                std::vector<Perm> ret;
+                // generate the sorting permutation for the
+                // first L bits of the key.
+                ret.emplace_back(genBitPerm(sk));
+                std::cout << ret.back() << std::endl;
+
+                Perm dst = ret.back();
+                {
+                    auto kk2 = kk;
+                    sk.resize(kk.rows(), kk.cols());
+                    dst.apply<u8>(kk2, sk, true);
+
+                    for (u64 j = 1; j < k.rows(); ++j)
+                    {
+                        auto k0 = oc::BitVector((u8*)sk[j - 1].data(),
+                            std::min<u64>(kIdx, keyBitCount));
+                        auto k1 = oc::BitVector((u8*)sk[j].data(),
+                            std::min<u64>(kIdx, keyBitCount));
+
+                        if (k0 > k1)
+                        {
+                            std::cout << k0 << std::endl;
+                            std::cout << k1 << std::endl;
+                            throw RTE_LOC;
+                        }
+                    }
+                }
+                for (auto i = 1; i < ll; ++i)
+                {
+                    // get the next L bits of the key.
+                    sk = extract(kIdx, mL, kk); kIdx += mL;
+                    auto ssk = sk;
+
+                    std::cout << "k " << i << " { ";
+                    for (auto i = 0ull; i < sk.size(); ++i)
+                        std::cout << " " << (int)sk(i);
+                    std::cout << "}" << std::endl;
+
+                    // apply the partial sort that we have so far 
+                    // to the next L bits of the key.
+                    dst.apply<u8>(sk, ssk, true);
+
+                    // generate the sorting permutation for the
+                    // next L bits of the key.
+                    ret.emplace_back(genBitPerm(ssk));
+                    std::cout << ret.back() << std::endl;
+
+                    // compose the current partial sort with
+                    // the permutation that sorts the next L bits
+                    dst = ret.back().compose(dst);
+
+                    auto kk2 = kk;
+                    sk.resize(kk2.rows(), kk2.cols());
+                    dst.apply<u8>(kk2, sk, true);
+
+                    for (u64 j = 1; j < k.rows(); ++j)
+                    {
+                        auto k0 = oc::BitVector((u8*)sk[j - 1].data(),
+                            std::min<u64>(kIdx, keyBitCount));
+                        auto k1 = oc::BitVector((u8*)sk[j].data(),
+                            std::min<u64>(kIdx, keyBitCount));
+
+                        if (k0 > k1)
+                            throw RTE_LOC;
+                    }
+
+                    //dst.validate(comm);
+                }
+                std::cout << std::endl;
+                std::cout << std::endl;
+
+                MC_RETURN(std::move(ret));
+            }
+            MC_END();
+        }
 
         u64 mL = 2;
         // generate the (inverse) permutation that sorts the keys k.
@@ -962,12 +1146,18 @@ namespace secJoin
                 ssk = BinMatrix{},
                 sigma2 = AdditivePerm{},
                 rho = AdditivePerm{},
-                i = u64{}
-
+                i = u64{},
+                debugPerms = std::vector<Perm>{},
+                debugPerm = Perm{}
             );
+
+            setTimePoint("genPerm begin");
 
             if (keyBitCount > k.cols() * 8)
                 throw RTE_LOC;
+
+            if (mDebug)
+                MC_AWAIT_SET(debugPerms, debugGenPerm(keyBitCount, k, comm));
 
             ll = oc::divCeil(keyBitCount, mL);
             kIdx = 0;
@@ -976,27 +1166,56 @@ namespace secJoin
             // generate the sorting permutation for the
             // first L bits of the key.
             MC_AWAIT(genBitPerm(mL, sk, dst, gen, comm));
+            setTimePoint("genBitPerm");
             //dst.validate(comm);
+
+            if (mDebug)
+            {
+                MC_AWAIT(comm.send(coproto::copy(dst.mShare)));
+                debugPerm.mPerm.resize(dst.size());
+                MC_AWAIT(comm.recv(debugPerm.mPerm));
+
+                for (u64 j = 0; j < debugPerm.size(); ++j)
+                {
+                    debugPerm.mPerm[j] ^= dst.mShare[j];
+                }
+
+                if (debugPerm != debugPerms[0])
+                {
+                    std::cout << "exp " << debugPerms[0] << std::endl;
+                    std::cout << "act " << debugPerm << std::endl;
+                    throw RTE_LOC;
+                }
+            }
 
             for (i = 1; i < ll; ++i)
             {
                 // get the next L bits of the key.
                 sk = extract(kIdx, mL, k); kIdx += mL;
+                ssk.resize(sk.rows(), sk.cols());
 
+
+                if (mTimer)
+                    dst.setTimer(getTimer());
                 // apply the partial sort that we have so far 
                 // to the next L bits of the key.
-                MC_AWAIT(dst.apply(sk, ssk, gen.mPrng, comm, gen, true));
+                MC_AWAIT(dst.apply<u8>(sk, ssk, gen.mPrng, comm, gen, true));
+                setTimePoint("apply(sk)");
 
                 // generate the sorting permutation for the
                 // next L bits of the key.
                 MC_AWAIT(genBitPerm(mL, ssk, rho, gen, comm));
+                setTimePoint("genBitPerm");
 
                 // compose the current partial sort with
                 // the permutation that sorts the next L bits
                 MC_AWAIT(rho.compose(dst, sigma2, gen.mPrng, comm, gen));
+                setTimePoint("compose");
                 std::swap(dst, sigma2);
                 //dst.validate(comm);
             }
+            setTimePoint("genPerm end");
+
 
             MC_END();
         }

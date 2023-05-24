@@ -1,6 +1,6 @@
 #pragma once
 
-#include "LowMC.h"
+#include "secure-join/Prf/LowMC.h"
 
 #include "coproto/Common/Defines.h"
 #include "coproto/Common/span.h"
@@ -19,7 +19,6 @@ namespace coproto
 #include "secure-join/GMW/Gmw.h"
 #include "coproto/Socket/LocalAsyncSock.h"
 #include <bitset>
-#include "tests/Common.h"
 #include "cryptoTools/Common/Matrix.h"
 #include "coproto/coproto.h"
 

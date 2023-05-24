@@ -1,6 +1,7 @@
 #pragma once
-#include "secure-join/LowMCPerm.h"
-#include "GMW/Gmw.h"
+#include "secure-join/Perm/LowMCPerm.h"
+#include "secure-join/Perm/InsecurePerm.h"
+#include "secure-join/GMW/Gmw.h"
 
 namespace secJoin
 {
@@ -63,14 +64,18 @@ namespace secJoin
             soutperm.resize(in.rows(), in.cols());
             if ((inv ^ bool(mPartyIdx)) == true)
             {
-                MC_AWAIT(LowMCPerm::apply<T>(in, soutperm, prng, chl, ole));
-                MC_AWAIT(LowMCPerm::apply<T>(mPerm, soutperm, out, prng, chl, inv, ole));
+                MC_AWAIT(InsecurePerm::apply<T>(in, soutperm, prng, chl, ole));
+                MC_AWAIT(InsecurePerm::apply<T>(mPerm, soutperm, out, prng, chl, inv, ole));
+                //MC_AWAIT(LowMCPerm::apply<T>(in, soutperm, prng, chl, ole));
+                //MC_AWAIT(LowMCPerm::apply<T>(mPerm, soutperm, out, prng, chl, inv, ole));
             }
             else
             {
+                MC_AWAIT(InsecurePerm::apply<T>(mPerm, in, soutperm, prng, chl, inv, ole));
+                MC_AWAIT(InsecurePerm::apply<T>(soutperm, out, prng, chl, ole));
 
-                MC_AWAIT(LowMCPerm::apply<T>(mPerm, in, soutperm, prng, chl, inv, ole));
-                MC_AWAIT(LowMCPerm::apply<T>(soutperm, out, prng, chl, ole));
+                //MC_AWAIT(LowMCPerm::apply<T>(mPerm, in, soutperm, prng, chl, inv, ole));
+                //MC_AWAIT(LowMCPerm::apply<T>(soutperm, out, prng, chl, ole));
             }
 
             MC_END();

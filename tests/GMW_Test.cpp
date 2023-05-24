@@ -9,7 +9,7 @@
 #include "Common.h"
 #include "coproto/Socket/LocalAsyncSock.h"
 
-
+#include "util.h"
 using coproto::LocalAsyncSocket;
 using namespace secJoin;
 
@@ -157,7 +157,6 @@ namespace secJoin_Tests
         //oc::IOService ios;
         //coproto::Socket sockets[0] = oc::Session(ios, "localhost:1212", oc::SessionMode::Server).addChannel();
         //coproto::Socket sockets[1] = oc::Session(ios, "localhost:1212", oc::SessionMode::Client).addChannel();
-        auto sockets = LocalAsyncSocket::makePair();
 
         Gmw cmp0, cmp1;
         block seed = oc::toBlock(cmd.getOr<u64>("s", 0));
@@ -188,13 +187,24 @@ namespace secJoin_Tests
         //cmp0.setTriples(a0, b0, c1, d1);
         //cmp1.setTriples(a1, b1, c0, d0);
 
-        auto p0 = cmp0.multSendP1(input0, sockets[0], oc::GateType::And, a0);
-        auto p1 = cmp1.multRecvP2(input1, z1, sockets[1], c0, d0);
-        eval(p0, p1);
+        std::vector<block> buff(n);
+        auto iter = buff.data();
+        iter = cmp0.multSendP1(input0.data(), oc::GateType::And, a0.data(), iter);
+        if (iter != buff.data() + buff.size())
+            throw RTE_LOC;
+        iter = buff.data();
+        iter = cmp1.multRecvP2(input1.data(), z1.data(), c0.data(), d0.data(), iter);
 
-        p0 = cmp0.multRecvP1(input0, z0, sockets[0], oc::GateType::And, b0);
-        p1 = cmp1.multSendP2(input1, sockets[1], oc::GateType::And, c0);
-        eval(p0, p1);
+        if (iter != buff.data() + buff.size())
+            throw RTE_LOC;
+        iter = buff.data();
+        iter = cmp1.multSendP2(input1.data(), oc::GateType::And, c0.data(), iter);
+        if (iter != buff.data() + buff.size())
+            throw RTE_LOC;
+        iter = buff.data();
+        iter = cmp0.multRecvP1(input0.data(), z0.data(), oc::GateType::And, b0.data(), iter);
+        if (iter != buff.data() + buff.size())
+            throw RTE_LOC;
 
         for (u64 i = 0; i < n; i++)
         {
@@ -212,8 +222,6 @@ namespace secJoin_Tests
 
     void Gmw_basic_test(const oc::CLP& cmd)
     {
-        auto sockets = LocalAsyncSocket::makePair();
-
         Gmw cmp0, cmp1;
         block seed = oc::toBlock(cmd.getOr<u64>("s", 0));
         oc::PRNG prng(seed);
@@ -254,14 +262,27 @@ namespace secJoin_Tests
         //cmp0.setTriples(a0, b0, c1, d1);
         //cmp1.setTriples(a1, b1, c0, d0);
 
+        std::vector<block> buff(n * 2);
+        auto iter = buff.data();
+        iter = cmp0.multSendP1(x[0].data(), y[0].data(), oc::GateType::And, a0.data(), c1.data(), iter);
 
-        auto p0 = cmp0.multSendP1(x[0], y[0], sockets[0], oc::GateType::And, a0, c1);
-        auto p1 = cmp1.multRecvP2(x[1], y[1], z[1], sockets[1], b1, c0, d0);
-        eval(p0, p1);
-
-        p0 = cmp0.multRecvP1(x[0], y[0], z[0], sockets[0], oc::GateType::And, b0, c1,d1);
-        p1 = cmp1.multSendP2(x[1], y[1], sockets[1], a1, c0);
-        eval(p0, p1);
+        if (iter != buff.data() + buff.size())
+            throw RTE_LOC;
+        iter = buff.data();
+        iter = cmp1.multRecvP2(x[1].data(), y[1].data(), z[1].data(), b1.data(), c0.data(), d0.data(), iter);
+        if (iter != buff.data() + buff.size())
+        {
+            std::cout << (iter - buff.data()) << std::endl;
+            throw RTE_LOC;
+        }
+        iter = buff.data();
+        iter = cmp1.multSendP2(x[1].data(), y[1].data(), a1.data(), c0.data(), iter);
+        if (iter != buff.data() + buff.size())
+            throw RTE_LOC;
+        iter = buff.data();
+        iter = cmp0.multRecvP1(x[0].data(), y[0].data(), z[0].data(), oc::GateType::And, b0.data(), c1.data(), d1.data(), iter);
+        if (iter != buff.data() + buff.size())
+            throw RTE_LOC;
 
         for (u64 i = 0; i < n; i++)
         {
@@ -855,7 +876,10 @@ namespace secJoin_Tests
     {
         oc::BetaLibrary lib;
 
-        auto cir = *lib.int_int_add(64, 64, 64);
+        u64 bitCount = 4;
+        auto cir = *lib.uint_uint_add(bitCount, bitCount, bitCount, oc::BetaLibrary::Optimized::Depth);
+        cir.levelByAndDepth();
+        //auto cir = *lib.int_int_add(64, 64, 64);
 
         auto sockets = LocalAsyncSocket::makePair();
 
@@ -865,16 +889,23 @@ namespace secJoin_Tests
 
         u64 n = 100;
 
-        std::vector<i64> in0(n), in1(n), out(n);
-        std::array<Matrix<u8>, 2> sout;
-        sout[0].resize(n, sizeof(i64));
-        sout[1].resize(n, sizeof(i64));
+        std::vector<u32> in0(n), in1(n);
+        std::array<Matrix<u32>, 2> sout;
+        sout[0].resize(n, 1);
+        sout[1].resize(n, 1);
 
         prng.get(in0.data(), n);
         prng.get(in1.data(), n);
-        auto sin0 = share(in0, prng);
-        auto sin1 = share(in1, prng);
-
+        auto sin0_ = xorShare(in0, prng);
+        auto sin1_ = xorShare(in1, prng);
+        std::array<oc::MatrixView<u32>, 2> sin0{ {
+            oc::MatrixView<u32>(sin0_[0].data(), sin0_[0].size(), 1),
+            oc::MatrixView<u32>(sin0_[1].data(), sin0_[0].size(), 1)
+        } };
+        std::array<oc::MatrixView<u32>, 2> sin1{ {
+            oc::MatrixView<u32>(sin1_[0].data(), sin1_[0].size(), 1),
+            oc::MatrixView<u32>(sin1_[1].data(), sin1_[0].size(), 1)
+        } };
 
         OleGenerator ole0, ole1;
         ole0.fakeInit(OleGenerator::Role::Sender);
@@ -897,16 +928,18 @@ namespace secJoin_Tests
         gmw0.getOutput(0, sout[0]);
         gmw1.getOutput(0, sout[1]);
 
-        out = reconstruct<i64>(sout);
+        //out = reconstruct<u32>(sout);
 
         for (u64 i = 0; i < n; ++i)
         {
-            auto exp = (in0[i] + in1[i]);
-            auto act = out[i];
+            auto exp = (in0[i] + in1[i]) & ((1ull << bitCount) - 1);
+            auto act = sout[0](i)^sout[1](i);
             if (act != exp)
             {
                 std::cout << "i   " << i << std::endl;
-                std::cout << "exp " << exp << std::endl;
+                std::cout << "exp " << exp  << " = "
+                    << (in0[i] & ((1ull << bitCount) - 1)) << " + " 
+                    << (in1[i] & ((1ull << bitCount) - 1)) << " mod 2^" << bitCount << std::endl;
                 std::cout << "act " << act << std::endl;
                 throw RTE_LOC;
             }

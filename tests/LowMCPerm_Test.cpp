@@ -1,4 +1,5 @@
 #include "LowMCPerm_Test.h"
+#include "secure-join/Perm/LowMCPerm.h"
 #include "util.h"
 using namespace secJoin;
 

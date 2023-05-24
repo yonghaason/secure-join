@@ -1,20 +1,22 @@
 #pragma once
-#include "Defines.h"
+#include "secure-join/Defines.h"
 #include <vector>
 #include "ComposedPerm.h"
 #include "Permutation.h"
+#include "cryptoTools/Common/Timer.h"
 
 namespace secJoin
 {
 
-    class AdditivePerm
+    class AdditivePerm : public oc::TimerAdapter
     {
     public:
         std::vector<u32> mShare;
         ComposedPerm mPi;
         Perm mRho;
+        bool mIsSetup = false;
 
-        bool isSetup() const { return mRho.size(); }
+        bool isSetup() const { return mIsSetup; }
 
         AdditivePerm() = default;
 
@@ -23,6 +25,14 @@ namespace secJoin
         {
             mShare.resize(shares.size());
             std::copy(shares.begin(), shares.end(), (u32*)mShare.data());
+        }
+
+        void init(u64 size)
+        {
+            mShare.resize(size);
+            mPi.mPerm.mPerm.resize(size);
+            mRho.mPerm.resize(size);
+            mIsSetup = false;
         }
 
         //AdditivePerm(span<u32> data, Perm mPerm, u8 partyIdx):
@@ -126,15 +136,34 @@ namespace secJoin
                 }
             }
 
+            mIsSetup = true;
+
             MC_END();
         }
 
         u64 size() const { return mShare.size(); }
 
+
         template<typename T>
         macoro::task<> apply(
-            oc::MatrixView<T>& in,
-            oc::MatrixView<T>& out,
+            oc::span<const T> in,
+            oc::span<T> out,
+            oc::PRNG& prng,
+            coproto::Socket& chl,
+            OleGenerator& ole,
+            bool inv = false)
+        {
+            return apply<T>(
+                oc::MatrixView<const T>(in.data(), in.size(), 1),
+                oc::MatrixView<T>(out.data(), out.size(), 1),
+                prng, chl, ole, inv
+                );
+        }
+
+        template<typename T>
+        macoro::task<> apply(
+            oc::MatrixView<const T> in,
+            oc::MatrixView<T> out,
             oc::PRNG& prng,
             coproto::Socket& chl,
             OleGenerator& ole,
@@ -147,7 +176,7 @@ namespace secJoin
             if (out.rows() != size())
                 throw RTE_LOC;
 
-            MC_BEGIN(macoro::task<>, this, &in, &out, &prng, &chl, &ole, inv,
+            MC_BEGIN(macoro::task<>, this, in, out, &prng, &chl, &ole, inv,
                 temp = oc::Matrix<T>{},
                 soutInv = oc::Matrix<T>{}
             );
@@ -174,14 +203,17 @@ namespace secJoin
 
 
         macoro::task<> compose(
-            const AdditivePerm& pi,
-            AdditivePerm& out,
+            AdditivePerm& pi,
+            AdditivePerm& dst,
             oc::PRNG& prng,
             coproto::Socket& chl,
-            OleGenerator& gen
-        )
+            OleGenerator& gen)
         {
-            throw RTE_LOC;
+            if (pi.size() != size())
+                throw RTE_LOC;
+            //dst.init(p2.size(), p2.mPi.mPartyIdx, gen);
+            dst.init(size());
+            return pi.apply<u32>(mShare, dst.mShare, prng, chl, gen);
         }
 
     };

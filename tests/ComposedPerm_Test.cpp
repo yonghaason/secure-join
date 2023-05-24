@@ -1,3 +1,4 @@
+#include "secure-join/Perm/ComposedPerm.h"
 #include "ComposedPerm_Test.h"
 using namespace secJoin;
 #include "util.h"

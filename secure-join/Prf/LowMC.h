@@ -10,7 +10,7 @@
 #include <fstream>
 #include <cstdlib>
 #include <algorithm>
-#include "Defines.h"
+#include "secure-join/Defines.h"
 
 #include <cryptoTools/Circuit/BetaCircuit.h>
 #include <cryptoTools/Crypto/PRNG.h>

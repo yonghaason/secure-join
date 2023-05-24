@@ -18,7 +18,7 @@ namespace secJoin
         mIdx = gen.mRole == OleGenerator::Role::Sender ? 1 : 0;
         mN = n;
         //mGen = &gen;
-        mTriples = macoro::sync_wait(gen.binOleRequest(2*cir.mNonlinearGateCount * oc::roundUpTo(mN, 128)));
+        mTriples = macoro::sync_wait(gen.binOleRequest(2 * cir.mNonlinearGateCount * oc::roundUpTo(mN, 128)));
 
         mCir = cir;
 
@@ -46,10 +46,12 @@ namespace secJoin
         auto exp = (numWires + bits - 1) / bits;
         auto act = input.cols() / alignment;
         if (exp != act)
-            throw RTE_LOC;
+        {
+            throw std::runtime_error("incorrect number of input bits per row. " LOCATION);
+        }
 
         if (input.rows() != mN)
-            throw RTE_LOC;
+            throw std::runtime_error("incorrect number of input rows. " LOCATION);
 
         oc::transpose(input, memView);
     }
@@ -269,19 +271,23 @@ namespace secJoin
             gate = span<oc::BetaGate>::iterator{},
             dirtyBits = std::vector<u8>{},
             pinnedInputs = std::vector<u8>{},
-            in = std::array<span<block>, 2>{},
-            out = span<block>{},
+            in = std::array<block*, 2>{},
+            out = (block*)nullptr,
             ww = std::vector<block>{},
             print = std::move(coproto::unique_function<void(u64)>{}),
             a = oc::AlignedUnVector<block>{},
             b = oc::AlignedUnVector<block>{},
             c = oc::AlignedUnVector<block>{},
             d = oc::AlignedUnVector<block>{},
+            buff = oc::AlignedUnVector<block>{},
+            buffIter = (block*)nullptr,
             triple = BinOle{},
             mult = span<oc::block>{},
             add = span<oc::block>{},
             j = u64{},
-            roundIdx = u64{}
+            roundIdx = u64{},
+            roundRem = u64{},
+            batchSize = 1ull << 14
         );
 
         if (mIdx == -1)
@@ -321,6 +327,7 @@ namespace secJoin
             b.resize(mWords.cols() * mCir.mLevelAndCounts[roundIdx]);
             c.resize(mWords.cols() * mCir.mLevelAndCounts[roundIdx]);
             d.resize(mWords.cols() * mCir.mLevelAndCounts[roundIdx]);
+            roundRem = mWords.cols() * mCir.mLevelAndCounts[roundIdx] * 2;
 
             j = 0;
             while (j != a.size())
@@ -379,23 +386,12 @@ namespace secJoin
             j = 0;
             for (gate = gates.begin(); gate < gates.end(); ++gate)
             {
-                //in = { mWords[gate->mInput[0]], mWords[gate->mInput[1]] };
-                //out = mWords[gate->mOutput];
 
-                in[0] = oc::span<oc::block>(mWords.data() + gate->mInput[0] * mWords.cols(), mWords.cols());
-                in[1] = oc::span<oc::block>(mWords.data() + gate->mInput[1] * mWords.cols(), mWords.cols());
-                out = oc::span<oc::block>(mWords.data() + gate->mOutput * mWords.cols(), mWords.cols());
+                in[0] = mWords.data() + gate->mInput[0] * mWords.cols();
+                in[1] = mWords.data() + gate->mInput[1] * mWords.cols();
+                out = mWords.data() + gate->mOutput * mWords.cols();
 
-                //if (mIdx && mO.mDebug)
-                //{
-                //    oc::RandomOracle ro(16);
-                //    ro.Update(mWords.data(), mWords.size());
-                //    block h;
-                //    ro.Final(h);
 
-                //    oc::lout << "g " << gate->mInput[0] << " " << gate->mInput[1] << " " <<
-                //        gateToString(gate->mType) << " " << gate->mOutput << " ~ " << h << std::endl;
-                //}
                 if (mO.mDebug)
                 {
                     if (dirtyBits[gate->mInput[0]] ||
@@ -412,7 +408,7 @@ namespace secJoin
 
                 if (gate->mType == oc::GateType::a)
                 {
-                    for (u64 i = 0; i < out.size(); ++i)
+                    for (u64 i = 0; i < mWords.cols(); ++i)
                         out[i] = in[0][i];
                 }
                 else if (gate->mType == oc::GateType::na_And ||
@@ -421,7 +417,17 @@ namespace secJoin
                     gate->mType == oc::GateType::Nor ||
                     gate->mType == oc::GateType::Or)
                 {
-                    MC_AWAIT(multSend(in[0], in[1], chl, gate->mType, a.subspan(j, mWords.cols()), c.subspan(j, mWords.cols())));
+                    if (buff.size() == 0 && roundRem)
+                    {
+                        auto min = oc::roundUpTo(std::min<u64>(batchSize, roundRem), mWords.cols());
+                        buff.resize(min);
+                        roundRem -= min;
+                        buffIter = buff.data();
+                    }
+
+
+                    buffIter = multSend(in[0], in[1], gate->mType, a.data() + j, c.data() + j, buffIter);
+
                     j += mWords.cols();
 
                     if (mO.mDebug)
@@ -430,49 +436,65 @@ namespace secJoin
                         pinnedInputs[gate->mInput[1]] = 1;
                         dirtyBits[gate->mOutput] = 1;
                     }
+
+                    if (buffIter == buff.data() + buff.size())
+                        MC_AWAIT(chl.send(std::move(buff)));
                 }
                 else if (
                     gate->mType == oc::GateType::Xor ||
                     gate->mType == oc::GateType::Nxor)
                 {
 
-                    for (u64 i = 0; i < out.size(); ++i)
+                    for (u64 i = 0; i < mWords.cols(); ++i)
                         out[i] = in[0][i] ^ in[1][i];
 
                     if (gate->mType == oc::GateType::Nxor && mIdx == 0)
                     {
-                        for (u64 i = 0; i < out.size(); ++i)
+                        for (u64 i = 0; i < mWords.cols(); ++i)
                             out[i] = out[i] ^ oc::AllOneBlock;
                     }
                 }
                 else
                     throw RTE_LOC;
+
             }
+
+            assert(roundRem == 0 && buff.size() == 0);
+            roundRem = mWords.cols() * mCir.mLevelAndCounts[roundIdx] * 2;
 
             j = 0;
             for (gate = gates.begin(); gate < gates.end(); ++gate)
             {
-                in[0] = oc::span<oc::block>(mWords.data() + gate->mInput[0] * mWords.cols(), mWords.cols());
-                in[1] = oc::span<oc::block>(mWords.data() + gate->mInput[1] * mWords.cols(), mWords.cols());
-                out = oc::span<oc::block>(mWords.data() + gate->mOutput * mWords.cols(), mWords.cols());
-                //, mWords[gate->mInput[1]]
-                    //  };
-
                 if (gate->mType == oc::GateType::na_And ||
                     gate->mType == oc::GateType::nb_And ||
                     gate->mType == oc::GateType::And ||
                     gate->mType == oc::GateType::Or ||
                     gate->mType == oc::GateType::Nor)
                 {
-                    MC_AWAIT(multRecv(in[0], in[1], out, chl, gate->mType,
-                        b.subspan(j, mWords.cols()),
-                        c.subspan(j, mWords.cols()),
-                        d.subspan(j, mWords.cols())));
+
+                    if (roundRem && buff.size() == 0 || buffIter == (buff.data() + buff.size()))
+                    {
+                        buff.resize(oc::roundUpTo(std::min<u64>(batchSize, roundRem), mWords.cols()));
+                        roundRem -= buff.size();
+                        buffIter = buff.data();
+                        MC_AWAIT(chl.recv(buff));
+                    }
+
+
+                    in[0] = mWords.data() + gate->mInput[0] * mWords.cols();
+                    in[1] = mWords.data() + gate->mInput[1] * mWords.cols();
+                    out = mWords.data() + gate->mOutput * mWords.cols();
+
+                    buffIter = multRecv(in[0], in[1], out, gate->mType,
+                        b.data() + j,
+                        c.data() + j,
+                        d.data() + j, buffIter);
                     j += mWords.cols();
                 }
             }
 
-
+            assert(roundRem == 0);
+            buff.resize(0);
 
             if (mO.mDebug)
             {
@@ -670,76 +692,48 @@ namespace secJoin
     //                            = ac + xc + (ac + b)
     //                            = cx + b
     // Observer z1 + z2 = xy
-    coproto::task<> Gmw::multSendP1(span<block> x, coproto::Socket& chl, oc::GateType gt,
-        span<block> a)
+    block* Gmw::multSendP1(block* x, oc::GateType gt, block* a, block* u)
     {
-        MC_BEGIN(coproto::task<>, this, x, &chl, gt, a,
-            width = x.size(),
-            u = std::vector<block>{}
-        );
-        //a = mA.subspan(0, width);
-        //mA = mA.subspan(width);
-
-        u.reserve(width);
+        auto width = mWords.cols();
         if (invertA(gt) == false)
         {
             for (u64 i = 0; i < width; ++i)
-                u.push_back(a[i] ^ x[i]);
+                u[i] = (a[i] ^ x[i]);
         }
         else
         {
             for (u64 i = 0; i < width; ++i)
-                u.push_back(a[i] ^ x[i] ^ oc::AllOneBlock);
+                u[i] = (a[i] ^ x[i] ^ oc::AllOneBlock);
         }
 
-        //oc::lout << mIdx << " " << "u = a + x" << std::endl << view(u[0]) << " = " << view(a[0]) << " + " << view(x[0]) << std::endl;
-
-        MC_AWAIT(chl.send(std::move(u)));
-        MC_END();
+        return u += width;
     }
 
-    coproto::task<> Gmw::multSendP2(span<block> y, coproto::Socket& chl, oc::GateType gt,
-        span<block> c)
+    block* Gmw::multSendP2(block* y, oc::GateType gt,
+        block* c, block* w)
     {
-
-        MC_BEGIN(coproto::task<>, this, y, &chl, gt, c,
-            width = y.size(),
-            w = std::vector<block>{}
-        );
+        auto width = mWords.cols();
         //c = mC.subspan(0, width);
         //mC = mC.subspan(width);
 
-        w.reserve(width);
         if (invertB(gt) == false)
         {
 
             for (u64 i = 0; i < width; ++i)
-                w.push_back(c[i] ^ y[i]);
+                w[i] = (c[i] ^ y[i]);
         }
         else
         {
             for (u64 i = 0; i < width; ++i)
-                w.push_back(c[i] ^ (y[i] ^ oc::AllOneBlock));
+                w[i] = (c[i] ^ (y[i] ^ oc::AllOneBlock));
         }
-
-        //oc::lout << mIdx << " " << "w = z + y" << std::endl << view(w[0]) << " = " << view(z[0]) << " + " << view(y[0]) << std::endl;
-
-        MC_AWAIT(chl.send(std::move(w)));
-        MC_END();
+        return w + width;
     }
 
-    coproto::task<> Gmw::multRecvP1(span<block> x, span<block> z, coproto::Socket& chl, oc::GateType gt,
-        span<block> b)
+    block* Gmw::multRecvP1(block* x, block* z, oc::GateType gt,
+        block* b, block* w)
     {
-        MC_BEGIN(coproto::task<>, this, x, z, &chl, gt, b,
-            width = x.size(),
-            w = std::vector<block>{}
-        );
-        w.resize(width);
-        MC_AWAIT(chl.recv(w));
-
-        //b = mB.subspan(0, width);
-        //mB = mB.subspan(width);
+        auto width = mWords.cols();
 
         if (invertA(gt) == false)
         {
@@ -755,87 +749,63 @@ namespace secJoin
                 z[i] = ((oc::AllOneBlock ^ x[i]) & w[i]) ^ b[i];
             }
         }
-
-        MC_END();
-        //oc::lout << mIdx << " " << "z1 = x * w" << std::endl << view(z[0]) << " = " << view(x[0]) << " * " << view(w[0]) << std::endl;
+        return w + width;
     }
 
-    coproto::task<> Gmw::multRecvP2(
-        span<block> y,
-        span<block> z,
-        coproto::Socket& chl,
-        span<block> c,
-        span<block> d
+    block* Gmw::multRecvP2(
+        block* y,
+        block* z,
+        block* c,
+        block* d,
+        block* u
     )
     {
-
-        MC_BEGIN(coproto::task<>, this, z, &chl, c, d,
-            width = y.size(),
-            u = std::vector<block>{}
-        );
-        u.resize(width);
-        MC_AWAIT(chl.recv(u));
-
-        //c = mC2.subspan(0, width);
-        //mC2 = mC2.subspan(width);
-        //d = mD.subspan(0, width);
-        //mD = mD.subspan(width);
+        auto width = mWords.cols();
 
         for (u64 i = 0; i < width; ++i)
         {
             z[i] = (c[i] & u[i]) ^ d[i];
         }
 
-
-        MC_END();
-        //oc::lout << mIdx << " " << "z2 = z * u + d" << std::endl << view(z[0]) << " = " << view(z[0]) << " * " << view(u[0]) << " + " << view(d[0]) << std::endl;
-
+        return u + width;
     }
 
-    coproto::task<> Gmw::multSendP1(span<block> x, span<block> y, coproto::Socket& chl, oc::GateType gt,
-        span<block> a,
-        span<block> c)
+    block* Gmw::multSendP1(block* x, block* y, oc::GateType gt,
+        block* a,
+        block* c,
+        block* buffIter)
     {
-        MC_BEGIN(coproto::task<>, this, x, y, &chl, gt, a, c);
-        MC_AWAIT(multSendP1(x, chl, gt, a));
-        MC_AWAIT(multSendP2(y, chl, gt, c));
-        MC_END();
+        buffIter = multSendP1(x,gt, a, buffIter);
+        buffIter = multSendP2(y,gt, c, buffIter);
+        return buffIter;
     }
 
-    coproto::task<> Gmw::multSendP2(span<block> x, span<block> y, coproto::Socket& chl,
-        span<block> a,
-        span<block> c)
+    block* Gmw::multSendP2(block* x, block* y,
+        block* a,
+        block* c,
+        block* buffIter)
     {
-        MC_BEGIN(coproto::task<>, this, x, y, &chl, a, c);
-
-        MC_AWAIT(multSendP2(y, chl, oc::GateType::And, c));
-        MC_AWAIT(multSendP1(x, chl, oc::GateType::And, a));
-
-        MC_END();
+        buffIter = multSendP2(y, oc::GateType::And, c, buffIter);
+        buffIter = multSendP1(x, oc::GateType::And, a, buffIter);
+        return buffIter;
     }
 
 
-    coproto::task<> Gmw::multRecvP1(span<block> x, span<block> y, span<block> z, coproto::Socket& chl, oc::GateType gt,
-        span<block> b,
-        span<block> c,
-        span<block> d)
+    block* Gmw::multRecvP1(block* x, block* y, block* z, oc::GateType gt,
+        block* b,
+        block* c,
+        block* d,
+        block* buffIter)
     {
-        MC_BEGIN(coproto::task<>, this, x, y, z, &chl, gt, b, c, d,
-            zz = std::vector<block>{},
-            zz2 = std::vector<block>{},
-            xm = block{},
-            ym = block{},
-            zm = block{}
-        );
+        oc::AlignedUnVector<block> zz(mWords.cols());
+        oc::AlignedUnVector<block> zz2(mWords.cols());
 
-        zz.resize(z.size());
-        zz2.resize(z.size());
-        MC_AWAIT(multRecvP1(x, zz, chl, gt, b));
-        MC_AWAIT(multRecvP2(y, zz2, chl, c, d));
+        buffIter = multRecvP1(x, zz.data(), gt, b, buffIter);
+        buffIter = multRecvP2(y, zz2.data(), c, d, buffIter);
 
-        xm = invertA(gt) ? oc::AllOneBlock : oc::ZeroBlock;
-        ym = invertB(gt) ? oc::AllOneBlock : oc::ZeroBlock;
-        zm = invertC(gt) ? oc::AllOneBlock : oc::ZeroBlock;
+        auto xm = invertA(gt) ? oc::AllOneBlock : oc::ZeroBlock;
+        auto ym = invertB(gt) ? oc::AllOneBlock : oc::ZeroBlock;
+        auto zm = invertC(gt) ? oc::AllOneBlock : oc::ZeroBlock;
 
         for (u64 i = 0; i < zz.size(); i++)
         {
@@ -847,31 +817,32 @@ namespace secJoin
             z[i] = z[i] ^ zm;
         }
 
-        MC_END();
+        return buffIter;
     }
 
-    coproto::task<> Gmw::multRecvP2(span<block> x, span<block> y, span<block> z, coproto::Socket& chl,
-        span<block> b,
-        span<block> c,
-        span<block> d)
+    block* Gmw::multRecvP2(block* x, block* y, block* z,
+        block* b,
+        block* c,
+        block* d,
+        block* buffIter)
     {
-        MC_BEGIN(coproto::task<>, this, x, y, z, &chl, b, c, d,
-            zz = std::vector<block>{},
-            zz2 = std::vector<block>{}
-        );
+        //MC_BEGIN(coproto::task<>, this, x, y, z, &chl, b, c, d,
+        //    zz = std::vector<block>{},
+        //    zz2 = std::vector<block>{}
+        //);
 
-        zz.resize(z.size());
-        zz2.resize(z.size());
+        oc::AlignedUnVector<block> zz(mWords.cols());
+        oc::AlignedUnVector<block> zz2(mWords.cols());
 
-        MC_AWAIT(multRecvP2(y, zz, chl, c, d));
-        MC_AWAIT(multRecvP1(x, zz2, chl, oc::GateType::And, b));
+        buffIter = multRecvP2(y, zz.data(), c, d, buffIter);
+        buffIter = multRecvP1(x, zz2.data(), oc::GateType::And, b, buffIter);
 
         for (u64 i = 0; i < zz.size(); i++)
         {
             z[i] = zz2[i] ^ zz[i] ^ (x[i] & y[i]);
         }
 
-        MC_END();
+        return buffIter;
     }
 
 

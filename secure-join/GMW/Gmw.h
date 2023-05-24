@@ -62,7 +62,7 @@ namespace secJoin
             const BetaCircuit& cir,
             OleGenerator& ole);
 
-        //void setTriples(span<block> a, span<block> b, span<block> c, span<block> d)
+        //void setTriples(block* a, block* b, block* c, block* d)
         //{
         //    mA = a;
         //    mB = b;
@@ -114,57 +114,62 @@ namespace secJoin
             return mNumRounds;
         }
 
-        coproto::task<> roundFunction(coproto::Socket& chl);
+
+        block* multSendP1(block* x, oc::GateType gt,
+            block* a, block* sendIter);
+        block* multSendP2(block* x, oc::GateType gt,
+            block* c, block* sendIter);
 
 
-        coproto::task<> multSendP1(span<block> x, coproto::Socket& chl, oc::GateType gt,
-            span<block> a);
-        coproto::task<> multSendP2(span<block> x, coproto::Socket& chl, oc::GateType gt,
-            span<block> c);
+        block* multRecvP1(block* x, block* z, oc::GateType gt,
+            block* b, block* recvIter);
+        block* multRecvP2(block* x,  block* z,
+            block* c,
+            block* d, 
+            block* recvIter);
 
 
-        coproto::task<> multRecvP1(span<block> x, span<block> z, coproto::Socket& chl, oc::GateType gt,
-            span<block> b);
-        coproto::task<> multRecvP2(span<block> x,  span<block> z, coproto::Socket& chl,
-            span<block> c,
-            span<block> d);
-
-
-        coproto::task<> multSend(span<block> x, span<block> y, coproto::Socket& chl, oc::GateType gt,
-            span<block> a,
-            span<block> c)
+        block* multSend(block* x, block* y, oc::GateType gt,
+            block* a,
+            block* c,
+            block* sendIter)
         {
             if (mIdx == 0)
-                return multSendP1(x, y, chl, gt, a, c);
+                return multSendP1(x, y, gt, a, c, sendIter);
             else
-                return multSendP2(x, y, chl, a, c);
+                return multSendP2(x, y, a, c, sendIter);
         }
-        coproto::task<> multSendP1(span<block> x, span<block> y, coproto::Socket& chl, oc::GateType gt,
-            span<block> a,
-            span<block> c);
-        coproto::task<> multSendP2(span<block> x, span<block> y, coproto::Socket& chl,
-            span<block> a,
-            span<block> c);
+        block* multSendP1(block* x, block* y, oc::GateType gt,
+            block* a,
+            block* c,
+            block* sendIter);
+        block* multSendP2(block* x, block* y,
+            block* a,
+            block* c,
+            block* sendIter);
 
 
-        coproto::task<> multRecv(span<block> x, span<block> y, span<block> z, coproto::Socket& chl, oc::GateType gt,
-            span<block> b,
-            span<block> c,
-            span<block> d)
+        block* multRecv(block* x, block* y, block* z, oc::GateType gt,
+            block* b,
+            block* c,
+            block* d,
+            block* recvIter)
         {
             if (mIdx == 0)
-                return multRecvP1(x, y, z, chl, gt, b, c, d);
+                return multRecvP1(x, y, z, gt, b, c, d, recvIter);
             else
-                return multRecvP2(x, y, z, chl, b, c, d);
+                return multRecvP2(x, y, z, b, c, d, recvIter);
         }
 
-        coproto::task<> multRecvP1(span<block> x, span<block> y, span<block> z, coproto::Socket& chl, oc::GateType gt,
-            span<block> b,
-            span<block> c,
-            span<block> d);
-        coproto::task<> multRecvP2(span<block> x, span<block> y, span<block> z, coproto::Socket& chl,
-            span<block> b,
-            span<block> c,
-            span<block> d);
+        block* multRecvP1(block* x, block* y, block* z, oc::GateType gt,
+            block* b,
+            block* c,
+            block* d,
+            block* recvIter);
+        block* multRecvP2(block* x, block* y, block* z,
+            block* b,
+            block* c,
+            block* d,
+            block* recvIter);
     };
 }

@@ -3,7 +3,7 @@
 #include "cryptoTools/Crypto/PRNG.h"
 #include "secure-join/Defines.h"
 #include <vector>
-#include "secure-join/AdditivePerm.h"
+#include "secure-join/Perm/AdditivePerm.h"
 
 using namespace secJoin;
 using oc::Matrix;
@@ -121,7 +121,7 @@ inline std::array<oc::Matrix<oc::u32>, 2> share(
 }
 
 inline std::array<std::vector<u32>, 2> xorShare(
-    const std::vector<u32>& v,
+    span<const u32> v,
     oc::PRNG& prng)
 {
     auto n = v.size();

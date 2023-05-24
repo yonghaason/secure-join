@@ -1,13 +1,14 @@
 #pragma once
 #include "secure-join/config.h"
 #include "secure-join/Defines.h"
+#include "secure-join/Prf/DarkMatter22Prf.h"
+
 #include "cryptoTools/Common/BitIterator.h"
 #include <bitset>
 #include "libOTe/Tools/Tools.h"
 #include "libOTe/TwoChooseOne/Silent/SilentOtExtSender.h"
 #include "libOTe/TwoChooseOne/Silent/SilentOtExtReceiver.h"
 #include "libOTe/TwoChooseOne/SoftSpokenOT/SoftSpokenShOtExt.h"
-#include "DarkMatter22Prf.h"
 
 namespace secJoin
 {

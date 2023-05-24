@@ -2,18 +2,25 @@
 
 
 set(SRCS
-    "DLpnPrf.cpp"
+    "Prf/DLpnPrf.cpp"
+    "Prf/DarkMatter22Prf.cpp"
+
     "OleGenerator.cpp"
-    "Permutation.cpp"
-    "ComposedPerm.cpp"
     
-    "LowMCPerm.cpp"
-    "AdditivePerm.cpp"
-    "DarkMatter22Prf.cpp"
+    "Perm/Permutation.cpp"
+    "Perm/ComposedPerm.cpp"
+    "Perm/LowMCPerm.cpp"
+    "Perm/AdditivePerm.cpp"
+
     "GMW/Circuit.cpp"
     "GMW/Gmw.cpp"
-    "RadixSort.cpp"
+
+    "Sort/RadixSort.cpp"
     
+    "AggTree/Level.cpp"
+    "AggTree/PlainAggTree.cpp"
+
+    "Trim.cpp"
     )
 
 if(SECUREJOIN_ENABLE_PAILLIER)
