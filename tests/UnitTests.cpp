@@ -66,9 +66,12 @@ namespace secJoin_Tests
 
 
 
-        //t.add("AggTree_levelReveal_Test                      ", AggTree_levelReveal_Test);
-        //t.add("AggTree_toPackedBin_Test                      ", AggTree_toPackedBin_Test);
-        //t.add("AggTree_dup_pre_setLeaves_Test                ", AggTree_dup_pre_setLeaves_Test);
+        t.add("AggTree_levelReveal_Test                      ", AggTree_levelReveal_Test);
+        t.add("AggTree_toPackedBin_Test                      ", AggTree_toPackedBin_Test);
+
+        t.add("AggTree_dup_pre_levelReveal_Test              ", AggTree_dup_pre_levelReveal_Test);
+        t.add("AggTree_dup_singleSetLeaves_Test              ", AggTree_dup_singleSetLeaves_Test);
+        t.add("AggTree_dup_pre_setLeaves_Test                ", AggTree_dup_pre_setLeaves_Test);
 
         });
 }

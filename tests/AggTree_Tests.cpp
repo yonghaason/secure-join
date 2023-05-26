@@ -195,6 +195,7 @@ namespace
 }
 
 using Level = AggTree::Level;
+using SplitLevel = AggTree::SplitLevel;
 
 
 void AggTree_levelReveal_Test()
@@ -268,7 +269,7 @@ void AggTree_levelReveal_Test()
             auto sufBitsOddShare = share(sufBitsOdd, prng);
             auto sufValsOddShare = share(sufValsOdd, prng);
 
-            std::array<std::array<Level, 2>, 2> tvs;
+            std::array<SplitLevel, 2> tvs;
 
             for (u64 p = 0; p < 2; ++p)
             {
@@ -387,6 +388,267 @@ BinMatrix perfectShuffle(const BinMatrix& x0, const BinMatrix& x1)
     return r;
 }
 
+
+void AggTree_dup_pre_levelReveal_Test()
+{
+
+    PRNG prng(ZeroBlock);
+
+    u64 m = 11;
+    for (u64 n : { 8ull, 256ull, 361ull, 24223ull })
+    {
+
+        BinMatrix preBits(n, 1);
+        BinMatrix preVals(n, m);
+        BinMatrix sufBits(n, 1);
+        BinMatrix sufVals(n, m);
+
+        BinMatrix preBitsEven(oc::divCeil(n, 2), 1);
+        BinMatrix preValsEven(oc::divCeil(n, 2), m);
+        BinMatrix sufBitsEven(oc::divCeil(n, 2), 1);
+        BinMatrix sufValsEven(oc::divCeil(n, 2), m);
+
+        BinMatrix preBitsOdd(n - preBitsEven.numEntries(), 1);
+        BinMatrix preValsOdd(n - preValsEven.numEntries(), m);
+        BinMatrix sufBitsOdd(n - sufBitsEven.numEntries(), 1);
+        BinMatrix sufValsOdd(n - sufValsEven.numEntries(), m);
+
+        prng.get(preBits.data(), preBits.size()); preBits.trim();
+        prng.get(preVals.data(), preVals.size()); preVals.trim();
+        prng.get(sufBits.data(), sufBits.size()); sufBits.trim();
+        prng.get(sufVals.data(), sufVals.size()); sufVals.trim();
+
+        for (u64 i = 0; i < n; i += 2)
+        {
+            preBitsEven(i / 2) = preBits(i);
+            sufBitsEven(i / 2) = sufBits(i);
+            if (i + 1 != n)
+            {
+                preBitsOdd(i / 2) = preBits(i + 1);
+                sufBitsOdd(i / 2) = sufBits(i + 1);
+            }
+
+            for (u64 j = 0; j < preVals.bytesPerEnrty(); ++j)
+            {
+                preValsEven(i / 2, j) = preVals(i, j);
+                sufValsEven(i / 2, j) = sufVals(i, j);
+                if (i + 1 != n)
+                {
+                    preValsOdd(i / 2, j) = preVals(i + 1, j);
+                    sufValsOdd(i / 2, j) = sufVals(i + 1, j);
+                }
+            }
+        }
+
+        auto preBitsEvenShare = share(preBitsEven, prng);
+        auto preValsEvenShare = share(preValsEven, prng);
+        auto sufBitsEvenShare = share(sufBitsEven, prng);
+        auto sufValsEvenShare = share(sufValsEven, prng);
+
+        auto preBitsOddShare = share(preBitsOdd, prng);
+        auto preValsOddShare = share(preValsOdd, prng);
+        auto sufBitsOddShare = share(sufBitsOdd, prng);
+        auto sufValsOddShare = share(sufValsOdd, prng);
+
+        std::array<SplitLevel, 2> tvs;
+
+        for (u64 p = 0; p < 2; ++p)
+        {
+            tvs[p][0].mPreBit = preBitsEvenShare[p].transpose();
+            tvs[p][0].mPreVal = preValsEvenShare[p].transpose();
+            tvs[p][0].mSufBit = sufBitsEvenShare[p].transpose();
+            tvs[p][0].mSufVal = sufValsEvenShare[p].transpose();
+            tvs[p][1].mPreBit = preBitsOddShare[p].transpose();
+            tvs[p][1].mPreVal = preValsOddShare[p].transpose();
+            tvs[p][1].mSufBit = sufBitsOddShare[p].transpose();
+            tvs[p][1].mSufVal = sufValsOddShare[p].transpose();
+        }
+
+        PLevel leaves;
+        PLevel even;
+        even.reveal(tvs[0][0], tvs[1][0]);
+        leaves.reveal(tvs[0], tvs[1]);
+
+
+        for (u64 i = 0; i < n; ++i)
+        {
+            if (leaves.mPreBit[i] != preBits(i))
+                throw RTE_LOC;
+            if (leaves.mSufBit[i] != sufBits(i))
+                throw RTE_LOC;
+
+            if (i < preValsEven.numEntries())
+            {
+                for (u64 j = 0; j < preVals.bytesPerEnrty(); ++j)
+                {
+                    if (even.mPreVal[i].getSpan<u8>()[j] != preValsEven(i, j))
+                    {
+                        std::cout << "exp " << oc::BitVector(&preValsEven(i, 0), m) << std::endl;
+                        std::cout << "act " << even.mPreVal[i] << std::endl;
+                        throw RTE_LOC;
+                    }
+                    if (even.mSufVal[i].getSpan<u8>()[j] != sufValsEven(i, j))
+                        throw RTE_LOC;
+                }
+            }
+
+            for (u64 j = 0; j < preVals.bytesPerEnrty(); ++j)
+            {
+                if (leaves.mPreVal[i].getSpan<u8>()[j] != preVals(i, j))
+                {
+                    std::cout << "exp " << oc::BitVector(&preVals(i, 0), m) << std::endl;
+                    std::cout << "act " << leaves.mPreVal[i] << std::endl;
+                    throw RTE_LOC;
+                }
+                if (leaves.mSufVal[i].getSpan<u8>()[j] != sufVals(i, j))
+                    throw RTE_LOC;
+            }
+        }
+    }
+}
+
+
+
+void AggTree_dup_singleSetLeaves_Test()
+{
+
+    PRNG prng(ZeroBlock);
+
+
+    u64 m = 11;
+    u64 logn, logfn, n16, r, n0, n1;;
+    for (u64 n : { 8ull, 256ull, 361ull, 24223ull })
+    {
+        {
+            n16 = n;
+            logn = oc::log2ceil(n);
+            logfn = oc::log2floor(n);
+            if (logn != logfn)
+            {
+                n16 = oc::roundUpTo(n, 16);
+                logn = oc::log2ceil(n16);
+                logfn = oc::log2floor(n16);
+
+            }
+
+            r = n16 - (1ull << logfn);
+            n0 = r ? 2 * r : n16;
+            n1 = n16 - n0;
+
+        }
+         
+        for (auto type : { AggTree::Type::Prefix, AggTree::Type::Suffix,AggTree::Type::Full })
+        {
+            auto nPow = 1ull << oc::log2ceil(n);
+
+            for (auto level : {0,1})
+            {
+                SplitLevel tvs;
+
+                BinMatrix s(n, m), expS;
+                BinMatrix c(n, 1), expPreC, expSufC;
+                prng.get(s.data(), s.size());
+                s.trim();
+                for (u64 i = 1; i < n; ++i)
+                    c(i) = prng.getBit();
+                    //c(i) = 1;
+
+                if (logn==logfn)
+                {
+                    if (level)
+                        continue;
+
+                    tvs.resize(n, m, type);
+                    tvs.setLeafVals(s, c, 0, 0);
+
+                    expS = s;
+                    expPreC = c;
+                    expPreC.resize(n, 1);
+                    expSufC = c;
+                    for (u64 i = 1; i < expSufC.size(); ++i)
+                        expSufC(i - 1) = expSufC(i);
+                    expSufC(expSufC.size() - 1) = 0;
+                }
+                else
+                {
+                    if (level == 0)
+                    {
+                        //std::cout << "exp clast " << (int)c(n0) << " @ " << n0 << std::endl;
+                        tvs.resize(n0, m, type);
+                        tvs.setLeafVals(s, c, 0, 0);
+
+                        expS = s; expS.resize(n0, m);
+                        expPreC = c; expPreC.resize(n0, 1);
+                        expSufC.resize(n0, 1);
+                        for (u64 i = 0; i < expSufC.size(); ++i)
+                            expSufC(i) = c(i + 1);
+                    }
+                    else
+                    {
+                        auto nn = 1ull << logfn;
+                        tvs.resize(nn, m, type);
+                        tvs.setLeafVals(s, c, n0, r);
+
+                        expS.resize(nn, m);
+                        expPreC.resize(nn, 1);
+                        memcpy<u8, u8>(expS.subMatrix(r, n - n0), s.subMatrix(n0));
+                        memcpy<u8, u8>(expPreC.subMatrix(r, n - n0), c.subMatrix(n0));
+
+                        expSufC = expPreC; expSufC.resize(nn, 1);
+                        for (u64 i = r+1; i < expSufC.size(); ++i)
+                            expSufC(i - 1) = expSufC(i);
+                        expSufC(expSufC.size() - 1) = 0;
+                    }
+                }
+
+                auto even = tvs[0];
+                auto odd = tvs[1];
+
+                auto preBit = perfectShuffle(even.mPreBit.transpose(), odd.mPreBit.transpose());
+                auto sufBit = perfectShuffle(even.mSufBit.transpose(), odd.mSufBit.transpose());
+                auto preVal = perfectShuffle(even.mPreVal.transpose(), odd.mPreVal.transpose());
+                auto sufVal = perfectShuffle(even.mSufVal.transpose(), odd.mSufVal.transpose());
+
+                bool failed = false;
+                for (u64 i = 0; i < expS.numEntries(); ++i)
+                {
+                    if ((type & AggTree::Type::Prefix) &&
+                        preBit(i) != expPreC(i))
+                    {
+                        std::cout << (int)preBit(i) << " != " << (int)expPreC(i) << std::endl;
+                        throw RTE_LOC;
+                    }
+
+                    if ((type & AggTree::Type::Suffix))
+                    {
+
+                        //std::cout << "suf " << i << " " << (int)sufBit(i) << " != " << (int)expSufC(i) << std::endl;
+                        if (sufBit(i) != expSufC(i))
+                        {
+                            failed = true;
+                            throw RTE_LOC;
+                        }
+                    }
+
+                    for (u64 j = 0; j < s.bytesPerEnrty(); ++j)
+                    {
+
+                        if ((type & AggTree::Type::Prefix) &&
+                            preVal(i, j) != expS(i, j))
+                            throw RTE_LOC;
+                        if ((type & AggTree::Type::Suffix) &&
+                            sufVal(i, j) != expS(i, j))
+                            throw RTE_LOC;
+                    }
+                }
+
+                if (failed)
+                    throw RTE_LOC;
+            }
+        }
+    }
+}
+
 void AggTree_dup_pre_setLeaves_Test()
 {
 
@@ -405,116 +667,6 @@ void AggTree_dup_pre_setLeaves_Test()
     {
         u64 m = 11;
 
-        {
-            BinMatrix preBits(n, 1);
-            BinMatrix preVals(n, m);
-            BinMatrix sufBits(n, 1);
-            BinMatrix sufVals(n, m);
-
-            BinMatrix preBitsEven(n / 2, 1);
-            BinMatrix preValsEven(n / 2, m);
-            BinMatrix sufBitsEven(n / 2, 1);
-            BinMatrix sufValsEven(n / 2, m);
-
-            BinMatrix preBitsOdd(n - preBitsEven.numEntries(), 1);
-            BinMatrix preValsOdd(n - preValsEven.numEntries(), m);
-            BinMatrix sufBitsOdd(n - sufBitsEven.numEntries(), 1);
-            BinMatrix sufValsOdd(n - sufValsEven.numEntries(), m);
-
-            prng.get(preBits.data(), preBits.size()); preBits.trim();
-            prng.get(preVals.data(), preVals.size()); preVals.trim();
-            prng.get(sufBits.data(), sufBits.size()); sufBits.trim();
-            prng.get(sufVals.data(), sufVals.size()); sufVals.trim();
-
-            for (u64 i = 0; i < n; i += 2)
-            {
-                preBitsEven(i / 2) = preBits(i);
-                sufBitsEven(i / 2) = sufBits(i);
-                if (i + 1 != n)
-                {
-                    preBitsOdd(i / 2) = preBits(i + 1);
-                    sufBitsOdd(i / 2) = sufBits(i + 1);
-                }
-
-                for (u64 j = 0; j < preVals.bytesPerEnrty(); ++j)
-                {
-                    preValsEven(i / 2, j) = preVals(i, j);
-                    sufValsEven(i / 2, j) = sufVals(i, j);
-                    if (i + 1 != n)
-                    {
-                        preValsOdd(i / 2, j) = preVals(i + 1, j);
-                        sufValsOdd(i / 2, j) = sufVals(i + 1, j);
-                    }
-                }
-            }
-
-            auto preBitsEvenShare = share(preBitsEven, prng);
-            auto preValsEvenShare = share(preValsEven, prng);
-            auto sufBitsEvenShare = share(sufBitsEven, prng);
-            auto sufValsEvenShare = share(sufValsEven, prng);
-
-            auto preBitsOddShare = share(preBitsOdd, prng);
-            auto preValsOddShare = share(preValsOdd, prng);
-            auto sufBitsOddShare = share(sufBitsOdd, prng);
-            auto sufValsOddShare = share(sufValsOdd, prng);
-
-            std::array<std::array<Level, 2>, 2> tvs;
-
-            for (u64 p = 0; p < 2; ++p)
-            {
-                tvs[p][0].mPreBit = preBitsEvenShare[p].transpose();
-                tvs[p][0].mPreVal = preValsEvenShare[p].transpose();
-                tvs[p][0].mSufBit = sufBitsEvenShare[p].transpose();
-                tvs[p][0].mSufVal = sufValsEvenShare[p].transpose();
-                tvs[p][1].mPreBit = preBitsOddShare[p].transpose();
-                tvs[p][1].mPreVal = preValsOddShare[p].transpose();
-                tvs[p][1].mSufBit = sufBitsOddShare[p].transpose();
-                tvs[p][1].mSufVal = sufValsOddShare[p].transpose();
-            }
-
-            PLevel leaves;
-            PLevel even;
-            even.reveal(tvs[0][0], tvs[1][0]);
-            leaves.reveal(tvs[0], tvs[1]);
-
-
-            for (u64 i = 0; i < n; ++i)
-            {
-                if (leaves.mPreBit[i] != preBits(i))
-                    throw RTE_LOC;
-                if (leaves.mSufBit[i] != sufBits(i))
-                    throw RTE_LOC;
-
-                if (i < preValsEven.numEntries())
-                {
-                    for (u64 j = 0; j < preVals.bytesPerEnrty(); ++j)
-                    {
-                        if (even.mPreVal[i].getSpan<u8>()[j] != preValsEven(i, j))
-                        {
-                            std::cout << "exp " << oc::BitVector(&preValsEven(i, 0), m) << std::endl;
-                            std::cout << "act " << even.mPreVal[i] << std::endl;
-                            throw RTE_LOC;
-                        }
-                        if (even.mSufVal[i].getSpan<u8>()[j] != sufValsEven(i, j))
-                            throw RTE_LOC;
-                    }
-                }
-
-                for (u64 j = 0; j < preVals.bytesPerEnrty(); ++j)
-                {
-                    if (leaves.mPreVal[i].getSpan<u8>()[j] != preVals(i, j))
-                    {
-                        std::cout << "exp " << oc::BitVector(&preVals(i, 0), m) << std::endl;
-                        std::cout << "act " << leaves.mPreVal[i] << std::endl;
-                        throw RTE_LOC;
-                    }
-                    if (leaves.mSufVal[i].getSpan<u8>()[j] != sufVals(i, j))
-                        throw RTE_LOC;
-                }
-            }
-
-        }
-
         PTree tree;
 
 
@@ -522,72 +674,27 @@ void AggTree_dup_pre_setLeaves_Test()
         auto s = tree.shareVals(prng);
         auto c = tree.shareBits(prng);
 
-        AggTree t0;
+        //for (u64 i = 0; i < n; ++i)
+        //    std::cout << "v " << i << " " << tree.mInput[i] << " " << (int)s[0](i,0) << " " << (int)s[1](i,0) << std::endl;
 
         for (auto type : { AggTree::Type::Prefix, AggTree::Type::Suffix,AggTree::Type::Full })
         {
-            std::array<std::array<Level, 2>, 2> tvs[2];
+            std::array<SplitLevel, 2> tvs[2];
 
             for (u64 p = 0; p < 2; ++p)
             {
                 if (tree.logfn == tree.logn)
                 {
-                    tvs[p][0][0].resize(tree.n16 / 2, m, type);
-                    tvs[p][0][1].resize(tree.n16 / 2, m, type);
-                    t0.setLeafVals(s[p], c[p], tvs[p][0], 0, 0, n, type);
-
-                    {
-
-                        auto even = tvs[p][0][0];
-                        auto odd = tvs[p][0][1];
-
-                        auto preBit = perfectShuffle(even.mPreBit.transpose(), odd.mPreBit.transpose());
-                        auto sufBit = perfectShuffle(even.mSufBit.transpose(), odd.mSufBit.transpose());
-                        auto preVal = perfectShuffle(even.mPreVal.transpose(), odd.mPreVal.transpose());
-                        auto sufVal = perfectShuffle(even.mSufVal.transpose(), odd.mSufVal.transpose());
-
-                        auto expBit = c[p];
-                        //expBit.resize(expBit.numEntries() + 1, expBit.bitsPerEntry());
-                        //expBit(expBit.numEntries() - 1) = 0;
-
-                        for (u64 i = 0; i < n; ++i)
-                        {
-                            if ((type & AggTree::Type::Prefix) &&
-                                preBit(i) != expBit(i))
-                            {
-                                std::cout << (int)preBit(i) << " != " << (int)expBit(i) << std::endl;
-                                throw RTE_LOC;
-                            }
-
-                            if ((type & AggTree::Type::Suffix) &&
-                                i + 1 < n &&
-                                sufBit(i) != expBit(i + 1))
-                            {
-                                std::cout << (int)sufBit(i) << " != " << (int)expBit(i + 1) << std::endl;
-                                throw RTE_LOC;
-                            }
-
-                            for (u64 j = 0; j < s[p].bytesPerEnrty(); ++j)
-                            {
-
-                                if ((type & AggTree::Type::Prefix) &&
-                                    preVal(i, j) != s[p](i, j))
-                                    throw RTE_LOC;
-                                if ((type & AggTree::Type::Suffix) &&
-                                    sufVal(i, j) != s[p](i, j))
-                                    throw RTE_LOC;
-                            }
-                        }
-                    }
+                    tvs[p][0].resize(tree.n16, m, type);
+                    tvs[p][0].setLeafVals(s[p], c[p], 0, 0);
                 }
                 else
                 {
-                    tvs[p][0][0].resize(tree.n0 / 2, m, type);
-                    tvs[p][0][1].resize(tree.n0 / 2, m, type);
-                    tvs[p][1][0].resize((1ull << tree.logfn) / 2, m, type);
-                    tvs[p][1][1].resize((1ull << tree.logfn) / 2, m, type);
-                    t0.setLeafVals(s[p], c[p], tvs[p][0], 0, 0, tree.n0, type);
-                    t0.setLeafVals(s[p], c[p], tvs[p][1], tree.n0, tree.r, tree.n1, type);
+                    tvs[p][0].resize(tree.n0, m, type);
+                    tvs[p][1].resize(1ull << tree.logfn, m, type);
+
+                    tvs[p][0].setLeafVals(s[p], c[p], 0, 0);
+                    tvs[p][1].setLeafVals(s[p], c[p], tree.n0, tree.r);
                 }
             }
 
@@ -601,20 +708,8 @@ void AggTree_dup_pre_setLeaves_Test()
             {
 
                 leaves[0].reveal(tvs[0][0], tvs[1][0]);
-                //if (rand() == rand())
-                //	std::cout << "\n";
-
                 leaves[1].reveal(tvs[0][1], tvs[1][1]);
             }
-
-            //auto bv = [&](auto& d, u64 i) {
-            //	return oc::BitVector(d.data(i), d.bitsPerEntry());
-            //};
-            //auto write = [](auto& d, u64 i, auto& v)
-            //{
-            //	assert(d.bitsPerEntry() == v.size());
-            //	memcpy(d.data(i), v.data(), v.sizeBytes());
-            //};
 
             for (u64 i = 0; i < tree.n16; ++i)
             {
@@ -773,7 +868,7 @@ void AggTree_dup_pre_setLeaves_Test()
 //	auto s = tree.shareVals(prng);
 //	auto c = tree.shareBits(prng);
 //
-//	std::array<std::vector<std::array<Level, 2>>, 3> tvs;
+//	std::array<std::vector<SplitLevel>, 3> tvs;
 //	tvs[0].resize(logn);
 //	tvs[1].resize(logn);
 //	tvs[2].resize(logn);
@@ -945,8 +1040,8 @@ void AggTree_dup_pre_setLeaves_Test()
 //	auto c = tree.shareBits(prng);
 //
 //	std::array<Level, 3> root, root2;
-//	std::array<std::array<Level, 2>, 3> preSuf, vals;
-//	std::array<std::vector<std::array<Level, 2>>, 3> tvs;
+//	std::array<SplitLevel, 3> preSuf, vals;
+//	std::array<std::vector<SplitLevel>, 3> tvs;
 //	auto logn = tree.logn;
 //	tvs[0].resize(logn);
 //	tvs[1].resize(logn);
@@ -1263,8 +1358,8 @@ void AggTree_dup_pre_setLeaves_Test()
 //
 //	auto logn = tree.logn;
 //	std::array<Level, 3> root;
-//	std::array<std::array<Level, 2>, 3> preSuf, vals;
-//	std::array<std::vector<std::array<Level, 2>>, 3> tvs;
+//	std::array<SplitLevel, 3> preSuf, vals;
+//	std::array<std::vector<SplitLevel>, 3> tvs;
 //	tvs[0].resize(logn);
 //	tvs[1].resize(logn);
 //	tvs[2].resize(logn);
@@ -1357,8 +1452,8 @@ void AggTree_dup_pre_setLeaves_Test()
 //		auto c = tree.shareBits(prng);
 //
 //		std::array<Level, 3> root, root2;
-//		std::array<std::array<Level, 2>, 3> preSuf, vals;
-//		std::array<std::vector<std::array<Level, 2>>, 3> tvs;
+//		std::array<SplitLevel, 3> preSuf, vals;
+//		std::array<std::vector<SplitLevel>, 3> tvs;
 //		auto logn = tree.logn;
 //		tvs[0].resize(logn);
 //		tvs[1].resize(logn);
@@ -1649,15 +1744,15 @@ void AggTree_dup_pre_setLeaves_Test()
 //
 //
 //		std::array<std::future<void>, 3> f;
-//		std::array<Level, 2> preSuf[3], vals[3];
+//		SplitLevel preSuf[3], vals[3];
 //		std::array<Level, 3> roots;
-//		std::array<std::vector<std::array<Level, 2>>, 3> upLevels, dnLevels;
+//		std::array<std::vector<SplitLevel>, 3> upLevels, dnLevels;
 //		for (u64 i = 0; i < 3; ++i)
 //			f[i] = std::async([&, i]()
 //				{
 //					u64 bitCount = s[i].bitCount();
 //					Level root;
-//					std::vector<std::array<Level, 2>> levels(oc::log2ceil(n));
+//					std::vector<SplitLevel> levels(oc::log2ceil(n));
 //
 //					t[i].upstream(s[i], c[i], opCir, i, type, com[i], g[i], root, levels);
 //					upLevels[i] = levels;

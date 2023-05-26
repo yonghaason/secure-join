@@ -73,6 +73,7 @@ namespace secJoin
         u64 dstShift, 
         u64 numEntries)
     {
+        throw RTE_LOC;
     	if (dstShift % 8)
     		throw RTE_LOC;
     	if (numEntries == 0 || in.numEntries() == 0)
@@ -96,9 +97,10 @@ namespace secJoin
     	{
     		//for (u64 j = 0; j < 2; ++j)
     		{
+                auto ss = oc::divCeil(out0.numEntries() - dstShift2, 8);
     			auto inn = in[i].subspan(0, oc::divCeil(numEntries, 8));
-    			auto o0 = out0[i].subspan(dstShift2 / 8, oc::divCeil(out0.numEntries() - dstShift2, 8));
-    			auto o1 = out1[i].subspan(dstShift2 / 8, oc::divCeil(out1.numEntries() - dstShift2, 8));
+    			auto o0 = out0[i].subspan(dstShift2 / 8, ss);
+    			auto o1 = out1[i].subspan(dstShift2 / 8, ss);
     			assert(inn.data() + inn.size() <= (u8*)(in[i].data() + in[i].size()));
     			assert(o0.data() + o0.size() <= (u8*)(out0[i].data() + out0[i].size()));
     			assert(o1.data() + o1.size() <= (u8*)(out1[i].data() + out1[i].size()));
@@ -296,6 +298,7 @@ namespace secJoin
         //	}
         //};
         using Level = AggTreeLevel;
+        using SplitLevel = AggTreeSplitLevel;
 
         //	bool mDebug = false;
         //	void apply(

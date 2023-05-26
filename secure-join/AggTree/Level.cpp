@@ -77,7 +77,7 @@ namespace secJoin
     }
 
 
-    void PLevel::reveal(std::array<AggTreeLevel, 2>& tvs0, std::array<AggTreeLevel, 2>& tvs1)
+    void PLevel::reveal(AggTreeSplitLevel& tvs0, AggTreeSplitLevel& tvs1)
     {
         PLevel l0, l1;
         l0.reveal(tvs0[0], tvs1[0]);
@@ -90,21 +90,33 @@ namespace secJoin
     auto revealOne(
         std::vector<oc::BitVector>& dst,
         TBinMatrix& src0,
-        TBinMatrix& src1)
+        TBinMatrix& src1,
+        bool print = false)
     {
         //BinMatrix temp(src0.numEntries(), src0.bitsPerEntry());
         //dst.resize(src0.numEntries(), src0.bitsPerEntry());
 
-        TBinMatrix v(src0.numEntries(), src0.bitsPerEntry());
-        for (i64 i = 0; i < v.size(); ++i)
-            v(i) = src0(i) ^ src1(i);
+        auto v0 = src0.transpose();
+        auto v1 = src1.transpose();
+        //TBinMatrix v(src0.numEntries(), src0.bitsPerEntry());
+        //for (i64 i = 0; i < v.size(); ++i)
+        //    v(i) = src0(i) ^ src1(i);
 
-        auto vv = v.transpose();
+        //auto vv = v.transpose();
 
         dst.resize(src0.numEntries());
         for (u64 i = 0; i < dst.size(); ++i)
         {
-            dst[i] = oc::BitVector(vv.data(i), vv.bitsPerEntry());
+            dst[i].resize(src0.bitsPerEntry());
+            for (u64 j = 0; j < dst[i].sizeBytes(); ++j)
+            {
+                dst[i].getSpan<u8>()[j] = v0(i, j) ^ v1(i, j);
+            }
+
+            //if (print)
+            //    std::cout << "i " << i << " " << (int)dst[i].getSpan<u8>()[0] << " = "
+            //    << (int)v0(i, 0) << " + "
+            //    << (int)v1(i, 0) << std::endl;
         }
 
     }
@@ -118,7 +130,8 @@ namespace secJoin
         assert(src1.bitsPerEntry() < 2);
         dst.resize(src0.numEntries());
 
-        for (u64 i = 0; i < src0.bytesPerRow(); ++i)
+        //auto n = oc::divCeil(src0.numEntries(), n)
+        for (u64 i = 0; i < dst.sizeBytes(); ++i)
         {
             dst.getSpan<u8>()[i] = src0(i) ^ src1(i);
         }
@@ -128,7 +141,7 @@ namespace secJoin
     void PLevel::reveal(AggTreeLevel& tvs0, AggTreeLevel& tvs1)
     {
         revealOne(mPreBit, tvs0.mPreBit, tvs1.mPreBit);
-        revealOne(mPreVal, tvs0.mPreVal, tvs1.mPreVal);
+        revealOne(mPreVal, tvs0.mPreVal, tvs1.mPreVal, true);
         revealOne(mSufBit, tvs0.mSufBit, tvs1.mSufBit);
         revealOne(mSufVal, tvs0.mSufVal, tvs1.mSufVal);
     }

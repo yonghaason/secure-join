@@ -76,6 +76,8 @@ namespace secJoin
             return mData.end();
         }
 
+        span<u8> operator[](u64 i) { return mData[i]; }
+        span<const u8> operator[](u64 i) const { return mData[i]; }
 
         u8& operator()(u64 i) { return mData(i); }
         u8& operator()(u64 i, u64 j) { return mData(i, j); }
@@ -84,7 +86,7 @@ namespace secJoin
         const u8& operator()(u64 i, u64 j) const { return mData(i, j); }
 
 
-
+        void transpose(oc::MatrixView<u8> dst) const;
         void transpose(TBinMatrix& dst) const;
         TBinMatrix transpose() const;
 
@@ -117,6 +119,33 @@ namespace secJoin
             ::secJoin::trim(mData, mBitCount);
         }
 
+        oc::MatrixView<u8> subMatrix(u64 rowIdx, u64 count)
+        {
+            if (rowIdx >= mData.rows())
+                throw RTE_LOC;
+            if (rowIdx + count > mData.rows())
+                throw RTE_LOC;
+            return oc::MatrixView<u8>(mData.data(rowIdx), count, mData.cols());
+        }
+
+        oc::MatrixView<u8> subMatrix(u64 rowIdx)
+        {
+            return subMatrix(rowIdx, mData.rows() - rowIdx);
+        }
+
+        oc::MatrixView<const u8> subMatrix(u64 rowIdx, u64 count) const
+        {
+            if (rowIdx >= mData.rows())
+                throw RTE_LOC;
+            if (rowIdx + count > mData.rows())
+                throw RTE_LOC;
+            return oc::MatrixView<const u8>(mData.data(rowIdx), count, mData.cols());
+        }
+
+        oc::MatrixView<const u8> subMatrix(u64 rowIdx)const
+        {
+            return subMatrix(rowIdx, mData.rows() - rowIdx);
+        }
     };
 
     // represents a binary matrix in bit transpose format. 
@@ -139,7 +168,7 @@ namespace secJoin
         u64 mEntryCount = 0;
         void resize(u64 rows, u64 bits, u64 alignment = 1)
         {
-            mData.resize(bits, oc::divCeil(rows, 8 * alignment));
+            mData.resize(bits, oc::roundUpTo(oc::divCeil(rows, 8), alignment));
             mEntryCount = rows;
         }
 
@@ -208,6 +237,17 @@ namespace secJoin
 
         oc::transpose(mData, dst.mData);
     }
+
+
+    inline void BinMatrix::transpose(oc::MatrixView<u8> dst) const
+    {
+        if (dst.rows() != bitsPerEntry()||
+            dst.cols() < oc::divCeil(numEntries(), 8))
+            throw RTE_LOC;
+
+        oc::transpose(mData, dst);
+    }
+
 
     inline TBinMatrix BinMatrix::transpose() const
     {
