@@ -15,6 +15,7 @@ set(SRCS
 	GMW_Test.cpp
 	RadixSort_Test.cpp
 	AggTree_Tests.cpp
+	DlpnPerm_Test.cpp
 	)
 
 	
