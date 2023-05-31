@@ -356,13 +356,6 @@ bool areEqual(
         return memcmp(a.data(), b.data(), div8) == 0;
     }
 }
-inline std::string hex(oc::span<u8> d)
-{
-    std::stringstream ss;
-    for (u64 i = d.size() - 1; i < d.size(); --i)
-        ss << std::hex << std::setw(2) << std::setfill('0') << int(d[i]);
-    return ss.str();
-}
 
 inline auto printDiff(oc::MatrixView<u8> x, oc::MatrixView<u8> y, u64 bitCount) -> void
 {

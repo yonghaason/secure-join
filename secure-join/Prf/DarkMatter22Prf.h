@@ -458,17 +458,6 @@ namespace secJoin
         }
     }
 
-    inline std::string hex(span<u8> d)
-    {
-        std::stringstream ss;
-        for (u64 i = 0; i < d.size(); ++i)
-        {
-            ss << std::setw(2) << std::setfill('0') << std::hex << int(d[i]);
-        }
-
-        return ss.str();
-    }
-
 
     inline void xorVector(span<oc::block> v, oc::PRNG& prng)
     {

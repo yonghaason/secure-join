@@ -11,7 +11,6 @@ namespace secJoin
     {
     public:
 
-
         void xorShare(oc::MatrixView<const u8> v1,
             oc::MatrixView<const oc::u8> v2,
             oc::MatrixView<oc::u8>& s)
@@ -31,7 +30,7 @@ namespace secJoin
         macoro::task<> setup(
             const Perm& pi,
             u64 bytesPerRow,
-            oc::MatrixView<u8>& sout,
+            oc::Matrix<u8>& sout,
             oc::PRNG& prng,
             coproto::Socket& chl,
             OleGenerator& ole,
@@ -42,17 +41,17 @@ namespace secJoin
                 aesCipher    = oc::Matrix<oc::block>(),
                 dlpnCipher   = oc::Matrix<oc::block>(),
                 blocksPerRow = u64(),
-                tolElements  = u64()
+                totElements  = u64()
             );
 
-            tolElements = pi.mPerm.size();
+            totElements = pi.mPerm.size();
             blocksPerRow = oc::divCeil(bytesPerRow, sizeof(oc::block));
 
             // Encryption starts here
-            aesPlaintext.resize(tolElements, blocksPerRow);
-            aesCipher.resize(tolElements, blocksPerRow);
-            dlpnCipher.resize(tolElements, blocksPerRow);
-            for (u64 i = 0; i < tolElements; i++)
+            aesPlaintext.resize(totElements, blocksPerRow);
+            aesCipher.resize(totElements, blocksPerRow);
+            dlpnCipher.resize(totElements, blocksPerRow);
+            for (u64 i = 0; i < totElements; i++)
             {
                 auto row = aesPlaintext[pi[i]];
                 for (u64 j = 0; j < blocksPerRow; j++)
@@ -64,10 +63,29 @@ namespace secJoin
 
             oc::mAesFixedKey.ecbEncBlocks(aesPlaintext, aesCipher);
 
+            // std::cout << "Printing permuted AES PlainText" << std::endl;
+            // for(int i = 0; i < aesPlaintext.rows() ; i++)
+            // {
+            //     std::cout << "i = " << i << " plain= "<< aesPlaintext(i,0) << " cipher = " << aesCipher(i,0) << std::endl;   
+            // }
+
             MC_AWAIT(recver.evaluate(aesCipher, dlpnCipher, chl, prng, ole));
 
-            for (u64 i = 0; i < tolElements; i++)
+            // std::cout << "Printing dlpnCipher 1" << std::endl;
+            // for(int i = 0; i < dlpnCipher.size() ; i++)
+            // {
+            //     std::cout << dlpnCipher(i,0) << std::endl;   
+            // }
+
+            sout.resize(totElements, bytesPerRow );
+            for (u64 i = 0; i < totElements; i++)
                 memcpyMin(sout[i], dlpnCipher[i]);
+
+            // std::cout << "dlpnCipher 1 is added in sout" << std::endl;
+            // for(int i = 0; i < totElements ; i++)
+            // {
+            //     std::cout << hex(sout[i]) << std::endl;   
+            // }
 
             MC_END();
         }
@@ -75,18 +93,21 @@ namespace secJoin
 
         // DLpn Sender calls this setup
         macoro::task<> setup(
-            std::vector<oc::MatrixView<u8>>& sout,
+            oc::Matrix<u8>& a,
+            oc::Matrix<u8>& b,
             oc::PRNG& prng,
             coproto::Socket& chl,
             OleGenerator& ole,
             u64 totElements,
             u64 bytesPerRow,
-            DLpnPrfSender& sender)
+            DLpnPrfSender& sender,
+            DLpnPrf& dm)
         {
 
-            MC_BEGIN(macoro::task<>, &chl, &sout, &prng, &ole, &sender, totElements, bytesPerRow,
+            MC_BEGIN(macoro::task<>, &chl, &a, &b, &prng, &ole, &sender, totElements, bytesPerRow, &dm,
                 aesPlaintext = oc::Matrix<oc::block>(),
                 aesCipher    = oc::Matrix<oc::block>(),
+                preProsdlpnCipher   = oc::Matrix<oc::block>(),
                 dlpnCipher   = oc::Matrix<oc::block>(),
                 blocksPerRow = u64()
             );
@@ -97,22 +118,49 @@ namespace secJoin
             aesPlaintext.resize(totElements, blocksPerRow);
             aesCipher.resize(totElements, blocksPerRow);
             dlpnCipher.resize(totElements, blocksPerRow);
-
+            preProsdlpnCipher.resize(totElements, blocksPerRow);
 
             for (u64 i = 0; i < aesPlaintext.size(); i++)
                 aesPlaintext(i) = oc::block(0, i);
 
             oc::mAesFixedKey.ecbEncBlocks(aesPlaintext, aesCipher);
 
+            // std::cout << "Printing AES sender setup" << std::endl;
+            // for(int i = 0; i < aesPlaintext.rows() ; i++)
+            // {
+            //     std::cout << "i = " << i
+            //              << " plain= " << aesPlaintext(i,0)
+            //              << " cipher = " << aesCipher(i,0)
+            //              << std::endl;   
+            // }
+
+        
+            for(int i = 0; i < aesCipher.rows() ; i++)
+            {
+                preProsdlpnCipher(i) = dm.eval(aesCipher(i,0));
+            }
+            // dm.eval(aesCipher);
+
             // Placing a in sout[0]
+            a.resize(totElements, bytesPerRow);
             for (u64 i = 0; i < totElements; i++)
-                memcpyMin(sout[0][i], aesCipher[i]);
+                memcpyMin(a[i], preProsdlpnCipher[i]);
 
             MC_AWAIT(sender.evaluate(dlpnCipher, chl, prng, ole));
 
             // Placing [y] in sout[1]
+            b.resize(totElements, bytesPerRow);
+
+            // std::cout<< "Size of one row in b " << b[1].size_bytes() << std::endl;
+            // std::cout<< "Size of one row in dlpnCipher " << dlpnCipher[1].size_bytes() << std::endl;
             for (u64 i = 0; i < totElements; i++)
-                memcpyMin(sout[1][i], dlpnCipher[i]);
+                memcpyMin(b[i], dlpnCipher[i]);
+
+            // std::cout << "dlpnCipher 2 is added in b" << std::endl;
+            // for(int i = 0; i < totElements ; i++)
+            // {
+            //     std::cout << hex(b[i]) << std::endl;   
+            // }
 
             MC_END();
         }
@@ -157,8 +205,6 @@ namespace secJoin
             MC_BEGIN(macoro::task<>, &chl, &input, &sin, this,
                 xEncrypted = oc::Matrix<u8>()
             );
-            // Both dlpnCipher & input x would be Matrix<u8>
-
             xEncrypted.resize(sin.rows(), sin.cols());
 
             xorShare(sin, input, xEncrypted);

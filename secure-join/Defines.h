@@ -1,7 +1,8 @@
 #pragma once
 #include "cryptoTools/Common/Defines.h"
-
-
+#include <iostream>
+#include <sstream>
+#include <iomanip>
 #include "Paillier/Defines.h"
 namespace secJoin
 {
@@ -25,6 +26,14 @@ namespace secJoin
     OC_FORCEINLINE void memset(span<D> dst, char v)
     {
         ::memset(dst.data(), v, dst.size_bytes());
+    }
+
+    inline std::string hex(oc::span<u8> d)
+    {
+        std::stringstream ss;
+        for (u64 i = d.size() - 1; i < d.size(); --i)
+            ss << std::hex << std::setw(2) << std::setfill('0') << int(d[i]);
+        return ss.str();
     }
 
 }
