@@ -3,11 +3,8 @@
 
 void Dlpn_perm_test(const oc::CLP& cmd)
 {
-    // u64 n = cmd.getOr("n", 1000);
-    // u64 rowSize = cmd.getOr("m",63);
-
-    u64 n =4;
-    u64 rowSize = 1;
+    u64 n = cmd.getOr("n", 1000);
+    u64 rowSize = cmd.getOr("m",63);
 
     
     oc::PRNG prng0(oc::ZeroBlock);

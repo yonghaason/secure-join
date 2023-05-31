@@ -137,7 +137,11 @@ namespace secJoin
         
             for(int i = 0; i < aesCipher.rows() ; i++)
             {
-                preProsdlpnCipher(i) = dm.eval(aesCipher(i,0));
+                for(int j=0; j < aesCipher.cols(); j++)
+                {
+                    preProsdlpnCipher(i,j) = dm.eval(aesCipher(i,j));
+                }
+                
             }
             // dm.eval(aesCipher);
 
