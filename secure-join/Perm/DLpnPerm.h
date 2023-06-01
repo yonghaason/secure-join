@@ -9,7 +9,14 @@ namespace secJoin
 
     class DLpnPerm
     {
+    // private:
+
+    //     oc::Matrix<u8> a, delta, b;
+
     public:
+
+        oc::Matrix<u8> a, delta, b;
+        bool isSetupDone = false;
 
         void xorShare(oc::MatrixView<const u8> v1,
             oc::MatrixView<const oc::u8> v2,
@@ -30,13 +37,12 @@ namespace secJoin
         macoro::task<> setup(
             const Perm& pi,
             u64 bytesPerRow,
-            oc::Matrix<u8>& sout,
             oc::PRNG& prng,
             coproto::Socket& chl,
             OleGenerator& ole,
             DLpnPrfReceiver& recver)
         {
-            MC_BEGIN(macoro::task<>, &pi, &chl, &sout, &prng, &ole, &recver, bytesPerRow,
+            MC_BEGIN(macoro::task<>, &pi, &chl, &prng, &ole, &recver, bytesPerRow, this,
                 aesPlaintext = oc::Matrix<oc::block>(),
                 aesCipher    = oc::Matrix<oc::block>(),
                 dlpnCipher   = oc::Matrix<oc::block>(),
@@ -77,9 +83,9 @@ namespace secJoin
             //     std::cout << dlpnCipher(i,0) << std::endl;   
             // }
 
-            sout.resize(totElements, bytesPerRow );
+            delta.resize(totElements, bytesPerRow );
             for (u64 i = 0; i < totElements; i++)
-                memcpyMin(sout[i], dlpnCipher[i]);
+                memcpyMin(delta[i], dlpnCipher[i]);
 
             // std::cout << "dlpnCipher 1 is added in sout" << std::endl;
             // for(int i = 0; i < totElements ; i++)
@@ -87,14 +93,14 @@ namespace secJoin
             //     std::cout << hex(sout[i]) << std::endl;   
             // }
 
+            isSetupDone = true;
+
             MC_END();
         }
 
 
         // DLpn Sender calls this setup
         macoro::task<> setup(
-            oc::Matrix<u8>& a,
-            oc::Matrix<u8>& b,
             oc::PRNG& prng,
             coproto::Socket& chl,
             OleGenerator& ole,
@@ -104,7 +110,7 @@ namespace secJoin
             DLpnPrf& dm)
         {
 
-            MC_BEGIN(macoro::task<>, &chl, &a, &b, &prng, &ole, &sender, totElements, bytesPerRow, &dm,
+            MC_BEGIN(macoro::task<>, &chl, &prng, &ole, &sender, totElements, bytesPerRow, &dm, this,
                 aesPlaintext = oc::Matrix<oc::block>(),
                 aesCipher    = oc::Matrix<oc::block>(),
                 preProsdlpnCipher   = oc::Matrix<oc::block>(),
@@ -166,6 +172,8 @@ namespace secJoin
             //     std::cout << hex(b[i]) << std::endl;   
             // }
 
+            isSetupDone = true;
+
             MC_END();
         }
 
@@ -173,12 +181,11 @@ namespace secJoin
         // DLpn Receiver calls this apply
         macoro::task<> apply(
             const Perm& pi,
-            oc::MatrixView<const u8> sin,
             oc::MatrixView<u8> sout,
             u64 bytesPerRow,
             coproto::Socket& chl)
         {
-            MC_BEGIN(macoro::task<>, &pi, &chl, &sin, &sout, bytesPerRow, this,
+            MC_BEGIN(macoro::task<>, &pi, &chl, &sout, bytesPerRow, this,
                 xEncrypted = oc::Matrix<u8>(),
                 xPermuted = oc::Matrix<u8>(),
                 totElements = u64()
@@ -193,7 +200,7 @@ namespace secJoin
             for (u64 i = 0; i < totElements; ++i)
                 memcpy(xPermuted[pi[i]], xEncrypted[i]);
 
-            xorShare(sin, xPermuted, sout);
+            xorShare(delta, xPermuted, sout);
 
             MC_END();
         }
@@ -201,22 +208,107 @@ namespace secJoin
 
         // DLpn Sender calls this apply
         macoro::task<> apply(
-            oc::MatrixView<u8> input,
-            oc::MatrixView<u8> sin,
+            oc::MatrixView<u8>& input,
+            oc::MatrixView<u8>& sout,
             coproto::Socket& chl)
         {
 
-            MC_BEGIN(macoro::task<>, &chl, &input, &sin, this,
-                xEncrypted = oc::Matrix<u8>()
+            MC_BEGIN(macoro::task<>, &chl, &input, &sout, this,
+                xEncrypted = oc::Matrix<u8>(),
+                totElements = u64()
             );
-            xEncrypted.resize(sin.rows(), sin.cols());
+            totElements = input.rows();
+            xEncrypted.resize(input.rows(), input.cols());
 
-            xorShare(sin, input, xEncrypted);
+            xorShare(a, input, xEncrypted);
 
             MC_AWAIT(chl.send(std::move(xEncrypted)));
 
+            for (u64 i = 0; i < totElements; ++i)
+                memcpy(sout[i], b[i]);
+
+
             MC_END();
         }
+
+
+
+        // If DLPN receiver only wants to call apply
+        // this will internally call setup for it
+        macoro::task<> apply(
+            const Perm& pi,
+            u64 bytesPerRow,
+            oc::PRNG& prng,
+            coproto::Socket& chl,
+            OleGenerator& ole,
+            DLpnPrfReceiver& recver,
+            oc::MatrixView<u8> sout
+        )
+        {
+            MC_BEGIN(macoro::task<>, &pi, &chl, &prng, &ole, &recver, bytesPerRow, this, &sout,
+                xEncrypted = oc::Matrix<u8>(),
+                xPermuted = oc::Matrix<u8>(),
+                totElements  = u64()
+            );
+
+            if(!isSetupDone)
+                MC_AWAIT( setup(pi, bytesPerRow, prng, chl, ole, recver) );
+
+            totElements = pi.mPerm.size();
+            xPermuted.resize(totElements, bytesPerRow);
+            xEncrypted.resize(totElements, bytesPerRow);
+
+            MC_AWAIT(chl.recv(xEncrypted));
+
+            for (u64 i = 0; i < totElements; ++i)
+                memcpy(xPermuted[pi[i]], xEncrypted[i]);
+
+            xorShare(delta, xPermuted, sout);
+
+            MC_END();
+
+        }
+
+    
+
+        // If DLPN sender only wants to call apply
+        // this will internally call setup for it
+        macoro::task<> apply(
+            oc::PRNG& prng,
+            coproto::Socket& chl,
+            OleGenerator& ole,
+            u64 totElements,
+            u64 bytesPerRow,
+            DLpnPrfSender& sender,
+            DLpnPrf& dm,
+            oc::MatrixView<u8>& input,
+            oc::MatrixView<u8>& sout
+        )
+        {
+
+            MC_BEGIN(macoro::task<>, &chl, &prng, &ole, &sender, totElements, 
+                bytesPerRow, &dm, this, &input, &sout,
+                xEncrypted = oc::Matrix<u8>()
+            );
+
+            if(!isSetupDone)
+                MC_AWAIT( setup(prng, chl, ole, totElements, bytesPerRow, sender, dm) );
+
+            totElements = input.rows();
+            xEncrypted.resize(input.rows(), input.cols());
+
+            xorShare(a, input, xEncrypted);
+
+            MC_AWAIT(chl.send(std::move(xEncrypted)));
+
+            for (u64 i = 0; i < totElements; ++i)
+                memcpy(sout[i], b[i]);
+
+            MC_END();
+
+
+        }
+
 
 
     };
