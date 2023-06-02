@@ -13,10 +13,8 @@ void Dlpn_perm_test1(const oc::CLP& cmd)
 {
     u64 n = cmd.getOr("n", 1000);
     u64 rowSize = cmd.getOr("m",63);
+    bool invPerm = false;
 
-    // u64 n = 4;
-    // u64 rowSize = 1;
-    
     oc::PRNG prng0(oc::ZeroBlock);
     oc::PRNG prng1(oc::OneBlock);
 
@@ -33,7 +31,6 @@ void Dlpn_perm_test1(const oc::CLP& cmd)
         aExp(n,rowSize),
         sout1(n,rowSize),
         sout2(n,rowSize);
-
 
     prng0.get(x.data(), x.size());
     Perm pi(n,prng0);
@@ -68,19 +65,19 @@ void Dlpn_perm_test1(const oc::CLP& cmd)
 
     // the preprocessing phase
     auto res = coproto::sync_wait(coproto::when_all_ready(
-        dlpnPerm1.setup(pi, rowSize, prng0, sock[0], ole1, recver),
+        dlpnPerm1.setup(pi, rowSize, prng0, sock[0], ole1, recver, invPerm),
         dlpnPerm2.setup(prng1, sock[1], ole0, n, rowSize, sender, dm)
     ));
 
     oc::Matrix<oc::u8>  permPiA = reveal(dlpnPerm1.delta, dlpnPerm2.b);
 
-    pi.apply<u8>(dlpnPerm2.a, aExp, true);
+    pi.apply<u8>(dlpnPerm2.a, aExp, invPerm);
+
     if(eq(aExp, permPiA) == false)
     {
         std::cout << "A & permuted A are not the same" << std::endl;
         throw RTE_LOC;
     }
-        
 
     std::get<0>(res).result();
     std::get<1>(res).result();
@@ -90,19 +87,19 @@ void Dlpn_perm_test1(const oc::CLP& cmd)
         ole1.stop()
     ));
 
-
     // the online phase (where input are already arrived)
     auto res1 = coproto::sync_wait(coproto::when_all_ready(
-        dlpnPerm1.apply(pi , sout1, rowSize, sock[0]),
+        dlpnPerm1.apply(pi , sout1, rowSize, sock[0], invPerm),
         dlpnPerm2.apply(x, sout2, sock[1]))
     );
 
     std::get<0>(res1).result();
     std::get<1>(res1).result();
 
+
     oc::Matrix<oc::u8>  yAct = reveal(sout2,sout1);
             
-    pi.apply<u8>(x, yExp, true);
+    pi.apply<u8>(x, yExp, invPerm);
 
     if(eq(yExp, yAct) == false)
         throw RTE_LOC;
@@ -121,6 +118,7 @@ void Dlpn_perm_test2(const oc::CLP& cmd)
 
     // u64 n = 4;
     // u64 rowSize = 1;
+    bool invPerm = true;
     
     oc::PRNG prng0(oc::ZeroBlock);
     oc::PRNG prng1(oc::OneBlock);
@@ -171,7 +169,7 @@ void Dlpn_perm_test2(const oc::CLP& cmd)
     auto sock = coproto::LocalAsyncSocket::makePair();
 
     auto res = coproto::sync_wait(coproto::when_all_ready(
-        dlpnPerm1.apply(pi, rowSize, prng0, sock[0], ole1, recver, sout1),
+        dlpnPerm1.apply(pi, rowSize, prng0, sock[0], ole1, recver, sout1, invPerm),
         dlpnPerm2.apply(prng1, sock[1], ole0, n, rowSize, sender, dm, x, sout2)
     ));
 
@@ -185,7 +183,7 @@ void Dlpn_perm_test2(const oc::CLP& cmd)
 
     oc::Matrix<oc::u8>  yAct = reveal(sout2,sout1);
             
-    pi.apply<u8>(x, yExp, true);
+    pi.apply<u8>(x, yExp, invPerm);
 
     if(eq(yExp, yAct) == false)
         throw RTE_LOC;

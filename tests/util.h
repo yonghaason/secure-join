@@ -183,3 +183,15 @@ inline bool eq(
 
     return std::equal(v1.begin(), v1.end(), v2.begin());
 }
+
+inline void printMatrix(const oc::Matrix<oc::u8>& v1)
+{
+    for(int i = 0; i < v1.rows(); i++)
+    {
+        
+        std::cout << hex(v1[i]) << " ";
+        
+        std::cout << std::endl;
+    }
+
+}

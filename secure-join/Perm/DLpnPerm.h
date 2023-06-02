@@ -18,7 +18,7 @@ namespace secJoin
         oc::Matrix<u8> a, delta, b;
         bool isSetupDone = false;
 
-        void xorShare(oc::MatrixView<const u8> v1,
+        inline void xorShare(oc::MatrixView<const u8> v1,
             oc::MatrixView<const oc::u8> v2,
             oc::MatrixView<oc::u8>& s)
         {
@@ -40,9 +40,10 @@ namespace secJoin
             oc::PRNG& prng,
             coproto::Socket& chl,
             OleGenerator& ole,
-            DLpnPrfReceiver& recver)
+            DLpnPrfReceiver& recver,
+            bool invPerm)
         {
-            MC_BEGIN(macoro::task<>, &pi, &chl, &prng, &ole, &recver, bytesPerRow, this,
+            MC_BEGIN(macoro::task<>, &pi, &chl, &prng, &ole, &recver, bytesPerRow, this, invPerm,
                 aesPlaintext = oc::Matrix<oc::block>(),
                 aesCipher    = oc::Matrix<oc::block>(),
                 dlpnCipher   = oc::Matrix<oc::block>(),
@@ -59,14 +60,22 @@ namespace secJoin
             dlpnCipher.resize(totElements, blocksPerRow);
             for (u64 i = 0; i < totElements; i++)
             {
-                auto row = aesPlaintext[pi[i]];
                 for (u64 j = 0; j < blocksPerRow; j++)
                 {
-                    auto srcIdx = i * blocksPerRow + j;
-                    row[j] = oc::block(0, srcIdx);
+                    if(!invPerm)
+                    {
+                        auto srcIdx = pi[i] * blocksPerRow + j;
+                        aesPlaintext(i,j) = oc::block(0, srcIdx);
+                    }
+                    else
+                    {
+                        auto srcIdx = i * blocksPerRow + j;
+                        aesPlaintext(pi[i],j) = oc::block(0, srcIdx);
+                    }
+
+
                 }
             }
-
             oc::mAesFixedKey.ecbEncBlocks(aesPlaintext, aesCipher);
 
             // std::cout << "Printing permuted AES PlainText" << std::endl;
@@ -183,9 +192,10 @@ namespace secJoin
             const Perm& pi,
             oc::MatrixView<u8> sout,
             u64 bytesPerRow,
-            coproto::Socket& chl)
+            coproto::Socket& chl,
+            bool invPerm)
         {
-            MC_BEGIN(macoro::task<>, &pi, &chl, &sout, bytesPerRow, this,
+            MC_BEGIN(macoro::task<>, &pi, &chl, &sout, bytesPerRow, this, invPerm, 
                 xEncrypted = oc::Matrix<u8>(),
                 xPermuted = oc::Matrix<u8>(),
                 totElements = u64()
@@ -198,7 +208,15 @@ namespace secJoin
             MC_AWAIT(chl.recv(xEncrypted));
 
             for (u64 i = 0; i < totElements; ++i)
-                memcpy(xPermuted[pi[i]], xEncrypted[i]);
+            {
+                if(!invPerm){
+                    memcpy(xPermuted[i], xEncrypted[pi[i]]);
+                }
+                else{
+                    memcpy(xPermuted[pi[i]], xEncrypted[i]);
+                }
+                
+            }
 
             xorShare(delta, xPermuted, sout);
 
@@ -242,17 +260,18 @@ namespace secJoin
             coproto::Socket& chl,
             OleGenerator& ole,
             DLpnPrfReceiver& recver,
-            oc::MatrixView<u8> sout
+            oc::MatrixView<u8> sout,
+            bool invPerm
         )
         {
-            MC_BEGIN(macoro::task<>, &pi, &chl, &prng, &ole, &recver, bytesPerRow, this, &sout,
+            MC_BEGIN(macoro::task<>, &pi, &chl, &prng, &ole, &recver, bytesPerRow, this, &sout, invPerm,
                 xEncrypted = oc::Matrix<u8>(),
                 xPermuted = oc::Matrix<u8>(),
                 totElements  = u64()
             );
 
             if(!isSetupDone)
-                MC_AWAIT( setup(pi, bytesPerRow, prng, chl, ole, recver) );
+                MC_AWAIT( setup(pi, bytesPerRow, prng, chl, ole, recver, invPerm) );
 
             totElements = pi.mPerm.size();
             xPermuted.resize(totElements, bytesPerRow);
@@ -261,7 +280,16 @@ namespace secJoin
             MC_AWAIT(chl.recv(xEncrypted));
 
             for (u64 i = 0; i < totElements; ++i)
-                memcpy(xPermuted[pi[i]], xEncrypted[i]);
+            {
+                if(!invPerm){
+                    memcpy(xPermuted[i], xEncrypted[pi[i]]);
+                }
+                else{
+                    memcpy(xPermuted[pi[i]], xEncrypted[i]);
+                }
+                
+            }
+                
 
             xorShare(delta, xPermuted, sout);
 
@@ -286,7 +314,7 @@ namespace secJoin
         )
         {
 
-            MC_BEGIN(macoro::task<>, &chl, &prng, &ole, &sender, totElements, 
+            MC_BEGIN(macoro::task<>, &chl, &prng, &ole, &sender, totElements,
                 bytesPerRow, &dm, this, &input, &sout,
                 xEncrypted = oc::Matrix<u8>()
             );
