@@ -40,7 +40,8 @@ namespace secJoin
 
         void setKey(oc::block k)
         {
-            mKey = oc::PRNG(k).get();
+            // mKey = oc::PRNG(k).get();
+            mKey[0] = k;
             //std::array<block256, 2> zeroOne;
             //memset(&zeroOne[0], 0, sizeof(zeroOne[0]));
             //memset(&zeroOne[1], -1, sizeof(zeroOne[1]));
@@ -308,6 +309,28 @@ namespace secJoin
         oc::AlignedUnVector<std::array<u16, m>> mU;
         oc::AlignedUnVector<u16> mH;
 
+        macoro::task<> genKeyOTs(OleGenerator& ole)
+        {
+            MC_BEGIN(macoro::task<>, this, &ole,
+            totalSize = u64(),
+            s = u64(),
+            ots = OtRecv(),
+            req = Request<OtRecv>(),
+            keyBlock = oc::block());
+
+            totalSize = 128;
+            s=0;
+            MC_AWAIT_SET(req, ole.otRecvRequest(totalSize));
+
+            MC_AWAIT_SET(ots, req.get());
+
+            assert(ots.size() == totalSize);
+
+            keyBlock = ots.mChoice.getSpan<oc::block>()[0];
+            setKey(keyBlock);
+            setKeyOts(ots.mMsg);
+            MC_END();
+        }
 
         void setKeyOts(span<oc::block> ots)
         {
@@ -766,6 +789,28 @@ namespace secJoin
         static constexpr int mNumOlePer = (m * 2) / 128;
 
         //oc::AlignedUnVector<u16> mPi;
+
+        macoro::task<> genKeyOTs(OleGenerator& ole)
+        {
+
+            MC_BEGIN(macoro::task<>, this, &ole,
+            totalSize = u64(),
+            s = u64(),
+            ots = OtSend(),
+            req = Request<OtSend>());
+
+            totalSize = 128;
+            s = 0;
+
+            MC_AWAIT_SET(req, ole.otSendRequest(totalSize));
+
+            MC_AWAIT_SET(ots, req.get());
+
+            assert(ots.size() == totalSize);
+
+            setKeyOts(ots.mMsg);
+            MC_END();
+        }
 
         void setKeyOts(span<std::array<oc::block, 2>> ots)
         {

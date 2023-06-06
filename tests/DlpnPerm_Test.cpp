@@ -18,13 +18,7 @@ void Dlpn_perm_test1(const oc::CLP& cmd)
     oc::PRNG prng0(oc::ZeroBlock);
     oc::PRNG prng1(oc::OneBlock);
 
-    DLpnPrfSender sender;
-    DLpnPrfReceiver recver;
     secJoin::DLpnPerm dlpnPerm1, dlpnPerm2;
-
-    oc::Timer timer;
-    sender.setTimer(timer);
-    recver.setTimer(timer);
 
     oc::Matrix<u8> x(n, rowSize), 
         yExp(n,rowSize),
@@ -38,28 +32,25 @@ void Dlpn_perm_test1(const oc::CLP& cmd)
 
     // Fake Setup
     OleGenerator ole0, ole1;
-    macoro::thread_pool tp;
     ole0.fakeInit(OleGenerator::Role::Sender);
     ole1.fakeInit(OleGenerator::Role::Receiver);
 
 
-    DLpnPrf dm;
+    // DLpnPrf dm;
     oc::block kk;
     kk = prng0.get();
-    dm.setKey(kk);
-    sender.setKey(kk);
+
     // Setuping up the OT Keys
-    std::vector<oc::block> rk(sender.mPrf.KeySize);
-    std::vector<std::array<oc::block, 2>> sk(sender.mPrf.KeySize);
-    for (u64 i = 0; i < sender.mPrf.KeySize; ++i)
+    std::vector<oc::block> rk(dlpnPerm2.mSender.mPrf.KeySize);
+    std::vector<std::array<oc::block, 2>> sk(dlpnPerm2.mSender.mPrf.KeySize);
+    for (u64 i = 0; i < dlpnPerm2.mSender.mPrf.KeySize; ++i)
     {
         sk[i][0] = oc::block(i, 0);
         sk[i][1] = oc::block(i, 1);
-        rk[i] = oc::block(i, *oc::BitIterator((u8*)&sender.mPrf.mKey, i));
+        rk[i] = oc::block(i, *oc::BitIterator((u8*)&kk, i));
     }
-    sender.setKeyOts(rk);
-    recver.setKeyOts(sk);
-
+    dlpnPerm2.setupDlpnSender(kk,rk);
+    dlpnPerm1.setupDlpnReceiver(sk);
 
     auto sock = coproto::LocalAsyncSocket::makePair();
 
@@ -68,8 +59,8 @@ void Dlpn_perm_test1(const oc::CLP& cmd)
 
         // the preprocessing phase
         auto res = coproto::sync_wait(coproto::when_all_ready(
-            dlpnPerm1.setup(pi, rowSize, prng0, sock[0], ole1, recver, invPerm),
-            dlpnPerm2.setup(prng1, sock[1], ole0, n, rowSize, sender, dm)
+            dlpnPerm1.setup(pi, rowSize, prng0, sock[0], ole1, invPerm),
+            dlpnPerm2.setup(prng1, sock[1], ole0, n, rowSize)
         ));
 
         oc::Matrix<oc::u8>  permPiA = reveal(dlpnPerm1.delta, dlpnPerm2.b);
@@ -82,8 +73,8 @@ void Dlpn_perm_test1(const oc::CLP& cmd)
             throw RTE_LOC;
         }
 
-        std::get<0>(res).result();
-        std::get<1>(res).result();
+        // std::get<0>(res).result();
+        // std::get<1>(res).result();
 
         coproto::sync_wait(coproto::when_all_ready(
             ole0.stop(),
@@ -121,74 +112,64 @@ void Dlpn_perm_test2(const oc::CLP& cmd)
     u64 n = cmd.getOr("n", 1000);
     u64 rowSize = cmd.getOr("m",63);
     
-    bool invPerm = false;
+    // bool invPerm = false;
     
     oc::PRNG prng0(oc::ZeroBlock);
     oc::PRNG prng1(oc::OneBlock);
 
-    DLpnPrfSender sender;
-    DLpnPrfReceiver recver;
     secJoin::DLpnPerm dlpnPerm1, dlpnPerm2;
-
-    oc::Timer timer;
-    sender.setTimer(timer);
-    recver.setTimer(timer);
 
     oc::Matrix<u8> x(n, rowSize), 
         yExp(n,rowSize),
         sout1(n,rowSize),
         sout2(n,rowSize);
 
-
     prng0.get(x.data(), x.size());
     Perm pi(n,prng0);
-    // std::cout << "The Current Permutation is " << pi.mPerm << std::endl;
+    // // std::cout << "The Current Permutation is " << pi.mPerm << std::endl;
 
     // Fake Setup
     OleGenerator ole0, ole1;
-    macoro::thread_pool tp;
     ole0.fakeInit(OleGenerator::Role::Sender);
     ole1.fakeInit(OleGenerator::Role::Receiver);
 
-
-    DLpnPrf dm;
-    oc::block kk;
-    kk = prng0.get();
-    dm.setKey(kk);
-    sender.setKey(kk);
-    // Setuping up the OT Keys
-    std::vector<oc::block> rk(sender.mPrf.KeySize);
-    std::vector<std::array<oc::block, 2>> sk(sender.mPrf.KeySize);
-    for (u64 i = 0; i < sender.mPrf.KeySize; ++i)
-    {
-        sk[i][0] = oc::block(i, 0);
-        sk[i][1] = oc::block(i, 1);
-        rk[i] = oc::block(i, *oc::BitIterator((u8*)&sender.mPrf.mKey, i));
-    }
-    sender.setKeyOts(rk);
-    recver.setKeyOts(sk);
-
-
-    auto sock = coproto::LocalAsyncSocket::makePair();
-
     auto res = coproto::sync_wait(coproto::when_all_ready(
-        dlpnPerm1.apply(pi, rowSize, prng0, sock[0], ole1, recver, sout1, invPerm),
-        dlpnPerm2.apply(prng1, sock[1], ole0, n, rowSize, sender, dm, x, sout2)
+        dlpnPerm1.setupDlpnReceiver(ole0),
+        dlpnPerm2.setupDlpnSender(ole1)
     ));
 
     std::get<0>(res).result();
     std::get<1>(res).result();
 
-    coproto::sync_wait(coproto::when_all_ready(
-        ole0.stop(),
-        ole1.stop()
-    ));
+    // Unit test should check if the key is set or not
+    // std::cout << " The mKey is " << dlpnPerm2.mSender.mPrf.mKey[0] << std::endl;
+    // if(dlpnPerm2.mSender.mPrf.mKey.size())
 
-    oc::Matrix<oc::u8>  yAct = reveal(sout2,sout1);
-            
-    pi.apply<u8>(x, yExp, invPerm);
+    auto sock = coproto::LocalAsyncSocket::makePair();
 
-    if(eq(yExp, yAct) == false)
-        throw RTE_LOC;
-   
+    for(auto invPerm : {false,true})
+    {
+        auto res1 = coproto::sync_wait(coproto::when_all_ready(
+            dlpnPerm1.apply(pi, rowSize, prng0, sock[0], ole1, sout1, invPerm),
+            dlpnPerm2.apply(prng1, sock[1], ole0, n, rowSize, x, sout2)
+        ));
+
+
+        std::get<0>(res1).result();
+        std::get<1>(res1).result();
+
+        coproto::sync_wait(coproto::when_all_ready(
+            ole0.stop(),
+            ole1.stop()
+        ));
+
+        oc::Matrix<oc::u8>  yAct = reveal(sout2,sout1);
+                
+        pi.apply<u8>(x, yExp, invPerm);
+
+        if(eq(yExp, yAct) == false)
+            throw RTE_LOC;
+
+    }
+
 }

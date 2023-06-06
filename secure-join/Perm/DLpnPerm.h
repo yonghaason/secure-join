@@ -13,10 +13,53 @@ namespace secJoin
 
     //     oc::Matrix<u8> a, delta, b;
 
-    public:
+    public: 
 
+//     constructor
+//     {
+
+//     }
+
+// setup{
+//     check if recver & sender initialized
+// }
+        bool isDlpnSetupDone = false;
+        DLpnPrfReceiver mRecver;
+        DLpnPrfSender mSender;
         oc::Matrix<u8> a, delta, b;
-        bool isSetupDone = false;
+
+        void setupDlpnSender(oc::block key, std::vector<oc::block> rk)
+        {
+            mSender.setKey(key);
+            mSender.setKeyOts(rk);
+            isDlpnSetupDone = true;
+        }
+
+        void setupDlpnReceiver(std::vector<std::array<oc::block, 2>> sk)
+        {
+            mRecver.setKeyOts(sk);
+            isDlpnSetupDone = true;
+        }
+
+        inline macoro::task<> setupDlpnSender(OleGenerator& ole)
+        {
+
+            MC_BEGIN(macoro::task<>, this, &ole);
+            MC_AWAIT(mSender.genKeyOTs(ole));
+
+            isDlpnSetupDone = true;
+            MC_END();
+        }
+
+        inline macoro::task<> setupDlpnReceiver(OleGenerator& ole)
+        {
+
+            MC_BEGIN(macoro::task<>, this, &ole);
+            MC_AWAIT(mRecver.genKeyOTs(ole));
+
+            isDlpnSetupDone = true;
+            MC_END();
+        }
 
         inline void xorShare(oc::MatrixView<const u8> v1,
             oc::MatrixView<const oc::u8> v2,
@@ -40,16 +83,22 @@ namespace secJoin
             oc::PRNG& prng,
             coproto::Socket& chl,
             OleGenerator& ole,
-            DLpnPrfReceiver& recver,
             bool invPerm)
         {
-            MC_BEGIN(macoro::task<>, &pi, &chl, &prng, &ole, &recver, bytesPerRow, this, invPerm,
+            MC_BEGIN(macoro::task<>, &pi, &chl, &prng, &ole, bytesPerRow, this, invPerm,
                 aesPlaintext = oc::Matrix<oc::block>(),
                 aesCipher    = oc::Matrix<oc::block>(),
                 dlpnCipher   = oc::Matrix<oc::block>(),
                 blocksPerRow = u64(),
                 totElements  = u64()
             );
+
+            if(!isDlpnSetupDone)
+            {
+                std::cerr << "DLPN Receiver is not setupped" << std::endl;
+                throw RTE_LOC;
+            }
+                
 
             totElements = pi.mPerm.size();
             blocksPerRow = oc::divCeil(bytesPerRow, sizeof(oc::block));
@@ -84,7 +133,7 @@ namespace secJoin
             //     std::cout << "i = " << i << " plain= "<< aesPlaintext(i,0) << " cipher = " << aesCipher(i,0) << std::endl;   
             // }
 
-            MC_AWAIT(recver.evaluate(aesCipher, dlpnCipher, chl, prng, ole));
+            MC_AWAIT(mRecver.evaluate(aesCipher, dlpnCipher, chl, prng, ole));
 
             // std::cout << "Printing dlpnCipher 1" << std::endl;
             // for(int i = 0; i < dlpnCipher.size() ; i++)
@@ -102,7 +151,6 @@ namespace secJoin
             //     std::cout << hex(sout[i]) << std::endl;   
             // }
 
-            isSetupDone = true;
 
             MC_END();
         }
@@ -114,18 +162,23 @@ namespace secJoin
             coproto::Socket& chl,
             OleGenerator& ole,
             u64 totElements,
-            u64 bytesPerRow,
-            DLpnPrfSender& sender,
-            DLpnPrf& dm)
+            u64 bytesPerRow)
         {
 
-            MC_BEGIN(macoro::task<>, &chl, &prng, &ole, &sender, totElements, bytesPerRow, &dm, this,
+            MC_BEGIN(macoro::task<>, &chl, &prng, &ole, totElements, bytesPerRow, this,
                 aesPlaintext = oc::Matrix<oc::block>(),
                 aesCipher    = oc::Matrix<oc::block>(),
                 preProsdlpnCipher   = oc::Matrix<oc::block>(),
                 dlpnCipher   = oc::Matrix<oc::block>(),
                 blocksPerRow = u64()
             );
+
+            if(!isDlpnSetupDone)
+            {
+                std::cerr << "DLPN Sender is not setupped" << std::endl;
+                throw RTE_LOC;
+            }
+                
 
             blocksPerRow = oc::divCeil(bytesPerRow, sizeof(oc::block));
 
@@ -154,18 +207,17 @@ namespace secJoin
             {
                 for(int j=0; j < aesCipher.cols(); j++)
                 {
-                    preProsdlpnCipher(i,j) = dm.eval(aesCipher(i,j));
+                    preProsdlpnCipher(i,j) = mSender.mPrf.eval(aesCipher(i,j));
                 }
                 
             }
-            // dm.eval(aesCipher);
 
             // Placing a in sout[0]
             a.resize(totElements, bytesPerRow);
             for (u64 i = 0; i < totElements; i++)
                 memcpyMin(a[i], preProsdlpnCipher[i]);
 
-            MC_AWAIT(sender.evaluate(dlpnCipher, chl, prng, ole));
+            MC_AWAIT(mSender.evaluate(dlpnCipher, chl, prng, ole));
 
             // Placing [y] in sout[1]
             b.resize(totElements, bytesPerRow);
@@ -180,8 +232,6 @@ namespace secJoin
             // {
             //     std::cout << hex(b[i]) << std::endl;   
             // }
-
-            isSetupDone = true;
 
             MC_END();
         }
@@ -259,19 +309,18 @@ namespace secJoin
             oc::PRNG& prng,
             coproto::Socket& chl,
             OleGenerator& ole,
-            DLpnPrfReceiver& recver,
             oc::MatrixView<u8> sout,
             bool invPerm
         )
         {
-            MC_BEGIN(macoro::task<>, &pi, &chl, &prng, &ole, &recver, bytesPerRow, this, &sout, invPerm,
+            MC_BEGIN(macoro::task<>, &pi, &chl, &prng, &ole, bytesPerRow, this, &sout, invPerm,
                 xEncrypted = oc::Matrix<u8>(),
                 xPermuted = oc::Matrix<u8>(),
                 totElements  = u64()
             );
 
-            if(!isSetupDone)
-                MC_AWAIT( setup(pi, bytesPerRow, prng, chl, ole, recver, invPerm) );
+        
+            MC_AWAIT( setup(pi, bytesPerRow, prng, chl, ole, invPerm) );
 
             totElements = pi.mPerm.size();
             xPermuted.resize(totElements, bytesPerRow);
@@ -307,20 +356,17 @@ namespace secJoin
             OleGenerator& ole,
             u64 totElements,
             u64 bytesPerRow,
-            DLpnPrfSender& sender,
-            DLpnPrf& dm,
             oc::MatrixView<u8>& input,
             oc::MatrixView<u8>& sout
         )
         {
 
-            MC_BEGIN(macoro::task<>, &chl, &prng, &ole, &sender, totElements,
-                bytesPerRow, &dm, this, &input, &sout,
+            MC_BEGIN(macoro::task<>, &chl, &prng, &ole, totElements,
+                bytesPerRow, this, &input, &sout,
                 xEncrypted = oc::Matrix<u8>()
             );
 
-            if(!isSetupDone)
-                MC_AWAIT( setup(prng, chl, ole, totElements, bytesPerRow, sender, dm) );
+            MC_AWAIT( setup(prng, chl, ole, totElements, bytesPerRow) );
 
             totElements = input.rows();
             xEncrypted.resize(input.rows(), input.cols());
