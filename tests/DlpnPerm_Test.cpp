@@ -141,10 +141,6 @@ void Dlpn_perm_test2(const oc::CLP& cmd)
     std::get<0>(res).result();
     std::get<1>(res).result();
 
-    // Unit test should check if the key is set or not
-    // std::cout << " The mKey is " << dlpnPerm2.mSender.mPrf.mKey[0] << std::endl;
-    // if(dlpnPerm2.mSender.mPrf.mKey.size())
-
     auto sock = coproto::LocalAsyncSocket::makePair();
 
     for(auto invPerm : {false,true})
@@ -172,4 +168,70 @@ void Dlpn_perm_test2(const oc::CLP& cmd)
 
     }
 
+}
+
+
+void Dlpn_perm_secret_shared_input_test(const oc::CLP& cmd)
+{
+    u64 n = cmd.getOr("n", 1000);
+    u64 rowSize = cmd.getOr("m",63);
+    
+    // bool invPerm = false;
+    
+    oc::PRNG prng0(oc::ZeroBlock);
+    oc::PRNG prng1(oc::OneBlock);
+
+    secJoin::DLpnPerm dlpnPerm1, dlpnPerm2;
+
+    oc::Matrix<u8> x(n, rowSize), 
+        yExp(n,rowSize),
+        sout1(n,rowSize),
+        sout2(n,rowSize);
+
+    prng0.get(x.data(), x.size());
+    Perm pi(n,prng0);
+    // // std::cout << "The Current Permutation is " << pi.mPerm << std::endl;
+
+    // Fake Setup
+    OleGenerator ole0, ole1;
+    ole0.fakeInit(OleGenerator::Role::Sender);
+    ole1.fakeInit(OleGenerator::Role::Receiver);
+
+    auto res = coproto::sync_wait(coproto::when_all_ready(
+        dlpnPerm1.setupDlpnReceiver(ole0),
+        dlpnPerm2.setupDlpnSender(ole1)
+    ));
+
+    std::get<0>(res).result();
+    std::get<1>(res).result();
+
+    std::array<oc::Matrix<u8>, 2> xShares = share(x,prng0);
+
+    auto sock = coproto::LocalAsyncSocket::makePair();
+
+    for(auto invPerm : {false,true})
+    {
+        auto res1 = coproto::sync_wait(coproto::when_all_ready(
+            dlpnPerm1.apply(pi, rowSize, prng0, sock[0], ole1,  xShares[0], sout1, invPerm),
+            dlpnPerm2.apply(prng1, sock[1], ole0, n, rowSize, xShares[1], sout2)
+        ));
+
+
+        std::get<0>(res1).result();
+        std::get<1>(res1).result();
+
+        coproto::sync_wait(coproto::when_all_ready(
+            ole0.stop(),
+            ole1.stop()
+        ));
+
+        oc::Matrix<oc::u8>  yAct = reveal(sout2,sout1);
+                
+        pi.apply<u8>(x, yExp, invPerm);
+
+        if(eq(yExp, yAct) == false)
+            throw RTE_LOC;
+
+    }
+   
 }
