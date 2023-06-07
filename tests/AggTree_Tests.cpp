@@ -9,6 +9,7 @@
 //#include "BinEval_Tests.h"
 using namespace oc;
 using namespace secJoin;
+using secJoin::span;
 
 void perfectShuffle_32_Test()
 {
@@ -177,22 +178,22 @@ void perfectShuffle_sseSpan_Test()
 }
 
 
-namespace
-{
-    bool operator!=(oc::span<i64> l, oc::span<i64> r)
-    {
-        return l.size() != r.size() ||
-            std::memcmp(l.data(), r.data(), l.size()) != 0;
-    }
-
-    std::string hex(oc::span<i64> d)
-    {
-        std::stringstream ss;
-        for (auto dd : d)
-            ss << std::hex << std::setw(2 * sizeof(i64)) << std::setfill('0') << dd;
-        return ss.str();
-    }
-}
+//namespace
+//{
+//    bool operator!=(oc::span<i64> l, oc::span<i64> r)
+//    {
+//        return l.size() != r.size() ||
+//            std::memcmp(l.data(), r.data(), l.size()) != 0;
+//    }
+//
+//    //std::string hex(oc::span<i64> d)
+//    //{
+//    //    std::stringstream ss;
+//    //    for (auto dd : d)
+//    //        ss << std::hex << std::setw(2 * sizeof(i64)) << std::setfill('0') << dd;
+//    //    return ss.str();
+//    //}
+//}
 
 using Level = AggTree::Level;
 using SplitLevel = AggTree::SplitLevel;
@@ -203,12 +204,12 @@ void AggTree_levelReveal_Test()
 
     PRNG prng(ZeroBlock);
 
-    auto op = [](
-        const oc::BitVector& left,
-        const oc::BitVector& right)
-    {
-        return left ^ right;
-    };
+    //auto op = [](
+    //    const oc::BitVector& left,
+    //    const oc::BitVector& right)
+    //{
+    //    return left ^ right;
+    //};
 
 
     //u64 n = oc::roundUpTo(361, 16);
@@ -334,12 +335,12 @@ void AggTree_toPackedBin_Test()
 
     PRNG prng(ZeroBlock);
 
-    auto op = [](
-        const oc::BitVector& left,
-        const oc::BitVector& right)
-    {
-        return left ^ right;
-    };
+    //auto op = [](
+    //    const oc::BitVector& left,
+    //    const oc::BitVector& right)
+    //{
+    //    return left ^ right;
+    //};
 
 
     //u64 n = oc::roundUpTo(361, 16);
@@ -516,7 +517,7 @@ void AggTree_dup_singleSetLeaves_Test()
 
 
     u64 m = 11;
-    u64 logn, logfn, n16, r, n0, n1;;
+    u64 logn, logfn, n16, r, n0;;
     for (u64 n : { 8ull, 256ull, 361ull, 24223ull })
     {
         {
@@ -533,13 +534,13 @@ void AggTree_dup_singleSetLeaves_Test()
 
             r = n16 - (1ull << logfn);
             n0 = r ? 2 * r : n16;
-            n1 = n16 - n0;
+            //n1 = n16 - n0;
 
         }
          
         for (auto type : { AggTree::Type::Prefix, AggTree::Type::Suffix,AggTree::Type::Full })
         {
-            auto nPow = 1ull << oc::log2ceil(n);
+            //auto nPow = 1ull << oc::log2ceil(n);
 
             for (auto level : {0,1})
             {
@@ -591,6 +592,7 @@ void AggTree_dup_singleSetLeaves_Test()
 
                         expS.resize(nn, m);
                         expPreC.resize(nn, 1);
+
                         memcpy<u8, u8>(expS.subMatrix(r, n - n0), s.subMatrix(n0));
                         memcpy<u8, u8>(expPreC.subMatrix(r, n - n0), c.subMatrix(n0));
 

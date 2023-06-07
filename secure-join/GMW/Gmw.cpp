@@ -290,7 +290,7 @@ namespace secJoin
             batchSize = 1ull << 14
         );
 
-        if (mIdx == -1)
+        if (mIdx == ~0ull)
             throw std::runtime_error("Gmw::init(...) was not called");
 
         if (mO.mDebug)
@@ -472,7 +472,7 @@ namespace secJoin
                     gate->mType == oc::GateType::Nor)
                 {
 
-                    if (roundRem && buff.size() == 0 || buffIter == (buff.data() + buff.size()))
+                    if ((roundRem && buff.size() == 0) || buffIter == (buff.data() + buff.size()))
                     {
                         buff.resize(oc::roundUpTo(std::min<u64>(batchSize, roundRem), mWords.cols()));
                         roundRem -= buff.size();

@@ -78,7 +78,7 @@ namespace secJoin
         MC_AWAIT(chl.send(oc::Matrix<u8>(oc::MatrixView<u8>((u8*)x1.data(), x1.rows(), x1.cols()))));
 
         for (u64 i = 0; i < sout.size(); ++i)
-            sout(i) = 0xcc ^ i + i * 3;
+            sout(i) = (0xcc ^ i) + i * 3;
         MC_END();
     }
 
@@ -119,7 +119,7 @@ namespace secJoin
         pi.apply<u8>(o, sout, invPerm);
 
         for (u64 i = 0; i < sout.size(); ++i)
-            sout(i) ^= 0xcc ^ i + i * 3;
+            sout(i) ^= (0xcc ^ i) + i * 3;
 
         MC_END();
     }

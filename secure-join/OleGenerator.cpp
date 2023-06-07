@@ -12,6 +12,19 @@ namespace secJoin
         ss << t;
         return ss.str();
     }
+    inline
+#define CHECK \
+    if (ec.has_error())                                              \
+    {                                                                \
+        try {                                                        \
+            std::rethrow_exception(ec.error());                      \
+        }                                                            \
+        catch (std::exception& e)                                     \
+        {                                                            \
+            std::cout << "EC: " << e.what() << " " << LOCATION << std::endl;      \
+            throw;                                                   \
+        }                                                            \
+    } do{}while (0)
 
     macoro::task<> OleGenerator::Gen::start()
     {
@@ -24,7 +37,7 @@ namespace secJoin
             diff = oc::BitVector{},
             delta = oc::block{},
             rec = CorRequest{},
-            //chunk = Chunk{},
+            ec = macoro::result<void, std::exception_ptr>{},
             buff = std::vector<u8>{}
         );
 
@@ -42,12 +55,15 @@ namespace secJoin
 
                 buff.resize(rec.sizeBytes());
                 rec.toBytes(buff);
-                MC_AWAIT(mChl.send(std::move(buff)));
+                MC_AWAIT_TRY(ec, mChl.send(std::move(buff)));
+                CHECK;
             }
             else
             {
                 buff.resize(rec.sizeBytes());
-                MC_AWAIT(mChl.recv(buff));
+                MC_AWAIT_TRY(ec, mChl.recv(buff));                
+                CHECK;
+
                 rec.fromBytes(buff);
 
                 LOG("recv chunk " + std::to_string(rec.mSequence) + " " + str(rec.mSessionID));
@@ -56,7 +72,7 @@ namespace secJoin
 
 
             //A// std::cout << "pop chunk" << std::endl;
-            if (rec.mSequence == -1)
+            if (rec.mSequence == ~0ull)
             {
                 MC_AWAIT(mParent->mControlQueue->push({ Command::GenStopped{mIdx} }));
                 LOG("genStop");
@@ -104,7 +120,9 @@ namespace secJoin
                 {
                     if (inplace)
                     {
-                        MC_AWAIT(mRecver->silentReceiveInplace(mParent->mChunkSize, mPrng, mChl, oc::ChoiceBitPacking::True));
+                        MC_AWAIT_TRY(ec, mRecver->silentReceiveInplace(mParent->mChunkSize, mPrng, mChl, oc::ChoiceBitPacking::True));
+                        CHECK;
+
                         LOG("silentReceive " + std::to_string(rec.mSequence));
                         rec.mOp.get<0>().mAdd.resize(mParent->mChunkSize / 128);
                         rec.mOp.get<0>().mMult.resize(mParent->mChunkSize / 128);
@@ -115,8 +133,11 @@ namespace secJoin
 
                         recvMsg.resize(mParent->mChunkSize);
                         bv.resize(mParent->mChunkSize);
-                        MC_AWAIT(mRecver->silentReceive(bv, recvMsg, mPrng, mChl));
-                        LOG("silentReceive " + std::to_string(rec.mSequence));
+                        LOG("silentReceive begin " + std::to_string(rec.mSequence));
+                        MC_AWAIT_TRY(ec, mRecver->silentReceive(bv, recvMsg, mPrng, mChl));
+                        CHECK;
+
+                        LOG("silentReceive done  " + std::to_string(rec.mSequence));
 
                         rec.mOp.get<0>().mAdd.resize(mParent->mChunkSize / 128);
                         rec.mOp.get<0>().mMult.resize(mParent->mChunkSize / 128);
@@ -127,7 +148,9 @@ namespace secJoin
                 {
                     rec.mOp.get<1>().mChoice.resize(mParent->mChunkSize);
                     rec.mOp.get<1>().mMsg.resize(mParent->mChunkSize);
-                    MC_AWAIT(mRecver->silentReceive(bv, recvMsg, mPrng, mChl));
+                    MC_AWAIT_TRY(ec, mRecver->silentReceive(bv, recvMsg, mPrng, mChl));
+                    CHECK;
+
                 }
                 else
                     std::terminate();
@@ -152,7 +175,12 @@ namespace secJoin
         {
             MC_AWAIT(mControlQueue->push({ Command::Stop{} }));
             MC_AWAIT(mCtrl);
+            MC_AWAIT(mControlQueue->close());
+
         }
+
+        //assert(mControlQueue->size() == 0);
+        
 
         MC_END();
     }
@@ -250,7 +278,7 @@ namespace secJoin
                 if (sessions.find(sid) != sessions.end())
                 {
                     curReq = &sessions[sid];
-                    assert(chunk.mSequence != -1);
+                    assert(chunk.mSequence != ~0ull);
                     //sessions[sid].publish(std::move(cmd.mOp.get<Command::ChunkComplete>().mChunk));
                     if (curReq->mOp.index() == 0)
                     {
@@ -322,6 +350,12 @@ namespace secJoin
                     LOG("control: gen stop sent " + std::to_string(i));
 
                 }
+
+                for (i = 0; i < mNumConcurrent; ++i)
+                {
+                    MC_AWAIT(mGens[i].mTask);
+                    LOG("control: gen stopded " + std::to_string(i));
+                }
             }
             else if (cmd.mOp.index() == cmd.mOp.index_of<Command::GenStopped>())
             {
@@ -341,7 +375,7 @@ namespace secJoin
             {
                 curReq = &cmd.mOp.get<3>();
                 sid = curReq->mSessionID;
-                assert(curReq->mSequence != -1);
+                assert(curReq->mSequence != ~0ull);
                 if (mRole == Role::Sender)
                 {
                     sessions.emplace(sid, *curReq);
@@ -374,7 +408,7 @@ namespace secJoin
                             std::cout << "mixed correlation size for session id. " << LOCATION << std::endl;
                             std::terminate();
                         }
-                        assert(chunk.mSequence != -1);
+                        assert(chunk.mSequence != ~0ull);
 
                         if (curReq->mOp.index() == 0)
                         {
@@ -459,7 +493,10 @@ namespace secJoin
         mControlQueue.reset(new macoro::mpsc::channel<Command>(1024));
 
         if (!mFakeGen)
+        {
+            throw std::runtime_error("known issue with OleGenerator, use fakeInit for now. " LOCATION);
             mCtrl = control() | macoro::make_eager();
+        }
     }
 
     void OleGenerator::Gen::compressSender(span<oc::block> sendMsg, oc::block delta, span<oc::block> add, span<oc::block> mult)
@@ -488,7 +525,7 @@ namespace secJoin
             for (u64 j = 0; j < 8; ++j)
             {
                 m0[j] = sendMsg[i + j] & mask;
-                m1[j] = sendMsg[i + j] & mask ^ delta;
+                m1[j] = m0[j] ^ delta;
             }
 
             oc::mAesFixedKey.hashBlocks<16>(m.data(), m.data());

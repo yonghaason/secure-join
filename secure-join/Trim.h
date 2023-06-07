@@ -4,6 +4,14 @@
 
 namespace secJoin
 {
+	template<typename T, typename Cont>
+	span<T> asSpan(Cont&& c)
+	{
+		if (c.size() * sizeof(*c.data()) % sizeof(T))
+			throw RTE_LOC;
+
+		return span<T>((T*)c.data(), c.size() * sizeof(*c.data()) / sizeof(T));
+	}
 
 	bool areEqualImpl(
 		span<u8> a,

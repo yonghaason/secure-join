@@ -98,10 +98,10 @@ namespace secJoin
 
         }
 
-        for (u64 i = 0; i < n; ++i)
-        {
-            u64 c = mCtrl[i];
-        }
+        //for (u64 i = 0; i < n; ++i)
+        //{
+        //    u64 c = mCtrl[i];
+        //}
 
         if (mPre != expPre)
             throw RTE_LOC;

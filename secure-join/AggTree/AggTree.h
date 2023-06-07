@@ -397,7 +397,7 @@ namespace secJoin
 
                 leaves[0].mPreBit.resize(vals[0].numEntries(), 1);
                 leaves[1].mPreBit.resize(vals[0].numEntries(), 1);
-                std::array<oc::BitIterator, 2> iters;
+                //std::array<oc::BitIterator, 2> iters;
 
                 for (u64 i = 0; i < size / 2; ++i)
                 {
@@ -665,20 +665,20 @@ namespace secJoin
             }
         }
 
-        //	/* This circuit outputs pre,suf,preVal where
-        //	//
-        //	//             |  pre  = prep1 ? pre_0 + pre_1 : pre_1,
-        //	//             |  suf  = sufp0 ? suf_0 + suf_1 : suf_0
-        //	//             *  prep = prep0 * prep1
-        //	//             *  sufp = sufp0 * sufp1
-        //	//            / \
-    	//	//           /   \
-    	//	//          /     \
-    	//	//      pre_0,    pre_1
-        //	//      suf_0,    suf_1
-        //	//      prep_0,   prep_1
-        //	//      sufp_0,   sufp_1
-        //	//*/
+        /* This circuit outputs pre,suf,preVal where
+        
+                     |  pre  = prep1 ? pre_0 + pre_1 : pre_1,
+                     |  suf  = sufp0 ? suf_0 + suf_1 : suf_0
+                     *  prep = prep0 * prep1
+                     *  sufp = sufp0 * sufp1
+                    / \ 
+    	           /   \ 
+    	          /     \ 
+    	      pre_0,    pre_1
+              suf_0,    suf_1
+              prep_0,   prep_1
+              sufp_0,   sufp_1
+        */
         //	static oc::BetaCircuit upstreamCir(
         //		u64 bitsPerEntry,
         //		Type type,
@@ -946,24 +946,24 @@ namespace secJoin
         //		}
         //	}
 
-        //	/* this circuit pushes values down the tree.
-        //	//
-        //	//             |  pre, suf, _
-        //	//             |
-        //	//             *
-        //	//            / \
-    	//	//           /   \
-    	//	//          /     \
-    	//	//    pre_0,      pre_1
-        //	//    suf_0,      suf_1
-        //	//    p_0,        p_1
-        //	//
-        //	// These values are updated as
-        //	//	 pre_1 := p_0 ? pre_0 + pre : pre_0
-        //	//   pre_0 := pre
-        //	//   suf_0 := suf_1 + suf : suf_1
-        //	//	 suf_1 := suf
-        //	*/
+        /* this circuit pushes values down the tree.
+          
+                       |  pre, suf, _
+                       |
+                       *
+                      / \
+    	             /   \
+    	            /     \
+    	      pre_0,      pre_1
+              suf_0,      suf_1
+              p_0,        p_1
+          
+           These values are updated as
+          	 pre_1 := p_0 ? pre_0 + pre : pre_0
+             pre_0 := pre
+             suf_0 := suf_1 + suf : suf_1
+          	 suf_1 := suf
+        */
         //	static oc::BetaCircuit downstreamCir(u64 bitsPerEntry, const Operator& op, Type type)
         //	{
         //		oc::BetaCircuit cir;

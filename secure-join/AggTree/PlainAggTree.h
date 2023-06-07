@@ -358,7 +358,7 @@ namespace secJoin
 					}
 					{
 						auto& v = parent.mSufVal[i];
-						auto& v0 = childUp.mSufVal[i * 2];
+						//auto& v0 = childUp.mSufVal[i * 2];
 						auto& v1 = childUp.mSufVal[i * 2 + 1];
 						auto& d0 = childDn.mSufVal[i * 2];
 						auto& d1 = childDn.mSufVal[i * 2 + 1];
@@ -409,13 +409,13 @@ namespace secJoin
 			}
 
 			//std::cout << "\n";
-			for (u64 i = 0; i < n; ++i)
-			{
-				//u64 c = (i != n - 1) ? mCtrl[i + 1] : 0;
-				u64 c = mCtrl[i];
-				//std::cout << mInput[i] << " " << c << " -> " << expSuf[i] << " " << mSuf[i] << "  " << (expSuf[i] ^ mSuf[i]) << std::endl;
+			//for (u64 i = 0; i < n; ++i)
+			//{
+			//	//u64 c = (i != n - 1) ? mCtrl[i + 1] : 0;
+			//	//u64 c = mCtrl[i];
+			//	//std::cout << mInput[i] << " " << c << " -> " << expSuf[i] << " " << mSuf[i] << "  " << (expSuf[i] ^ mSuf[i]) << std::endl;
 
-			}
+			//}
 
 			if (mPre != expPre)
 				throw RTE_LOC;

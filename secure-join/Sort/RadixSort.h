@@ -384,7 +384,7 @@ namespace secJoin
                             auto m1 = otSend.mMsg[j][1 ^ d].get<u32>(0);
 
                             auto r = m0 - (fi * s(i));
-                            auto v0 = m0;
+                            //auto v0 = m0;
                             auto v1 = (1 ^ fi) * s(i) + r;
                             tt[j] = v1 - m1;
 
@@ -697,7 +697,7 @@ namespace secJoin
             assert(partyIdx < 2);
 
             auto L2 = f.cols();
-            auto main = L2 / 16 * 16;
+            //auto main = L2 / 16 * 16;
             auto m = f.rows();
 
             std::vector<u32> partialSum;
@@ -709,9 +709,9 @@ namespace secJoin
             for (u64 i = 0; i < m; ++i)
             {
                 u64 j = 0;
-                auto fi = (block * __restrict) & f(i, 0);
-                auto si = (block * __restrict) & s(i, 0);
-                auto p = (block * __restrict) & partialSum[0];
+                //auto fi = (block * __restrict) & f(i, 0);
+                //auto si = (block * __restrict) & s(i, 0);
+                //auto p = (block * __restrict) & partialSum[0];
                 //for (; j < main; j += 16)
                 //{
 
@@ -745,8 +745,8 @@ namespace secJoin
 
             for (u64 i = 0; i < m; ++i)
             {
-                auto si = (block * __restrict) & s(i, 0);
-                auto p = (block * __restrict) & partialSum[0];
+                //auto si = (block * __restrict) & s(i, 0);
+                //auto p = (block * __restrict) & partialSum[0];
                 u64 j = 0;
                 //for (; j < main; j += 16)
                 //{
@@ -982,7 +982,7 @@ namespace secJoin
 
             auto n = k.rows() - 1;
             auto s0 = (k.data() + byteIdx);
-            auto main = (k.size() - byteIdx) / sizeof(u64);
+            //auto main = (k.size() - byteIdx) / sizeof(u64);
 
             for (u64 i = 0; i < n; ++i)
             {
@@ -992,7 +992,7 @@ namespace secJoin
             }
 
             u16 x = 0;
-            auto s = std::min<u64>(2, k.size() - n * step);
+            auto s = std::min<u64>(2, k.size() - n * step - byteIdx);
             memcpy(&x, s0, s);
             sk(n) = (x >> shift) & mask;
 
@@ -1079,7 +1079,7 @@ namespace secJoin
                         }
                     }
                 }
-                for (auto i = 1; i < ll; ++i)
+                for (auto i = 1ull; i < ll; ++i)
                 {
                     // get the next L bits of the key.
                     sk = extract(kIdx, mL, kk); kIdx += mL;

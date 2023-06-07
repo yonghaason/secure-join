@@ -236,9 +236,9 @@ void RadixSort_genValMasks2_test()
     //u64 L = 1;
     //u64 n = 128 * 8;
 
-    for (auto n : { 10, 324,3242 })
+    for (u64 n : { 10, 324,3242 })
     {
-        for (auto L : { 1 , 2 ,5 })
+        for (u64 L : { 1 , 2 ,5 })
         {
 
             PRNG prng(block(0, 0));
