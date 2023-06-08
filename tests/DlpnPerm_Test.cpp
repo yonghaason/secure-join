@@ -146,8 +146,8 @@ void Dlpn_perm_test2(const oc::CLP& cmd)
     for(auto invPerm : {false,true})
     {
         auto res1 = coproto::sync_wait(coproto::when_all_ready(
-            dlpnPerm1.apply(pi, rowSize, prng0, sock[0], ole1, sout1, invPerm),
-            dlpnPerm2.apply(prng1, sock[1], ole0, n, rowSize, x, sout2)
+            dlpnPerm1.apply<u8>(pi, rowSize, prng0, sock[0], ole1, sout1, invPerm),
+            dlpnPerm2.apply<u8>(prng1, sock[1], ole0, x, sout2)
         ));
 
 
@@ -212,8 +212,8 @@ void Dlpn_perm_secret_shared_input_test(const oc::CLP& cmd)
     for(auto invPerm : {false,true})
     {
         auto res1 = coproto::sync_wait(coproto::when_all_ready(
-            dlpnPerm1.apply(pi, rowSize, prng0, sock[0], ole1,  xShares[0], sout1, invPerm),
-            dlpnPerm2.apply(prng1, sock[1], ole0, n, rowSize, xShares[1], sout2)
+            dlpnPerm1.apply<u8>(pi, prng0, sock[0], ole1,  xShares[0], sout1, invPerm),
+            dlpnPerm2.apply<u8>(prng1, sock[1], ole0, xShares[1], sout2)
         ));
 
 

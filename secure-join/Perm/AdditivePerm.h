@@ -35,6 +35,33 @@ namespace secJoin
             mIsSetup = false;
         }
 
+        void setupDlpnSender(oc::block& key, std::vector<oc::block>& rk)
+        {
+            mPi.setupDlpnSender(key, rk);
+        }
+
+        void setupDlpnReceiver(std::vector<std::array<oc::block, 2>>& sk)
+        {
+            mPi.setupDlpnReceiver(sk);
+        }
+
+        inline macoro::task<> setupDlpnSender(OleGenerator& ole)
+        {
+
+            MC_BEGIN(macoro::task<>, this, &ole);
+            MC_AWAIT(mPi.setupDlpnSender(ole));
+            MC_END();
+        }
+
+        inline macoro::task<> setupDlpnReceiver(OleGenerator& ole)
+        {
+
+            MC_BEGIN(macoro::task<>, this, &ole);
+            MC_AWAIT(mPi.setupDlpnReceiver(ole));
+            MC_END();
+        }
+
+
         //AdditivePerm(span<u32> data, Perm mPerm, u8 partyIdx):
         //	mPi(std::move(mPerm), partyIdx)
         //{

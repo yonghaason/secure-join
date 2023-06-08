@@ -239,12 +239,12 @@ namespace secJoin
         // DLpn Receiver calls this apply
         macoro::task<> apply(
             const Perm& pi,
-            oc::MatrixView<u8>& sout,
+            oc::MatrixView<u8> sout,
             u64 bytesPerRow,
             coproto::Socket& chl,
             bool invPerm)
         {
-            MC_BEGIN(macoro::task<>, &pi, &chl, &sout, bytesPerRow, this, invPerm, 
+            MC_BEGIN(macoro::task<>, &pi, &chl, sout, bytesPerRow, this, invPerm, 
                 xEncrypted = oc::Matrix<u8>(),
                 xPermuted = oc::Matrix<u8>(),
                 totElements = u64()
@@ -275,12 +275,12 @@ namespace secJoin
 
         // DLpn Sender calls this apply
         macoro::task<> apply(
-            oc::MatrixView<u8>& input,
-            oc::MatrixView<u8>& sout,
+            oc::MatrixView<const u8> input,
+            oc::MatrixView<u8> sout,
             coproto::Socket& chl)
         {
 
-            MC_BEGIN(macoro::task<>, &chl, &input, &sout, this,
+            MC_BEGIN(macoro::task<>, &chl, input, sout, this,
                 xEncrypted = oc::Matrix<u8>(),
                 totElements = u64()
             );
@@ -298,21 +298,37 @@ namespace secJoin
             MC_END();
         }
 
-
-
-        // If DLPN receiver only wants to call apply
-        // this will internally call setup for it
+        template<typename T>
         macoro::task<> apply(
             const Perm& pi,
             u64 bytesPerRow,
             oc::PRNG& prng,
             coproto::Socket& chl,
             OleGenerator& ole,
-            oc::MatrixView<u8>& sout,
+            oc::MatrixView<T> sout,
             bool invPerm
         )
         {
-            MC_BEGIN(macoro::task<>, &pi, &chl, &prng, &ole, bytesPerRow, this, &sout, invPerm);
+            oc::MatrixView<u8> oo((u8*)sout.data(), sout.rows(), sout.cols() * sizeof(T));
+            return apply<u8>(pi, bytesPerRow, prng, chl, ole, sout, invPerm);
+        }
+
+
+
+        // If DLPN receiver only wants to call apply
+        // this will internally call setup for it
+        template<>
+        macoro::task<> apply<u8>(
+            const Perm& pi,
+            u64 bytesPerRow,
+            oc::PRNG& prng,
+            coproto::Socket& chl,
+            OleGenerator& ole,
+            oc::MatrixView<u8> sout,
+            bool invPerm
+        )
+        {
+            MC_BEGIN(macoro::task<>, &pi, &chl, &prng, &ole, bytesPerRow, this, sout, invPerm);
         
             MC_AWAIT( setup(pi, bytesPerRow, prng, chl, ole, invPerm) );
             MC_AWAIT( apply(pi , sout, bytesPerRow, chl, invPerm) );
@@ -322,24 +338,44 @@ namespace secJoin
         }
 
 
-        // If DLPN receiver only wants to call apply
-        // when it also has inputs
-        // this will internally call setup for it
+        // Generic version of below method
+        template<typename T>
         macoro::task<> apply(
             const Perm& pi,
-            u64 bytesPerRow,
             oc::PRNG& prng,
             coproto::Socket& chl,
             OleGenerator& ole,
-            oc::MatrixView<u8>& in,
-            oc::MatrixView<u8>& sout,
+            oc::MatrixView<const T> in,
+            oc::MatrixView<T> sout,
             bool invPerm
         )
         {
-            MC_BEGIN(macoro::task<>, &pi, &chl, &prng, &ole, bytesPerRow, this, &sout, invPerm, &in,
+            oc::MatrixView<const u8> xx((u8*)in.data(), in.rows(), in.cols() * sizeof(T));
+            oc::MatrixView<u8> oo((u8*)sout.data(), sout.rows(), sout.cols() * sizeof(T));
+            return apply<u8>(pi, prng, chl, ole, xx, oo, invPerm);
+        }
+
+        // If DLPN receiver only wants to call apply
+        // when it also has inputs
+        // this will internally call setup for it
+        template<>
+        macoro::task<> apply<u8>(
+            const Perm& pi,
+            oc::PRNG& prng,
+            coproto::Socket& chl,
+            OleGenerator& ole,
+            oc::MatrixView<const u8> in,
+            oc::MatrixView<u8> sout,
+            bool invPerm
+        )
+        {
+            MC_BEGIN(macoro::task<>, &pi, &chl, &prng, &ole, this, sout, invPerm, in,
                 xPermuted = oc::Matrix<u8>(),
-                soutPerm  = oc::Matrix<u8>()
+                soutPerm  = oc::Matrix<u8>(),
+                bytesPerRow = u64()
             );
+
+            bytesPerRow = in.cols();
 
             xPermuted.resize(in.rows(), in.cols());
             soutPerm.resize( sout.rows(), sout.cols());
@@ -353,23 +389,42 @@ namespace secJoin
 
         }
 
-    
 
-        // If DLPN sender only wants to call apply
-        // this will internally call setup for it
+        // Generic version of below method
+        template<typename T>
         macoro::task<> apply(
             oc::PRNG& prng,
             coproto::Socket& chl,
             OleGenerator& ole,
-            u64 totElements,
-            u64 bytesPerRow,
-            oc::MatrixView<u8>& input,
-            oc::MatrixView<u8>& sout
+            oc::MatrixView<const T> in,
+            oc::MatrixView<T> sout
         )
         {
+            oc::MatrixView<const u8> xx((u8*)in.data(), in.rows(), in.cols() * sizeof(T));
+            oc::MatrixView<u8> oo((u8*)sout.data(), sout.rows(), sout.cols() * sizeof(T));
+            return apply<u8>(prng, chl, ole, xx, oo);
+        }
 
-            MC_BEGIN(macoro::task<>, &chl, &prng, &ole, totElements,
-                bytesPerRow, this, &input, &sout);
+    
+
+        // If DLPN sender only wants to call apply
+        // this will internally call setup for it
+        template<>
+        macoro::task<> apply<u8>(
+            oc::PRNG& prng,
+            coproto::Socket& chl,
+            OleGenerator& ole,
+            oc::MatrixView<const u8> input,
+            oc::MatrixView<u8> sout
+        )
+        {
+            MC_BEGIN(macoro::task<>, &chl, &prng, &ole, this, input, sout,
+                totElements = u64(),
+                bytesPerRow = u64() );
+
+
+            totElements = input.rows();
+            bytesPerRow = input.cols();
 
             MC_AWAIT( setup(prng, chl, ole, totElements, bytesPerRow) );
             MC_AWAIT( apply(input, sout, chl));

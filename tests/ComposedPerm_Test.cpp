@@ -34,6 +34,8 @@ void ComposedPerm_replicated_perm_test()
 
     ComposedPerm perm1(p0, 0); 
     ComposedPerm perm2(p1, 1);
+    perm1.isSecure = false;
+    perm2.isSecure = false;
 
     for(auto invPerm :  {false, true})
     {
@@ -148,8 +150,8 @@ void ComposedPerm_replicated_secure_perm_test()
         sout[1].resize(n, rowSize);
 
         auto res = macoro::sync_wait(macoro::when_all_ready(
-            perm1.apply(xShares[0], sout[0], chls[0], ole0, 1, invPerm), 
-            perm2.apply(xShares[1], sout[1], chls[1], ole1, 1, invPerm)
+            perm1.apply<u8>(xShares[0], sout[0], chls[0], ole0, invPerm), 
+            perm2.apply<u8>(xShares[1], sout[1], chls[1], ole1, invPerm)
             ));
         std::get<1>(res).result();
         std::get<0>(res).result();
@@ -163,11 +165,11 @@ void ComposedPerm_replicated_secure_perm_test()
 
 }
 
-void printMatrix(oc::Matrix<u8>& matrix)
-{
+// void printMatrix(oc::Matrix<u8>& matrix)
+// {
 
-    for(int i = 0; i < matrix.rows() ; i++)
-    {
-        std::cout << hex(matrix[i]) << std::endl;   
-    }
-}
+//     for(int i = 0; i < matrix.rows() ; i++)
+//     {
+//         std::cout << hex(matrix[i]) << std::endl;   
+//     }
+// }
