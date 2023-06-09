@@ -308,17 +308,17 @@ namespace secJoin
         //std::vector<block256> mU2;
         oc::AlignedUnVector<std::array<u16, m>> mU;
         oc::AlignedUnVector<u16> mH;
-        bool isKeyOTsSet = false;
-        bool isKeySet = false;
+        bool mIsKeyOTsSet = false;
+        bool mIsKeySet = false;
 
         macoro::task<> genKeyOTs(OleGenerator& ole)
         {
             MC_BEGIN(macoro::task<>, this, &ole,
-            totalSize = u64(),
-            s = u64(),
-            ots = OtRecv(),
-            req = Request<OtRecv>(),
-            keyBlock = oc::block());
+                totalSize = u64(),
+                s = u64(),
+                ots = OtRecv(),
+                req = Request<OtRecv>(),
+                keyBlock = oc::block());
 
             totalSize = 128;
             s=0;
@@ -343,13 +343,13 @@ namespace secJoin
             {
                 mKeyOTs[i].SetSeed(ots[i]);
             }
-            isKeyOTsSet = true;
+            mIsKeyOTsSet = true;
         }
 
         void setKey(oc::block k)
         {
             mPrf.setKey(k);
-            isKeySet = true;
+            mIsKeySet = true;
         }
 
 
@@ -782,7 +782,7 @@ namespace secJoin
         //std::vector<block256> mH, ;
         oc::AlignedUnVector<std::array<u16, 256>> mU;
         oc::AlignedUnVector<u16> mH;
-        bool isKeyOTsSet = false;
+        bool mIsKeyOTsSet = false;
 
 
         static constexpr auto mDebug = false;
@@ -827,7 +827,7 @@ namespace secJoin
                 mKeyOTs[i][0].SetSeed(ots[i][0]);
                 mKeyOTs[i][1].SetSeed(ots[i][1]);
             }
-            isKeyOTsSet = true;
+            mIsKeyOTsSet = true;
         }
 
 

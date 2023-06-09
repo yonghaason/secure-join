@@ -3,7 +3,7 @@
 #include "cryptoTools/Common/TestCollection.h"
 void Generator_BinOle_Test(const oc::CLP& cmd)
 {
-    throw oc::UnitTestSkipped("known issue");
+    //throw oc::UnitTestSkipped("known issue");
 
     using namespace secJoin;
 
@@ -17,7 +17,7 @@ void Generator_BinOle_Test(const oc::CLP& cmd)
     oc::PRNG prng(oc::CCBlock);
     macoro::thread_pool tp;
     auto work = tp.make_work();
-    tp.create_threads(cmd.getOr("nt", 6));
+    tp.create_threads(cmd.getOr("nt", 1));
 
     for (u64 j = 0; j < 2; ++j)
     {

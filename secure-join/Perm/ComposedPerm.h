@@ -13,8 +13,8 @@ namespace secJoin
     public:
         u64 mPartyIdx=-1;
         Perm mPerm;
-        DLpnPerm dlpnPerm;
-        bool isSecure = true;
+        DLpnPerm mDlpnPerm;
+        bool mIsSecure = true;
 
         ComposedPerm() = default;
 
@@ -38,17 +38,15 @@ namespace secJoin
             dlpnPerm.setupDlpnReceiver(sk);
         }
 
-        inline macoro::task<> setupDlpnSender(OleGenerator& ole)
+        macoro::task<> setupDlpnSender(OleGenerator& ole)
         {
-
             MC_BEGIN(macoro::task<>, this, &ole);
             MC_AWAIT(dlpnPerm.setupDlpnSender(ole));
             MC_END();
         }
 
-        inline macoro::task<> setupDlpnReceiver(OleGenerator& ole)
+        macoro::task<> setupDlpnReceiver(OleGenerator& ole)
         {
-
             MC_BEGIN(macoro::task<>, this, &ole);
             MC_AWAIT(dlpnPerm.setupDlpnReceiver(ole));
             MC_END();
@@ -105,9 +103,6 @@ namespace secJoin
             }
             else
             {
-                //MC_AWAIT(LowMCPerm::apply<T>(mPerm, in, soutperm, prng, chl, inv, ole));
-                //MC_AWAIT(LowMCPerm::apply<T>(soutperm, out, prng, chl, ole));
-
                 if(isSecure)
                 {
                     MC_AWAIT(dlpnPerm.apply<T>(mPerm, prng, chl, ole, in, soutperm, inv));

@@ -45,29 +45,19 @@ namespace secJoin
             mPi.setupDlpnReceiver(sk);
         }
 
-        inline macoro::task<> setupDlpnSender(OleGenerator& ole)
+        macoro::task<> setupDlpnSender(OleGenerator& ole)
         {
-
             MC_BEGIN(macoro::task<>, this, &ole);
             MC_AWAIT(mPi.setupDlpnSender(ole));
             MC_END();
         }
 
-        inline macoro::task<> setupDlpnReceiver(OleGenerator& ole)
+        macoro::task<> setupDlpnReceiver(OleGenerator& ole)
         {
-
             MC_BEGIN(macoro::task<>, this, &ole);
             MC_AWAIT(mPi.setupDlpnReceiver(ole));
             MC_END();
         }
-
-
-        //AdditivePerm(span<u32> data, Perm mPerm, u8 partyIdx):
-        //	mPi(std::move(mPerm), partyIdx)
-        //{
-        //	mShare.resize(data.size(), sizeof(u32));
-        //	std::copy(data.begin(), data.end(), (u32*)mShare.data());
-        //}
 
 
         // generate the masking (replicated) permutation mPi
@@ -94,9 +84,6 @@ namespace secJoin
                 ss = std::vector<u32>{},
                 i = u64{}
             );
-
-            //std::cout << "mPi.mPerm for party = " << mPi.mPartyIdx << " is ";
-            //std::cout << mPi.mPerm << " " << std::endl;
 
             mPi.init(mShare.size(), (int)ole.mRole, prng);
 
@@ -244,5 +231,4 @@ namespace secJoin
         }
 
     };
-
 }

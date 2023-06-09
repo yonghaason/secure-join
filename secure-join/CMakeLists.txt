@@ -11,7 +11,8 @@ set(SRCS
     "Perm/ComposedPerm.cpp"
     "Perm/LowMCPerm.cpp"
     "Perm/AdditivePerm.cpp"
-
+    "Perm/DLpnPerm.cpp"
+    
     "GMW/Circuit.cpp"
     "GMW/Gmw.cpp"
 

@@ -63,9 +63,9 @@ void Dlpn_perm_test1(const oc::CLP& cmd)
             dlpnPerm2.setup(prng1, sock[1], ole0, n, rowSize)
         ));
 
-        oc::Matrix<oc::u8>  permPiA = reveal(dlpnPerm1.delta, dlpnPerm2.b);
+        oc::Matrix<oc::u8>  permPiA = reveal(dlpnPerm1.mDelta, dlpnPerm2.mB);
 
-        pi.apply<u8>(dlpnPerm2.a, aExp, invPerm);
+        pi.apply<u8>(dlpnPerm2.mA, aExp, invPerm);
 
         if(eq(aExp, permPiA) == false)
         {
