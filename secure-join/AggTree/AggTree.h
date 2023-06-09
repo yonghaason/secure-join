@@ -8,7 +8,9 @@
 #include <functional>
 #include "Level.h"
 #include "libOTe/Tools/Tools.h"
-
+#include "coproto/Socket/Socket.h"
+#include "secure-join/OleGenerator.h"
+#include "secure-join/GMW/Gmw.h"
 //#include "reveal.h"
 
 namespace secJoin
@@ -67,113 +69,113 @@ namespace secJoin
     //}
 
     inline void perfectUnshuffle(
-        TBinMatrix& in, 
-        TBinMatrix& out0, 
-        TBinMatrix& out1, 
-        u64 dstShift, 
+        TBinMatrix& in,
+        TBinMatrix& out0,
+        TBinMatrix& out1,
+        u64 dstShift,
         u64 numEntries)
     {
         throw RTE_LOC;
-    	if (dstShift % 8)
-    		throw RTE_LOC;
-    	if (numEntries == 0 || in.numEntries() == 0)
-    		numEntries = in.numEntries();
+        if (dstShift % 8)
+            throw RTE_LOC;
+        if (numEntries == 0 || in.numEntries() == 0)
+            numEntries = in.numEntries();
 
-    	if (numEntries == 0)
-    		return;
+        if (numEntries == 0)
+            return;
 
-    	auto dstShift2 = dstShift / 2;
-    	if (dstShift2 > out0.numEntries())
-    		throw RTE_LOC;
-    	if (dstShift2 > out1.numEntries())
-    		throw RTE_LOC;
-    	//auto ss = in.() * sizeof(*in.mShares[0].data()) * 8;
-    	if (numEntries > in.numEntries())
-    		throw RTE_LOC;
-    	if (numEntries != out0.numEntries() + out1.numEntries() - dstShift)
-    		throw RTE_LOC;
+        auto dstShift2 = dstShift / 2;
+        if (dstShift2 > out0.numEntries())
+            throw RTE_LOC;
+        if (dstShift2 > out1.numEntries())
+            throw RTE_LOC;
+        //auto ss = in.() * sizeof(*in.mShares[0].data()) * 8;
+        if (numEntries > in.numEntries())
+            throw RTE_LOC;
+        if (numEntries != out0.numEntries() + out1.numEntries() - dstShift)
+            throw RTE_LOC;
 
-    	for (u64 i = 0; i < in.bitsPerEntry(); ++i)
-    	{
-    		//for (u64 j = 0; j < 2; ++j)
-    		{
+        for (u64 i = 0; i < in.bitsPerEntry(); ++i)
+        {
+            //for (u64 j = 0; j < 2; ++j)
+            {
                 auto ss = oc::divCeil(out0.numEntries() - dstShift2, 8);
-    			auto inn = in[i].subspan(0, oc::divCeil(numEntries, 8));
-    			auto o0 = out0[i].subspan(dstShift2 / 8, ss);
-    			auto o1 = out1[i].subspan(dstShift2 / 8, ss);
-    			assert(inn.data() + inn.size() <= (u8*)(in[i].data() + in[i].size()));
-    			assert(o0.data() + o0.size() <= (u8*)(out0[i].data() + out0[i].size()));
-    			assert(o1.data() + o1.size() <= (u8*)(out1[i].data() + out1[i].size()));
+                auto inn = in[i].subspan(0, oc::divCeil(numEntries, 8));
+                auto o0 = out0[i].subspan(dstShift2 / 8, ss);
+                auto o1 = out1[i].subspan(dstShift2 / 8, ss);
+                assert(inn.data() + inn.size() <= (u8*)(in[i].data() + in[i].size()));
+                assert(o0.data() + o0.size() <= (u8*)(out0[i].data() + out0[i].size()));
+                assert(o1.data() + o1.size() <= (u8*)(out1[i].data() + out1[i].size()));
 
-    			if (dstShift2)
-    			{
-    				memset(out0[i].data(), 0, dstShift2 / 8);
-    				memset(out1[i].data(), 0, dstShift2 / 8);
-    			}
+                if (dstShift2)
+                {
+                    memset(out0[i].data(), 0, dstShift2 / 8);
+                    memset(out1[i].data(), 0, dstShift2 / 8);
+                }
 
-    			perfectUnshuffle(inn, o0, o1);
+                perfectUnshuffle(inn, o0, o1);
 
 
-    			assert(inn.data() + inn.size() <= (u8*)(in[i].data() + in[i].size()));
-    		}
-    	}
+                assert(inn.data() + inn.size() <= (u8*)(in[i].data() + in[i].size()));
+            }
+        }
     }
 
 
     inline void perfectUnshuffle(TBinMatrix& in, TBinMatrix& out0, TBinMatrix& out1)
     {
-    	auto numEntries = in.numEntries();
-    	if (numEntries == 0)
-    		return;
-    	//auto ss = in.simdWidth() * sizeof(*in.mShares[0].data()) * 8;
-    	//if (numEntries > in.numEntries())
-    	//	throw RTE_LOC;
+        auto numEntries = in.numEntries();
+        if (numEntries == 0)
+            return;
+        //auto ss = in.simdWidth() * sizeof(*in.mShares[0].data()) * 8;
+        //if (numEntries > in.numEntries())
+        //	throw RTE_LOC;
 
-    	for (u64 i = 0; i < in.bitsPerEntry(); ++i)
-    	{
-    		//for (u64 j = 0; j < 2; ++j)
-    		{
-    			auto inn =  in[i].subspan(0, oc::divCeil(numEntries, 8));
-    			auto o0 = out0[i].subspan(0, oc::divCeil(numEntries / 2, 8));
-    			auto o1 = out1[i].subspan(0, oc::divCeil(numEntries / 2, 8));
-    			assert(inn.data() + inn.size() <= (u8*)(in[i].data() + in[i].size()));
-    			assert(o0.data() + o0.size() <= (u8*)(out0[i].data() + out0[i].size()));
-    			assert(o1.data() + o1.size() <= (u8*)(out1[i].data() + out1[i].size()));
+        for (u64 i = 0; i < in.bitsPerEntry(); ++i)
+        {
+            //for (u64 j = 0; j < 2; ++j)
+            {
+                auto inn = in[i].subspan(0, oc::divCeil(numEntries, 8));
+                auto o0 = out0[i].subspan(0, oc::divCeil(numEntries / 2, 8));
+                auto o1 = out1[i].subspan(0, oc::divCeil(numEntries / 2, 8));
+                assert(inn.data() + inn.size() <= (u8*)(in[i].data() + in[i].size()));
+                assert(o0.data() + o0.size() <= (u8*)(out0[i].data() + out0[i].size()));
+                assert(o1.data() + o1.size() <= (u8*)(out1[i].data() + out1[i].size()));
 
-    			perfectUnshuffle(inn, o0, o1);
-    			assert(inn.data() + inn.size() <= (u8*)(in[i].data() + in[i].size()));
-    		}
-    	}
+                perfectUnshuffle(inn, o0, o1);
+                assert(inn.data() + inn.size() <= (u8*)(in[i].data() + in[i].size()));
+            }
+        }
     }
 
 
     inline void perfectShuffle(TBinMatrix& in0, TBinMatrix& in1, TBinMatrix& out)
     {
-    	auto size = out.numEntries();
-    	auto inSize = size / 2;
-    	if (in0.bitsPerEntry() != in1.bitsPerEntry())
-    		throw RTE_LOC;
-    	if (out.bitsPerEntry() != in1.bitsPerEntry())
-    		throw RTE_LOC;
-    	if (in0.numEntries() != inSize)
-    		throw RTE_LOC;
-    	if (in1.numEntries() != inSize)
-    		throw RTE_LOC;
+        auto size = out.numEntries();
+        auto inSize = size / 2;
+        if (in0.bitsPerEntry() != in1.bitsPerEntry())
+            throw RTE_LOC;
+        if (out.bitsPerEntry() != in1.bitsPerEntry())
+            throw RTE_LOC;
+        if (in0.numEntries() != inSize)
+            throw RTE_LOC;
+        if (in1.numEntries() != inSize)
+            throw RTE_LOC;
 
-    	for (u64 i = 0; i < in0.bitsPerEntry(); ++i)
-    	{
-    		//for (u64 j = 0; j < 2; ++j)
-    		{
-    			auto inn0 = span<u8>((u8*)in0[i].data(), oc::divCeil(inSize, 8));
-    			auto inn1 = span<u8>((u8*)in1[i].data(), oc::divCeil(inSize, 8));
-    			auto oo = span<u8>((u8*)out[i].data(), oc::divCeil(size, 8));
+        for (u64 i = 0; i < in0.bitsPerEntry(); ++i)
+        {
+            //for (u64 j = 0; j < 2; ++j)
+            {
+                auto inn0 = span<u8>((u8*)in0[i].data(), oc::divCeil(inSize, 8));
+                auto inn1 = span<u8>((u8*)in1[i].data(), oc::divCeil(inSize, 8));
+                auto oo = span<u8>((u8*)out[i].data(), oc::divCeil(size, 8));
 
-    			assert(oo.data() + oo.size() <= (u8*)(out[i].data() + out[i].size()));
-    			assert(inn0.data() + inn0.size() <= (u8*)(in0[i].data() + in0[i].size()));
-    			assert(inn1.data() + inn1.size() <= (u8*)(in1[i].data() + in1[i].size()));
-    			perfectShuffle(inn0, inn1, oo);
-    		}
-    	}
+                assert(oo.data() + oo.size() <= (u8*)(out[i].data() + out[i].size()));
+                assert(inn0.data() + inn0.size() <= (u8*)(in0[i].data() + in0[i].size()));
+                assert(inn1.data() + inn1.size() <= (u8*)(in1[i].data() + in1[i].size()));
+                perfectShuffle(inn0, inn1, oo);
+            }
+        }
     }
 
     // This class implements a prefix, suffix or full aggregation tree, 
@@ -202,14 +204,14 @@ namespace secJoin
     public:
         using Type = AggTreeType;
 
-        //// The ⊕ function. Takes as input two values
-        //// and output the addition of them.
-        //using Operator = std::function<
-        //	void(
-        //		oc::BetaCircuit& c,
-        //		const oc::BetaBundle& left,
-        //		const oc::BetaBundle& right,
-        //		oc::BetaBundle& out)>;
+        // The ⊕ function. Takes as input two values
+        // and output the addition of them.
+        using Operator = std::function<
+            void(
+                oc::BetaCircuit& c,
+                const oc::BetaBundle& left,
+                const oc::BetaBundle& right,
+                oc::BetaBundle& out)>;
 
         // A tree record has the form  (prefix, suffix, prefix-prod, suffix-prod).
         // - prefix is the current prefix value of this node. During upstream
@@ -391,7 +393,7 @@ namespace secJoin
 
             if (type & Type::Prefix)
             {
-                std::array<BinMatrix ,2> vals;
+                std::array<BinMatrix, 2> vals;
                 vals[0].resize(oc::divCeil(size, 2), src.cols());
                 vals[1].resize(size / 2, src.cols());
 
@@ -479,7 +481,7 @@ namespace secJoin
 
             setLeafVals2(
                 oc::MatrixView<const u8>(src.mData.data(sIdx), src.mData.rows() - sIdx, src.mData.cols()),
-                span<u8>(controlBits.mData).subspan(sIdx), 
+                span<u8>(controlBits.mData).subspan(sIdx),
                 leaves, dIdx, size2, type);
 
         }
@@ -501,7 +503,7 @@ namespace secJoin
         void setLeafVals(
             const BinMatrix& src,
             const BinMatrix& controlBits,
-            std::array<Level, 2>& leaves,
+            SplitLevel& leaves,
             u64 sIdx,
             u64 dIdx,
             u64 size,
@@ -601,7 +603,7 @@ namespace secJoin
             if (type & Type::Suffix)
             {
                 sufValues.trim();
-                sufBits  .trim();
+                sufBits.trim();
             }
 
             perfectUnshuffle(preValues, leaves[0].mPreVal, leaves[1].mPreVal, dIdx, size);
@@ -666,303 +668,303 @@ namespace secJoin
         }
 
         /* This circuit outputs pre,suf,preVal where
-        
+
                      |  pre  = prep1 ? pre_0 + pre_1 : pre_1,
                      |  suf  = sufp0 ? suf_0 + suf_1 : suf_0
                      *  prep = prep0 * prep1
                      *  sufp = sufp0 * sufp1
-                    / \ 
-    	           /   \ 
-    	          /     \ 
-    	      pre_0,    pre_1
+                    / \
+                   /   \
+                  /     \
+              pre_0,    pre_1
               suf_0,    suf_1
               prep_0,   prep_1
               sufp_0,   sufp_1
         */
-        //	static oc::BetaCircuit upstreamCir(
-        //		u64 bitsPerEntry,
-        //		Type type,
-        //		const Operator& add)
-        //	{
-        //		oc::BetaCircuit cir;
+        static oc::BetaCircuit upstreamCir(
+            u64 bitsPerEntry,
+            Type type,
+            const Operator& add)
+        {
+            oc::BetaCircuit cir;
 
-        //		//u64 inSize = TreeRecord::recordBitCount(bitsPerEntry, type);
+            //u64 inSize = TreeRecord::recordBitCount(bitsPerEntry, type);
 
-        //		oc::BetaBundle
-        //			leftPreVal(bitsPerEntry),
-        //			leftSufVal(bitsPerEntry),
-        //			rghtPreVal(bitsPerEntry),
-        //			rghtSufVal(bitsPerEntry),
-        //			leftPreBit(1),
-        //			leftSufBit(1),
-        //			rghtPreBit(1),
-        //			rghtSufBit(1),
-        //			prntPreVal(bitsPerEntry),
-        //			prntSufVal(bitsPerEntry),
-        //			prntPreBit(1),
-        //			prntSufBit(1),
-        //			temp1(bitsPerEntry), temp2(bitsPerEntry);
+            oc::BetaBundle
+                leftPreVal(bitsPerEntry),
+                leftSufVal(bitsPerEntry),
+                rghtPreVal(bitsPerEntry),
+                rghtSufVal(bitsPerEntry),
+                leftPreBit(1),
+                leftSufBit(1),
+                rghtPreBit(1),
+                rghtSufBit(1),
+                prntPreVal(bitsPerEntry),
+                prntSufVal(bitsPerEntry),
+                prntPreBit(1),
+                prntSufBit(1),
+                temp1(bitsPerEntry), temp2(bitsPerEntry);
 
-        //		if (type & Type::Prefix)
-        //		{
-        //			cir.addInputBundle(leftPreVal);
-        //			cir.addInputBundle(rghtPreVal);
-        //			cir.addInputBundle(leftPreBit);
-        //			cir.addInputBundle(rghtPreBit);
-        //		}
-        //		if (type & Type::Suffix)
-        //		{
-        //			cir.addInputBundle(leftSufVal);
-        //			cir.addInputBundle(rghtSufVal);
-        //			cir.addInputBundle(leftSufBit);
-        //			cir.addInputBundle(rghtSufBit);
-        //		}
-        //		if (type & Type::Prefix)
-        //		{
-        //			cir.addOutputBundle(prntPreVal);
-        //			cir.addOutputBundle(prntPreBit);
-        //		}
-        //		if (type & Type::Suffix)
-        //		{
-        //			cir.addOutputBundle(prntSufVal);
-        //			cir.addOutputBundle(prntSufBit);
-        //		}
+            if (type & Type::Prefix)
+            {
+                cir.addInputBundle(leftPreVal);
+                cir.addInputBundle(rghtPreVal);
+                cir.addInputBundle(leftPreBit);
+                cir.addInputBundle(rghtPreBit);
+            }
+            if (type & Type::Suffix)
+            {
+                cir.addInputBundle(leftSufVal);
+                cir.addInputBundle(rghtSufVal);
+                cir.addInputBundle(leftSufBit);
+                cir.addInputBundle(rghtSufBit);
+            }
+            if (type & Type::Prefix)
+            {
+                cir.addOutputBundle(prntPreVal);
+                cir.addOutputBundle(prntPreBit);
+            }
+            if (type & Type::Suffix)
+            {
+                cir.addOutputBundle(prntSufVal);
+                cir.addOutputBundle(prntSufBit);
+            }
 
-        //		cir.addTempWireBundle(temp1);
-        //		cir.addTempWireBundle(temp2);
-
-
-        //		// Apply the computation.
-        //		oc::BetaLibrary lib;
-
-        //		if (type & Type::Prefix)
-        //		{
-
-        //			for (int w : leftPreVal)
-        //			{
-        //				auto flag = cir.mWireFlags[w];
-        //				if (flag == oc::BetaWireFlag::Uninitialized)
-        //					throw RTE_LOC;
-        //			}
-        //			for (int w : rghtPreVal)
-        //			{
-        //				auto flag = cir.mWireFlags[w];
-        //				if (flag == oc::BetaWireFlag::Uninitialized)
-        //					throw RTE_LOC;
-        //			}
-
-        //			add(cir, leftPreVal, rghtPreVal, temp1);
-
-        //			cir << "B0    " << leftPreVal << "\n";
-        //			cir << "B1    " << rghtPreVal << "\n";
-        //			cir << "B0+B1 " << temp1 << "\n";
-        //			cir << "P1    " << rghtPreBit << "\n";
-        //			//cir << "temp  " << std::to_string(temp1[0]) << " .. " << std::to_string(temp1.back()) << "\n16";
-
-        //			lib.multiplex_build(cir, temp1, rghtPreVal, rghtPreBit, prntPreVal, temp2);
-        //			cir.addGate(leftPreBit[0], rghtPreBit[0], oc::GateType::And, prntPreBit[0]);
-
-        //			cir << "B     " << prntPreVal << "\n\n";
-
-        //		}
-
-        //		if (type & Type::Suffix)
-        //		{
-        //			add(cir, leftSufVal, rghtSufVal, temp1);
-
-        //			cir << "UP ****\n";
-        //			cir << "B0    " << leftSufVal << "\n";
-        //			cir << "B1    " << rghtSufVal << "\n";
-        //			cir << "B0+B1 " << temp1 << "\n";
-        //			cir << "P0    " << leftSufBit << "\n";
+            cir.addTempWireBundle(temp1);
+            cir.addTempWireBundle(temp2);
 
 
-        //			lib.multiplex_build(cir, temp1, leftSufVal, leftSufBit, prntSufVal, temp2);
-        //			cir.addGate(leftSufBit[0], rghtSufBit[0], oc::GateType::And, prntSufBit[0]);
+            // Apply the computation.
+            oc::BetaLibrary lib;
 
-        //			cir << "B     " << prntSufVal << "\n";
-        //		}
+            if (type & Type::Prefix)
+            {
 
-        //		return cir;
-        //	}
+                for (int w : leftPreVal)
+                {
+                    auto flag = cir.mWireFlags[w];
+                    if (flag == oc::BetaWireFlag::Uninitialized)
+                        throw RTE_LOC;
+                }
+                for (int w : rghtPreVal)
+                {
+                    auto flag = cir.mWireFlags[w];
+                    if (flag == oc::BetaWireFlag::Uninitialized)
+                        throw RTE_LOC;
+                }
 
+                add(cir, leftPreVal, rghtPreVal, temp1);
 
-        //	// Perform the upstream computation. Here we want to compute several
-        //	// values for each node of the tree. Each node will hold 
-        //	// 
-        //	//  push up value val, left child value v0, a product preVal
-        //	//
-        //	// The value will be val=v_{1+p1} where v0,v1 are the left and right child
-        //	// values. The product preVal will be preVal=p0*p1 where p0,p1 are the left and 
-        //	// right child product values.  
-        //	//
-        //	// At the leaf level val will be the corresponding input value. preVal will be
-        //	// the control bit to the leaf'sufVal right. I.e., for leaf i, preVal = controlBit[i-1] 
-        //	// and preVal will be zero for the left most leaf (i.e. i=0).
-        //	//
-        //	// For each level of the tree, starting at the preSuf, we compute the 
-        //	// parent values as described.
-        //	void upstream(
-        //		const BinMatrix& src,
-        //		const BinMatrix& controlBits,
-        //		const Operator& op,
-        //		u64 partyIdx,
-        //		Type type,
-        //		CommPkg& comm,
-        //		Sh3ShareGen& gen,
-        //		Level& root,
-        //		span<std::array<Level, 2>> levels)
-        //	{
-        //		if (src.rows() != controlBits.rows())
-        //			throw RTE_LOC;
+                cir << "B0    " << leftPreVal << "\n";
+                cir << "B1    " << rghtPreVal << "\n";
+                cir << "B0+B1 " << temp1 << "\n";
+                cir << "P1    " << rghtPreBit << "\n";
+                //cir << "temp  " << std::to_string(temp1[0]) << " .. " << std::to_string(temp1.back()) << "\n16";
 
-        //		u64 bitsPerEntry = src.bitsPerEntry();
+                lib.multiplex_build(cir, temp1, rghtPreVal, rghtPreBit, prntPreVal, temp2);
+                cir.addGate(leftPreBit[0], rghtPreBit[0], oc::GateType::And, prntPreBit[0]);
 
-        //		u64 n = src.rows();
-        //		u64 logfn = oc::log2floor(n);
-        //		u64 logn = oc::log2ceil(n);
+                cir << "B     " << prntPreVal << "\n\n";
 
-        //		if (logfn != logn)
-        //		{
-        //			// round n16 to a multiple of 16 to make lading values easy.
-        //			n = oc::roundUpTo(n, 16);
-        //			logfn = oc::log2floor(n);
-        //			logn = oc::log2ceil(n);
-        //		}
+            }
 
-        //		// load the values of the leafs. Its possible that we need to split
-        //		// these values across two levels of the tree (non-power of 2 input lengths).
-        //		if (logfn == logn)
-        //		{
-        //			levels[0][0].resize(n / 2, bitsPerEntry, type);
-        //			levels[0][1].resize(n / 2, bitsPerEntry, type);
+            if (type & Type::Suffix)
+            {
+                add(cir, leftSufVal, rghtSufVal, temp1);
 
-        //			setLeafVals(src, controlBits, levels[0],
-        //				0, 0, n, type);
-
-        //		}
-        //		else
-        //		{
-        //			// split the leaf values across two levels of the tree.
-        //			auto r = n - (1ull << logfn);
-        //			auto n0 = 2 * r;
-        //			auto n1 = n - n0;
-
-        //			levels[0][0].resize(n0 / 2, bitsPerEntry, type);
-        //			levels[0][1].resize(n0 / 2, bitsPerEntry, type);
-        //			levels[1][0].resize((1ull << logfn) / 2, bitsPerEntry, type);
-        //			levels[1][1].resize((1ull << logfn) / 2, bitsPerEntry, type);
-
-        //			setLeafVals(src, controlBits, levels[0], 0, 0, n0, type);
-        //			setLeafVals(src, controlBits, levels[1], n0, r, n1, type);
-        //		}
+                cir << "UP ****\n";
+                cir << "B0    " << leftSufVal << "\n";
+                cir << "B1    " << rghtSufVal << "\n";
+                cir << "B0+B1 " << temp1 << "\n";
+                cir << "P0    " << leftSufBit << "\n";
 
 
+                lib.multiplex_build(cir, temp1, leftSufVal, leftSufBit, prntSufVal, temp2);
+                cir.addGate(leftSufBit[0], rghtSufBit[0], oc::GateType::And, prntSufBit[0]);
 
-        //		BinEval bin;
+                cir << "B     " << prntSufVal << "\n";
+            }
 
-        //		auto cir = upstreamCir(bitsPerEntry, type, op);
-        //		// we start at the preSuf and move up.
-        //		for (u64 lvl = 0; lvl < logn; ++lvl)
-        //		{
-        //			auto& children = levels[lvl];
-        //			auto& parent = root;
-        //			u64 size = (type & Type::Prefix) ? levels[lvl][0].mPreBit.numEntries() : levels[lvl][0].mSufBit.numEntries();
+            return cir;
+        }
 
 
-        //			if (type & Type::Prefix)
-        //			{
-        //				parent.mPreVal.reset(size, bitsPerEntry, 4);
-        //				parent.mPreBit.reset(size, 1, 4);
-        //			}
-        //			if (type & Type::Suffix)
-        //			{
-        //				parent.mSufVal.reset(size, bitsPerEntry, 4);
-        //				parent.mSufBit.reset(size, 1, 4);
-        //			}
+        // Perform the upstream computation. Here we want to compute several
+        // values for each node of the tree. Each node will hold 
+        // 
+        //  push up value val, left child value v0, a product preVal
+        //
+        // The value will be val=v_{1+p1} where v0,v1 are the left and right child
+        // values. The product preVal will be preVal=p0*p1 where p0,p1 are the left and 
+        // right child product values.  
+        //
+        // At the leaf level val will be the corresponding input value. preVal will be
+        // the control bit to the leaf'sufVal right. I.e., for leaf i, preVal = controlBit[i-1] 
+        // and preVal will be zero for the left most leaf (i.e. i=0).
+        //
+        // For each level of the tree, starting at the preSuf, we compute the 
+        // parent values as described.
+        void upstream(
+            const BinMatrix& src,
+            const BinMatrix& controlBits,
+            const Operator& op,
+            u64 partyIdx,
+            Type type,
+            coproto::Socket& comm,
+            OleGenerator& gen,
+            Level& root,
+            span<SplitLevel> levels)
+        {
+            if (src.numEntries() != controlBits.numEntries())
+                throw RTE_LOC;
 
-        //			bin.setCir(cir, size, partyIdx, gen, false, 0);
+            u64 bitsPerEntry = src.bitsPerEntry();
+
+            u64 n = src.numEntries();
+            u64 logfn = oc::log2floor(n);
+            u64 logn = oc::log2ceil(n);
+
+            if (logfn != logn)
+            {
+                // round n16 to a multiple of 16 to make lading values easy.
+                n = oc::roundUpTo(n, 16);
+                logfn = oc::log2floor(n);
+                logn = oc::log2ceil(n);
+            }
+
+            // load the values of the leafs. Its possible that we need to split
+            // these values across two levels of the tree (non-power of 2 input lengths).
+            if (logfn == logn)
+            {
+                levels[0][0].resize(n / 2, bitsPerEntry, type);
+                levels[0][1].resize(n / 2, bitsPerEntry, type);
+
+                setLeafVals(src, controlBits, levels[0],
+                    0, 0, n, type);
+
+            }
+            else
+            {
+                // split the leaf values across two levels of the tree.
+                auto r = n - (1ull << logfn);
+                auto n0 = 2 * r;
+                auto n1 = n - n0;
+
+                levels[0][0].resize(n0 / 2, bitsPerEntry, type);
+                levels[0][1].resize(n0 / 2, bitsPerEntry, type);
+                levels[1][0].resize((1ull << logfn) / 2, bitsPerEntry, type);
+                levels[1][1].resize((1ull << logfn) / 2, bitsPerEntry, type);
+
+                setLeafVals(src, controlBits, levels[0], 0, 0, n0, type);
+                setLeafVals(src, controlBits, levels[1], n0, r, n1, type);
+            }
 
 
-        //			u64 inIdx = 0, outIdx = 0;
-        //			if (type & Type::Prefix)
-        //			{
-        //				bin.mapInput(inIdx++, children[0].mPreVal);
-        //				bin.mapInput(inIdx++, children[1].mPreVal);
-        //				bin.mapInput(inIdx++, children[0].mPreBit);
-        //				bin.mapInput(inIdx++, children[1].mPreBit);
-        //				bin.mapOutput(outIdx++, parent.mPreVal);
-        //				bin.mapOutput(outIdx++, parent.mPreBit);
-        //			}
-        //			if (type & Type::Suffix)
-        //			{
-        //				bin.mapInput(inIdx++, children[0].mSufVal);
-        //				bin.mapInput(inIdx++, children[1].mSufVal);
-        //				bin.mapInput(inIdx++, children[0].mSufBit);
-        //				bin.mapInput(inIdx++, children[1].mSufBit);
-        //				bin.mapOutput(outIdx++, parent.mSufVal);
-        //				bin.mapOutput(outIdx++, parent.mSufBit);
-        //			}
 
-        //			// eval
-        //			bin.evaluate(comm);
+            Gmw bin;
+
+            auto cir = upstreamCir(bitsPerEntry, type, op);
+            // we start at the preSuf and move up.
+            for (u64 lvl = 0; lvl < logn; ++lvl)
+            {
+                auto& children = levels[lvl];
+                auto& parent = root;
+                u64 size = (type & Type::Prefix) ? levels[lvl][0].mPreBit.numEntries() : levels[lvl][0].mSufBit.numEntries();
 
 
-        //			if (size != 1)
-        //			{
-        //				auto& splitParent = levels[lvl + 1];
-        //				auto d = logn - lvl - 2;
-        //				auto s = 1ull << d;
-        //				splitParent[0].resize(s, bitsPerEntry, type);
-        //				splitParent[1].resize(s, bitsPerEntry, type);
+                if (type & Type::Prefix)
+                {
+                    parent.mPreVal.resize(size, bitsPerEntry, 4);
+                    parent.mPreBit.resize(size, 1, 4);
+                }
+                if (type & Type::Suffix)
+                {
+                    parent.mSufVal.resize(size, bitsPerEntry, 4);
+                    parent.mSufBit.resize(size, 1, 4);
+                }
 
-        //				if (type & Type::Prefix)
-        //				{
-        //					perfectUnshuffle(parent.mPreVal, splitParent[0].mPreVal, splitParent[1].mPreVal);
-        //					perfectUnshuffle(parent.mPreBit, splitParent[0].mPreBit, splitParent[1].mPreBit);
-        //					assert(splitParent[0].mPreBit.numEntries());
-        //					assert(splitParent[1].mPreBit.numEntries());
-        //					assert(splitParent[0].mPreVal.numEntries());
-        //					assert(splitParent[1].mPreVal.numEntries());
+                bin.init(size, cir, gen);
 
-        //				}
 
-        //				if (type & Type::Suffix)
-        //				{
-        //					perfectUnshuffle(parent.mSufVal, splitParent[0].mSufVal, splitParent[1].mSufVal);
-        //					perfectUnshuffle(parent.mSufBit, splitParent[0].mSufBit, splitParent[1].mSufBit);
-        //					assert(splitParent[0].mSufBit.numEntries());
-        //					assert(splitParent[1].mSufBit.numEntries());
-        //					assert(splitParent[0].mSufVal.numEntries());
-        //					assert(splitParent[1].mSufVal.numEntries());
-        //				}
+                u64 inIdx = 0, outIdx = 0;
+                if (type & Type::Prefix)
+                {
+                    bin.mapInput(inIdx++, children[0].mPreVal);
+                    bin.mapInput(inIdx++, children[1].mPreVal);
+                    bin.mapInput(inIdx++, children[0].mPreBit);
+                    bin.mapInput(inIdx++, children[1].mPreBit);
+                    bin.mapOutput(outIdx++, parent.mPreVal);
+                    bin.mapOutput(outIdx++, parent.mPreBit);
+                }
+                if (type & Type::Suffix)
+                {
+                    bin.mapInput(inIdx++, children[0].mSufVal);
+                    bin.mapInput(inIdx++, children[1].mSufVal);
+                    bin.mapInput(inIdx++, children[0].mSufBit);
+                    bin.mapInput(inIdx++, children[1].mSufBit);
+                    bin.mapOutput(outIdx++, parent.mSufVal);
+                    bin.mapOutput(outIdx++, parent.mSufBit);
+                }
 
-        //			}
-        //			else
-        //			{
-        //				assert(lvl == logn - 1);
-        //			}
+                // eval
+                bin.run(comm);
 
-        //		}
-        //	}
+
+                if (size != 1)
+                {
+                    auto& splitParent = levels[lvl + 1];
+                    auto d = logn - lvl - 2;
+                    auto s = 1ull << d;
+                    splitParent[0].resize(s, bitsPerEntry, type);
+                    splitParent[1].resize(s, bitsPerEntry, type);
+
+                    if (type & Type::Prefix)
+                    {
+                        perfectUnshuffle(parent.mPreVal, splitParent[0].mPreVal, splitParent[1].mPreVal);
+                        perfectUnshuffle(parent.mPreBit, splitParent[0].mPreBit, splitParent[1].mPreBit);
+                        assert(splitParent[0].mPreBit.numEntries());
+                        assert(splitParent[1].mPreBit.numEntries());
+                        assert(splitParent[0].mPreVal.numEntries());
+                        assert(splitParent[1].mPreVal.numEntries());
+
+                    }
+
+                    if (type & Type::Suffix)
+                    {
+                        perfectUnshuffle(parent.mSufVal, splitParent[0].mSufVal, splitParent[1].mSufVal);
+                        perfectUnshuffle(parent.mSufBit, splitParent[0].mSufBit, splitParent[1].mSufBit);
+                        assert(splitParent[0].mSufBit.numEntries());
+                        assert(splitParent[1].mSufBit.numEntries());
+                        assert(splitParent[0].mSufVal.numEntries());
+                        assert(splitParent[1].mSufVal.numEntries());
+                    }
+
+                }
+                else
+                {
+                    assert(lvl == logn - 1);
+                }
+
+            }
+        }
 
         /* this circuit pushes values down the tree.
-          
+
                        |  pre, suf, _
                        |
                        *
                       / \
-    	             /   \
-    	            /     \
-    	      pre_0,      pre_1
+                     /   \
+                    /     \
+              pre_0,      pre_1
               suf_0,      suf_1
               p_0,        p_1
-          
+
            These values are updated as
-          	 pre_1 := p_0 ? pre_0 + pre : pre_0
+             pre_1 := p_0 ? pre_0 + pre : pre_0
              pre_0 := pre
              suf_0 := suf_1 + suf : suf_1
-          	 suf_1 := suf
+             suf_1 := suf
         */
         //	static oc::BetaCircuit downstreamCir(u64 bitsPerEntry, const Operator& op, Type type)
         //	{

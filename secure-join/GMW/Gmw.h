@@ -15,6 +15,7 @@
 #include <cryptoTools/Network/Channel.h>
 #include <cryptoTools/Common/Matrix.h>
 #include "secure-join/OleGenerator.h"
+#include "secure-join/Matrix.h"
 
 namespace secJoin
 {
@@ -45,37 +46,55 @@ namespace secJoin
         // based on their AND depth.
         BetaCircuit::LevelizeType mLevelize = BetaCircuit::LevelizeType::Reorder;
 
-        u64 mN = 0, mIdx = -1;
+        // the number of SIMD circuits to eval.
+        u64 mN = 0;
+        // the number of 128 chunks to evaluate
+        u64 mN128 = 0;
+
+        // party index {0,1}
+        u64 mIdx = -1;
+
+        // when setting the wires memory, this records how many remain unmapped.
+        u64 mRemainingMappings = 0;
+
         OtExtType mOtExtType;
-        oc::Matrix<block> mWords;
+        
+        // points to the i'th wire memory.
+        std::vector<block*> mWords;
+
+        // internal wire memory
+        std::vector<oc::Matrix<block>> mMem;
+
+        // total number of rounds.
         u64 mNumRounds;
+
+        // the circuit being evaluated
         BetaCircuit mCir;
+
+        // the remaining gates to be evaluated.
         span<oc::BetaGate> mGates;
+
+        // randomness source.
         oc::PRNG mPrng;
+
+        // the index of the circuit to print if debugging is enabled.
         u64 mDebugPrintIdx = -1;
+
+        // the current print statement if debugging is enabled.
         BetaCircuit::PrintIter mPrint;
+
+        // the binary triples used in by the protocol.
         Request<BinOle> mTriples;
 
-
+        // initialize this gmw to eval n copies of the circuit cir.
+        // use correlations provided by ole.
         void init(
             u64 n,
             const BetaCircuit& cir,
             OleGenerator& ole);
 
-        //void setTriples(block* a, block* b, block* c, block* d)
-        //{
-        //    mA = a;
-        //    mB = b;
-        //    mC = c;
-        //    mC2 = c;
-        //    mD = d;
-        //}
-
-        //coproto::task<> generateTriple(
-        //    u64 batchSize,
-        //    u64 numThreads,
-        //    coproto::Socket& chl);
-
+        // set the i'th input. There should be mN rows of `input`, each row holding
+        // mCur.mInput[i].size() bits (rounded up to 8 * sizeof(T)).
         template<typename T>
         void setInput(u64 i, oc::MatrixView<T> input)
         {
@@ -83,11 +102,87 @@ namespace secJoin
             oc::MatrixView<u8> ii((u8*)input.data(), input.rows(), input.cols() * sizeof(T));
             implSetInput(i, ii, sizeof(T));
         }
-
+        
+        // Set the i'th input to zero. Useful when only one party has input i (in plaintext).
         void setZeroInput(u64 i);
 
+
+        void mapInput(u64 i,  TBinMatrix& d)
+        {
+            if (mCir.mInputs.size() <= i)
+                throw std::runtime_error("GMW mapInput for an index that does not exist. " LOCATION);
+            if (mCir.mInputs[i].size() != d.bitsPerEntry())
+                throw std::runtime_error("GMW mapInput called with incorrect number of wires. " LOCATION);
+            if (mN != d.numEntries())
+                throw std::runtime_error("GMW mapInput called with incorrect number of inputs. " LOCATION);
+            if (d.bytesPerRow() % sizeof(block))
+                throw std::runtime_error("the alignment of the data must be at least sizeof(block). " LOCATION);
+
+            for (u64 j = 0; j < d.bitsPerEntry(); ++j)
+                map(mCir.mInputs[i][j], (block*)d[j].data());
+        }
+
+
+
+        void mapOutput(u64 i, TBinMatrix& d)
+        {
+            if (mCir.mOutputs.size() <= i)
+                throw std::runtime_error("GMW mapOutput for an index that does not exist. " LOCATION);
+            if (mCir.mOutputs[i].size() != d.bitsPerEntry())
+                throw std::runtime_error("GMW mapOutput called with incorrect number of wires. " LOCATION);
+            if (mN != d.numEntries())
+                throw std::runtime_error("GMW mapOutput called with incorrect number of inputs. " LOCATION);
+            if (d.bytesPerRow() % sizeof(block))
+                throw std::runtime_error("the alignment of the data must be at least sizeof(block). " LOCATION);
+
+            for (u64 j = 0; j < d.bitsPerEntry(); ++j)
+                map(mCir.mOutputs[i][j], (block*)d[j].data());
+        }
+
+
+        void map(u64 wire, block* data)
+        {
+            if (mWords[wire])
+                throw RTE_LOC;
+            if ((u64)data % sizeof(block))
+                throw RTE_LOC;
+
+            mWords[wire] = data;
+            assert(mRemainingMappings);
+            --mRemainingMappings;
+        }
+
+        void finalizeMapping()
+        {
+            for (u64 i = 0; i < mCir.mInputs.size(); ++i)
+                for (u64 j = 0; j < mCir.mInputs[i].size(); ++j)
+                    if (mWords[mCir.mInputs[i][j]] == nullptr)
+                        throw RTE_LOC;
+            //for (u64 i = 0; i < mCir.mOutputs.size(); ++i)
+            //    for (u64 j = 0; j < mCir.mOutputs[i].size(); ++j)
+            //        if (mWords[mCir.mOutputs[i][j]] == nullptr)
+            //            throw RTE_LOC;
+
+            if (mRemainingMappings)
+            {
+                mMem.emplace_back();
+                mMem.back().resize(mRemainingMappings, mN128, oc::AllocType::Uninitialized);
+                for (u64 i = 0, j = 0; i < mCir.mWireCount; ++i)
+                {
+                    if (mWords[i] == nullptr)
+                        map(i, mMem.back().data(j++));
+                }
+
+                assert(mRemainingMappings == 0);
+            }
+        }
+
+        // run the gmw protocol.
         coproto::task<> run(coproto::Socket& chl);
 
+
+        // get the i'th output. There should be mN rows of `out`, each row holding
+        // mCur.mOutput[i].size() bits (rounded up to 8 * sizeof(T)).
         template<typename T>
         void getOutput(u64 i, oc::MatrixView<T> out)
         {
@@ -104,10 +199,6 @@ namespace secJoin
         oc::MatrixView<u8> getOutputView(u64 i);
         oc::MatrixView<u8> getMemView(BetaBundle& wires);
 
-
-        //OleGenerator* mGen = nullptr;
-        //SilentTripleGen mSilent;
-        //IknpTripleGen mIknp;
 
         u64 numRounds()
         {

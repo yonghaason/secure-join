@@ -146,6 +146,11 @@ namespace secJoin
         {
             return subMatrix(rowIdx, mData.rows() - rowIdx);
         }
+
+        operator oc::MatrixView<u8>()
+        {
+            return mData;
+        }
     };
 
     // represents a binary matrix in bit transpose format. 

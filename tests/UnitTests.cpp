@@ -76,5 +76,7 @@ namespace secJoin_Tests
         t.add("AggTree_dup_singleSetLeaves_Test              ", AggTree_dup_singleSetLeaves_Test);
         t.add("AggTree_dup_pre_setLeaves_Test                ", AggTree_dup_pre_setLeaves_Test);
 
+        t.add("AggTree_dup_pre_upstream_cir_Test             ", AggTree_dup_pre_upstream_cir_Test);
+
         });
 }

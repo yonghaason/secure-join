@@ -13,98 +13,98 @@ namespace secJoin
 {
 
 
-	// plaintext version of the agg tree.
-	struct PTreeNew
-	{
-		// upstream  (0) and downstream (1) levels.
-		struct LevelPair
-		{
-			PLevelNew mUp, mDown;
-			auto& operator[](int i)
-			{
-				return i ? mDown : mUp;
-			}
-		};
+	//// plaintext version of the agg tree.
+	//struct PTreeNew
+	//{
+	//	// upstream  (0) and downstream (1) levels.
+	//	struct LevelPair
+	//	{
+	//		PLevelNew mUp, mDown;
+	//		auto& operator[](int i)
+	//		{
+	//			return i ? mDown : mUp;
+	//		}
+	//	};
 
-		std::vector<LevelPair> mLevels;
+	//	std::vector<LevelPair> mLevels;
 
-		//std::vector<oc::BitVector> mPre, mSuf, mFull, mInput;
-		BinMatrix mPre, mSuf, mFull, mInput;
-		oc::BitVector mCtrl;
-
-
-		u64 bitCount;
-		u64 n;
-		u64 n16;
-		u64 logn;
-		u64 logfn, r, n0, n1;
-
-		void init(u64 n, u64 bitCount, oc::PRNG& prng,
-			std::function<oc::BitVector(const oc::BitVector&, const oc::BitVector&)> op);
+	//	//std::vector<oc::BitVector> mPre, mSuf, mFull, mInput;
+	//	BinMatrix mPre, mSuf, mFull, mInput;
+	//	oc::BitVector mCtrl;
 
 
-		std::array<BinMatrix, 2> shareVals(oc::PRNG& prng)
-		{
-			std::array<BinMatrix, 2> ret;
-			ret[0].resize(mInput.size(), mInput.bitsPerEntry());
-			ret[1].resize(mInput.size(), mInput.bitsPerEntry());
+	//	u64 bitCount;
+	//	u64 n;
+	//	u64 n16;
+	//	u64 logn;
+	//	u64 logfn, r, n0, n1;
 
-			prng.get(ret[0].data(), ret[0].size());
-
-			for (u64 i = 0; i < mInput.size(); ++i)
-			{
-				memcpy(ret[1].data(i), mInput.data(i), mInput.bytesPerEnrty());
-
-				for (u64 j = 0; j < ret[1].bytesPerEnrty(); ++i)
-				{
-					ret[1](i, j) ^= ret[0](i, j);
-				}
-			}
-
-			return ret;
-		}
+	//	void init(u64 n, u64 bitCount, oc::PRNG& prng,
+	//		std::function<oc::BitVector(const oc::BitVector&, const oc::BitVector&)> op);
 
 
-		std::array<BinMatrix, 2> shareBits(oc::PRNG& prng)
-		{
-			std::array<BinMatrix, 2> ret;
-			ret[0].resize(mInput.size(), 1);
-			ret[1].resize(mInput.size(), 1);
+	//	std::array<BinMatrix, 2> shareVals(oc::PRNG& prng)
+	//	{
+	//		std::array<BinMatrix, 2> ret;
+	//		ret[0].resize(mInput.size(), mInput.bitsPerEntry());
+	//		ret[1].resize(mInput.size(), mInput.bitsPerEntry());
 
-			for (u64 i = 0; i < mInput.size(); ++i)
-			{
-				ret[0](i) = prng.getBit();
-				ret[1](i) = ret[0](i) ^ mCtrl[i];
-			}
+	//		prng.get(ret[0].data(), ret[0].size());
 
-			//oc::Matrix<i64> v(ret[0].rows(), 1);
-			//for (u64 i = 0; i < v.rows(); ++i)
-			//	v(i) = mCtrl[i];
+	//		for (u64 i = 0; i < mInput.size(); ++i)
+	//		{
+	//			memcpy(ret[1].data(i), mInput.data(i), mInput.bytesPerEnrty());
 
-			//share(v, ret[0].bitCount(), ret[0], ret[1], prng);
+	//			for (u64 j = 0; j < ret[1].bytesPerEnrty(); ++i)
+	//			{
+	//				ret[1](i, j) ^= ret[0](i, j);
+	//			}
+	//		}
 
-			return ret;
-		}
-
-		void loadLeaves(
-			const BinMatrix& s,
-			const oc::BitVector& c);
-
-		void upstream(
-			std::function<oc::BitVector(const oc::BitVector&, const oc::BitVector&)> op);
+	//		return ret;
+	//	}
 
 
-		void downstream(
-			std::function<oc::BitVector(const oc::BitVector&, const oc::BitVector&)> op);
+	//	std::array<BinMatrix, 2> shareBits(oc::PRNG& prng)
+	//	{
+	//		std::array<BinMatrix, 2> ret;
+	//		ret[0].resize(mInput.size(), 1);
+	//		ret[1].resize(mInput.size(), 1);
 
-		void leaves(
-			std::function<oc::BitVector(const oc::BitVector&, const oc::BitVector&)> op);
+	//		for (u64 i = 0; i < mInput.size(); ++i)
+	//		{
+	//			ret[0](i) = prng.getBit();
+	//			ret[1](i) = ret[0](i) ^ mCtrl[i];
+	//		}
 
-		void init(
-			const BinMatrix& s,
-			const oc::BitVector& c,
-			std::function<oc::BitVector(const oc::BitVector&, const oc::BitVector&)> op);
-	};
+	//		//oc::Matrix<i64> v(ret[0].rows(), 1);
+	//		//for (u64 i = 0; i < v.rows(); ++i)
+	//		//	v(i) = mCtrl[i];
+
+	//		//share(v, ret[0].bitCount(), ret[0], ret[1], prng);
+
+	//		return ret;
+	//	}
+
+	//	void loadLeaves(
+	//		const BinMatrix& s,
+	//		const oc::BitVector& c);
+
+	//	void upstream(
+	//		std::function<oc::BitVector(const oc::BitVector&, const oc::BitVector&)> op);
+
+
+	//	void downstream(
+	//		std::function<oc::BitVector(const oc::BitVector&, const oc::BitVector&)> op);
+
+	//	void leaves(
+	//		std::function<oc::BitVector(const oc::BitVector&, const oc::BitVector&)> op);
+
+	//	void init(
+	//		const BinMatrix& s,
+	//		const oc::BitVector& c,
+	//		std::function<oc::BitVector(const oc::BitVector&, const oc::BitVector&)> op);
+	//};
 
 
 

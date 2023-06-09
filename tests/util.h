@@ -139,8 +139,8 @@ inline std::array<std::vector<u32>, 2> xorShare(
 }
 
 inline oc::Matrix<oc::u8> reveal(
-    const oc::Matrix<oc::u8>& v1,
-    const oc::Matrix<oc::u8>& v2)
+    oc::MatrixView<oc::u8> v1,
+    oc::MatrixView<oc::u8> v2)
 {
 
     // Checking the dimensions
