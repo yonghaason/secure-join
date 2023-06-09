@@ -38,9 +38,9 @@ void AdditivePerm_xor_test()
     kk = prng.get();
 
     // Setuping up the OT Keys
-    std::vector<oc::block> rk(vecPerm1.mPi.dlpnPerm.mSender.mPrf.KeySize);
-    std::vector<std::array<oc::block, 2>> sk(vecPerm1.mPi.dlpnPerm.mSender.mPrf.KeySize);
-    for (u64 i = 0; i < vecPerm1.mPi.dlpnPerm.mSender.mPrf.KeySize; ++i)
+    std::vector<oc::block> rk(vecPerm1.mPi.mDlpnPerm.mSender.mPrf.KeySize);
+    std::vector<std::array<oc::block, 2>> sk(vecPerm1.mPi.mDlpnPerm.mSender.mPrf.KeySize);
+    for (u64 i = 0; i < vecPerm1.mPi.mDlpnPerm.mSender.mPrf.KeySize; ++i)
     {
         sk[i][0] = oc::block(i, 0);
         sk[i][1] = oc::block(i, 1);

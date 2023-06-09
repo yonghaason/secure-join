@@ -10,7 +10,6 @@ namespace secJoin
     class DLpnPerm
     {
     public:
-        bool mIsDlpnSetupDone = false;
         DLpnPrfReceiver mRecver;
         DLpnPrfSender mSender;
         oc::Matrix<u8> mA, mDelta, mB;

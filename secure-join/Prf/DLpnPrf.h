@@ -372,6 +372,12 @@ namespace secJoin
                 ole = Request<BinOle>{}
             );
 
+            if (!mIsKeyOTsSet || !mIsKeySet)
+            {
+                std::cerr << "Receiver Key or KeyOTS are not set " << LOCATION << std::endl;
+                throw RTE_LOC;
+            }
+
             setTimePoint("DarkMatter.sender.begin");
             mU.resize(y.size());
 
@@ -853,6 +859,11 @@ namespace secJoin
                 compressedSize = u64{},
                 ole = Request<BinOle>{}
             );
+            if (!mIsKeyOTsSet)
+            {
+                std::cerr << "Receiver KeyOTS are not set" << std::endl;
+                throw RTE_LOC;
+            }
             setTimePoint("DarkMatter.recver.begin");
 
             MC_AWAIT_SET(ole, gen.binOleRequest(y.size() * m * 2));

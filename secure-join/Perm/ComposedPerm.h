@@ -30,25 +30,25 @@ namespace secJoin
 
         void setupDlpnSender(oc::block& key, std::vector<oc::block>& rk)
         {
-            dlpnPerm.setupDlpnSender(key, rk);
+            mDlpnPerm.setupDlpnSender(key, rk);
         }
 
         void setupDlpnReceiver(std::vector<std::array<oc::block, 2>>& sk)
         {
-            dlpnPerm.setupDlpnReceiver(sk);
+            mDlpnPerm.setupDlpnReceiver(sk);
         }
 
         macoro::task<> setupDlpnSender(OleGenerator& ole)
         {
             MC_BEGIN(macoro::task<>, this, &ole);
-            MC_AWAIT(dlpnPerm.setupDlpnSender(ole));
+            MC_AWAIT(mDlpnPerm.setupDlpnSender(ole));
             MC_END();
         }
 
         macoro::task<> setupDlpnReceiver(OleGenerator& ole)
         {
             MC_BEGIN(macoro::task<>, this, &ole);
-            MC_AWAIT(dlpnPerm.setupDlpnReceiver(ole));
+            MC_AWAIT(mDlpnPerm.setupDlpnReceiver(ole));
             MC_END();
         }
 
@@ -90,10 +90,10 @@ namespace secJoin
             soutperm.resize(in.rows(), in.cols());
             if ((inv ^ bool(mPartyIdx)) == true)
             {
-                if(isSecure)
+                if(mIsSecure)
                 {
-                    MC_AWAIT(dlpnPerm.apply<T>(prng, chl, ole, in, soutperm));
-                    MC_AWAIT(dlpnPerm.apply<T>(mPerm, prng, chl, ole, soutperm, out, inv));
+                    MC_AWAIT(mDlpnPerm.apply<T>(prng, chl, ole, in, soutperm));
+                    MC_AWAIT(mDlpnPerm.apply<T>(mPerm, prng, chl, ole, soutperm, out, inv));
                 }
                 else
                 {
@@ -103,10 +103,10 @@ namespace secJoin
             }
             else
             {
-                if(isSecure)
+                if(mIsSecure)
                 {
-                    MC_AWAIT(dlpnPerm.apply<T>(mPerm, prng, chl, ole, in, soutperm, inv));
-                    MC_AWAIT(dlpnPerm.apply<T>(prng, chl, ole, soutperm, out));
+                    MC_AWAIT(mDlpnPerm.apply<T>(mPerm, prng, chl, ole, in, soutperm, inv));
+                    MC_AWAIT(mDlpnPerm.apply<T>(prng, chl, ole, soutperm, out));
                 }
                 else
                 {

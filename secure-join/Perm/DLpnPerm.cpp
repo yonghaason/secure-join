@@ -7,21 +7,17 @@ namespace secJoin
     {
         mSender.setKey(key);
         mSender.setKeyOts(rk);
-        mIsDlpnSetupDone = true;
     }
 
     void DLpnPerm::setupDlpnReceiver(std::vector<std::array<oc::block, 2>> &sk)
     {
         mRecver.setKeyOts(sk);
-        mIsDlpnSetupDone = true;
     }
 
     macoro::task<> DLpnPerm::setupDlpnSender(OleGenerator &ole)
     {
         MC_BEGIN(macoro::task<>, this, &ole);
         MC_AWAIT(mSender.genKeyOTs(ole));
-
-        mIsDlpnSetupDone = true;
         MC_END();
     }
 
@@ -29,8 +25,6 @@ namespace secJoin
     {
         MC_BEGIN(macoro::task<>, this, &ole);
         MC_AWAIT(mRecver.genKeyOTs(ole));
-
-        mIsDlpnSetupDone = true;
         MC_END();
     }
 
@@ -62,18 +56,9 @@ namespace secJoin
                  aesCipher = oc::Matrix<oc::block>(),
                  dlpnCipher = oc::Matrix<oc::block>(),
                  blocksPerRow = u64(),
-                 totElements = u64());
-
-        if (!mIsDlpnSetupDone)
-        {
-            std::cerr << "DLPN Receiver is not setupped" << std::endl;
-            throw RTE_LOC;
-        }
-        if (!mRecver.mIsKeyOTsSet)
-        {
-            std::cerr << "Receiver KeyOTS are not set" << std::endl;
-            throw RTE_LOC;
-        }
+                 totElements = u64(),
+                 aes = oc::AES(),
+                 key = oc::block());
 
         totElements = pi.mPerm.size();
         blocksPerRow = oc::divCeil(bytesPerRow, sizeof(oc::block));
@@ -101,7 +86,10 @@ namespace secJoin
 
         // TODO, pick a random block and use that as the aes key.
         // send the key.
-        oc::mAesFixedKey.ecbEncBlocks(aesPlaintext, aesCipher);
+        key = prng.get();
+        aes.setKey(key);
+        aes.ecbEncBlocks(aesPlaintext, aesCipher);
+        MC_AWAIT(chl.send(std::move(key)));
 
         MC_AWAIT(mRecver.evaluate(aesCipher, dlpnCipher, chl, prng, ole));
 
@@ -126,13 +114,9 @@ namespace secJoin
                  aesCipher = oc::Matrix<oc::block>(),
                  preProsdlpnCipher = oc::Matrix<oc::block>(),
                  dlpnCipher = oc::Matrix<oc::block>(),
-                 blocksPerRow = u64());
-
-        if (!mIsDlpnSetupDone)
-        {
-            std::cerr << "DLPN Sender is not setupped" << std::endl;
-            throw RTE_LOC;
-        }
+                 blocksPerRow = u64(),
+                 aes = oc::AES(),
+                 key = oc::block());
 
         blocksPerRow = oc::divCeil(bytesPerRow, sizeof(oc::block));
 
@@ -145,8 +129,9 @@ namespace secJoin
         for (u64 i = 0; i < aesPlaintext.size(); i++)
             aesPlaintext(i) = oc::block(0, i);
 
-        // todo: recv the aes key
-        oc::mAesFixedKey.ecbEncBlocks(aesPlaintext, aesCipher);
+        MC_AWAIT(chl.recv(key));
+        aes.setKey(key);
+        aes.ecbEncBlocks(aesPlaintext, aesCipher);
 
         for (u64 i = 0; i < aesCipher.rows(); i++)
         {
@@ -160,12 +145,6 @@ namespace secJoin
         mA.resize(totElements, bytesPerRow);
         for (u64 i = 0; i < totElements; i++)
             memcpyMin(mA[i], preProsdlpnCipher[i]);
-
-        if (!mSender.mIsKeyOTsSet || !mSender.mIsKeySet)
-        {
-            std::cerr << "Receiver Key or KeyOTS are not set " << LOCATION << std::endl;
-            throw RTE_LOC;
-        }
 
         MC_AWAIT(mSender.evaluate(dlpnCipher, chl, prng, ole));
 
