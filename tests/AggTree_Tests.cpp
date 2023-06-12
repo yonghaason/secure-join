@@ -697,8 +697,8 @@ void AggTree_dup_singleSetLeaves_Test()
                     }
                 }
 
-                auto even = tvs[0];
-                auto odd = tvs[1];
+                auto& even = tvs[0];
+                auto& odd = tvs[1];
 
                 auto preBit = perfectShuffle(even.mPreBit.transpose(), odd.mPreBit.transpose());
                 auto sufBit = perfectShuffle(even.mSufBit.transpose(), odd.mSufBit.transpose());
@@ -944,7 +944,7 @@ void AggTree_dup_pre_upstream_Test()
     PTree tree;
     tree.init(n, m, prng, opp);
 
-    Level root[3];
+    Level root[2];
 
     auto n16 = tree.n16;
     auto logn = tree.logn;
@@ -955,12 +955,16 @@ void AggTree_dup_pre_upstream_Test()
     std::array<std::vector<SplitLevel>, 2> tvs;
     tvs[0].resize(logn);
     tvs[1].resize(logn);
-    tvs[2].resize(logn);
 
     OleGenerator g0, g1;
 
-    t0.upstream(s[0], c[0], op, 0, type, comm[0], g0, root[0], tvs[0]);
-    t1.upstream(s[1], c[1], op, 1, type, comm[1], g1, root[1], tvs[1]);
+    g0.fakeInit(OleGenerator::Role::Receiver);
+    g1.fakeInit(OleGenerator::Role::Sender);
+
+    macoro::sync_wait(macoro::when_all_ready(
+        t0.upstream(s[0], c[0], op, 0, type, comm[0], g0, root[0], tvs[0]),
+        t1.upstream(s[1], c[1], op, 1, type, comm[1], g1, root[1], tvs[1])
+    ));
 
     if (tvs[0].size() != logn)
         throw RTE_LOC;
@@ -991,282 +995,276 @@ void AggTree_dup_pre_upstream_Test()
         }
     }
 }
-//
-//namespace {
-//
-//	void compare(oc::BetaCircuit& c0, oc::BetaCircuit& c1)
-//	{
-//		u64 numTrials = 10;
-//		using namespace oc;
-//
-//		u64 numInputs = c0.mInputs.size();
-//		u64 numOutputs = c0.mOutputs.size();
-//
-//		if (numInputs != c1.mInputs.size())
-//			throw std::runtime_error(LOCATION);
-//		if (numOutputs != c1.mOutputs.size())
-//			throw std::runtime_error(LOCATION);
-//
-//		std::vector<BitVector> inputs(numInputs);
-//		std::vector<BitVector> output0(numOutputs), output1(numOutputs);
-//		PRNG prng(ZeroBlock);
-//
-//		for (u64 t = 0; t < numTrials; ++t)
-//		{
-//			for (u64 i = 0; i < numInputs; ++i)
-//			{
-//				if (c0.mInputs[i].size() != c1.mInputs[i].size())
-//					throw RTE_LOC;
-//
-//				inputs[i].resize(c0.mInputs[i].size());
-//				inputs[i].randomize(prng);
-//			}
-//			for (u64 i = 0; i < numOutputs; ++i)
-//			{
-//				if (c0.mOutputs[i].size() != c1.mOutputs[i].size())
-//					throw RTE_LOC;
-//				output0[i].resize(c0.mOutputs[i].size());
-//				output1[i].resize(c0.mOutputs[i].size());
-//			}
-//
-//			c0.evaluate(inputs, output0, false);
-//			//std::cout << "\n";
-//			c1.evaluate(inputs, output1, false);
-//
-//			for (u64 i = 0; i < numOutputs; ++i)
-//			{
-//				if (output0[i] != output1[i])
-//				{
-//					for (u64 j = 0; j < output0[i].size(); ++j)
-//						std::cout << (j / 10);
-//					std::cout << std::endl;
-//					for (u64 j = 0; j < output0[i].size(); ++j)
-//						std::cout << (j % 10);
-//					std::cout << std::endl;
-//					std::cout << output0[i] << std::endl;
-//					std::cout << output1[i] << std::endl;
-//					std::cout << (output0[i] ^ output1[i]) << std::endl;
-//
-//					throw RTE_LOC;
-//				}
-//				//for (u64 j = 0; j < numShares; ++j)
-//				//{
-//				//	BitVector oj((u8*)out[j].data(), cir.mOutputs[i].size());
-//				//	if (oj != outputs[j][i])
-//				//	{
-//				//		std::cout << "exp " << outputs[j][i] << std::endl;
-//				//		std::cout << "act " << oj << std::endl;
-//				//		throw RTE_LOC;
-//				//	}
-//				//}
-//			}
-//		}
-//	}
-//
-//}
-//void AggTree_dup_pre_downstream_cir_Test()
-//{
-//	u64 bitCount = 1;
-//
-//	AggTree t0;
-//	t0.mDebug = true;
-//	auto op = [](
-//		oc::BetaCircuit& cir,
-//		const oc::BetaBundle& left,
-//		const oc::BetaBundle& right,
-//		oc::BetaBundle& out)
-//	{
-//		cir.addCopy(left, out);
-//	};
-//	auto cir = t0.downstreamCir(bitCount, op, AggTree::Prefix);
-//
-//	auto c1 = cir;
-//	cir.levelByAndDepth();
-//	compare(c1, cir);
-//	eval(cir, 10, 10, false, ~0ull);
-//}
-//
-//template<typename Op, typename OpCir>
-//void AggTree_pre_downstream_Test(Op op, OpCir opCir)
-//{
-//
-//	TestComm com;
-//
-//	u64 n = 311;
-//	u64 m = 64;
-//	auto type = AggTree::Prefix;
-//
-//	std::array<Sh3ShareGen, 3> g;
-//	g[0].init(block(0, 0), block(1, 1));
-//	g[1].init(block(1, 1), block(2, 2));
-//	g[2].init(block(2, 2), block(0, 0));
-//
-//	AggTree t[3];
-//	t[0].mDebug = true;
-//	t[1].mDebug = true;
-//	t[2].mDebug = true;
-//
-//	PRNG prng(ZeroBlock);
-//	PTreeNew tree;
-//	tree.init(n, m, prng, op);
-//
-//	auto s = tree.shareVals(prng);
-//	auto c = tree.shareBits(prng);
-//
-//	std::array<Level, 3> root, root2;
-//	std::array<SplitLevel, 3> preSuf, vals;
-//	std::array<std::vector<SplitLevel>, 3> tvs;
-//	auto logn = tree.logn;
-//	tvs[0].resize(logn);
-//	tvs[1].resize(logn);
-//	tvs[2].resize(logn);
-//
-//	std::array<std::future<void>, 3>ff;
-//
-//	for (u64 i = 0; i < 3; ++i)
-//		ff[i] = std::async([&, i]()
-//			{
-//				t[i].upstream(s[i], c[i], opCir, i, type, com[i], g[i], root[i], tvs[i]);
-//				root2[i] = root[i];
-//				t[i].downstream(s[i], c[i], opCir, root[i], tvs[i], preSuf[i], vals[i], i, type, com[i], g[i]);
-//			});
-//
-//	ff[0].get();
-//	ff[1].get();
-//	ff[2].get();
-//
-//	std::vector<PLevel> levels(logn);
-//	for (u64 i = 0; i < levels.size(); ++i)
-//	{
-//		levels[i].load(tvs[0][i], tvs[1][i], tvs[2][i]);
-//	}
-//	levels.emplace_back();
-//	levels.back().load(root2[0], root2[1], root2[2]);
-//
-//	for (u64 j = levels.size() - 2; j < levels.size(); --j)
-//	{
-//		auto& lvl = tree.mLevels[j];
-//
-//		for (u64 i = 0; i < lvl.mDown.size(); ++i)
-//		{
-//			auto act = levels[j].mPreVal[i];
-//			auto exp = tree.mLevels[j].mDown.mPreVal[i];
-//			if (exp != act)
-//			{
-//				std::cout << "\ni " << i << std::endl;
-//				std::cout << "act " << act << std::endl;
-//				std::cout << "exp " << exp << std::endl << std::endl;
-//
-//				auto p = i / 2;
-//				auto l = i & 0;
-//				auto r = i | 1;
-//				std::cout << "pnt exp " << tree.mLevels[j + 1].mUp.mPreVal[p] << " " << tree.mLevels[j + 1].mUp.mPreBit[p] << "  " << p << std::endl;
-//				std::cout << "    act " << levels[j + 1].mPreVal[p] << " " << levels[j + 1].mPreBit[p] << std::endl;
-//				std::cout << "ch0 exp " << tree.mLevels[j].mUp.mPreVal[l] << " " << tree.mLevels[j].mUp.mPreBit[l] << "  " << l << (l == i ? " <- " : "") << std::endl;
-//				std::cout << "    act " << levels[j].mPreVal[l] << " " << levels[j].mPreBit[l] << std::endl;
-//				std::cout << "ch1 exp " << tree.mLevels[j].mUp.mPreVal[r] << " " << tree.mLevels[j].mUp.mPreBit[r] << "  " << r << (r == i ? " <- " : "") << std::endl;
-//				std::cout << "    act " << levels[j].mPreVal[r] << " " << levels[j].mPreBit[r] << std::endl;
-//
-//
-//				throw RTE_LOC;
-//			}
-//		}
-//	}
-//
-//	PLevel pre; pre.load(preSuf[0], preSuf[1], preSuf[2]);
-//	PLevel val; val.load(vals[0], vals[1], vals[2]);
-//
-//	for (u64 i = 0; i < n; ++i)
-//	{
-//		auto q = i < tree.n0 ? 0 : 1;
-//		auto w = i < tree.n0 ? i : i - tree.r;
-//
-//		{
-//			auto exp = tree.mLevels[q].mDown.mPreVal[w];
-//			auto act = pre.mPreVal[i];
-//			if (act != exp)
-//			{
-//				std::cout << "i   " << i << std::endl;
-//				std::cout << "exp " << exp << std::endl;
-//				std::cout << "act " << act << std::endl;
-//				std::cout << "    " << (act ^ exp) << std::endl;
-//
-//				throw RTE_LOC;
-//			}
-//		}
-//
-//		{
-//			auto exp = tree.mLevels[q].mUp.mPreVal[w];
-//			auto act = val.mPreVal[i];
-//			if (act != exp)
-//			{
-//				std::cout << "i   " << i << std::endl;
-//				std::cout << "exp " << exp << std::endl;
-//				std::cout << "act " << act << std::endl;
-//				std::cout << "    " << (act ^ exp) << std::endl;
-//
-//				throw RTE_LOC;
-//			}
-//		}
-//
-//		{
-//			auto exp = tree.mLevels[q].mUp.mPreBit[w];
-//			auto act = val.mPreBit[i];
-//			if (act != exp)
-//			{
-//				std::cout << "i   " << i << std::endl;
-//				std::cout << "exp " << exp << std::endl;
-//				std::cout << "act " << act << std::endl;
-//				std::cout << "    " << (act ^ exp) << std::endl;
-//
-//				throw RTE_LOC;
-//			}
-//		}
-//	}
-//}
-//
-//void AggTree_dup_pre_downstream_Test()
-//{
-//	auto opCir = [](
-//		oc::BetaCircuit& cir,
-//		const oc::BetaBundle& left,
-//		const oc::BetaBundle& right,
-//		oc::BetaBundle& out)
-//	{
-//		cir.addCopy(left, out);
-//	};
-//
-//	auto op = [](
-//		const oc::BitVector& left,
-//		const oc::BitVector& right)
-//	{
-//		return left;
-//	};
-//	AggTree_pre_downstream_Test(op, opCir);
-//}
-//
-//
-//void AggTree_xor_pre_downstream_Test()
-//{
-//	auto opCir = [](
-//		oc::BetaCircuit& cir,
-//		const oc::BetaBundle& left,
-//		const oc::BetaBundle& right,
-//		oc::BetaBundle& out)
-//	{
-//		for (u64 i = 0; i < left.size(); ++i)
-//			cir.addGate(left[i], right[i], oc::GateType::Xor, out[i]);
-//	};
-//
-//	auto op = [](
-//		const oc::BitVector& left,
-//		const oc::BitVector& right)
-//	{
-//		return left ^ right;
-//	};
-//	AggTree_pre_downstream_Test(op, opCir);
-//}
-//
+
+namespace {
+
+	void compare(oc::BetaCircuit& c0, oc::BetaCircuit& c1)
+	{
+		u64 numTrials = 10;
+		using namespace oc;
+
+		u64 numInputs = c0.mInputs.size();
+		u64 numOutputs = c0.mOutputs.size();
+
+		if (numInputs != c1.mInputs.size())
+			throw std::runtime_error(LOCATION);
+		if (numOutputs != c1.mOutputs.size())
+			throw std::runtime_error(LOCATION);
+
+		std::vector<BitVector> inputs(numInputs);
+		std::vector<BitVector> output0(numOutputs), output1(numOutputs);
+		PRNG prng(ZeroBlock);
+
+		for (u64 t = 0; t < numTrials; ++t)
+		{
+			for (u64 i = 0; i < numInputs; ++i)
+			{
+				if (c0.mInputs[i].size() != c1.mInputs[i].size())
+					throw RTE_LOC;
+
+				inputs[i].resize(c0.mInputs[i].size());
+				inputs[i].randomize(prng);
+			}
+			for (u64 i = 0; i < numOutputs; ++i)
+			{
+				if (c0.mOutputs[i].size() != c1.mOutputs[i].size())
+					throw RTE_LOC;
+				output0[i].resize(c0.mOutputs[i].size());
+				output1[i].resize(c0.mOutputs[i].size());
+			}
+
+			c0.evaluate(inputs, output0, false);
+			//std::cout << "\n";
+			c1.evaluate(inputs, output1, false);
+
+			for (u64 i = 0; i < numOutputs; ++i)
+			{
+				if (output0[i] != output1[i])
+				{
+					for (u64 j = 0; j < output0[i].size(); ++j)
+						std::cout << (j / 10);
+					std::cout << std::endl;
+					for (u64 j = 0; j < output0[i].size(); ++j)
+						std::cout << (j % 10);
+					std::cout << std::endl;
+					std::cout << output0[i] << std::endl;
+					std::cout << output1[i] << std::endl;
+					std::cout << (output0[i] ^ output1[i]) << std::endl;
+
+					throw RTE_LOC;
+				}
+				//for (u64 j = 0; j < numShares; ++j)
+				//{
+				//	BitVector oj((u8*)out[j].data(), cir.mOutputs[i].size());
+				//	if (oj != outputs[j][i])
+				//	{
+				//		std::cout << "exp " << outputs[j][i] << std::endl;
+				//		std::cout << "act " << oj << std::endl;
+				//		throw RTE_LOC;
+				//	}
+				//}
+			}
+		}
+	}
+
+}
+ 
+void AggTree_dup_pre_downstream_cir_Test()
+{
+	u64 bitCount = 1;
+
+	AggTree t0;
+	//t0.mDebug = true;
+	auto op = [](
+		oc::BetaCircuit& cir,
+		const oc::BetaBundle& left,
+		const oc::BetaBundle& right,
+		oc::BetaBundle& out)
+	{
+		cir.addCopy(left, out);
+	};
+	auto cir = t0.downstreamCir(bitCount, op, AggTree::Type::Prefix);
+
+	auto c1 = cir;
+	cir.levelByAndDepth();
+	compare(c1, cir);
+	eval(cir, 10, 10, false, ~0ull);
+}
+
+template<typename Op, typename OpCir>
+void AggTree_pre_downstream_Test(Op op, OpCir opCir)
+{
+
+	auto com = coproto::LocalAsyncSocket::makePair();
+
+	u64 n = 311;
+	u64 m = 64;
+	auto type = AggTree::Type::Prefix;
+
+	std::array<OleGenerator, 2> g;
+	g[0].fakeInit(OleGenerator::Role::Receiver);
+	g[1].fakeInit(OleGenerator::Role::Sender);
+
+	AggTree t[2];
+
+	PRNG prng(ZeroBlock);
+	PTree tree;
+	tree.init(n, m, prng, op);
+
+	auto s = tree.shareVals(prng);
+	auto c = tree.shareBits(prng);
+
+	std::array<Level, 2> root, root2;
+	std::array<SplitLevel, 2> preSuf, vals;
+	std::array<std::vector<SplitLevel>, 2> tvs;
+	auto logn = tree.logn;
+	tvs[0].resize(logn);
+	tvs[1].resize(logn);
+
+
+    macoro::sync_wait(macoro::when_all_ready(
+        t[0].upstream(s[0], c[0], opCir, 0, type, com[0], g[0], root[0], tvs[0]),
+        t[1].upstream(s[1], c[1], opCir, 1, type, com[1], g[1], root[1], tvs[1])
+    ));
+    root2[0] = root[0];
+    root2[1] = root[1];
+    macoro::sync_wait(macoro::when_all_ready(
+        t[0].downstream(s[0], c[0], opCir, root[0], tvs[0], preSuf[0], vals[0], 0, type, com[0], g[0]),
+        t[1].downstream(s[1], c[1], opCir, root[1], tvs[1], preSuf[1], vals[1], 1, type, com[1], g[1])
+    ));
+
+	std::vector<PLevel> levels(logn);
+	for (u64 i = 0; i < levels.size(); ++i)
+	{
+		levels[i].reveal(tvs[0][i], tvs[1][i]);
+	}
+	levels.emplace_back();
+	levels.back().reveal(root2[0], root2[1]);
+
+	for (u64 j = levels.size() - 2; j < levels.size(); --j)
+	{
+		auto& lvl = tree.mLevels[j];
+
+		for (u64 i = 0; i < lvl.mDown.size(); ++i)
+		{
+			auto act = levels[j].mPreVal[i];
+			auto exp = tree.mLevels[j].mDown.mPreVal[i];
+			if (exp != act)
+			{
+				std::cout << "\ni " << i << std::endl;
+				std::cout << "act " << act << std::endl;
+				std::cout << "exp " << exp << std::endl << std::endl;
+
+				auto p = i / 2;
+				auto l = i & 0;
+				auto r = i | 1;
+				std::cout << "pnt exp " << tree.mLevels[j + 1].mUp.mPreVal[p] << " " << tree.mLevels[j + 1].mUp.mPreBit[p] << "  " << p << std::endl;
+				std::cout << "    act " << levels[j + 1].mPreVal[p] << " " << levels[j + 1].mPreBit[p] << std::endl;
+				std::cout << "ch0 exp " << tree.mLevels[j].mUp.mPreVal[l] << " " << tree.mLevels[j].mUp.mPreBit[l] << "  " << l << (l == i ? " <- " : "") << std::endl;
+				std::cout << "    act " << levels[j].mPreVal[l] << " " << levels[j].mPreBit[l] << std::endl;
+				std::cout << "ch1 exp " << tree.mLevels[j].mUp.mPreVal[r] << " " << tree.mLevels[j].mUp.mPreBit[r] << "  " << r << (r == i ? " <- " : "") << std::endl;
+				std::cout << "    act " << levels[j].mPreVal[r] << " " << levels[j].mPreBit[r] << std::endl;
+
+
+				throw RTE_LOC;
+			}
+		}
+	}
+
+	PLevel pre; pre.reveal(preSuf[0], preSuf[1]);
+	PLevel val; val.reveal(vals[0], vals[1]);
+
+	for (u64 i = 0; i < n; ++i)
+	{
+		auto q = i < tree.n0 ? 0 : 1;
+		auto w = i < tree.n0 ? i : i - tree.r;
+
+		{
+			auto exp = tree.mLevels[q].mDown.mPreVal[w];
+			auto act = pre.mPreVal[i];
+			if (act != exp)
+			{
+				std::cout << "i   " << i << std::endl;
+				std::cout << "exp " << exp << std::endl;
+				std::cout << "act " << act << std::endl;
+				std::cout << "    " << (act ^ exp) << std::endl;
+
+				throw RTE_LOC;
+			}
+		}
+
+		{
+			auto exp = tree.mLevels[q].mUp.mPreVal[w];
+			auto act = val.mPreVal[i];
+			if (act != exp)
+			{
+				std::cout << "i   " << i << std::endl;
+				std::cout << "exp " << exp << std::endl;
+				std::cout << "act " << act << std::endl;
+				std::cout << "    " << (act ^ exp) << std::endl;
+
+				throw RTE_LOC;
+			}
+		}
+
+		{
+			auto exp = tree.mLevels[q].mUp.mPreBit[w];
+			auto act = val.mPreBit[i];
+			if (act != exp)
+			{
+				std::cout << "i   " << i << std::endl;
+				std::cout << "exp " << exp << std::endl;
+				std::cout << "act " << act << std::endl;
+				std::cout << "    " << (act ^ exp) << std::endl;
+
+				throw RTE_LOC;
+			}
+		}
+	}
+}
+
+void AggTree_dup_pre_downstream_Test()
+{
+	auto opCir = [](
+		oc::BetaCircuit& cir,
+		const oc::BetaBundle& left,
+		const oc::BetaBundle& right,
+		oc::BetaBundle& out)
+	{
+		cir.addCopy(left, out);
+	};
+
+	auto op = [](
+		const oc::BitVector& left,
+		const oc::BitVector& right)
+	{
+		return left;
+	};
+	AggTree_pre_downstream_Test(op, opCir);
+}
+
+
+void AggTree_xor_pre_downstream_Test()
+{
+	auto opCir = [](
+		oc::BetaCircuit& cir,
+		const oc::BetaBundle& left,
+		const oc::BetaBundle& right,
+		oc::BetaBundle& out)
+	{
+		for (u64 i = 0; i < left.size(); ++i)
+			cir.addGate(left[i], right[i], oc::GateType::Xor, out[i]);
+	};
+
+	auto op = [](
+		const oc::BitVector& left,
+		const oc::BitVector& right)
+	{
+		return left ^ right;
+	};
+	AggTree_pre_downstream_Test(op, opCir);
+}
+
 //
 //template<typename Op, typename OpCir>
 //void AggTree_pre_full_Test(Op op, OpCir opCir)

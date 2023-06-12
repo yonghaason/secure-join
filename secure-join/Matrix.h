@@ -151,6 +151,10 @@ namespace secJoin
         {
             return mData;
         }
+        operator oc::MatrixView<const u8>() const
+        {
+            return oc::MatrixView<const u8>(mData.data(), mData.rows(), mData.cols());
+        }
     };
 
     // represents a binary matrix in bit transpose format. 
@@ -176,6 +180,13 @@ namespace secJoin
             mData.resize(bits, oc::roundUpTo(oc::divCeil(rows, 8), alignment));
             mEntryCount = rows;
         }
+
+        void reshape(u64 rows)
+        {
+            mData.reshape(rows, mData.size() / rows);
+            mEntryCount = rows;
+        }
+
 
         u64 bitsPerEntry() const {
             return mData.rows();

@@ -75,8 +75,11 @@ namespace secJoin_Tests
         t.add("AggTree_dup_pre_levelReveal_Test              ", AggTree_dup_pre_levelReveal_Test);
         t.add("AggTree_dup_singleSetLeaves_Test              ", AggTree_dup_singleSetLeaves_Test);
         t.add("AggTree_dup_pre_setLeaves_Test                ", AggTree_dup_pre_setLeaves_Test);
-
         t.add("AggTree_dup_pre_upstream_cir_Test             ", AggTree_dup_pre_upstream_cir_Test);
+        t.add("AggTree_dup_pre_upstream_Test                 ", AggTree_dup_pre_upstream_Test);
+        t.add("AggTree_dup_pre_downstream_cir_Test           ", AggTree_dup_pre_downstream_cir_Test);
+        t.add("AggTree_dup_pre_downstream_Test               ", AggTree_dup_pre_downstream_Test);
+        t.add("AggTree_xor_pre_downstream_Test               ", AggTree_xor_pre_downstream_Test);
 
         });
 }

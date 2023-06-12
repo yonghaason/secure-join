@@ -11,12 +11,14 @@ set(SRCS
     "Perm/ComposedPerm.cpp"
     "Perm/LowMCPerm.cpp"
     "Perm/AdditivePerm.cpp"
+    "Perm/PaillierPerm.cpp"
 
     "GMW/Circuit.cpp"
     "GMW/Gmw.cpp"
 
     "Sort/RadixSort.cpp"
     
+    "AggTree/AggTree.cpp"
     "AggTree/Level.cpp"
     "AggTree/PlainAggTree.cpp"
 
@@ -24,7 +26,7 @@ set(SRCS
     )
 
 if(SECUREJOIN_ENABLE_PAILLIER)
-    set(SRCS ${SRCS} "PaillierPerm.cpp")
+    set(SRCS ${SRCS})
 endif()
 
 add_library(secureJoin STATIC ${SRCS})

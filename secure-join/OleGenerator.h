@@ -167,6 +167,7 @@ namespace secJoin
         {
             mSessionID = std::exchange(o.mSessionID, oc::ZeroBlock);
             mSize = std::exchange(o.mSize, 0);
+            mIdx = std::exchange(o.mIdx, 0);
             mCorrelations = std::move(o.mCorrelations);
             mRemReq = std::move(o.mRemReq);
             mGen = std::exchange(o.mGen, nullptr);

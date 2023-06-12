@@ -325,7 +325,14 @@ namespace secJoin
         {
             mO.mWords.resize(mWords.size(), mN128);
 
-            MC_AWAIT(chl.send(coproto::copy(mWords)));
+            for (u64 i = 0; i < mWords.size(); i++)
+            {
+                for (u64 j = 0; j < mN128; ++j)
+                    mO.mWords(i, j) = mWords[i][j];
+            }
+            MC_AWAIT(chl.send(std::move(mO.mWords)));
+
+            mO.mWords.resize(mWords.size(), mN128);
             MC_AWAIT(chl.recv(mO.mWords));
 
             for (u64 i = 0; i < mWords.size(); i++)
@@ -605,9 +612,13 @@ namespace secJoin
                     print(mCir.mGates.size());
                 }
 
-                MC_AWAIT(chl.send(coproto::copy(mWords)));
+                ww.resize(mWords.size()* mN128);
+                for (u64 i = 0; i < mWords.size(); ++i)
+                    for (u64 j = 0; j < mN128; ++j)
+                        ww[i * mN128 + j] = mWords[i][j];
+                MC_AWAIT(chl.send(std::move(ww)));
 
-                ww.resize(mWords.size());
+                ww.resize(mWords.size() * mN128);
                 MC_AWAIT(chl.recv(ww));
 
                 for (u64 i = 0; i < mWords.size(); ++i)
