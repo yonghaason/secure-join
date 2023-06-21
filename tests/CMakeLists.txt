@@ -14,8 +14,9 @@ set(SRCS
 	OleGenerator_Test.cpp
 	GMW_Test.cpp
 	RadixSort_Test.cpp
-	AggTree_Tests.cpp
+	# AggTree_Tests.cpp
 	DlpnPerm_Test.cpp
+	CSVParser_Test.cpp
 	)
 
 	

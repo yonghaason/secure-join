@@ -4,6 +4,20 @@
 #include <sstream>
 #include <iomanip>
 #include "Paillier/Defines.h"
+
+
+#ifndef _CSV_COL_DELIM
+    #define _CSV_COL_DELIM ';'
+#endif
+
+#ifndef _STRING_META_TYPE
+    #define _STRING_META_TYPE "STRING"
+#endif
+
+#ifndef _ROWS_META_TYPE
+    #define _ROWS_META_TYPE "Rows"
+#endif
+
 namespace secJoin
 {
     using ::memcpy;

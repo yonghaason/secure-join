@@ -1,9 +1,9 @@
 #pragma once
 #include "cryptoTools/Common/Matrix.h"
 #include "cryptoTools/Crypto/PRNG.h"
-#include "secure-join/Defines.h"
+#include "Defines.h"
 #include <vector>
-#include "secure-join/Perm/AdditivePerm.h"
+#include "Perm/AdditivePerm.h"
 
 using namespace secJoin;
 using oc::Matrix;
@@ -188,10 +188,7 @@ inline void printMatrix(const oc::Matrix<oc::u8>& v1)
 {
     for(int i = 0; i < v1.rows(); i++)
     {
-        
         std::cout << hex(v1[i]) << " ";
-        
         std::cout << std::endl;
     }
-
 }

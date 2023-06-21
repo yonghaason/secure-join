@@ -20,8 +20,9 @@ set(SRCS
     
     "AggTree/Level.cpp"
     "AggTree/PlainAggTree.cpp"
-
+    "Table.cpp"
     "Trim.cpp"
+    "CSVParser.cpp"
     )
 
 if(SECUREJOIN_ENABLE_PAILLIER)
