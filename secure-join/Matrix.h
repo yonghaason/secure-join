@@ -181,10 +181,12 @@ namespace secJoin
             mEntryCount = rows;
         }
 
-        void reshape(u64 rows)
+        void reshape(u64 shareCount)
         {
-            mData.reshape(rows, mData.size() / rows);
-            mEntryCount = rows;
+            if (shareCount > mData.cols() * sizeof(*mData.data()) * 8)
+                throw RTE_LOC;
+
+            mEntryCount = shareCount;
         }
 
 

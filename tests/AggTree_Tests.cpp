@@ -7,6 +7,7 @@
 #include "secure-join/OleGenerator.h"
 #include "secure-join/GMW/Gmw.h"
 #include "tests/util.h"
+#include "AggTree_Tests.h"
 
 
 //#include "helper.h"
@@ -292,6 +293,53 @@ void perfectShuffle_sseSpan_Test()
 using Level = AggTree::Level;
 using SplitLevel = AggTree::SplitLevel;
 
+
+void AggTree_plain_Test()
+{
+    PTree tree;
+    u64 n = 421;
+
+    auto op = [](
+    	const oc::BitVector& left,
+    	const oc::BitVector& right)
+    {
+        auto r = left;
+    	r.getSpan<u32>()[0] += right.getSpan<u32>()[0];
+        return r;
+    };
+
+    std::vector<BitVector> s(n), pre(n), suf(n);
+    BitVector c(n);
+
+    PRNG prng(ZeroBlock);
+    c.randomize(prng);
+    c[0] = 0;
+    
+    for (u64 i = 0; i < n; ++i)
+    {
+        s[i].resize(32);
+        s[i].getSpan<u8>()[0] = prng.get();
+
+        pre[i] = s[i];
+        if (c[i])
+        {
+            pre[i] = op(pre[i-1], s[i]);
+        }
+
+        //std::cout << i << " " << c[i] << " " << s[i].getSpan<u32>()[0] << " => " << pre[i].getSpan<u32>()[0] << std::endl;
+    }
+
+    tree.init(s, c, op);
+
+    for (u64 i = 0; i < n; ++i)
+    {
+        if (tree.mPre[i] != pre[i])
+        {
+            //std::cout << tree.mPre[i].getSpan<u32>()[0] << std::endl;;
+            throw RTE_LOC;
+        }
+    }
+}
 
 void AggTree_levelReveal_Test()
 {
@@ -1091,14 +1139,22 @@ void AggTree_dup_pre_downstream_cir_Test()
 	eval(cir, 10, 10, false, ~0ull);
 }
 
+std::string hex(const oc::span<u8>& bb)
+{
+    std::stringstream ss;
+    for (u64 i = 0; i < bb.size(); ++i)
+        ss << std::hex << std::setw(2) << std::setfill('0') << int(bb[i]);
+    return ss.str();
+}
+
 template<typename Op, typename OpCir>
 void AggTree_pre_downstream_Test(Op op, OpCir opCir)
 {
 
 	auto com = coproto::LocalAsyncSocket::makePair();
 
-	u64 n = 311;
-	u64 m = 64;
+	u64 n = 4;
+	u64 m = 32;
 	auto type = AggTree::Type::Prefix;
 
 	std::array<OleGenerator, 2> g;
@@ -1109,10 +1165,16 @@ void AggTree_pre_downstream_Test(Op op, OpCir opCir)
 
 	PRNG prng(ZeroBlock);
 	PTree tree;
-	tree.init(n, m, prng, op);
+    auto format = [](const oc::BitVector& bv)
+    {
+        return hex(bv.getSpan<u8>());
+    };
+	tree.init(n, m, prng, op, format);
 
 	auto s = tree.shareVals(prng);
 	auto c = tree.shareBits(prng);
+
+    std::cout << tree.print(AggTree::Type::Prefix) << std::endl;
 
 	std::array<Level, 2> root, root2;
 	std::array<SplitLevel, 2> preSuf, vals;
@@ -1121,6 +1183,8 @@ void AggTree_pre_downstream_Test(Op op, OpCir opCir)
 	tvs[0].resize(logn);
 	tvs[1].resize(logn);
 
+    t[0].mDebug = true;
+    t[1].mDebug = true;
 
     macoro::sync_wait(macoro::when_all_ready(
         t[0].upstream(s[0], c[0], opCir, 0, type, com[0], g[0], root[0], tvs[0]),
@@ -1140,30 +1204,36 @@ void AggTree_pre_downstream_Test(Op op, OpCir opCir)
 	}
 	levels.emplace_back();
 	levels.back().reveal(root2[0], root2[1]);
+    
+    //std::cout << tree.print(AggTree::Type::Prefix, format) << std::endl;
+
 
 	for (u64 j = levels.size() - 2; j < levels.size(); --j)
 	{
-		auto& lvl = tree.mLevels[j];
+		auto& plain = tree.mLevels[j];
 
-		for (u64 i = 0; i < lvl.mDown.size(); ++i)
+		for (u64 i = 0; i < plain.mDown.size(); ++i)
 		{
 			auto act = levels[j].mPreVal[i];
-			auto exp = tree.mLevels[j].mDown.mPreVal[i];
+			auto exp = plain.mDown.mPreVal[i];
 			if (exp != act)
 			{
-				std::cout << "\ni " << i << std::endl;
-				std::cout << "act " << act << std::endl;
-				std::cout << "exp " << exp << std::endl << std::endl;
+                std::cout << "\nlvl " << j << std::endl;
+                std::cout << "i " << i << std::endl;
+				std::cout << "act " << format(act) << std::endl;
+				std::cout << "exp " << format(exp) << std::endl << std::endl;
+                // d1 = p0 ? op(v, v0) : v0;
+                // d0 = v;
 
 				auto p = i / 2;
 				auto l = i & 0;
 				auto r = i | 1;
-				std::cout << "pnt exp " << tree.mLevels[j + 1].mUp.mPreVal[p] << " " << tree.mLevels[j + 1].mUp.mPreBit[p] << "  " << p << std::endl;
-				std::cout << "    act " << levels[j + 1].mPreVal[p] << " " << levels[j + 1].mPreBit[p] << std::endl;
-				std::cout << "ch0 exp " << tree.mLevels[j].mUp.mPreVal[l] << " " << tree.mLevels[j].mUp.mPreBit[l] << "  " << l << (l == i ? " <- " : "") << std::endl;
-				std::cout << "    act " << levels[j].mPreVal[l] << " " << levels[j].mPreBit[l] << std::endl;
-				std::cout << "ch1 exp " << tree.mLevels[j].mUp.mPreVal[r] << " " << tree.mLevels[j].mUp.mPreBit[r] << "  " << r << (r == i ? " <- " : "") << std::endl;
-				std::cout << "    act " << levels[j].mPreVal[r] << " " << levels[j].mPreBit[r] << std::endl;
+				std::cout << "pnt exp " << format(tree.mLevels[j + 1].mUp.mPreVal[p]) << " " << tree.mLevels[j + 1].mUp.mPreBit[p] << "  " << p << std::endl;
+				std::cout << "    act " << format(levels[j + 1].mPreVal[p]) << " " << levels[j + 1].mPreBit[p] << std::endl;
+				std::cout << "ch0 exp " << format(plain.mUp.mPreVal[l]) << " " << plain.mUp.mPreBit[l] << "  " << l << (l == i ? " <- " : "") << std::endl;
+				std::cout << "    act " << format(levels[j].mPreVal[l]) << " " << levels[j].mPreBit[l] << std::endl;
+				std::cout << "ch1 exp " << format(plain.mUp.mPreVal[r]) << " " << plain.mUp.mPreBit[r] << "  " << r << (r == i ? " <- " : "") << std::endl;
+				std::cout << "    act " << format(levels[j].mPreVal[r]) << " " << levels[j].mPreBit[r] << std::endl;
 
 
 				throw RTE_LOC;
@@ -1555,9 +1625,9 @@ void AggTree_xor_pre_downstream_Test()
 //
 //		for (u64 j = levels.size() - 2; j < levels.size(); --j)
 //		{
-//			auto& lvl = tree.mLevels[j];
+//			auto& plain = tree.mLevels[j];
 //
-//			for (u64 i = 0; i < lvl.mDown.size(); ++i)
+//			for (u64 i = 0; i < plain.mDown.size(); ++i)
 //			{
 //				auto act = levels[j].mSufVal[i];
 //				auto exp = tree.mLevels[j].mDown.mSufVal[i];
@@ -1881,9 +1951,9 @@ void AggTree_xor_pre_downstream_Test()
 //
 //		for (u64 j = dn.size() - 2; j < dn.size(); --j)
 //		{
-//			auto& lvl = tree.mLevels[j];
+//			auto& plain = tree.mLevels[j];
 //
-//			for (u64 i = 0; i < lvl.mDown.size(); ++i)
+//			for (u64 i = 0; i < plain.mDown.size(); ++i)
 //			{
 //				auto act = dn[j].mSufVal[i];
 //				auto exp = tree.mLevels[j].mDown.mSufVal[i];

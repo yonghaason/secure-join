@@ -48,7 +48,7 @@ namespace secJoin_Tests
         t.add("ComposedPerm_replicated_perm_test             ", ComposedPerm_replicated_perm_test);
         t.add("AdditivePerm_xor_test                         ", AdditivePerm_xor_test);
         t.add("AdditivePerm_add_test                         ", AdditivePerm_add_test);
-        
+
         //t.add("DarkMatter22Prf_plain_test                    ", DarkMatter22Prf_plain_test);
         //t.add("DarkMatter32Prf_plain_test                    ", DarkMatter32Prf_plain_test);
         //t.add("DarkMatter22Prf_util_test                     ", DarkMatter22Prf_util_test);
@@ -56,7 +56,7 @@ namespace secJoin_Tests
         //t.add("DarkMatter32Prf_proto_test                    ", DarkMatter32Prf_proto_test);
 
         t.add("DLpnPrf_plain_test                            ", DLpnPrf_plain_test);
-        t.add("DLpnPrf_proto_test                            ", DLpnPrf_proto_test); 
+        t.add("DLpnPrf_proto_test                            ", DLpnPrf_proto_test);
         t.add("Dlpn_perm_test                                ", Dlpn_perm_test);
 
         t.add("RadixSort_aggregateSum_test                   ", RadixSort_aggregateSum_test);
@@ -69,6 +69,7 @@ namespace secJoin_Tests
 
 
 
+        t.add("AggTree_plain_Test                            ", AggTree_plain_Test);
         t.add("AggTree_levelReveal_Test                      ", AggTree_levelReveal_Test);
         t.add("AggTree_toPackedBin_Test                      ", AggTree_toPackedBin_Test);
 

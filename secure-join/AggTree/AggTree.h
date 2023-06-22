@@ -140,6 +140,74 @@ namespace secJoin
         using SplitLevel = AggTreeSplitLevel;
 
         bool mDebug = false;
+
+
+
+        // the number of real inputs
+        u64 n = 0;
+
+        //the number of inputs rounded upto a power of 2 or multiple of 16
+        u64 n16 = 0;
+
+        // log2 floor of n16
+        u64 logfn = 0;
+
+        // log2 ceiling of n16
+        u64 logn = 0;
+
+
+        // the number of parents in the second partial level.
+        u64 r = 0;
+
+        // the number of leaves in the first partial level.
+        u64 n0 = 0;
+
+        // the number of leaves in the second partial level.
+        u64 n1 = 0;
+
+        // Here we compute various tree size parameters such as the depth
+        // and the number of leaves on the lowest two levels (n0,n1).
+        // 
+        // for example, if we simply use n16=n=5, we get:
+        // 
+        //        *
+        //    *       *
+        //  *   *   *   *
+        // * * 
+        // 
+        // logfn = 2 
+        // logn  = 3
+        // r     = 1     one parent one the second level (second partial).
+        // n0    = 2     two leaves on the first level (first partial).
+        // n1    = 3     three leaves on the first level (first partial).
+        // 
+        void computeTreeSizes(u64 n_)
+        {
+            n = n_;
+
+            // the number of entries rounded up to a multiple of 16 or power of 2
+            n16 = std::min(1ull << oc::log2ceil(n), oc::roundUpTo(n, 16));
+
+            // log 2 floor
+            logfn = oc::log2floor(n16);
+            // log 2 ceiling 
+            logn = oc::log2ceil(n16);
+
+            // the size of the second partial level (if it exists)
+            auto secondPartial = (1ull << logfn);
+
+            // the number of parents in the second partial level.
+            r = n16 - secondPartial;
+
+            // the size of the first partial level.
+            n0 = 2 * r;
+
+            // the number of leaves on the second partial level (if it exists)
+            n1 = n16 - n0;
+
+            assert(r % 8 == 0);
+        }
+
         //	void apply(
         //		const BinMatrix& src,
         //		const BinMatrix& controlBits,
@@ -298,6 +366,18 @@ namespace secJoin
              pre_0 := pre
              suf_0 := suf_1 + suf : suf_1
              suf_1 := suf
+
+           circuit inputs are
+           - left Val
+           - left bit
+           - parent val
+          
+           outputs are:
+           - left val
+           - right val
+          
+           Prefix input outputs go first and then suffix. So the i/o above is repeated twice.
+          
         */
         static oc::BetaCircuit downstreamCir(u64 bitsPerEntry, const Operator& op, Type type);
 

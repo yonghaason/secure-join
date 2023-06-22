@@ -115,13 +115,9 @@ namespace secJoin
         auto numEntries = in.numEntries();
         if (numEntries == 0)
             return;
-        //auto ss = in.simdWidth() * sizeof(*in.mShares[0].data()) * 8;
-        //if (numEntries > in.numEntries())
-        //	throw RTE_LOC;
 
         for (u64 i = 0; i < in.bitsPerEntry(); ++i)
         {
-            //for (u64 j = 0; j < 2; ++j)
             {
                 auto inn = in[i].subspan(0, oc::divCeil(numEntries, 8));
                 auto o0 = out0[i].subspan(0, oc::divCeil(numEntries / 2, 8));
@@ -204,318 +200,12 @@ namespace secJoin
         oc::transpose(inView, memView);
     }
 
-    //void AggTree::setLeafVals2(
-    //    u64 bitsPerEntry,
-    //    oc::MatrixView<const u8> src,
-    //    span<const u8> controlBits,
-    //    SplitLevel& leaves,
-    //    u64 dIdx,
-    //    u64 size,
-    //    AggTree::Type type)
-    //{
-    //    auto available = src.rows();
-    //    if (controlBits.size() != available)
-    //        throw RTE_LOC;
-    //    if (size > available)
-    //        throw RTE_LOC;
-
-    //    // not strictly required but would need to fix the code below.
-    //    if (divCeil(bitsPerEntry, 8) != src.cols())
-    //        throw RTE_LOC;
-
-
-    //    if (type & AggTree::Type::Prefix)
-    //    {
-    //        std::array<BinMatrix, 2> vals;
-    //        vals[0].resize(oc::divCeil(size, 2), bitsPerEntry);
-    //        vals[1].resize(size / 2, bitsPerEntry);
-
-    //        if (leaves[0].mPreBit.bitsPerEntry() != 1 && 
-    //            leaves[1].mPreBit.bitsPerEntry() != 1)
-    //            throw RTE_LOC;
-    //        if (leaves[0].mPreBit.numEntries() != vals[0].numEntries() && 
-    //            leaves[1].mPreBit.numEntries() != vals[1].numEntries())
-    //            throw RTE_LOC;
-    //        //leaves[0].mPreBit.resize(vals[0].numEntries(), 1);
-    //        //leaves[1].mPreBit.resize(vals[0].numEntries(), 1);
-    //        //std::array<oc::BitIterator, 2> iters;
-
-    //        for (u64 i = 0; i < size / 2; ++i)
-    //        {
-    //            memcpy(vals[0].data(i), src.data(2 * i + 0), src.cols());
-    //            memcpy(vals[1].data(i), src.data(2 * i + 1), src.cols());
-    //        }
-
-    //        if (size & 1)
-    //        {
-    //            auto i = size / 2;
-    //            memcpy(vals[0].data(i), src.data(2 * i + 0), src.cols());
-    //        }
-
-    //        vals[0].transpose(leaves[0].mPreVal);
-    //        vals[1].transpose(leaves[1].mPreVal);
-
-    //    }
-
-
-    //    if (type & AggTree::Type::Suffix)
-    //        throw RTE_LOC;
-    //    //{
-    //    //    std::array<BinMatrix, 2> vals;
-    //    //    vals[0].resize(oc::divCeil(size, 2), src.cols());
-    //    //    vals[1].resize(size / 2, src.cols());
-
-    //    //    leaves[0].mSufBit.resize(vals[0].numEntries(), 1);
-    //    //    leaves[1].mSufBit.resize(vals[0].numEntries(), 1);
-
-
-    //    //    for (u64 i = 0; i < size / 2; ++i)
-    //    //    {
-    //    //        memcpy(vals[0].data(i), src.data(2 * i + 0), src.cols());
-    //    //        memcpy(vals[1].data(i), src.data(2 * i + 1), src.cols());
-    //    //    }
-
-    //    //    if (size & 1)
-    //    //    {
-    //    //        auto i = size / 2;
-    //    //        memcpy(vals[0].data(i), src.data(2 * i + 0), src.cols());
-    //    //    }
-
-
-    //    //    leaves[0].mSufVal = vals[0].transpose();
-    //    //    leaves[1].mSufVal = vals[1].transpose();
-    //    //}
-
-
-    //}
-
-
-    // load the leaf values and control bits. 
-    // src are the values, controlBits are ...
-    // leaves are where we will write the results.
-    // They are separated into left and right children.
-    //
-    // sIdx means that we should start copying values from
-    // src, controlBits at row sIdx.
-    //
-    // dIdx means that we should start writing results to
-    // leaf index dIdx.
-    //
-    // We require dIdx to be a multiple of 8 and therefore 
-    // we will pad the overall tree to be a multiple of 16.
-    // We will assign zero to the padded control bits.
-    //void AggTree::setLeafVals2(
-    //    const BinMatrix& src,
-    //    const BinMatrix& controlBits,
-    //    SplitLevel& leaves,
-    //    u64 sIdx,
-    //    u64 dIdx,
-    //    u64 size,
-    //    AggTree::Type type)
-    //{
-    //    auto available = src.numEntries() - sIdx;
-    //    auto size2 = std::min<u64>(size, available);
-
-    //    setLeafVals2(
-    //        src.bitsPerEntry(),
-    //        oc::MatrixView<const u8>(src.mData.data(sIdx), src.mData.rows() - sIdx, src.mData.cols()),
-    //        span<u8>(controlBits.mData).subspan(sIdx),
-    //        leaves, dIdx, size2, type);
-
-    //}
-
-    // load the leaf values and control bits. 
-    // src are the values, controlBits are ...
-    // leaves are where we will write the results.
-    // They are separated into left and right children.
-    //
-    // sIdx means that we should start copying values from
-    // src, controlBits at row sIdx.
-    //
-    // dIdx means that we should start writing results to
-    // leaf index dIdx.
-    //
-    // We require dIdx to be a multiple of 8 and therefore 
-    // we will pad the overall tree to be a multiple of 16.
-    // We will assign zero to the padded control bits.
-    //void AggTree::setLeafVals(
-    //    const BinMatrix& src,
-    //    const BinMatrix& controlBits,
-    //    AggTree::SplitLevel& leaves,
-    //    u64 sIdx,
-    //    u64 dIdx,
-    //    u64 size,
-    //    AggTree::Type type)
-    //{
-    //    auto available = src.numEntries() - sIdx;
-    //    auto size2 = std::min<u64>(size, available);
-    //    //assert(size2 == 2);
-    //    using Type = AggTree::Type;
-
-    //    TBinMatrix preValues(size2 * bool(type & Type::Prefix), src.bitsPerEntry());
-    //    TBinMatrix sufValues(size2 * bool(type & Type::Suffix), src.bitsPerEntry());
-    //    TBinMatrix preBits(size2 * bool(type & Type::Prefix), 1);
-    //    TBinMatrix sufBits(size2 * bool(type & Type::Suffix), 1);
-
-    //    //randomize(preValues);
-    //    //randomize(preBits);
-
-    //    if (type == Type::Full)
-    //    {
-    //        toPackedBin(src, preValues, sIdx, size2);
-    //        sufValues = preValues;
-
-    //        toPackedBin(controlBits, preBits, sIdx, size2);
-
-    //        int last = ((sIdx + size2) == controlBits.numEntries()) * 1;
-    //        auto w = sufBits.size() - 1;
-    //        for (u64 i = 0; i < w; ++i)
-    //        {
-    //            sufBits(i) = (u64(preBits(i)) >> 1) | (u64(preBits(i + 1)) << 7);
-    //        }
-
-    //        sufBits(w) = u64(preBits(w)) >> 1;
-    //        sufBits(w) = u64(preBits(w)) >> 1;
-    //        if (!last)
-    //        {
-    //            u64 extra0 = controlBits(sIdx + size2) & 1;
-
-    //            *oc::BitIterator((u8*)sufBits.data(), size2 - 1) = extra0;
-    //        }
-    //        else
-    //        {
-    //            *oc::BitIterator((u8*)sufBits.data(), size2 - 1) = 0;
-    //        }
-    //    }
-    //    else if (type == Type::Prefix)
-    //    {
-    //        //std::cout << hash(src) << " " << hash(controlBits) << " in " << sIdx << std::endl;
-    //        toPackedBin(src, preValues, sIdx, size2);
-    //        toPackedBin(controlBits, preBits, sIdx, size2);
-    //        //std::cout << hexx(preValues) << " " << hexx(preBits) << " out "<< sIdx <<"\n" << std::endl;
-
-    //    }
-    //    else
-    //    {
-    //        toPackedBin(src, sufValues, sIdx, size2);
-
-    //        int last = ((sIdx + size2) == controlBits.numEntries()) * 1;
-
-    //        assert(controlBits.bitsPerEntry() == 1);
-    //        assert(controlBits.bytesPerEnrty() == 1);
-    //        //auto cols = controlBits.bytesPerEnrty();
-    //        auto rows = size2 - last;
-    //        auto d0 = controlBits.data() + (1 + sIdx);
-
-    //        for (u64 i = 0; i < rows; ++i)
-    //        {
-    //            assert(d0[i] < 2);
-    //            *oc::BitIterator(sufBits.data(), i) = d0[i];
-    //        }
-    //        if (last)
-    //        {
-    //            *oc::BitIterator((u8*)sufBits.data(), size2 - 1) = 0;
-    //        }
-    //        //auto cb0 = oc::MatrixView<u8>((u8*)d0, rows, 1);
-
-
-    //        ////auto s0 = oc::MatrixView<u8>(
-    //        //// (u8*)sufBits.mShares[0].data(), 
-    //        //// sufBits.mShares[0].rows(), 
-    //        //// oc::divCeil(sufBits.shareCount() - last, 8));
-    //        ////
-    //        //auto r = sufBits.mData.rows();
-    //        //auto c = oc::divCeil(sufBits.numEntries() - last, 8);
-    //        //auto s0 = oc::MatrixView<u8>((u8*)sufBits.data(), r, c);
-
-    //        //oc::transpose(cb0, s0);
-    //        ////oc::transpose(cb1, s1);
-
-    //    }
-    //    if (type & Type::Prefix)
-    //    {
-
-    //        preValues.trim();
-    //        preBits.trim();
-    //    }
-
-    //    if (type & Type::Suffix)
-    //    {
-    //        sufValues.trim();
-    //        sufBits.trim();
-    //    }
-
-    //    perfectUnshuffle(preValues, leaves[0].mPreVal, leaves[1].mPreVal, dIdx, size);
-    //    perfectUnshuffle(sufValues, leaves[0].mSufVal, leaves[1].mSufVal, dIdx, size);
-    //    perfectUnshuffle(preBits, leaves[0].mPreBit, leaves[1].mPreBit, dIdx, size);
-    //    perfectUnshuffle(sufBits, leaves[0].mSufBit, leaves[1].mSufBit, dIdx, size);
-
-    //    leaves[0].mPreVal.trim();
-    //    leaves[1].mPreVal.trim();
-    //    leaves[0].mSufVal.trim();
-    //    leaves[1].mSufVal.trim();
-
-    //    leaves[0].mPreBit.trim();
-    //    leaves[1].mPreBit.trim();
-    //    leaves[0].mSufBit.trim();
-    //    leaves[1].mSufBit.trim();
-
-    //    //if (dIdx == 0 && leaves[0].mSufBit.bitsPerEntry())
-    //    //{
-    //    //	std::lock_guard<std::mutex> ll(oc::gIoStreamMtx);
-    //    //	std::cout << leaves[0].mSufBit.mShares[0](0) << std::endl;
-    //    //}
-
-    //    // make sure any padding bits are set to zero.
-    //    for (u64 i = dIdx + size2; i < dIdx + size; ++i)
-    //    {
-    //        //for (u64 j = 0; j < 2; ++j)
-    //        {
-    //            auto q = i & 1;
-    //            auto w = i / 2;
-
-    //            if (type & Type::Prefix)
-    //            {
-    //                if (w >= leaves[q].mPreBit.numEntries())
-    //                    throw RTE_LOC;
-    //                auto d = (u8*)leaves[q].mPreBit.data();
-    //                *oc::BitIterator(d, w) = 0;
-
-    //                for (u64 k = 0; k < leaves[q].mPreVal.bitsPerEntry(); ++k)
-    //                {
-    //                    auto v = (u8*)leaves[q].mPreVal[k].data();
-    //                    *oc::BitIterator(v, w) = 0;
-    //                }
-
-    //            }
-
-    //            if (type & Type::Suffix)
-    //            {
-    //                if (w >= leaves[q].mSufBit.numEntries())
-    //                    throw RTE_LOC;
-    //                auto d = (u8*)leaves[q].mSufBit.data();
-    //                *oc::BitIterator(d, w) = 0;
-
-    //                for (u64 k = 0; k < leaves[q].mSufVal.bitsPerEntry(); ++k)
-    //                {
-    //                    auto v = (u8*)leaves[q].mSufVal[k].data();
-    //                    *oc::BitIterator(v, w) = 0;
-    //                }
-    //            }
-    //        }
-    //    }
-    //}
-
-
-
     oc::BetaCircuit AggTree::upstreamCir(
         u64 bitsPerEntry,
         Type type,
         const Operator& add)
     {
         oc::BetaCircuit cir;
-
-        //u64 inSize = TreeRecord::recordBitCount(bitsPerEntry, type);
 
         oc::BetaBundle
             leftPreVal(bitsPerEntry),
@@ -631,27 +321,15 @@ namespace secJoin
             bin = Gmw{},
             cir = oc::BetaCircuit{},
             bitsPerEntry = u64{},
-            n = u64{},
-            logfn = u64{},
             lvl = u64{},
-            size = u64{},
-            logn = u64{}
+            size = u64{}
         );
         if (src.numEntries() != controlBits.numEntries())
             throw RTE_LOC;
 
-        bitsPerEntry = src.bitsPerEntry();
-        n = src.numEntries();
-        logfn = oc::log2floor(n);
-        logn = oc::log2ceil(n);
+        computeTreeSizes(src.numEntries());
 
-        if (logfn != logn)
-        {
-            // round n16 to a multiple of 16 to make lading values easy.
-            n = oc::roundUpTo(n, 16);
-            logfn = oc::log2floor(n);
-            logn = oc::log2ceil(n);
-        }
+        bitsPerEntry = src.bitsPerEntry();
 
         // load the values of the leafs. Its possible that we need to split
         // these values across two levels of the tree (non-power of 2 input lengths).
@@ -933,105 +611,94 @@ namespace secJoin
         coproto::Socket& comm,
         OleGenerator& gen)
     {
-        throw RTE_LOC;
-        u64 bitsPerEntry = src.bitsPerEntry();
-        //u64 inSize = TreeRecord::recordBitCount(bitsPerEntry, type);
+        //throw RTE_LOC;
+        MC_BEGIN(macoro::task<>, this, &src, &controlBits, &op, &root, levels, &preSuf, &vals, partyIdx, type, &comm, &gen,
+            bitsPerEntry = u64{},
+            debugLevels = std::vector<SplitLevel>{},
+            nodeCir = oc::BetaCircuit{},
+            bin = Gmw{},
+            pLvl = u64{},
+            cLvl = u64{},
+            size = u64{}
+        );
 
-        std::vector<SplitLevel> debugLevels(mDebug * levels.size());
+        bitsPerEntry = src.bitsPerEntry();
+        debugLevels.resize(mDebug * levels.size());
 
 
-        u64 n16 = src.numEntries();
-        u64 logfn = oc::log2floor(n16);
-        u64 logn = oc::log2ceil(n16);
 
-        if (logfn != logn)
-        {
-            n16 = oc::roundUpTo(n16, 16);
-            logfn = oc::log2floor(n16);
-            logn = oc::log2ceil(n16);
-        }
-        auto r = n16 - (1ull << logfn);
-        assert(r % 8 == 0);
-        auto n0 = 2 * r;
-        auto n1 = n16 - n0;
-
-        auto n1_16 = n1 / 16;
-        auto n0_16 = n0 / 16;
-        auto r16 = r / 16;
-
-        auto nodeCir = downstreamCir(bitsPerEntry, op, type);
+        nodeCir = downstreamCir(bitsPerEntry, op, type);
 
         vals[0].resize(n16 / 2, bitsPerEntry, type);
         vals[1].resize(n16 / 2, bitsPerEntry, type);
-        //vals[0].mPreVal.reset(n16 / 2, bitsPerEntry, 4);
-        //vals[1].mPreVal.reset(n16 / 2, bitsPerEntry, 4);
         if (type & Type::Prefix)
         {
-            //vals[0].mPreBit.reset(n16 / 2, 1, 4);
-            //vals[1].mPreBit.reset(n16 / 2, 1, 4);
-            preSuf[0].mPreVal.resize(n16 / 2, bitsPerEntry, 4);
-            preSuf[1].mPreVal.resize(n16 / 2, bitsPerEntry, 4);
+            preSuf[0].mPreVal.resize(n16 / 2, bitsPerEntry, sizeof(block));
+            preSuf[1].mPreVal.resize(n16 / 2, bitsPerEntry, sizeof(block));
         }
         if (type & Type::Suffix)
         {
-            //vals[0].mSufBit.reset(n16 / 2, 1, 4);
-            //vals[1].mSufBit.reset(n16 / 2, 1, 4);
-            preSuf[0].mSufVal.resize(n16 / 2, bitsPerEntry, 4);
-            preSuf[1].mSufVal.resize(n16 / 2, bitsPerEntry, 4);
+            preSuf[0].mSufVal.resize(n16 / 2, bitsPerEntry, sizeof(block));
+            preSuf[1].mSufVal.resize(n16 / 2, bitsPerEntry, sizeof(block));
         }
-        Gmw bin;
 
-        // we start at the root and move down.
-        for (u64 pLvl = logn; pLvl != 0; --pLvl)
+        // we start at the root and move down. We store intermidate 
+        // levels in `preSuf`. levels is only read from. Once the children 
+        // are computed, we combine them and write the result to `root`
+        // 
+        for (pLvl = logn; pLvl != 0; --pLvl)
         {
-            auto size = (type & Type::Prefix) ? root.mPreVal.numEntries() : root.mSufVal.numEntries();
-            auto& parent = root;
+            // how many parents are here at this level.
+            // For the last level this might not be a power of 2.
+            size = (type & Type::Prefix) ? root.mPreVal.numEntries() : root.mSufVal.numEntries();
+            cLvl = pLvl - 1;
 
-            auto cLvl = pLvl - 1;
-            auto& children = levels[cLvl];
-
-            bool firstPartial = logn != logfn && cLvl == 1;
-            bool secondPartial = logn != logfn && cLvl == 0;
-            bool full = logn == logfn && cLvl == 0;
-
-            //bin.enableDebug(partyIdx, -1, comm.mPrev.getSession().addChannel(), comm.mNext.getSession().addChannel());
-            bin.init(size, nodeCir, gen);
-
-            u64 inIdx = 0, outIdx = 0;
-            if (type & Type::Prefix)
             {
-                // prefix only takes the left child and parent as input
-                bin.mapInput(inIdx++, children[0].mPreVal);
-                bin.mapInput(inIdx++, children[0].mPreBit);
-                bin.mapInput(inIdx++, parent.mPreVal);
 
-                preSuf[0].mPreVal.reshape(size);
-                preSuf[1].mPreVal.reshape(size);
+                auto& parent = root;
+                auto& children = levels[cLvl];
 
-                // left and right child output
-                bin.mapOutput(outIdx++, preSuf[0].mPreVal);
-                bin.mapOutput(outIdx++, preSuf[1].mPreVal);
-            }
 
-            if (type & Type::Suffix)
-            {
-                // prefix only takes the right child and parent as input
-                bin.mapInput(inIdx++, children[1].mSufVal);
-                bin.mapInput(inIdx++, children[1].mSufBit);
-                bin.mapInput(inIdx++, parent.mSufVal);
+                bin.init(size, nodeCir, gen);
 
-                preSuf[0].mSufVal.reshape(size);
-                preSuf[1].mSufVal.reshape(size);
+                u64 inIdx = 0, outIdx = 0;
+                if (type & Type::Prefix)
+                {
+                    // prefix only takes the left child and parent as input
+                    bin.mapInput(inIdx++, children[0].mPreVal);
+                    bin.mapInput(inIdx++, children[0].mPreBit);
+                    bin.mapInput(inIdx++, parent.mPreVal);
 
-                // left and right child output
-                bin.mapOutput(outIdx++, preSuf[0].mSufVal);
-                bin.mapOutput(outIdx++, preSuf[1].mSufVal);
+                    // set number of shares we have per wire.
+                    preSuf[0].mPreVal.reshape(size); 
+                    preSuf[1].mPreVal.reshape(size);
+
+                    // left and right child output
+                    bin.mapOutput(outIdx++, preSuf[0].mPreVal);
+                    bin.mapOutput(outIdx++, preSuf[1].mPreVal);
+                }
+
+                if (type & Type::Suffix)
+                {
+                    // prefix only takes the right child and parent as input
+                    bin.mapInput(inIdx++, children[1].mSufVal);
+                    bin.mapInput(inIdx++, children[1].mSufBit);
+                    bin.mapInput(inIdx++, parent.mSufVal);
+
+                    // set number of shares we have per wire.
+                    preSuf[0].mSufVal.reshape(size);
+                    preSuf[1].mSufVal.reshape(size);
+
+                    // left and right child output
+                    bin.mapOutput(outIdx++, preSuf[0].mSufVal);
+                    bin.mapOutput(outIdx++, preSuf[1].mSufVal);
+                }
             }
 
             // eval
-            throw RTE_LOC;
-            bin.run(comm);
+            MC_AWAIT(bin.run(comm));
 
+            // for unit testing, we want to save these intermediate values.
             if (mDebug)
             {
                 debugLevels[cLvl][0].mPreVal = preSuf[0].mPreVal;
@@ -1040,40 +707,59 @@ namespace secJoin
                 debugLevels[cLvl][1].mSufVal = preSuf[1].mSufVal;
             }
 
+            // if we arent on the final level, we need to re-order
+            // the children. Currently we have all the left children
+            // and all the right children in separate lists. We need
+            // to merge these two lists together so that the children 
+            // are next to each other. This is done using an algorithm
+            // called 'perfectShuffle'.
             if (cLvl)
             {
+                // where we will store the merged children (ie the next set of parents).
+                auto& nextParent = root;
                 auto& nextChildren = levels[cLvl - 1];
                 if (type & Type::Prefix)
                 {
-                    parent.mPreVal.resize(nextChildren[0].mPreVal.numEntries(), bitsPerEntry, 4);
+                    nextParent.mPreVal.resize(nextChildren[0].mPreVal.numEntries(), bitsPerEntry, sizeof(block));
 
-                    //assert(logn == logfn);
                     auto old = preSuf[0].mPreVal.numEntries();
-                    preSuf[0].mPreVal.reshape(parent.mPreVal.numEntries() / 2);
-                    preSuf[1].mPreVal.reshape(parent.mPreVal.numEntries() / 2);
-                    perfectShuffle(preSuf[0].mPreVal, preSuf[1].mPreVal, parent.mPreVal);
 
-                    //assert(logn == logfn);
+                    // For the second to last level we have a special case
+                    // where some of the current level children are not parents
+                    // for the next level. We dont want to merge these so we will
+                    // skip them by calling reshape.
+                    preSuf[0].mPreVal.reshape(nextParent.mPreVal.numEntries() / 2);
+                    preSuf[1].mPreVal.reshape(nextParent.mPreVal.numEntries() / 2);
+
+                    // merge the left and right children together.
+                    perfectShuffle(preSuf[0].mPreVal, preSuf[1].mPreVal, nextParent.mPreVal);
+
                     preSuf[0].mPreVal.reshape(old);
                     preSuf[1].mPreVal.reshape(old);
                 }
 
                 if (type & Type::Suffix)
                 {
-                    parent.mSufVal.resize(nextChildren[0].mSufVal.numEntries(), bitsPerEntry, 4);
+                    nextParent.mSufVal.resize(nextChildren[0].mSufVal.numEntries(), bitsPerEntry, sizeof(block));
 
-                    //assert(logn == logfn);
                     auto old = preSuf[0].mSufVal.numEntries();
-                    preSuf[0].mSufVal.reshape(parent.mSufVal.numEntries() / 2);
-                    preSuf[1].mSufVal.reshape(parent.mSufVal.numEntries() / 2);
-                    perfectShuffle(preSuf[0].mSufVal, preSuf[1].mSufVal, parent.mSufVal);
 
-                    //assert(logn == logfn);
+                    // For the second to last level we have a special case
+                    // where some of the current level children are not parents
+                    // for the next level. We dont want to merge these so we will
+                    // skip them by calling reshape.
+                    preSuf[0].mSufVal.reshape(nextParent.mSufVal.numEntries() / 2);
+                    preSuf[1].mSufVal.reshape(nextParent.mSufVal.numEntries() / 2);
+
+                    // merge the left and right children together.
+                    perfectShuffle(preSuf[0].mSufVal, preSuf[1].mSufVal, nextParent.mSufVal);
+
                     preSuf[0].mSufVal.reshape(old);
                     preSuf[1].mSufVal.reshape(old);
                 }
             }
 
+            // if we are on a leaf level, then we need to copy the values out.
 
             auto shiftBytes = [](TBinMatrix& src, u64 srcStart, u64 dstStart, u64 size) {
 
@@ -1119,6 +805,10 @@ namespace secJoin
                 }
             };
 
+            bool firstPartial = logn != logfn && cLvl == 1;
+            bool secondPartial = logn != logfn && cLvl == 0;
+            bool full = logn == logfn && cLvl == 0;
+
             // if we have a partial level, then we need to copy 
             // the initial leaf values to vals that are on the 
             // second to last level. We will effectively do the
@@ -1129,21 +819,21 @@ namespace secJoin
                 {
                     assert(cLvl == 1);
                     // shift the preSuf values down.
-                    shiftBytes(preSuf[j].mPreVal, r16, n0_16, n1_16);
+                    shiftBytes(preSuf[j].mPreVal, r/16, n0/16, n1/16);
 
                     // copy the leaf values
-                    copyBytes(levels[cLvl][j].mPreVal, vals[j].mPreVal, r16, n0_16, n1_16);
-                    copyBytes(levels[cLvl][j].mPreBit, vals[j].mPreBit, r16, n0_16, n1_16);
-                }
-
-                if (type & Type::Suffix)
-                {
-                    // shift the preSuf values down.
-                    shiftBytes(preSuf[j].mSufVal, r16, n0_16, n1_16);
-
-                    // copy the leaf values
-                    copyBytes(levels[cLvl][j].mSufVal, vals[j].mSufVal, r16, n0_16, n1_16);
-                    copyBytes(levels[cLvl][j].mSufBit, vals[j].mSufBit, r16, n0_16, n1_16);
+                    copyBytes(levels[cLvl][j].mPreVal, vals[j].mPreVal, r/16, n0/16, n1/16);
+                    copyBytes(levels[cLvl][j].mPreBit, vals[j].mPreBit, r/16, n0/16, n1/16);
+                }                                                        
+                                                                         
+                if (type & Type::Suffix)                                 
+                {                                                        
+                    // shift the preSuf values down.                     
+                    shiftBytes(preSuf[j].mSufVal, r/16, n0/16, n1/16);   
+                                                                         
+                    // copy the leaf values                              
+                    copyBytes(levels[cLvl][j].mSufVal, vals[j].mSufVal, r/16, n0/16, n1/16);
+                    copyBytes(levels[cLvl][j].mSufBit, vals[j].mSufBit, r/16, n0/16, n1/16);
                 }
             }
 
@@ -1153,8 +843,8 @@ namespace secJoin
                 if (type & Type::Prefix)
                 {
                     assert(cLvl == 0);
-                    copyBytes(levels[cLvl][j].mPreVal, vals[j].mPreVal, 0, 0, n0_16);
-                    copyBytes(levels[cLvl][j].mPreBit, vals[j].mPreBit, 0, 0, n0_16);
+                    copyBytes(levels[cLvl][j].mPreVal, vals[j].mPreVal, 0, 0, n0/16);
+                    copyBytes(levels[cLvl][j].mPreBit, vals[j].mPreBit, 0, 0, n0/16);
 
                     preSuf[j].mPreVal.reshape(n16 / 2);
 
@@ -1162,8 +852,8 @@ namespace secJoin
 
                 if (type & Type::Suffix)
                 {
-                    copyBytes(levels[cLvl][j].mSufVal, vals[j].mSufVal, 0, 0, n0_16);
-                    copyBytes(levels[cLvl][j].mSufBit, vals[j].mSufBit, 0, 0, n0_16);
+                    copyBytes(levels[cLvl][j].mSufVal, vals[j].mSufVal, 0, 0, n0/16);
+                    copyBytes(levels[cLvl][j].mSufBit, vals[j].mSufBit, 0, 0, n0/16);
                     preSuf[j].mSufVal.reshape(n16 / 2);
                 }
             }
@@ -1184,6 +874,8 @@ namespace secJoin
             for (u64 i = 0; i < levels.size(); ++i)
                 levels[i] = std::move(debugLevels[i]);
         }
+
+        MC_END();
     }
 
 

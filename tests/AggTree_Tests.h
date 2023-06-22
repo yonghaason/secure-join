@@ -6,6 +6,7 @@ void perfectShuffle_128_Test();
 void perfectShuffle_1024_Test();
 void perfectShuffle_sseSpan_Test();
 
+void AggTree_plain_Test();
 void AggTree_levelReveal_Test();
 void AggTree_toPackedBin_Test();
 

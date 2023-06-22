@@ -7,7 +7,7 @@
 
 #include <vector>
 #include <functional>
-
+#include <sstream>
 
 namespace secJoin
 {
@@ -157,10 +157,18 @@ namespace secJoin
 		u64 n16;
 		u64 logn;
 		u64 logfn, r, n0, n1;
+		std::function<std::string(const oc::BitVector&)> mFormatter = [](const oc::BitVector& bv) {
+			std::stringstream ss;
+			ss << bv;
+			return ss.str();
+		};
 
 		void init(u64 n, u64 bitCount, oc::PRNG& prng,
-			std::function<oc::BitVector(const oc::BitVector&, const oc::BitVector&)> op)
+			std::function<oc::BitVector(const oc::BitVector&, const oc::BitVector&)> op,
+			std::function<std::string(const oc::BitVector&)> formatter = {}
+			)
 		{
+
 			std::vector<oc::BitVector> s(n);
 			oc::BitVector c(n);
 
@@ -177,7 +185,7 @@ namespace secJoin
 					c[i] = prng.getBit();
 			}
 
-			init(s, c, op);
+			init(s, c, op, std::move(formatter));
 		}
 
 
@@ -358,7 +366,7 @@ namespace secJoin
 					}
 					{
 						auto& v = parent.mSufVal[i];
-						//auto& v0 = childUp.mSufVal[i * 2];
+						auto& v0 = childUp.mSufVal[i * 2];
 						auto& v1 = childUp.mSufVal[i * 2 + 1];
 						auto& d0 = childDn.mSufVal[i * 2];
 						auto& d1 = childDn.mSufVal[i * 2 + 1];
@@ -426,13 +434,86 @@ namespace secJoin
 		void init(
 			const std::vector<oc::BitVector>& s,
 			const oc::BitVector& c,
-			std::function<oc::BitVector(const oc::BitVector&, const oc::BitVector&)> op)
+			std::function<oc::BitVector(const oc::BitVector&, const oc::BitVector&)> op,
+			std::function<std::string(const oc::BitVector&)> formatter = {})
 		{
+
+			if (formatter)
+				mFormatter = std::move(formatter);
 
 			loadLeaves(s, c);
 			upstream(op);
 			downstream(op);
 			leaves(op);
+		}
+
+
+		std::string print(AggTreeType type = AggTreeType::Prefix)
+		{
+			std::stringstream ss;
+
+			if (type == AggTreeType::Prefix)
+			{
+
+				for (u64 l = 0; l < mLevels.size(); ++l)
+				{
+					std::cout << "[ up lvl: " << l  << std::endl;
+					for (u64 j = 0; j < mLevels[l].mUp.mPreVal.size(); ++j) {
+						std::cout << l << "." << j << " (" << mFormatter(mLevels[l].mUp.mPreVal[j]) << ", " << mLevels[l].mUp.mPreBit[j] << ")";
+						auto child = j * 2;
+						if (l && mLevels[l - 1].mUp.mPreVal.size() > child)
+						{
+
+							std::cout << " = " << mLevels[l - 1].mUp.mPreBit[child + 1] << " ? op(" <<
+								mFormatter(mLevels[l - 1].mUp.mPreVal[child]) << ", " <<
+								mFormatter(mLevels[l - 1].mUp.mPreVal[child + 1]) << ") : " <<
+								mFormatter(mLevels[l - 1].mUp.mPreVal[child + 1]);
+
+							// parent.mPreVal[i] = p1 ? op(v0, v1) : v1;
+							// parent.mPreBit[i] = p1 * p0;
+						}
+						std::cout << std::endl;
+					}
+					std::cout << "]" << std::endl;
+				}
+
+
+				for (u64 l = mLevels.size()-1; l < mLevels.size(); --l)
+				{
+					std::cout << "[ dwn lvl: " <<l << std::endl;
+					for (u64 j = 0; j < mLevels[l].mDown.mPreVal.size(); ++j) {
+						std::cout << l << "." << j << " (" << mFormatter(mLevels[l].mDown.mPreVal[j]) << ", " << mLevels[l].mDown.mPreBit[j] << ")";
+						//auto child = j * 2;
+						if (l != mLevels.size() -1)
+						{
+							auto parent = j / 2;
+							auto sibling = j ^ 1;
+							if (j & 1)
+							{
+								std::cout << " = " << mLevels[l].mDown.mPreBit[sibling] << " ? op(" <<
+									mFormatter(mLevels[l + 1].mDown.mPreVal[parent]) << ", " <<
+									mFormatter(mLevels[l].mDown.mPreVal[sibling]) << ") : " <<
+									mFormatter(mLevels[l].mDown.mPreVal[sibling]);
+							}
+							else
+							{
+								std::cout << " = " << mFormatter(mLevels[l + 1].mDown.mPreVal[parent]);
+							}
+							//d1 = p0 ? op(v, v0) : v0;
+							//d0 = v;
+						}
+						std::cout << std::endl;
+					}
+					std::cout << "]" << std::endl;
+				}
+
+			}
+			else
+			{
+				throw RTE_LOC;
+			}
+
+			return ss.str();
 		}
 	};
 
