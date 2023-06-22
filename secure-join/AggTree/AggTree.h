@@ -193,16 +193,16 @@ namespace secJoin
             // log 2 ceiling 
             logn = oc::log2ceil(n16);
 
-            // the size of the second partial level (if it exists)
+            // the size of the second level 
             auto secondPartial = (1ull << logfn);
 
-            // the number of parents in the second partial level.
+            // the number of parents in the second level.
             r = n16 - secondPartial;
 
-            // the size of the first partial level.
+            // the size of the first level.
             n0 = 2 * r;
 
-            // the number of leaves on the second partial level (if it exists)
+            // the number of leaves on the second level (if any)
             n1 = n16 - n0;
 
             assert(r % 8 == 0);

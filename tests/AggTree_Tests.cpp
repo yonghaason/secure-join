@@ -1153,7 +1153,7 @@ void AggTree_pre_downstream_Test(Op op, OpCir opCir)
 
 	auto com = coproto::LocalAsyncSocket::makePair();
 
-	u64 n = 4;
+	u64 n = 91;
 	u64 m = 32;
 	auto type = AggTree::Type::Prefix;
 
@@ -1334,29 +1334,11 @@ void AggTree_xor_pre_downstream_Test()
 	};
 	AggTree_pre_downstream_Test(op, opCir);
 }
-
+//
 //
 //template<typename Op, typename OpCir>
 //void AggTree_pre_full_Test(Op op, OpCir opCir)
 //{
-//	IOService ios;
-//	auto sl01 = Session(ios, "127.0.0.1:1212", SessionMode::Server, "12");
-//	auto sl10 = Session(ios, "127.0.0.1:1212", SessionMode::Client, "12");
-//	auto sl02 = Session(ios, "127.0.0.1:1212", SessionMode::Server, "13");
-//	auto sl20 = Session(ios, "127.0.0.1:1212", SessionMode::Client, "13");
-//	auto sl12 = Session(ios, "127.0.0.1:1212", SessionMode::Server, "23");
-//	auto sl21 = Session(ios, "127.0.0.1:1212", SessionMode::Client, "23");
-//
-//	Channel chl01 = sl01.addChannel();
-//	Channel chl10 = sl10.addChannel();
-//	Channel chl02 = sl02.addChannel();
-//	Channel chl20 = sl20.addChannel();
-//	Channel chl12 = sl12.addChannel();
-//	Channel chl21 = sl21.addChannel();
-//
-//	CommPkg com0{ chl02, chl01 };
-//	CommPkg com1{ chl10, chl12 };
-//	CommPkg com2{ chl21, chl20 };
 //
 //	u64 n = 311;
 //	u64 m = 100;
@@ -1433,7 +1415,7 @@ void AggTree_xor_pre_downstream_Test()
 //
 //	AggTree_pre_full_Test(op, opCir);
 //}
-//
+
 //
 //void AggTree_xor_pre_full_Test()
 //{

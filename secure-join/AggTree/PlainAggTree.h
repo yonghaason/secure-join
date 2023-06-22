@@ -230,20 +230,42 @@ namespace secJoin
 
 			bitCount = s[0].size();
 			n = s.size();
-			n16 = n;
-			logn = oc::log2ceil(n);
+
+			// log 2 floor
 			logfn = oc::log2floor(n);
-			if (logn != logfn)
-			{
-				n16 = oc::roundUpTo(n, 16);
-				logn = oc::log2ceil(n16);
-				logfn = oc::log2floor(n16);
+			// log 2 ceiling 
+			logn = oc::log2ceil(n);
 
-			}
+			// the number of entries rounded up to a multiple of 16 or power of 2
+			n16 = std::min(1ull << logn, oc::roundUpTo(n, 16));
 
-			r = n16 - (1ull << logfn);
+
+			// the size of the second partial level (if it exists)
+			auto secondPartial = (1ull << logfn);
+
+			// the number of parents in the second partial level.
+			r = n16 - secondPartial;
+
+			// the size of the first partial level.
 			n0 = r ? 2 * r : n16;
+
+			// the number of leaves on the second partial level (if it exists)
 			n1 = n16 - n0;
+
+			//n16 = n;
+			//logn = oc::log2ceil(n);
+			//logfn = oc::log2floor(n);
+			//if (logn != logfn)
+			//{
+			//	n16 = oc::roundUpTo(n, 16);
+			//	logn = oc::log2ceil(n16);
+			//	logfn = oc::log2floor(n16);
+
+			//}
+
+			//r = n16 - (1ull << logfn);
+			//n0 = r ? 2 * r : n16;
+			//n1 = n16 - n0;
 
 
 			mLevels.resize(logn + 1);

@@ -335,21 +335,14 @@ namespace secJoin
         // these values across two levels of the tree (non-power of 2 input lengths).
         if (logfn == logn)
         {
-            levels[0][0].resize(n / 2, bitsPerEntry, type);
-            levels[0][1].resize(n / 2, bitsPerEntry, type);
+            levels[0][0].resize(n16 / 2, bitsPerEntry, type);
+            levels[0][1].resize(n16 / 2, bitsPerEntry, type);
 
             levels[0].setLeafVals(src, controlBits, 0, 0);
-            //setLeafVals2(src, controlBits, levels[0],
-            //    0, 0, n, type);
-
         }
         else
         {
             // split the leaf values across two levels of the tree.
-            auto r = n - (1ull << logfn);
-            auto n0 = 2 * r;
-            auto n1 = n - n0;
-
             levels[0][0].resize(n0 / 2, bitsPerEntry, type);
             levels[0][1].resize(n0 / 2, bitsPerEntry, type);
             levels[1][0].resize((1ull << logfn) / 2, bitsPerEntry, type);
@@ -357,8 +350,6 @@ namespace secJoin
 
             levels[0].setLeafVals(src, controlBits, 0, 0);
             levels[1].setLeafVals(src, controlBits, n0, r);
-            //setLeafVals2(src, controlBits, levels[0], 0, 0, n0, type);
-            //setLeafVals2(src, controlBits, levels[1], n0, r, n1, type);
         }
 
 
@@ -604,7 +595,7 @@ namespace secJoin
         const Operator& op,
         Level& root,
         span<SplitLevel> levels,
-        SplitLevel& preSuf,
+        SplitLevel& newVals,
         SplitLevel& vals,
         u64 partyIdx,
         Type type,
@@ -612,40 +603,30 @@ namespace secJoin
         OleGenerator& gen)
     {
         //throw RTE_LOC;
-        MC_BEGIN(macoro::task<>, this, &src, &controlBits, &op, &root, levels, &preSuf, &vals, partyIdx, type, &comm, &gen,
+        MC_BEGIN(macoro::task<>, this, &src, &controlBits, &op, &root, levels, &newVals, &vals, partyIdx, type, &comm, &gen,
             bitsPerEntry = u64{},
             debugLevels = std::vector<SplitLevel>{},
             nodeCir = oc::BetaCircuit{},
             bin = Gmw{},
             pLvl = u64{},
             cLvl = u64{},
-            size = u64{}
+            size = u64{},
+            temp = SplitLevel{}
         );
 
         bitsPerEntry = src.bitsPerEntry();
         debugLevels.resize(mDebug * levels.size());
-
-
-
         nodeCir = downstreamCir(bitsPerEntry, op, type);
 
-        vals[0].resize(n16 / 2, bitsPerEntry, type);
-        vals[1].resize(n16 / 2, bitsPerEntry, type);
-        if (type & Type::Prefix)
-        {
-            preSuf[0].mPreVal.resize(n16 / 2, bitsPerEntry, sizeof(block));
-            preSuf[1].mPreVal.resize(n16 / 2, bitsPerEntry, sizeof(block));
-        }
-        if (type & Type::Suffix)
-        {
-            preSuf[0].mSufVal.resize(n16 / 2, bitsPerEntry, sizeof(block));
-            preSuf[1].mSufVal.resize(n16 / 2, bitsPerEntry, sizeof(block));
-        }
+
+        // this will hold the downstream intermediate levels.
+        temp[0].resize(std::max(n0, 1ull << logfn), bitsPerEntry, type);
+        temp[1].resize(std::max(n0, 1ull << logfn), bitsPerEntry, type);
+
 
         // we start at the root and move down. We store intermidate 
-        // levels in `preSuf`. levels is only read from. Once the children 
+        // levels in `temp`. levels is only read from. Once the children 
         // are computed, we combine them and write the result to `root`
-        // 
         for (pLvl = logn; pLvl != 0; --pLvl)
         {
             // how many parents are here at this level.
@@ -670,12 +651,12 @@ namespace secJoin
                     bin.mapInput(inIdx++, parent.mPreVal);
 
                     // set number of shares we have per wire.
-                    preSuf[0].mPreVal.reshape(size); 
-                    preSuf[1].mPreVal.reshape(size);
+                    temp[0].mPreVal.reshape(size);
+                    temp[1].mPreVal.reshape(size);
 
                     // left and right child output
-                    bin.mapOutput(outIdx++, preSuf[0].mPreVal);
-                    bin.mapOutput(outIdx++, preSuf[1].mPreVal);
+                    bin.mapOutput(outIdx++, temp[0].mPreVal);
+                    bin.mapOutput(outIdx++, temp[1].mPreVal);
                 }
 
                 if (type & Type::Suffix)
@@ -686,12 +667,12 @@ namespace secJoin
                     bin.mapInput(inIdx++, parent.mSufVal);
 
                     // set number of shares we have per wire.
-                    preSuf[0].mSufVal.reshape(size);
-                    preSuf[1].mSufVal.reshape(size);
+                    temp[0].mSufVal.reshape(size);
+                    temp[1].mSufVal.reshape(size);
 
                     // left and right child output
-                    bin.mapOutput(outIdx++, preSuf[0].mSufVal);
-                    bin.mapOutput(outIdx++, preSuf[1].mSufVal);
+                    bin.mapOutput(outIdx++, temp[0].mSufVal);
+                    bin.mapOutput(outIdx++, temp[1].mSufVal);
                 }
             }
 
@@ -701,10 +682,10 @@ namespace secJoin
             // for unit testing, we want to save these intermediate values.
             if (mDebug)
             {
-                debugLevels[cLvl][0].mPreVal = preSuf[0].mPreVal;
-                debugLevels[cLvl][1].mPreVal = preSuf[1].mPreVal;
-                debugLevels[cLvl][0].mSufVal = preSuf[0].mSufVal;
-                debugLevels[cLvl][1].mSufVal = preSuf[1].mSufVal;
+                debugLevels[cLvl][0].mPreVal = temp[0].mPreVal;
+                debugLevels[cLvl][1].mPreVal = temp[1].mPreVal;
+                debugLevels[cLvl][0].mSufVal = temp[0].mSufVal;
+                debugLevels[cLvl][1].mSufVal = temp[1].mSufVal;
             }
 
             // if we arent on the final level, we need to re-order
@@ -722,67 +703,67 @@ namespace secJoin
                 {
                     nextParent.mPreVal.resize(nextChildren[0].mPreVal.numEntries(), bitsPerEntry, sizeof(block));
 
-                    auto old = preSuf[0].mPreVal.numEntries();
+                    auto old = temp[0].mPreVal.numEntries();
 
                     // For the second to last level we have a special case
                     // where some of the current level children are not parents
                     // for the next level. We dont want to merge these so we will
                     // skip them by calling reshape.
-                    preSuf[0].mPreVal.reshape(nextParent.mPreVal.numEntries() / 2);
-                    preSuf[1].mPreVal.reshape(nextParent.mPreVal.numEntries() / 2);
+                    temp[0].mPreVal.reshape(nextParent.mPreVal.numEntries() / 2);
+                    temp[1].mPreVal.reshape(nextParent.mPreVal.numEntries() / 2);
 
                     // merge the left and right children together.
-                    perfectShuffle(preSuf[0].mPreVal, preSuf[1].mPreVal, nextParent.mPreVal);
+                    perfectShuffle(temp[0].mPreVal, temp[1].mPreVal, nextParent.mPreVal);
 
-                    preSuf[0].mPreVal.reshape(old);
-                    preSuf[1].mPreVal.reshape(old);
+                    temp[0].mPreVal.reshape(old);
+                    temp[1].mPreVal.reshape(old);
                 }
 
                 if (type & Type::Suffix)
                 {
                     nextParent.mSufVal.resize(nextChildren[0].mSufVal.numEntries(), bitsPerEntry, sizeof(block));
 
-                    auto old = preSuf[0].mSufVal.numEntries();
+                    auto old = temp[0].mSufVal.numEntries();
 
                     // For the second to last level we have a special case
                     // where some of the current level children are not parents
                     // for the next level. We dont want to merge these so we will
                     // skip them by calling reshape.
-                    preSuf[0].mSufVal.reshape(nextParent.mSufVal.numEntries() / 2);
-                    preSuf[1].mSufVal.reshape(nextParent.mSufVal.numEntries() / 2);
+                    temp[0].mSufVal.reshape(nextParent.mSufVal.numEntries() / 2);
+                    temp[1].mSufVal.reshape(nextParent.mSufVal.numEntries() / 2);
 
                     // merge the left and right children together.
-                    perfectShuffle(preSuf[0].mSufVal, preSuf[1].mSufVal, nextParent.mSufVal);
+                    perfectShuffle(temp[0].mSufVal, temp[1].mSufVal, nextParent.mSufVal);
 
-                    preSuf[0].mSufVal.reshape(old);
-                    preSuf[1].mSufVal.reshape(old);
+                    temp[0].mSufVal.reshape(old);
+                    temp[1].mSufVal.reshape(old);
                 }
             }
 
             // if we are on a leaf level, then we need to copy the values out.
 
-            auto shiftBytes = [](TBinMatrix& src, u64 srcStart, u64 dstStart, u64 size) {
+            //auto shiftBytes = [](TBinMatrix& src, u64 srcStart, u64 dstStart, u64 size) {
 
-                auto bitsPerEntry = src.bitsPerEntry();
-                for (u64 k = 0; k < bitsPerEntry; ++k)
-                {
-                    // shift the preSuf values down.
-                    auto s0 = ((u8*)src[k].data()) + srcStart;
-                    auto d0 = ((u8*)src[k].data()) + dstStart;
-                    auto max = src[k].size() * sizeof(*src[k].data());
-                    auto e = (u8*)(src[k].data() + src[k].size());
-                    auto t = (u8*)(src[k].data()) + max;
+            //    auto bitsPerEntry = src.bitsPerEntry();
+            //    for (u64 k = 0; k < bitsPerEntry; ++k)
+            //    {
+            //        // shift the preSuf values down.
+            //        auto s0 = ((u8*)src[k].data()) + srcStart;
+            //        auto d0 = ((u8*)src[k].data()) + dstStart;
+            //        auto max = src[k].size() * sizeof(*src[k].data());
+            //        auto e = (u8*)(src[k].data() + src[k].size());
+            //        auto t = (u8*)(src[k].data()) + max;
 
-                    assert(dstStart + size < max);
-                    assert(d0 + size <= e);
-                    assert(s0 + size <= e);
-                    assert(e == t);
-                    assert(dstStart > srcStart);
-                    // copy in reverse since the buffers can overlap
-                    for (u64 i = size - 1; i < size; --i)
-                        d0[i] = s0[i];
-                }
-            };
+            //        assert(dstStart + size < max);
+            //        assert(d0 + size <= e);
+            //        assert(s0 + size <= e);
+            //        assert(e == t);
+            //        assert(dstStart > srcStart);
+            //        // copy in reverse since the buffers can overlap
+            //        for (u64 i = size - 1; i < size; --i)
+            //            d0[i] = s0[i];
+            //    }
+            //};
 
             auto copyBytes = [](TBinMatrix& src, TBinMatrix& dst, u64 srcStart, u64 dstStart, u64 size)
             {
@@ -809,6 +790,14 @@ namespace secJoin
             bool secondPartial = logn != logfn && cLvl == 0;
             bool full = logn == logfn && cLvl == 0;
 
+            if (firstPartial || secondPartial || full)
+            {
+                vals[0].resize(n16 / 2, bitsPerEntry, type);
+                vals[1].resize(n16 / 2, bitsPerEntry, type);
+                newVals[0].resize(n16 / 2, bitsPerEntry, type);
+                newVals[1].resize(n16 / 2, bitsPerEntry, type);
+            }
+
             // if we have a partial level, then we need to copy 
             // the initial leaf values to vals that are on the 
             // second to last level. We will effectively do the
@@ -819,7 +808,8 @@ namespace secJoin
                 {
                     assert(cLvl == 1);
                     // shift the preSuf values down.
-                    shiftBytes(preSuf[j].mPreVal, r/16, n0/16, n1/16);
+                    //shiftBytes(temp[j].mPreVal, r/16, n0/16, n1/16);
+                    copyBytes(temp[j].mPreVal, newVals[j].mPreVal, r/16, n0/16, n1/16);
 
                     // copy the leaf values
                     copyBytes(levels[cLvl][j].mPreVal, vals[j].mPreVal, r/16, n0/16, n1/16);
@@ -829,8 +819,9 @@ namespace secJoin
                 if (type & Type::Suffix)                                 
                 {                                                        
                     // shift the preSuf values down.                     
-                    shiftBytes(preSuf[j].mSufVal, r/16, n0/16, n1/16);   
-                                                                         
+                    //shiftBytes(preSuf[j].mSufVal, r/16, n0/16, n1/16);   
+                    copyBytes(temp[j].mSufVal, newVals[j].mSufVal, r / 16, n0 / 16, n1 / 16);
+
                     // copy the leaf values                              
                     copyBytes(levels[cLvl][j].mSufVal, vals[j].mSufVal, r/16, n0/16, n1/16);
                     copyBytes(levels[cLvl][j].mSufBit, vals[j].mSufBit, r/16, n0/16, n1/16);
@@ -844,9 +835,10 @@ namespace secJoin
                 {
                     assert(cLvl == 0);
                     copyBytes(levels[cLvl][j].mPreVal, vals[j].mPreVal, 0, 0, n0/16);
-                    copyBytes(levels[cLvl][j].mPreBit, vals[j].mPreBit, 0, 0, n0/16);
+                    copyBytes(levels[cLvl][j].mPreBit, vals[j].mPreBit, 0, 0, n0 / 16);
+                    copyBytes(temp[j].mPreVal, newVals[j].mPreVal, 0, 0, n0/16);
 
-                    preSuf[j].mPreVal.reshape(n16 / 2);
+                    //preSuf[j].mPreVal.reshape(n16 / 2);
 
                 }
 
@@ -854,7 +846,8 @@ namespace secJoin
                 {
                     copyBytes(levels[cLvl][j].mSufVal, vals[j].mSufVal, 0, 0, n0/16);
                     copyBytes(levels[cLvl][j].mSufBit, vals[j].mSufBit, 0, 0, n0/16);
-                    preSuf[j].mSufVal.reshape(n16 / 2);
+                    copyBytes(temp[j].mSufVal, newVals[j].mSufVal, 0, 0, n0 / 16);
+                    //preSuf[j].mSufVal.reshape(n16 / 2);
                 }
             }
 
