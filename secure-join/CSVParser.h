@@ -8,3 +8,5 @@
 oc::u64 getRows(std::string line);
 oc::ColumnInfo getColumnInfo(std::string line);
 void getFileInfo(std::string& fileName, std::vector<oc::ColumnInfo>& columnInfo, oc::u64& rowCount);
+void getFileInfo(std::string& fileName, std::istream& in, std::vector<oc::ColumnInfo>& columnInfo, 
+                oc::u64& rowCount);

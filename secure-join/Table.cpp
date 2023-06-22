@@ -268,26 +268,14 @@ namespace osuCrypto
     //         mSelect.addOp(selectDetails::Add, mMemIdx, r.mMemIdx) };
     // }
 
-
-    void populateTable(oc::Table& tb, std::string& fileName, oc::u64 rowCount)
+    void populateTable(oc::Table& tb, std::istream& in, oc::u64 rowCount)
     {
-        std::fstream file (fileName, std::ios::in);
-
         bool isheader = true;
         std::string line, word;
 
-
-        if(!file.is_open())
-        {
-            std::cout<<"Could not open the file" << std::endl;
-            throw RTE_LOC;
-        }
-
-
-        // while(getline(file, line))
         for(oc::u64 rowNum = 0; rowNum < rowCount; rowNum++)
         {
-            getline(file, line);
+            getline(in, line);
 
             // Skipping the header
             if(isheader)
@@ -298,7 +286,7 @@ namespace osuCrypto
             }
             oc::u64 colNum = 0;
             std::stringstream str(line);
-            while(getline(str, word, _CSV_COL_DELIM))
+            while(getline(str, word, CSV_COL_DELIM))
             {
                 if(tb.mColumns[colNum].getTypeID() == oc::TypeID::IntID)
                 {
@@ -315,8 +303,10 @@ namespace osuCrypto
                     }
                     else if(tb.mColumns[colNum].getByteCount() > 9)
                     {
-                        std::cout<< tb.mColumns[colNum].mName << " can't be stored as int type"<< std::endl;
-                        throw RTE_LOC;   
+                        std::string temp = tb.mColumns[colNum].mName  
+                            + " can't be stored as int type\n"
+                            + LOCATION;
+                        throw std::runtime_error(temp);
                     }
 
                 }
@@ -332,10 +322,24 @@ namespace osuCrypto
             isheader = false;
         }
 
+    }
+
+
+
+    void populateTable(oc::Table& tb, std::string& fileName, oc::u64 rowCount)
+    {
+        std::fstream file (fileName, std::ios::in);
+        std::istream in(file.rdbuf());
+        if(!file.is_open())
+        {
+            std::cout<<"Could not open the file" << std::endl;
+            throw RTE_LOC;
+        }
+        populateTable(tb, in, rowCount);
         file.close();
     }
 
-    void secret_share_table(oc::Table& table,
+    void secretShareTable(oc::Table& table,
         std::array<oc::Table,2>& shares,
         oc::PRNG &prng)
     {

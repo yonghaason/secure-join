@@ -5,21 +5,17 @@
 #include <iomanip>
 #include "Paillier/Defines.h"
 
-
-#ifndef _CSV_COL_DELIM
-    #define _CSV_COL_DELIM ';'
+#ifndef SECJOIN_ENABLE_LOGGING
+    #define SECJOIN_ENABLE_LOGGING true
 #endif
 
-#ifndef _STRING_META_TYPE
-    #define _STRING_META_TYPE "STRING"
-#endif
-
-#ifndef _ROWS_META_TYPE
-    #define _ROWS_META_TYPE "Rows"
-#endif
 
 namespace secJoin
 {
+    const char CSV_COL_DELIM =';';
+    const std::string STRING_META_TYPE = "STRING";
+    const std::string ROWS_META_TYPE = "Rows";
+
     using ::memcpy;
 
     template<typename D, typename S>

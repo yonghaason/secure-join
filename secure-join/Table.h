@@ -143,7 +143,8 @@ namespace osuCrypto
     };
 
     void populateTable(oc::Table& tb, std::string& fileName, oc::u64 rowCount);
-    void secret_share_table(oc::Table& table,std::array<oc::Table,2>& shares,
+    void populateTable(oc::Table& tb, std::istream& in, oc::u64 rowCount);
+    void secretShareTable(oc::Table& table,std::array<oc::Table,2>& shares,
                         oc::PRNG &prng);
 
     // class SharedTable
