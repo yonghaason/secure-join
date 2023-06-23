@@ -180,6 +180,12 @@ namespace secJoin
         // run the gmw protocol.
         coproto::task<> run(coproto::Socket& chl);
 
+        void getOutput(u64 i, BinMatrix& out)
+        {
+            if (i > mCir.mOutputs.size() || out.bitsPerEntry() != mCir.mOutputs[i].size())
+                throw RTE_LOC;
+            getOutput(i, out.mData);
+        }
 
         // get the i'th output. There should be mN rows of `out`, each row holding
         // mCur.mOutput[i].size() bits (rounded up to 8 * sizeof(T)).

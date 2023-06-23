@@ -8,7 +8,6 @@ void perfectShuffle_sseSpan_Test();
 
 void AggTree_plain_Test();
 void AggTree_levelReveal_Test();
-void AggTree_toPackedBin_Test();
 
 void AggTree_dup_pre_levelReveal_Test();
 void AggTree_dup_singleSetLeaves_Test();

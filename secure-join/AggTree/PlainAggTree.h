@@ -35,9 +35,9 @@ namespace secJoin
 
 	//	u64 bitCount;
 	//	u64 n;
-	//	u64 n16;
-	//	u64 logn;
-	//	u64 logfn, r, n0, n1;
+	//	u64 mN16;
+	//	u64 mLogn;
+	//	u64 mLogfn, r, mN0, mN1;
 
 	//	void init(u64 n, u64 bitCount, oc::PRNG& prng,
 	//		std::function<oc::BitVector(const oc::BitVector&, const oc::BitVector&)> op);
@@ -134,7 +134,7 @@ namespace secJoin
 	}
 
 	// plaintext version of the agg tree.
-	struct PTree
+	struct PTree : public AggTreeParam
 	{
 		// upstream  (0) and downstream (1) levels.
 		struct LevelPair
@@ -153,10 +153,10 @@ namespace secJoin
 
 
 		u64 bitCount;
-		u64 n;
-		u64 n16;
-		u64 logn;
-		u64 logfn, r, n0, n1;
+		//u64 n;
+		//u64 mN16;
+		//u64 mLogn;
+		//u64 mLogfn, r, mN0, mN1;
 		std::function<std::string(const oc::BitVector&)> mFormatter = [](const oc::BitVector& bv) {
 			std::stringstream ss;
 			ss << bv;
@@ -229,63 +229,26 @@ namespace secJoin
 			mCtrl = c;
 
 			bitCount = s[0].size();
-			n = s.size();
+			computeTreeSizes(s.size());
 
-			// log 2 floor
-			logfn = oc::log2floor(n);
-			// log 2 ceiling 
-			logn = oc::log2ceil(n);
-
-			// the number of entries rounded up to a multiple of 16 or power of 2
-			n16 = std::min(1ull << logn, oc::roundUpTo(n, 16));
-
-
-			// the size of the second partial level (if it exists)
-			auto secondPartial = (1ull << logfn);
-
-			// the number of parents in the second partial level.
-			r = n16 - secondPartial;
-
-			// the size of the first partial level.
-			n0 = r ? 2 * r : n16;
-
-			// the number of leaves on the second partial level (if it exists)
-			n1 = n16 - n0;
-
-			//n16 = n;
-			//logn = oc::log2ceil(n);
-			//logfn = oc::log2floor(n);
-			//if (logn != logfn)
-			//{
-			//	n16 = oc::roundUpTo(n, 16);
-			//	logn = oc::log2ceil(n16);
-			//	logfn = oc::log2floor(n16);
-
-			//}
-
-			//r = n16 - (1ull << logfn);
-			//n0 = r ? 2 * r : n16;
-			//n1 = n16 - n0;
-
-
-			mLevels.resize(logn + 1);
+			mLevels.resize(mLogn + 1);
 			for (u64 j = 0; j < 2; ++j)
 			{
-				mLevels[0][j].resize(n0);
-				if (r)
-					mLevels[1][j].resize(1ull << logfn);
+				mLevels[0][j].resize(mN0);
+				if (mR)
+					mLevels[1][j].resize(1ull << mLogfn);
 
-				for (u64 i = r ? 2 : 1; i < mLevels.size(); ++i)
+				for (u64 i = mR ? 2 : 1; i < mLevels.size(); ++i)
 				{
 					auto nn = mLevels[i - 1][j].size() / 2;
 					mLevels[i][j].resize(nn);
 				}
 			}
 
-			for (u64 i = 0; i < n; ++i)
+			for (u64 i = 0; i < mN; ++i)
 			{
-				auto q = i < n0 ? 0 : 1;
-				auto w = i < n0 ? i : i - r;
+				auto q = i < mN0 ? 0 : 1;
+				auto w = i < mN0 ? i : i - mR;
 
 				mLevels[q].mUp.mPreVal[w] = s[i];
 				mLevels[q].mUp.mSufVal[w] = s[i];
@@ -293,7 +256,7 @@ namespace secJoin
 					mLevels[q].mUp.mPreBit[w] = c[i];
 				else
 					mLevels[q].mUp.mPreBit[w] = 0;
-				if (i != n - 1)
+				if (i != mN - 1)
 					mLevels[q].mUp.mSufBit[w] = c[i + 1];
 				else
 					mLevels[q].mUp.mSufBit[w] = 0;
@@ -302,10 +265,10 @@ namespace secJoin
 			}
 			//std::cout << "\n";
 
-			for (u64 i = n; i < n16; ++i)
+			for (u64 i = mN; i < mN16; ++i)
 			{
-				auto q = i < n0 ? 0 : 1;
-				auto w = i < n0 ? i : i - r;
+				auto q = i < mN0 ? 0 : 1;
+				auto w = i < mN0 ? i : i - mR;
 
 				mLevels[q].mUp.mPreVal[w].resize(bitCount);
 				mLevels[q].mUp.mSufVal[w].resize(bitCount);
@@ -408,22 +371,22 @@ namespace secJoin
 		void leaves(
 			std::function<oc::BitVector(const oc::BitVector&, const oc::BitVector&)> op)
 		{
-			mPre.resize(n);
-			mSuf.resize(n);
-			mFull.resize(n);
-			std::vector<oc::BitVector> expPre(n), expSuf(n);
+			mPre.resize(mN);
+			mSuf.resize(mN);
+			mFull.resize(mN);
+			std::vector<oc::BitVector> expPre(mN), expSuf(mN);
 
-			for (u64 i = 0; i < n; ++i)
+			for (u64 i = 0; i < mN; ++i)
 			{
-				auto q = i < n0 ? 0 : 1;
-				auto w = i < n0 ? i : i - r;
+				auto q = i < mN0 ? 0 : 1;
+				auto w = i < mN0 ? i : i - mR;
 
 				auto& ll = mLevels[q].mDown;
 
 				expPre[i] = mCtrl[i] ? op(expPre[i - 1], mInput[i]) : mInput[i];
 
 
-				auto ii = n - 1 - i;
+				auto ii = mN - 1 - i;
 				u64 c = i ? mCtrl[ii + 1] : 0;
 				expSuf[ii] = c ? op(mInput[ii], expSuf[ii + 1]) : mInput[ii];
 				//u64 c = (ii != n - 1) ? mCtrl[ii+1] : 0;

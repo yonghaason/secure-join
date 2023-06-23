@@ -14,6 +14,74 @@ namespace secJoin
         Full = 3
     };
 
+    struct AggTreeParam
+    {
+        // the number of real inputs
+        u64 mN = 0;
+
+        //the number of inputs rounded upto a power of 2 or multiple of 16
+        u64 mN16 = 0;
+
+        // log2 floor of mN16
+        u64 mLogfn = 0;
+
+        // log2 ceiling of mN16
+        u64 mLogn = 0;
+
+        // the number of parents in the second level.
+        u64 mR = 0;
+
+        // the number of leaves in the first level.
+        u64 mN0 = 0;
+
+        // the number of leaves in the second level.
+        u64 mN1 = 0;
+
+        // Here we compute various tree size parameters such as the depth
+        // and the number of leaves on the lowest two levels (mN0,mN1).
+        // 
+        // for example, if we simply use mN16=mN=5, we get:
+        // 
+        //        *
+        //    *       *
+        //  *   *   *   *
+        // * * 
+        // 
+        // mLogfn = 2 
+        // mLogn  = 3
+        // mR     = 1     one parent one the second level (second partial).
+        // mN0    = 2     two leaves on the first level (first partial).
+        // mN1    = 3     three leaves on the first level (first partial).
+        // 
+        void computeTreeSizes(u64 n_)
+        {
+            mN = n_;
+
+            // the number of entries rounded up to a multiple of 16 or power of 2
+            mN16 = std::min(1ull << oc::log2ceil(mN), oc::roundUpTo(mN, 16));
+
+            // log 2 floor
+            mLogfn = oc::log2floor(mN16);
+            // log 2 ceiling 
+            mLogn = oc::log2ceil(mN16);
+
+            // the size of the second level 
+            auto secondPartial = (1ull << mLogfn);
+
+            // the number of parents in the second level.
+            mR = mN16 - secondPartial;
+
+            // the size of the first level.
+            mN0 = mR ? 2 * mR : mN16;
+
+            // the number of leaves on the second level (if any)
+            mN1 = mN16 - mN0;
+
+            assert(mR % 8 == 0);
+        }
+
+    };
+
 
     struct AggTreeLevel
     {

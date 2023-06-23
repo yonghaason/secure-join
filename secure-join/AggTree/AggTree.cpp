@@ -26,9 +26,9 @@ namespace secJoin
     //			d.mShares[j].size());
     //	}
 
-    //	block r;
-    //	ro.Final(r);
-    //	return r;
+    //	block mR;
+    //	ro.Final(mR);
+    //	return mR;
     //}
 
     //inline std::string hexx(const TBinMatrix& d)
@@ -52,9 +52,9 @@ namespace secJoin
     //			d.mShares[j].size());
     //	}
 
-    //	block r;
-    //	ro.Final(r);
-    //	return r;
+    //	block mR;
+    //	ro.Final(mR);
+    //	return mR;
     //}
 
     inline void perfectUnshuffle(
@@ -163,42 +163,42 @@ namespace secJoin
     }
 
 
-    void AggTree::toPackedBin(const BinMatrix& in, TBinMatrix& dest,
-        u64 srcRowStartIdx,
-        u64 numRows)
-    {
-        if (numRows > dest.numEntries())
-            throw RTE_LOC;
-        if (in.bitsPerEntry() != dest.bitsPerEntry())
-            throw RTE_LOC;
-        if (numRows + srcRowStartIdx > in.numEntries())
-            throw RTE_LOC;
+    //void AggTree::toPackedBin(const BinMatrix& in, TBinMatrix& dest,
+    //    u64 srcRowStartIdx,
+    //    u64 numRows)
+    //{
+    //    if (numRows > dest.numEntries())
+    //        throw RTE_LOC;
+    //    if (in.bitsPerEntry() != dest.bitsPerEntry())
+    //        throw RTE_LOC;
+    //    if (numRows + srcRowStartIdx > in.numEntries())
+    //        throw RTE_LOC;
 
-        //dest.reset(numRows, in.bitsPerEntry());
+    //    //dest.reset(numRows, in.bitsPerEntry());
 
-        if (in.bitsPerEntry() == 1)
-            std::cout << "optimize me" << std::endl;
+    //    if (in.bitsPerEntry() == 1)
+    //        std::cout << "optimize me" << std::endl;
 
 
-        auto& s = in;
-        auto& d = dest;
+    //    auto& s = in;
+    //    auto& d = dest;
 
-        oc::MatrixView<u8> inView(
-            (u8*)s.data() + srcRowStartIdx * s.bytesPerEnrty(),
-            (u8*)s.data() + (srcRowStartIdx + numRows) * s.bytesPerEnrty(),
-            s.bytesPerEnrty());
+    //    oc::MatrixView<u8> inView(
+    //        (u8*)s.data() + srcRowStartIdx * s.bytesPerEnrty(),
+    //        (u8*)s.data() + (srcRowStartIdx + numRows) * s.bytesPerEnrty(),
+    //        s.bytesPerEnrty());
 
-        assert(inView.data() + inView.size() <= s.data() + s.size());
+    //    assert(inView.data() + inView.size() <= s.data() + s.size());
 
-        oc::MatrixView<u8> memView(
-            d.data(),
-            d.data() + d.size(),
-            d.bytesPerRow());
+    //    oc::MatrixView<u8> memView(
+    //        d.data(),
+    //        d.data() + d.size(),
+    //        d.bytesPerRow());
 
-        assert(memView.data() + memView.size() <= d.data() + d.size());
+    //    assert(memView.data() + memView.size() <= d.data() + d.size());
 
-        oc::transpose(inView, memView);
-    }
+    //    oc::transpose(inView, memView);
+    //}
 
     oc::BetaCircuit AggTree::upstreamCir(
         u64 bitsPerEntry,
@@ -276,7 +276,7 @@ namespace secJoin
             cir << "B1    " << rghtPreVal << "\n";
             cir << "B0+B1 " << temp1 << "\n";
             cir << "P1    " << rghtPreBit << "\n";
-            //cir << "temp  " << std::to_string(temp1[0]) << " .. " << std::to_string(temp1.back()) << "\n16";
+            //cir << "temp  " << std::to_string(temp1[0]) << " .. " << std::to_string(temp1.back()) << "\mN16";
 
             lib.multiplex_build(cir, temp1, rghtPreVal, rghtPreBit, prntPreVal, temp2);
             cir.addGate(leftPreBit[0], rghtPreBit[0], oc::GateType::And, prntPreBit[0]);
@@ -310,14 +310,13 @@ namespace secJoin
         const BinMatrix& src,
         const BinMatrix& controlBits,
         const Operator& op,
-        u64 partyIdx,
         Type type,
         coproto::Socket& comm,
         OleGenerator& gen,
         Level& root,
         span<SplitLevel> levels)
     {
-        MC_BEGIN(macoro::task<>, this, &src, &controlBits, &op, partyIdx, type, comm, &gen, &root, levels,
+        MC_BEGIN(macoro::task<>, this, &src, &controlBits, &op, type, comm, &gen, &root, levels,
             bin = Gmw{},
             cir = oc::BetaCircuit{},
             bitsPerEntry = u64{},
@@ -333,17 +332,17 @@ namespace secJoin
 
         // load the values of the leafs. Its possible that we need to split
         // these values across two levels of the tree (non-power of 2 input lengths).
-        levels[0].resize(n16, bitsPerEntry, type);
+        levels[0].resize(mN16, bitsPerEntry, type);
         levels[0].setLeafVals(src, controlBits, 0, 0);
 
-        if (logfn != logn)
+        if (mLogfn != mLogn)
         {
             // split the leaf values across two levels of the tree.
-            levels[1].copy(levels[0], n0, r, 1ull << logfn);
-            levels[0].reshape(n0);
+            levels[1].copy(levels[0], mN0, mR, 1ull << mLogfn);
+            levels[0].reshape(mN0);
         }
         // we start at the preSuf and move up.
-        for (lvl = 0; lvl < logn; ++lvl)
+        for (lvl = 0; lvl < mLogn; ++lvl)
         {
             size = (type & Type::Prefix) ? levels[lvl][0].mPreBit.numEntries() : levels[lvl][0].mSufBit.numEntries();
 
@@ -393,7 +392,7 @@ namespace secJoin
             {
                 auto& parent = root;
                 auto& splitParent = levels[lvl + 1];
-                auto d = logn - lvl - 2;
+                auto d = mLogn - lvl - 2;
                 auto s = 1ull << d;
                 splitParent[0].resize(s, bitsPerEntry, type);
                 splitParent[1].resize(s, bitsPerEntry, type);
@@ -422,11 +421,11 @@ namespace secJoin
             }
             else
             {
-                assert(lvl == logn - 1);
+                assert(lvl == mLogn - 1);
             }
 
         }
-        levels[0].reshape(n16);
+        levels[0].reshape(mN16);
 
 
         MC_END();
@@ -494,7 +493,7 @@ namespace secJoin
         {
             cir << "down---  \n";
             cir << "B0    " << preLeftVal << " " << std::to_string(preLeftVal[0]) << " .. " << std::to_string(preLeftVal.back()) << "\n";
-            //cir << "B1    " << preRghtVal << "\n16";
+            //cir << "B1    " << preRghtVal << "\mN16";
             cir << "B     " << prePrntVal << "\n";
             cir << "P0    " << preLeftBit << "\n";
 
@@ -510,14 +509,14 @@ namespace secJoin
                     cd.addGate(ifFalse.mWires[i], ifTrue.mWires[i], oc::GateType::Xor, temp2.mWires[i]);
                 //cd.addPrint("a^preBit  [" + std::to_string(i) + "] = ");
                 //cd.addPrint(temp.mWires[0]);
-                //cd.addPrint("\n16");
+                //cd.addPrint("\mN16");
 
                 for (u64 i = 0; i < out.mWires.size(); ++i)
                     cd.addGate(temp2.mWires[i], choice.mWires[0], oc::GateType::And, temp1.mWires[i]);
 
                 //cd.addPrint("a^preBit&sufVal[" + std::to_string(i) + "] = ");
                 //cd.addPrint(temp.mWires[0]);
-                //cd.addPrint("\n16");
+                //cd.addPrint("\mN16");
 
                 for (u64 i = 0; i < out.mWires.size(); ++i)
                     cd.addGate(ifFalse.mWires[i], temp1.mWires[i], oc::GateType::Xor, out.mWires[i]);
@@ -534,8 +533,8 @@ namespace secJoin
 
 
             cir << "down suf---  \n";
-            //cir << "B0    " << leftIn.mSuffix << "\n16";
-            //cir << "temp  " <<  << "\n16";
+            //cir << "B0    " << leftIn.mSuffix << "\mN16";
+            //cir << "temp  " <<  << "\mN16";
             cir << "B1    " << sufRghtVal << "\n";
             cir << "B     " << sufPrntVal << "\n";
             cir << "P1    " << sufRghtBit << "\n";
@@ -552,14 +551,14 @@ namespace secJoin
                     cd.addGate(ifFalse.mWires[i], ifTrue.mWires[i], oc::GateType::Xor, temp2.mWires[i]);
                 //cd.addPrint("a^preBit  [" + std::to_string(i) + "] = ");
                 //cd.addPrint(temp.mWires[0]);
-                //cd.addPrint("\n16");
+                //cd.addPrint("\mN16");
 
                 for (u64 i = 0; i < out.mWires.size(); ++i)
                     cd.addGate(temp2.mWires[i], choice.mWires[0], oc::GateType::And, temp1.mWires[i]);
 
                 //cd.addPrint("a^preBit&sufVal[" + std::to_string(i) + "] = ");
                 //cd.addPrint(temp.mWires[0]);
-                //cd.addPrint("\n16");
+                //cd.addPrint("\mN16");
 
                 for (u64 i = 0; i < out.mWires.size(); ++i)
                     cd.addGate(ifFalse.mWires[i], temp1.mWires[i], oc::GateType::Xor, out.mWires[i]);
@@ -584,13 +583,12 @@ namespace secJoin
         Level& root,
         span<SplitLevel> levels,
         SplitLevel& newVals,
-        u64 partyIdx,
         Type type,
         coproto::Socket& comm,
         OleGenerator& gen,
         std::vector<SplitLevel>* debugLevels)
     {
-        MC_BEGIN(macoro::task<>, this, &src, &controlBits, &op, &root, levels, &newVals, partyIdx, type, &comm, &gen, debugLevels,
+        MC_BEGIN(macoro::task<>, this, &src, &controlBits, &op, &root, levels, &newVals, type, &comm, &gen, debugLevels,
             bitsPerEntry = u64{},
             nodeCir = oc::BetaCircuit{},
             bin = Gmw{},
@@ -609,14 +607,14 @@ namespace secJoin
 
 
         // this will hold the downstream intermediate levels.
-        temp[0].resize(std::max(n0, 1ull << logfn), bitsPerEntry, type);
-        temp[1].resize(std::max(n0, 1ull << logfn), bitsPerEntry, type);
+        temp[0].resize(std::max(mN0, 1ull << mLogfn), bitsPerEntry, type);
+        temp[1].resize(std::max(mN0, 1ull << mLogfn), bitsPerEntry, type);
 
 
         // we start at the root and move down. We store intermidate 
         // levels in `temp`. levels is only read from. Once the children 
         // are computed, we combine them and write the result to `root`
-        for (pLvl = logn; pLvl != 0; --pLvl)
+        for (pLvl = mLogn; pLvl != 0; --pLvl)
         {
             // how many parents are here at this level.
             // For the last level this might not be a power of 2.
@@ -751,14 +749,14 @@ namespace secJoin
                 }
             };
 
-            bool firstPartial = logn != logfn && cLvl == 1;
-            bool secondPartial = logn != logfn && cLvl == 0;
-            bool full = logn == logfn && cLvl == 0;
+            bool firstPartial = mLogn != mLogfn && cLvl == 1;
+            bool secondPartial = mLogn != mLogfn && cLvl == 0;
+            bool full = mLogn == mLogfn && cLvl == 0;
 
             if (firstPartial)
             {
-                newVals[0].resize(n16 / 2, bitsPerEntry, type);
-                newVals[1].resize(n16 / 2, bitsPerEntry, type);
+                newVals[0].resize(mN16 / 2, bitsPerEntry, type);
+                newVals[1].resize(mN16 / 2, bitsPerEntry, type);
             }
 
             // if we have a partial level, then we need to copy 
@@ -770,14 +768,14 @@ namespace secJoin
                 if (type & Type::Prefix)
                 {
                     // shift the preSuf values down.
-                    copyBytes(temp[j].mPreVal, newVals[j].mPreVal, r / 16, n0 / 16, n1 / 16);
+                    copyBytes(temp[j].mPreVal, newVals[j].mPreVal, mR / 16, mN0 / 16, mN1 / 16);
                 }
 
                 if (type & Type::Suffix)
                 {
                     // shift the preSuf values down.                     
-                    //shiftBytes(preSuf[j].mSufVal, r/16, n0/16, n1/16);   
-                    copyBytes(temp[j].mSufVal, newVals[j].mSufVal, r / 16, n0 / 16, n1 / 16);
+                    //shiftBytes(preSuf[j].mSufVal, mR/16, mN0/16, mN1/16);   
+                    copyBytes(temp[j].mSufVal, newVals[j].mSufVal, mR / 16, mN0 / 16, mN1 / 16);
                 }
             }
 
@@ -786,12 +784,12 @@ namespace secJoin
             {
                 if (type & Type::Prefix)
                 {
-                    copyBytes(temp[j].mPreVal, newVals[j].mPreVal, 0, 0, n0 / 16);
+                    copyBytes(temp[j].mPreVal, newVals[j].mPreVal, 0, 0, mN0 / 16);
                 }
 
                 if (type & Type::Suffix)
                 {
-                    copyBytes(temp[j].mSufVal, newVals[j].mSufVal, 0, 0, n0 / 16);
+                    copyBytes(temp[j].mSufVal, newVals[j].mSufVal, 0, 0, mN0 / 16);
                 }
             }
 

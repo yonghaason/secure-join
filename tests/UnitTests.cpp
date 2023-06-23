@@ -71,7 +71,6 @@ namespace secJoin_Tests
 
         t.add("AggTree_plain_Test                            ", AggTree_plain_Test);
         t.add("AggTree_levelReveal_Test                      ", AggTree_levelReveal_Test);
-        t.add("AggTree_toPackedBin_Test                      ", AggTree_toPackedBin_Test);
 
         t.add("AggTree_dup_pre_levelReveal_Test              ", AggTree_dup_pre_levelReveal_Test);
         t.add("AggTree_dup_singleSetLeaves_Test              ", AggTree_dup_singleSetLeaves_Test);
@@ -82,6 +81,10 @@ namespace secJoin_Tests
         t.add("AggTree_dup_pre_downstream_Test               ", AggTree_dup_pre_downstream_Test);
         t.add("AggTree_xor_pre_downstream_Test               ", AggTree_xor_pre_downstream_Test);
         t.add("AggTree_xor_prePartial_downstream_Test        ", AggTree_xor_prePartial_downstream_Test);
+
+        t.add("AggTree_dup_pre_full_Test                     ", AggTree_dup_pre_full_Test);
+        t.add("AggTree_xor_pre_full_Test                     ", AggTree_xor_pre_full_Test);
+        
         
         });
 }
