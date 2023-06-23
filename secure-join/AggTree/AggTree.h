@@ -139,7 +139,7 @@ namespace secJoin
         using Level = AggTreeLevel;
         using SplitLevel = AggTreeSplitLevel;
 
-        bool mDebug = false;
+        //bool mDebug = false;
 
 
 
@@ -248,62 +248,6 @@ namespace secJoin
             u64 srcRowStartIdx,
             u64 numRows);
 
-        //static void setLeafVals2(
-        //    u64 bitsPerEntry,
-        //    oc::MatrixView<const u8> src,
-        //    span<const u8> controlBits,
-        //    SplitLevel& leaves,
-        //    u64 dIdx,
-        //    u64 size,
-        //    Type type);
-
-
-        //// load the leaf values and control bits. 
-        //// src are the values, controlBits are ...
-        //// leaves are where we will write the results.
-        //// They are separated into left and right children.
-        ////
-        //// sIdx means that we should start copying values from
-        //// src, controlBits at row sIdx.
-        ////
-        //// dIdx means that we should start writing results to
-        //// leaf index dIdx.
-        ////
-        //// We require dIdx to be a multiple of 8 and therefore 
-        //// we will pad the overall tree to be a multiple of 16.
-        //// We will assign zero to the padded control bits.
-        //static void setLeafVals2(
-        //    const BinMatrix& src,
-        //    const BinMatrix& controlBits,
-        //    SplitLevel& leaves,
-        //    u64 sIdx,
-        //    u64 dIdx,
-        //    u64 size,
-        //    Type type);
-
-        // load the leaf values and control bits. 
-        // src are the values, controlBits are ...
-        // leaves are where we will write the results.
-        // They are separated into left and right children.
-        //
-        // sIdx means that we should start copying values from
-        // src, controlBits at row sIdx.
-        //
-        // dIdx means that we should start writing results to
-        // leaf index dIdx.
-        //
-        // We require dIdx to be a multiple of 8 and therefore 
-        // we will pad the overall tree to be a multiple of 16.
-        // We will assign zero to the padded control bits.
-        //static void setLeafVals(
-        //    const BinMatrix& src,
-        //    const BinMatrix& controlBits,
-        //    SplitLevel& leaves,
-        //    u64 sIdx,
-        //    u64 dIdx,
-        //    u64 size,
-        //    Type type);
-
         /* This circuit outputs pre,suf,preVal where
 
                      |  pre  = prep1 ? pre_0 + pre_1 : pre_1,
@@ -390,11 +334,11 @@ namespace secJoin
             Level& root,
             span<SplitLevel> levels,
             SplitLevel& preSuf,
-            SplitLevel& vals,
             u64 partyIdx,
             Type type,
             coproto::Socket& comm,
-            OleGenerator& gen);
+            OleGenerator& gen,
+            std::vector<SplitLevel>* debugLevels = nullptr);
 
         //	// apply the downstream circuit to each level of the tree.
         //	void computeLeaf(

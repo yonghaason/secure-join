@@ -328,34 +328,20 @@ namespace secJoin
             throw RTE_LOC;
 
         computeTreeSizes(src.numEntries());
-
         bitsPerEntry = src.bitsPerEntry();
+        cir = upstreamCir(bitsPerEntry, type, op);
 
         // load the values of the leafs. Its possible that we need to split
         // these values across two levels of the tree (non-power of 2 input lengths).
-        if (logfn == logn)
-        {
-            levels[0][0].resize(n16 / 2, bitsPerEntry, type);
-            levels[0][1].resize(n16 / 2, bitsPerEntry, type);
+        levels[0].resize(n16, bitsPerEntry, type);
+        levels[0].setLeafVals(src, controlBits, 0, 0);
 
-            levels[0].setLeafVals(src, controlBits, 0, 0);
-        }
-        else
+        if (logfn != logn)
         {
             // split the leaf values across two levels of the tree.
-            levels[0][0].resize(n0 / 2, bitsPerEntry, type);
-            levels[0][1].resize(n0 / 2, bitsPerEntry, type);
-            levels[1][0].resize((1ull << logfn) / 2, bitsPerEntry, type);
-            levels[1][1].resize((1ull << logfn) / 2, bitsPerEntry, type);
-
-            levels[0].setLeafVals(src, controlBits, 0, 0);
-            levels[1].setLeafVals(src, controlBits, n0, r);
+            levels[1].copy(levels[0], n0, r, 1ull << logfn);
+            levels[0].reshape(n0);
         }
-
-
-
-
-        cir = upstreamCir(bitsPerEntry, type, op);
         // we start at the preSuf and move up.
         for (lvl = 0; lvl < logn; ++lvl)
         {
@@ -440,6 +426,8 @@ namespace secJoin
             }
 
         }
+        levels[0].reshape(n16);
+
 
         MC_END();
     }
@@ -596,16 +584,14 @@ namespace secJoin
         Level& root,
         span<SplitLevel> levels,
         SplitLevel& newVals,
-        SplitLevel& vals,
         u64 partyIdx,
         Type type,
         coproto::Socket& comm,
-        OleGenerator& gen)
+        OleGenerator& gen,
+        std::vector<SplitLevel>* debugLevels)
     {
-        //throw RTE_LOC;
-        MC_BEGIN(macoro::task<>, this, &src, &controlBits, &op, &root, levels, &newVals, &vals, partyIdx, type, &comm, &gen,
+        MC_BEGIN(macoro::task<>, this, &src, &controlBits, &op, &root, levels, &newVals, partyIdx, type, &comm, &gen, debugLevels,
             bitsPerEntry = u64{},
-            debugLevels = std::vector<SplitLevel>{},
             nodeCir = oc::BetaCircuit{},
             bin = Gmw{},
             pLvl = u64{},
@@ -615,7 +601,10 @@ namespace secJoin
         );
 
         bitsPerEntry = src.bitsPerEntry();
-        debugLevels.resize(mDebug * levels.size());
+
+        if(debugLevels)
+            debugLevels->resize(levels.size());
+
         nodeCir = downstreamCir(bitsPerEntry, op, type);
 
 
@@ -680,12 +669,12 @@ namespace secJoin
             MC_AWAIT(bin.run(comm));
 
             // for unit testing, we want to save these intermediate values.
-            if (mDebug)
+            if (debugLevels)
             {
-                debugLevels[cLvl][0].mPreVal = temp[0].mPreVal;
-                debugLevels[cLvl][1].mPreVal = temp[1].mPreVal;
-                debugLevels[cLvl][0].mSufVal = temp[0].mSufVal;
-                debugLevels[cLvl][1].mSufVal = temp[1].mSufVal;
+                (*debugLevels)[cLvl][0].mPreVal = temp[0].mPreVal;
+                (*debugLevels)[cLvl][1].mPreVal = temp[1].mPreVal;
+                (*debugLevels)[cLvl][0].mSufVal = temp[0].mSufVal;
+                (*debugLevels)[cLvl][1].mSufVal = temp[1].mSufVal;
             }
 
             // if we arent on the final level, we need to re-order
@@ -741,30 +730,6 @@ namespace secJoin
             }
 
             // if we are on a leaf level, then we need to copy the values out.
-
-            //auto shiftBytes = [](TBinMatrix& src, u64 srcStart, u64 dstStart, u64 size) {
-
-            //    auto bitsPerEntry = src.bitsPerEntry();
-            //    for (u64 k = 0; k < bitsPerEntry; ++k)
-            //    {
-            //        // shift the preSuf values down.
-            //        auto s0 = ((u8*)src[k].data()) + srcStart;
-            //        auto d0 = ((u8*)src[k].data()) + dstStart;
-            //        auto max = src[k].size() * sizeof(*src[k].data());
-            //        auto e = (u8*)(src[k].data() + src[k].size());
-            //        auto t = (u8*)(src[k].data()) + max;
-
-            //        assert(dstStart + size < max);
-            //        assert(d0 + size <= e);
-            //        assert(s0 + size <= e);
-            //        assert(e == t);
-            //        assert(dstStart > srcStart);
-            //        // copy in reverse since the buffers can overlap
-            //        for (u64 i = size - 1; i < size; --i)
-            //            d0[i] = s0[i];
-            //    }
-            //};
-
             auto copyBytes = [](TBinMatrix& src, TBinMatrix& dst, u64 srcStart, u64 dstStart, u64 size)
             {
                 auto bitsPerEntry = src.bitsPerEntry();
@@ -790,10 +755,8 @@ namespace secJoin
             bool secondPartial = logn != logfn && cLvl == 0;
             bool full = logn == logfn && cLvl == 0;
 
-            if (firstPartial || secondPartial || full)
+            if (firstPartial)
             {
-                vals[0].resize(n16 / 2, bitsPerEntry, type);
-                vals[1].resize(n16 / 2, bitsPerEntry, type);
                 newVals[0].resize(n16 / 2, bitsPerEntry, type);
                 newVals[1].resize(n16 / 2, bitsPerEntry, type);
             }
@@ -806,25 +769,15 @@ namespace secJoin
             {
                 if (type & Type::Prefix)
                 {
-                    assert(cLvl == 1);
                     // shift the preSuf values down.
-                    //shiftBytes(temp[j].mPreVal, r/16, n0/16, n1/16);
-                    copyBytes(temp[j].mPreVal, newVals[j].mPreVal, r/16, n0/16, n1/16);
+                    copyBytes(temp[j].mPreVal, newVals[j].mPreVal, r / 16, n0 / 16, n1 / 16);
+                }
 
-                    // copy the leaf values
-                    copyBytes(levels[cLvl][j].mPreVal, vals[j].mPreVal, r/16, n0/16, n1/16);
-                    copyBytes(levels[cLvl][j].mPreBit, vals[j].mPreBit, r/16, n0/16, n1/16);
-                }                                                        
-                                                                         
-                if (type & Type::Suffix)                                 
-                {                                                        
+                if (type & Type::Suffix)
+                {
                     // shift the preSuf values down.                     
                     //shiftBytes(preSuf[j].mSufVal, r/16, n0/16, n1/16);   
                     copyBytes(temp[j].mSufVal, newVals[j].mSufVal, r / 16, n0 / 16, n1 / 16);
-
-                    // copy the leaf values                              
-                    copyBytes(levels[cLvl][j].mSufVal, vals[j].mSufVal, r/16, n0/16, n1/16);
-                    copyBytes(levels[cLvl][j].mSufBit, vals[j].mSufBit, r/16, n0/16, n1/16);
                 }
             }
 
@@ -833,39 +786,19 @@ namespace secJoin
             {
                 if (type & Type::Prefix)
                 {
-                    assert(cLvl == 0);
-                    copyBytes(levels[cLvl][j].mPreVal, vals[j].mPreVal, 0, 0, n0/16);
-                    copyBytes(levels[cLvl][j].mPreBit, vals[j].mPreBit, 0, 0, n0 / 16);
-                    copyBytes(temp[j].mPreVal, newVals[j].mPreVal, 0, 0, n0/16);
-
-                    //preSuf[j].mPreVal.reshape(n16 / 2);
-
+                    copyBytes(temp[j].mPreVal, newVals[j].mPreVal, 0, 0, n0 / 16);
                 }
 
                 if (type & Type::Suffix)
                 {
-                    copyBytes(levels[cLvl][j].mSufVal, vals[j].mSufVal, 0, 0, n0/16);
-                    copyBytes(levels[cLvl][j].mSufBit, vals[j].mSufBit, 0, 0, n0/16);
                     copyBytes(temp[j].mSufVal, newVals[j].mSufVal, 0, 0, n0 / 16);
-                    //preSuf[j].mSufVal.reshape(n16 / 2);
                 }
             }
 
-            // the last level is a full level, we can just move the values.
-            for (u64 j = 0; j < 2 * full; ++j)
+            if (full)
             {
-                if (mDebug)
-                    vals[j] = levels[0][j];
-                else
-                    vals[j] = std::move(levels[0][j]);
+                newVals = std::move(temp);
             }
-        }
-
-
-        if (mDebug)
-        {
-            for (u64 i = 0; i < levels.size(); ++i)
-                levels[i] = std::move(debugLevels[i]);
         }
 
         MC_END();

@@ -1148,12 +1148,11 @@ std::string hex(const oc::span<u8>& bb)
 }
 
 template<typename Op, typename OpCir>
-void AggTree_pre_downstream_Test(Op op, OpCir opCir)
+void AggTree_pre_downstream_Test(Op op, OpCir opCir, u64 n)
 {
 
 	auto com = coproto::LocalAsyncSocket::makePair();
 
-	u64 n = 91;
 	u64 m = 32;
 	auto type = AggTree::Type::Prefix;
 
@@ -1174,33 +1173,37 @@ void AggTree_pre_downstream_Test(Op op, OpCir opCir)
 	auto s = tree.shareVals(prng);
 	auto c = tree.shareBits(prng);
 
-    std::cout << tree.print(AggTree::Type::Prefix) << std::endl;
+    //std::cout << tree.print(AggTree::Type::Prefix) << std::endl;
 
 	std::array<Level, 2> root, root2;
-	std::array<SplitLevel, 2> preSuf, vals;
-	std::array<std::vector<SplitLevel>, 2> tvs;
+	std::array<SplitLevel, 2> preSuf;
+	std::array<std::vector<SplitLevel>, 2> upLevels, dwLevels;
 	auto logn = tree.logn;
-	tvs[0].resize(logn);
-	tvs[1].resize(logn);
+    upLevels[0].resize(logn);
+    upLevels[1].resize(logn);
+    dwLevels[0].resize(logn);
+    dwLevels[1].resize(logn);
 
-    t[0].mDebug = true;
-    t[1].mDebug = true;
+    //t[0].mDebug = true;
+    //t[1].mDebug = true;
 
     macoro::sync_wait(macoro::when_all_ready(
-        t[0].upstream(s[0], c[0], opCir, 0, type, com[0], g[0], root[0], tvs[0]),
-        t[1].upstream(s[1], c[1], opCir, 1, type, com[1], g[1], root[1], tvs[1])
+        t[0].upstream(s[0], c[0], opCir, 0, type, com[0], g[0], root[0], upLevels[0]),
+        t[1].upstream(s[1], c[1], opCir, 1, type, com[1], g[1], root[1], upLevels[1])
     ));
     root2[0] = root[0];
     root2[1] = root[1];
+
+
     macoro::sync_wait(macoro::when_all_ready(
-        t[0].downstream(s[0], c[0], opCir, root[0], tvs[0], preSuf[0], vals[0], 0, type, com[0], g[0]),
-        t[1].downstream(s[1], c[1], opCir, root[1], tvs[1], preSuf[1], vals[1], 1, type, com[1], g[1])
+        t[0].downstream(s[0], c[0], opCir, root[0], upLevels[0], preSuf[0], 0, type, com[0], g[0], &dwLevels[0]),
+        t[1].downstream(s[1], c[1], opCir, root[1], upLevels[1], preSuf[1], 1, type, com[1], g[1], &dwLevels[1])
     ));
 
 	std::vector<PLevel> levels(logn);
 	for (u64 i = 0; i < levels.size(); ++i)
 	{
-		levels[i].reveal(tvs[0][i], tvs[1][i]);
+		levels[i].reveal(dwLevels[0][i], dwLevels[1][i]);
 	}
 	levels.emplace_back();
 	levels.back().reveal(root2[0], root2[1]);
@@ -1226,7 +1229,7 @@ void AggTree_pre_downstream_Test(Op op, OpCir opCir)
                 // d0 = v;
 
 				auto p = i / 2;
-				auto l = i & 0;
+				auto l = i & ~1ull;
 				auto r = i | 1;
 				std::cout << "pnt exp " << format(tree.mLevels[j + 1].mUp.mPreVal[p]) << " " << tree.mLevels[j + 1].mUp.mPreBit[p] << "  " << p << std::endl;
 				std::cout << "    act " << format(levels[j + 1].mPreVal[p]) << " " << levels[j + 1].mPreBit[p] << std::endl;
@@ -1241,8 +1244,10 @@ void AggTree_pre_downstream_Test(Op op, OpCir opCir)
 		}
 	}
 
+    auto level00 = upLevels[0][0];
+    auto level10 = upLevels[1][0];
 	PLevel pre; pre.reveal(preSuf[0], preSuf[1]);
-	PLevel val; val.reveal(vals[0], vals[1]);
+    PLevel val; val.reveal(level00, level10);
 
 	for (u64 i = 0; i < n; ++i)
 	{
@@ -1265,13 +1270,13 @@ void AggTree_pre_downstream_Test(Op op, OpCir opCir)
 
 		{
 			auto exp = tree.mLevels[q].mUp.mPreVal[w];
-			auto act = val.mPreVal[i];
+            auto act = val.mPreVal[i];
 			if (act != exp)
 			{
-				std::cout << "i   " << i << std::endl;
-				std::cout << "exp " << exp << std::endl;
-				std::cout << "act " << act << std::endl;
-				std::cout << "    " << (act ^ exp) << std::endl;
+				std::cout << "i    " << i << std::endl;
+				std::cout << "exp  " << exp << std::endl;
+                std::cout << "act  " << act << std::endl;
+				std::cout << "     " << (act ^ exp) << std::endl;
 
 				throw RTE_LOC;
 			}
@@ -1310,7 +1315,7 @@ void AggTree_dup_pre_downstream_Test()
 	{
 		return left;
 	};
-	AggTree_pre_downstream_Test(op, opCir);
+	AggTree_pre_downstream_Test(op, opCir, 256);
 }
 
 
@@ -1332,7 +1337,28 @@ void AggTree_xor_pre_downstream_Test()
 	{
 		return left ^ right;
 	};
-	AggTree_pre_downstream_Test(op, opCir);
+	AggTree_pre_downstream_Test(op, opCir, 128);
+}
+void AggTree_xor_prePartial_downstream_Test()
+{
+    auto opCir = [](
+        oc::BetaCircuit& cir,
+        const oc::BetaBundle& left,
+        const oc::BetaBundle& right,
+        oc::BetaBundle& out)
+    {
+        for (u64 i = 0; i < left.size(); ++i)
+            cir.addGate(left[i], right[i], oc::GateType::Xor, out[i]);
+    };
+
+    auto op = [](
+        const oc::BitVector& left,
+        const oc::BitVector& right)
+    {
+        return left ^ right;
+    };
+    AggTree_pre_downstream_Test(op, opCir, 5);
+    AggTree_pre_downstream_Test(op, opCir, 91);
 }
 //
 //
@@ -1483,17 +1509,17 @@ void AggTree_xor_pre_downstream_Test()
 //	auto logn = tree.logn;
 //	std::array<Level, 3> root;
 //	std::array<SplitLevel, 3> preSuf, vals;
-//	std::array<std::vector<SplitLevel>, 3> tvs;
-//	tvs[0].resize(logn);
-//	tvs[1].resize(logn);
-//	tvs[2].resize(logn);
+//	std::array<std::vector<SplitLevel>, 3> upLevels;
+//	upLevels[0].resize(logn);
+//	upLevels[1].resize(logn);
+//	upLevels[2].resize(logn);
 //
 //	std::array<std::future<void>, 3>ff;
 //
 //	for (u64 i = 0; i < 3; ++i)
 //		ff[i] = std::async([&, i]()
 //			{
-//				t[i].upstream(s[i], c[i], cop, i, type, com[i], g[i], root[i], tvs[i]);
+//				t[i].upstream(s[i], c[i], cop, i, type, com[i], g[i], root[i], upLevels[i]);
 //			});
 //
 //	ff[0].get();
@@ -1501,13 +1527,13 @@ void AggTree_xor_pre_downstream_Test()
 //	ff[2].get();
 //
 //
-//	if (tvs[0].size() != logn)
+//	if (upLevels[0].size() != logn)
 //		throw RTE_LOC;
 //
 //	std::vector<PLevel> levels(logn);
 //	for (u64 i = 0; i < levels.size(); ++i)
 //	{
-//		levels[i].load(tvs[0][i], tvs[1][i], tvs[2][i]);
+//		levels[i].load(upLevels[0][i], upLevels[1][i], upLevels[2][i]);
 //	}
 //	levels.emplace_back();
 //	levels.back().load(root[0], root[1], root[2]);
@@ -1577,20 +1603,20 @@ void AggTree_xor_pre_downstream_Test()
 //
 //		std::array<Level, 3> root, root2;
 //		std::array<SplitLevel, 3> preSuf, vals;
-//		std::array<std::vector<SplitLevel>, 3> tvs;
+//		std::array<std::vector<SplitLevel>, 3> upLevels;
 //		auto logn = tree.logn;
-//		tvs[0].resize(logn);
-//		tvs[1].resize(logn);
-//		tvs[2].resize(logn);
+//		upLevels[0].resize(logn);
+//		upLevels[1].resize(logn);
+//		upLevels[2].resize(logn);
 //
 //		std::array<std::future<void>, 3>ff;
 //
 //		for (u64 i = 0; i < 3; ++i)
 //			ff[i] = std::async([&, i]()
 //				{
-//					t[i].upstream(s[i], c[i], opCir, i, type, com[i], g[i], root[i], tvs[i]);
+//					t[i].upstream(s[i], c[i], opCir, i, type, com[i], g[i], root[i], upLevels[i]);
 //					root2[i] = root[i];
-//					t[i].downstream(s[i], c[i], opCir, root[i], tvs[i], preSuf[i], vals[i], i, type, com[i], g[i]);
+//					t[i].downstream(s[i], c[i], opCir, root[i], upLevels[i], preSuf[i], vals[i], i, type, com[i], g[i]);
 //				});
 //
 //		ff[0].get();
@@ -1600,7 +1626,7 @@ void AggTree_xor_pre_downstream_Test()
 //		std::vector<PLevel> levels(logn);
 //		for (u64 i = 0; i < levels.size(); ++i)
 //		{
-//			levels[i].load(tvs[0][i], tvs[1][i], tvs[2][i]);
+//			levels[i].load(upLevels[0][i], upLevels[1][i], upLevels[2][i]);
 //		}
 //		levels.emplace_back();
 //		levels.back().load(root2[0], root2[1], root2[2]);

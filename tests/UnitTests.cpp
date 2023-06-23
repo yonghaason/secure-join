@@ -81,6 +81,7 @@ namespace secJoin_Tests
         t.add("AggTree_dup_pre_downstream_cir_Test           ", AggTree_dup_pre_downstream_cir_Test);
         t.add("AggTree_dup_pre_downstream_Test               ", AggTree_dup_pre_downstream_Test);
         t.add("AggTree_xor_pre_downstream_Test               ", AggTree_xor_pre_downstream_Test);
-
+        t.add("AggTree_xor_prePartial_downstream_Test        ", AggTree_xor_prePartial_downstream_Test);
+        
         });
 }
