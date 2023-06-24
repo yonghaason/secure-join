@@ -12,13 +12,13 @@ void AggTree_levelReveal_Test();
 void AggTree_dup_pre_levelReveal_Test();
 void AggTree_dup_singleSetLeaves_Test();
 
-void AggTree_dup_pre_setLeaves_Test();
-void AggTree_dup_pre_upstream_cir_Test();
-void AggTree_dup_pre_upstream_Test();
+void AggTree_dup_setLeaves_Test();
+void AggTree_dup_upstream_cir_Test();
+void AggTree_xor_upstream_Test();
 void AggTree_dup_pre_downstream_cir_Test();
-void AggTree_dup_pre_downstream_Test();
-void AggTree_xor_pre_downstream_Test();
-void AggTree_xor_prePartial_downstream_Test();
+void AggTree_dup_downstream_Test();
+void AggTree_xor_full_downstream_Test();
+void AggTree_xor_Partial_downstream_Test();
 void AggTree_dup_pre_full_Test();
 void AggTree_xor_pre_full_Test();
 

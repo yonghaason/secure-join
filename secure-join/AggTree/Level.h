@@ -384,7 +384,7 @@ namespace secJoin
                 doCopy(src.mLeftRight[j].mPreBit, mLeftRight[j].mPreBit);
                 doCopy(src.mLeftRight[j].mPreVal, mLeftRight[j].mPreVal);
                 doCopy(src.mLeftRight[j].mSufBit, mLeftRight[j].mSufBit);
-                doCopy(src.mLeftRight[j].mSufVal, mLeftRight[j].mSufBit);
+                doCopy(src.mLeftRight[j].mSufVal, mLeftRight[j].mSufVal);
             }
         }
 
