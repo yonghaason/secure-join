@@ -23,6 +23,8 @@ set(SRCS
     "AggTree/PlainAggTree.cpp"
 
     "Trim.cpp"
+
+    "Join/OmJoin.cpp"
     )
 
 if(SECUREJOIN_ENABLE_PAILLIER)
