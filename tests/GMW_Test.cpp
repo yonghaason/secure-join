@@ -876,7 +876,7 @@ namespace secJoin_Tests
     {
         oc::BetaLibrary lib;
 
-        u64 bitCount = 4;
+        u64 bitCount = 31;
         auto cir = *lib.uint_uint_add(bitCount, bitCount, bitCount, oc::BetaLibrary::Optimized::Depth);
         cir.levelByAndDepth();
         //auto cir = *lib.int_int_add(64, 64, 64);
@@ -887,7 +887,7 @@ namespace secJoin_Tests
         block seed = oc::toBlock(cmd.getOr<u64>("s", 0));
         oc::PRNG prng(seed);
 
-        u64 n = 100;
+        u64 n = 77;
 
         std::vector<u32> in0(n), in1(n);
         std::array<Matrix<u32>, 2> sout;

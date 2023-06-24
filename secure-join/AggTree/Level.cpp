@@ -150,34 +150,24 @@ namespace secJoin
     void PLevel::perfectUnshuffle(PLevel& l0, PLevel& l1)
     {
 
-        auto preSize = l0.mPreVal.size() + l1.mPreVal.size();
-        mPreBit.resize(preSize);
-        mPreVal.resize(preSize);
-        for (u64 i = 0; i < preSize; i += 2)
+        auto shuffle = [](auto& l0, auto& l1, auto& out)
         {
-            mPreBit[i + 0] = l0.mPreBit[i / 2];
-            mPreVal[i + 0] = l0.mPreVal[i / 2];
+            auto size = l0.size() + l1.size();
+            out.resize(size);
 
-            if (i + 1 < preSize)
+            for (u64 i = 0; i < size; i += 2)
             {
-                mPreBit[i + 1] = l1.mPreBit[i / 2];
-                mPreVal[i + 1] = l1.mPreVal[i / 2];
-            }
-        }
+                out[i + 0] = l0[i / 2];
 
-        auto sufSize = l0.mSufVal.size() + l1.mSufVal.size();
-        mSufBit.resize(sufSize);
-        mSufVal.resize(sufSize);
-        for (u64 i = 0; i < sufSize; i += 2)
-        {
-            mSufBit[i + 0] = l0.mSufBit[i / 2];
-            mSufVal[i + 0] = l0.mSufVal[i / 2];
-            if (i + 1 < sufSize)
-            {
-
-                mSufBit[i + 1] = l1.mSufBit[i / 2];
-                mSufVal[i + 1] = l1.mSufVal[i / 2];
+                if (i + 1 < size)
+                    out[i + 1] = l1[i / 2];
             }
-        }
+
+        };
+
+        shuffle(l0.mPreVal, l1.mPreVal, mPreVal);
+        shuffle(l0.mPreBit, l1.mPreBit, mPreBit);
+        shuffle(l0.mSufVal, l1.mSufVal, mSufVal);
+        shuffle(l0.mSufBit, l1.mSufBit, mSufBit);
     }
 }

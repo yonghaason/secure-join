@@ -457,7 +457,7 @@ namespace secJoin
 
             {
                 f.resize(y.size() * m * 2);
-                auto mask = oc::AllOneBlock ^ oc::OneBlock;
+                //auto mask = oc::AllOneBlock ^ oc::OneBlock;
                 auto f16Iter = (u16*)f.data();
 #if defined(SECUREJOIN_DK_USE_SILENT)
                 auto d16Iter = (u16*)diff.data();
@@ -649,7 +649,7 @@ namespace secJoin
 
                     for (u64 k = 0; k < 4; ++k)
                     {
-                        x[k] = x[k] ^ y[k] & d[k];
+                        x[k] = x[k] ^ (y[k] & d[k]);
                     }
 
                     std::array<oc::block, mNumOlePer> packedU;
@@ -685,20 +685,20 @@ namespace secJoin
                     // even bits in perfect shuffled order
                     // eg: 0 128 2 130 4 132 6 134 ... 126 254
                     packedU[0] =
-                        t[0] & mask0 |
+                        (t[0] & mask0) |
                         ((t[2] & mask0) << 1);
                     packedU[1] =
-                        t[1] & mask0 |
+                        (t[1] & mask0) |
                         ((t[3] & mask0) << 1);
 
                     // odd bits in perfect shuffled order
                     // eg: 1 9 3 11 5 13 7 15
                     packedU[2] =
                         ((t[0] & mask1) >> 1) |
-                        t[2] & mask1;
+                        (t[2] & mask1);
                     packedU[3] =
                         ((t[1] & mask1) >> 1) |
-                        t[3] & mask1;
+                        (t[3] & mask1);
 
 
                     {
@@ -1121,20 +1121,20 @@ namespace secJoin
                     // even bits in perfect shuffled order
                     // eg: 0 8 2 10 4 12 6 14
                     packedU[i][0] =
-                        t[0] & mask0 |
+                        (t[0] & mask0) |
                         ((t[2] & mask0) << 1);
                     packedU[i][1] =
-                        t[1] & mask0 |
+                        (t[1] & mask0) |
                         ((t[3] & mask0) << 1);
 
                     // odd bits in perfect shuffled order
                     // eg: 1 9 3 11 5 13 7 15
                     packedU[i][2] =
                         ((t[0] & mask1) >> 1) |
-                        t[2] & mask1;
+                        (t[2] & mask1);
                     packedU[i][3] =
                         ((t[1] & mask1) >> 1) |
-                        t[3] & mask1;
+                        (t[3] & mask1);
 
                     for (u64 k = 0; k < packedU[i].size(); ++k, ++tIdx)
                     {

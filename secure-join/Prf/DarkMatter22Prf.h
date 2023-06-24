@@ -40,7 +40,9 @@ namespace secJoin
             auto low = xx >> i;
             auto hgh = xx << (256 - i);
 
-            auto r = *(block256*)&hgh ^ *(block256*)&low;
+            auto m = hgh ^ low;
+            block256 r;
+            memcpy(&r, &m, sizeof(r));
             return r;
         }
 
@@ -707,7 +709,7 @@ namespace secJoin
                 mU2.resize(y.size());
                 mW.resize(y.size());
                 f.resize(y.size() * 256 * 2);
-                auto mask = oc::AllOneBlock ^ oc::OneBlock;
+                //auto mask = oc::AllOneBlock ^ oc::OneBlock;
                 //auto uIter = oc::BitIterator((u8*)mU2.data());
                 auto u8Iter = (u8*)mU2.data();
                 //auto dIter = diff.begin();

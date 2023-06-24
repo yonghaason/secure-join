@@ -247,7 +247,7 @@ namespace secJoin
                 //mW.resize(y.size());
 
                 f.resize(y.size() * 256 * 2);
-                auto mask = oc::AllOneBlock ^ oc::OneBlock;
+                //auto mask = oc::AllOneBlock ^ oc::OneBlock;
                 //auto uIter = oc::BitIterator((u8*)mU2.data());
                 //auto u8Iter = (u8*)mW.data();
                 //auto dIter = diff.begin();

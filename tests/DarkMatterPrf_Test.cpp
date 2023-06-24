@@ -188,7 +188,7 @@ void DarkMatter32Prf_plain_test()
 void DarkMatter22Prf_util_test()
 {
     throw oc::UnitTestSkipped("known issue");
-    auto n = 234 * 256;
+    u64 n = 234 * 256;
     oc::PRNG prng(oc::ZeroBlock);
     auto m3 = sampleMod3(prng, n);
 
@@ -196,7 +196,7 @@ void DarkMatter22Prf_util_test()
         throw RTE_LOC;
 
     std::vector<u64> counts(3);
-    for (auto i = 0; i < n; ++i)
+    for (auto i = 0ull; i < n; ++i)
     {
         if (m3[i] > 2)
             throw RTE_LOC;
@@ -443,9 +443,9 @@ void DLpnPrf_plain_test()
 {
 
 
-    auto n = DLpnPrf::KeySize;
-    auto m = 256;
-    auto t = 128;
+    u64 n = DLpnPrf::KeySize;
+    u64 m = 256;
+    u64 t = 128;
     oc::PRNG prng(oc::ZeroBlock);
     oc::block kk = prng.get();
     oc::block xx = prng.get();

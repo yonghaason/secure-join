@@ -50,7 +50,7 @@ namespace secJoin_Tests
         t.add("ComposedPerm_replicated_secure_perm_test      ", ComposedPerm_replicated_secure_perm_test);
         t.add("AdditivePerm_xor_test                         ", AdditivePerm_xor_test);
         t.add("AdditivePerm_add_test                         ", AdditivePerm_add_test);
-        
+
         //t.add("DarkMatter22Prf_plain_test                    ", DarkMatter22Prf_plain_test);
         //t.add("DarkMatter32Prf_plain_test                    ", DarkMatter32Prf_plain_test);
         //t.add("DarkMatter22Prf_util_test                     ", DarkMatter22Prf_util_test);
@@ -58,10 +58,15 @@ namespace secJoin_Tests
         //t.add("DarkMatter32Prf_proto_test                    ", DarkMatter32Prf_proto_test);
 
         t.add("DLpnPrf_plain_test                            ", DLpnPrf_plain_test);
+<<<<<<< HEAD
         t.add("DLpnPrf_proto_test                            ", DLpnPrf_proto_test); 
         t.add("Dlpn_perm_test1                               ", Dlpn_perm_test1);
         t.add("Dlpn_perm_test2                               ", Dlpn_perm_test2);
         t.add("Dlpn_perm_secret_shared_input_test            ", Dlpn_perm_secret_shared_input_test);
+=======
+        t.add("DLpnPrf_proto_test                            ", DLpnPrf_proto_test);
+        t.add("Dlpn_perm_test                                ", Dlpn_perm_test);
+>>>>>>> 6078b654e0f0f8920285447a0a373f9cad18a74f
 
         t.add("RadixSort_aggregateSum_test                   ", RadixSort_aggregateSum_test);
         t.add("RadixSort_oneHot_test                         ", RadixSort_oneHot_test);
@@ -74,6 +79,7 @@ namespace secJoin_Tests
 
 
 
+<<<<<<< HEAD
         // t.add("AggTree_levelReveal_Test                      ", AggTree_levelReveal_Test);
         // t.add("AggTree_toPackedBin_Test                      ", AggTree_toPackedBin_Test);
 
@@ -81,5 +87,24 @@ namespace secJoin_Tests
         // t.add("AggTree_dup_singleSetLeaves_Test              ", AggTree_dup_singleSetLeaves_Test);
         // t.add("AggTree_dup_pre_setLeaves_Test                ", AggTree_dup_pre_setLeaves_Test);
 
+=======
+        t.add("AggTree_plain_Test                            ", AggTree_plain_Test);
+        t.add("AggTree_levelReveal_Test                      ", AggTree_levelReveal_Test);
+
+        t.add("AggTree_dup_pre_levelReveal_Test              ", AggTree_dup_pre_levelReveal_Test);
+        t.add("AggTree_dup_singleSetLeaves_Test              ", AggTree_dup_singleSetLeaves_Test);
+        t.add("AggTree_dup_setLeaves_Test                    ", AggTree_dup_setLeaves_Test);
+        t.add("AggTree_dup_upstream_cir_Test                 ", AggTree_dup_upstream_cir_Test);
+        t.add("AggTree_xor_upstream_Test                     ", AggTree_xor_upstream_Test);
+        t.add("AggTree_dup_pre_downstream_cir_Test           ", AggTree_dup_pre_downstream_cir_Test);
+        t.add("AggTree_dup_downstream_Test                   ", AggTree_dup_downstream_Test);
+        t.add("AggTree_xor_full_downstream_Test              ", AggTree_xor_full_downstream_Test);
+        t.add("AggTree_xor_Partial_downstream_Test           ", AggTree_xor_Partial_downstream_Test);
+
+        t.add("AggTree_dup_pre_full_Test                     ", AggTree_dup_pre_full_Test);
+        t.add("AggTree_xor_pre_full_Test                     ", AggTree_xor_pre_full_Test);
+        
+        
+>>>>>>> 6078b654e0f0f8920285447a0a373f9cad18a74f
         });
 }

@@ -8,7 +8,7 @@
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/out/build/${presetName}",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "CMAKE_BUILD_TYPE": "Debug",
         "SECUREJOIN_ENABLE_ASAN": false,
         "SECUREJOIN_ENABLE_FAKE_GEN": true,
         "SECUREJOIN_ENABLE_BOOST": false,

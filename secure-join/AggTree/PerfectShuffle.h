@@ -38,8 +38,10 @@ namespace secJoin
 	inline u32 cPerfectShuffle(u16 x0, u16 x1)
 	{
 		u32 x;
-		((u16*)&x)[0] = x0;
-		((u16*)&x)[1] = x1;
+		memcpy((u8*)&x, &x0, sizeof(u16));
+		memcpy((u8*)&x + sizeof(u16), &x1, sizeof(u16));
+		//((u16*)&x)[0] = x0;
+		//((u16*)&x)[1] = x1;
 		x = cPerfectShuffle_round<8>(x);
 		x = cPerfectShuffle_round<4>(x);
 		x = cPerfectShuffle_round<2>(x);
@@ -58,7 +60,10 @@ namespace secJoin
 		x = cPerfectShuffle_round<2>(x);
 		x = cPerfectShuffle_round<4>(x);
 		x = cPerfectShuffle_round<8>(x);
-		return *(std::array<u16, 2>*) & x;
+
+		std::array<u16, 2> r;
+		memcpy(&r, &x, sizeof(r));
+		return r;
 	}
 
 
@@ -253,7 +258,11 @@ namespace secJoin
 		const oc::block b = _mm_set_epi8(15, 13, 11, 9, 7, 5, 3, 1, 14, 12, 10, 8, 6, 4, 2, 0);
 		y = _mm_shuffle_epi8(y, b);
 
-		return *(std::array<u64, 2>*)&y;
+		std::array<u64, 2> r;
+		memcpy(&r, &y, sizeof(r));
+		return r;
+
+		//return *(std::array<u64, 2>*)&y;
 	}
 
 	// perfect shuffle 4 blocks on x0,x1 into 8 blocks of y.
@@ -390,7 +399,6 @@ namespace secJoin
 
 
 		auto n64 = n1024 * 16;
-		u64 x0 = 0, x1 = 0;
 		auto n8 = n64 * sizeof(u64);
 		//auto n8 = n32 * sizeof(u32);
 		while (input.size() != n8)

@@ -167,6 +167,7 @@ namespace secJoin
         {
             mSessionID = std::exchange(o.mSessionID, oc::ZeroBlock);
             mSize = std::exchange(o.mSize, 0);
+            mIdx = std::exchange(o.mIdx, 0);
             mCorrelations = std::move(o.mCorrelations);
             mRemReq = std::move(o.mRemReq);
             mGen = std::exchange(o.mGen, nullptr);
@@ -277,18 +278,13 @@ namespace secJoin
 
         bool mFakeGen = false;
         oc::block mCurSessionID = oc::ZeroBlock;
-        //u64 mCurSize = 0;
-        //u64 mNumChunks = 0;
         u64 mChunkSize = 0;
         u64 mNumConcurrent = 0;
-        //u64 mReservoirSize = 0;
         u64 mBaseSize = 0;
         bool mStopRequested = false;
         Role mRole = Role::Sender;
+
         std::unique_ptr<macoro::mpsc::channel<Command>> mControlQueue;
-        //std::map<u64, Chunk> mChunks;
-        //Chunk mCurChunk;
-        //u64 mRemChunk = 0;
 
         std::vector<std::array<oc::block, 2>> mBaseSendOts;
         std::vector<oc::block> mBaseRecvOts;
@@ -302,7 +298,6 @@ namespace secJoin
         oc::Log mLog;
 
         std::vector<Gen> mGens;
-        macoro::async_manual_reset_event mGetEvent;
 
 
         bool isStopRequested()
@@ -481,6 +476,7 @@ namespace secJoin
             {
 
                 c.reset(new macoro::mpsc::channel<std::pair<u64, Cor>>(1ull << oc::log2ceil(oc::divCeil(numCorrelations, mChunkSize))));
+                i = 0;
                 while (n < numCorrelations)
                 {
                     m = std::min<u64>(numCorrelations - n, mChunkSize);
@@ -489,12 +485,13 @@ namespace secJoin
                     req = CorRequest{
                         sessionID ^ oc::block(i * 31212 ^ i,i),
                         m,
-                        i++,
+                        i,
                         CorRequest::Req<Cor>{
                             cor,
                             c
                         }
                     };
+                    ++i;
 
                     if (n < reservoirSize)
                     {
@@ -526,85 +523,6 @@ namespace secJoin
         macoro::task<Request<BinOle>> binOleRequest(u64 numCorrelations, u64 reservoirSize = 0, oc::block sessionID = oc::ZeroBlock)
         {
             return request<BinOle>(numCorrelations, BinOle{}, reservoirSize, sessionID);
-            //MC_BEGIN(macoro::task<Request<BinOle>>, this, numCorrelations, reservoirSize, sessionID,
-            //    c = std::shared_ptr<macoro::mpsc::channel<std::pair<u64, BinOle>>>{},
-            //    rem = std::vector<CorRequest>{},
-            //    req = CorRequest{},
-            //    cor = Request<BinOle>{},
-            //    n = u64{0}, m = u64{}, i = u64{0});
-
-            //if (reservoirSize == 0)
-            //    reservoirSize = numCorrelations;
-
-            //if (sessionID == oc::ZeroBlock)
-            //{
-            //    sessionID = nextSID();
-            //}
-
-            //if (mFakeGen)
-            //{
-            //    cor.mSessionID = sessionID;
-            //    cor.mSize = numCorrelations;
-            //    cor.mCorrelations.resize(oc::divCeil(numCorrelations, mChunkSize));
-
-            //    for (u64 i = 0; i < cor.mCorrelations.size(); ++i)
-            //    {
-            //        m = std::min<u64>(numCorrelations - n, mChunkSize);
-            //        m = 1ull << oc::log2ceil(m);
-            //        n += m;
-
-            //        cor.mCorrelations[i].emplace();
-            //        cor.mCorrelations[i]->mAdd.resize(m);
-            //        cor.mCorrelations[i]->mMult.resize(m);
-            //        fakeFill(*cor.mCorrelations[i]);
-            //    }
-
-            //    MC_RETURN(std::move(cor));
-            //}
-            //else
-            //{
-
-            //    c.reset(new macoro::mpsc::channel<std::pair<u64, BinOle>>(1ull << oc::log2ceil(oc::divCeil(numCorrelations, mChunkSize))));
-            //    while (n < numCorrelations)
-            //    {
-            //        m = std::min<u64>(numCorrelations - n, mChunkSize);
-            //        m = 1ull << oc::log2ceil(m);
-
-            //        req = CorRequest{
-            //            sessionID ^ oc::block(i * 31212 ^ i,i),
-            //            m,
-            //            i++,
-            //            CorRequest::Req<BinOle>{
-            //                BinOle{},
-            //                c
-            //            }
-            //        };
-
-            //        if (n < reservoirSize)
-            //        {
-            //            MC_AWAIT(mControlQueue->push(OleGenerator::Command{ std::move(req) }));
-            //        }
-            //        else
-            //        {
-            //            rem.push_back(std::move(req));
-            //        }
-
-            //        n += m;
-            //    }
-
-            //    std::reverse(rem.begin(), rem.end());
-
-            //    MC_RETURN((Request<BinOle>{
-            //        sessionID,
-            //            numCorrelations,
-            //            oc::divCeil(numCorrelations, mChunkSize),
-            //            std::move(rem),
-            //            this,
-            //            std::move(c)
-            //    }));
-
-            //}
-            //MC_END();
         }
         macoro::task<Request<OtRecv>> otRecvRequest(u64 numCorrelations, u64 reservoirSize = 0, oc::block sessionID = oc::ZeroBlock)
         {
@@ -655,45 +573,4 @@ namespace secJoin
         MC_RETURN(std::move(*mCorrelations[mIdx++]));
         MC_END();
     }
-
-    //macoro::task<> get(BinOle& triples)
-    //{
-    //    MC_BEGIN(macoro::task<>, this, &triples
-    //    );
-
-    //    if (mRemChunk == 0)
-    //    {
-    //        mGetEvent.reset();
-    //        if (mFakeGen)
-    //        {
-    //            mCurChunk.mAdd.resize(mChunkSize / 128);
-    //            mCurChunk.mMult.resize(mChunkSize / 128);
-
-    //            fakeFill(mCurChunk);
-    //        }
-    //        else
-    //        {
-    //            MC_AWAIT(mControlQueue->push({ Command::GetChunk{&mGetEvent} }));
-    //            MC_AWAIT(mGetEvent);
-    //        }
-
-    //        mRemChunk = mCurChunk.mAdd.size();
-    //    }
-
-    //    if (mRemChunk)
-    //    {
-    //        auto m = mChunkSize / 128;
-    //        auto n = mRemChunk;
-
-    //        triples.mAdd = mCurChunk.mAdd.subspan(m - mRemChunk, n);
-    //        triples.mMult = mCurChunk.mMult.subspan(m - mRemChunk, n);
-    //        triples.mMemAdd = std::move(mCurChunk.mAdd);
-    //        triples.mMemMult = std::move(mCurChunk.mMult);
-    //        mRemChunk = 0;
-    //    }
-    //    else
-    //        throw std::runtime_error("OleGenerator, no triples left. " LOCATION);
-    //    MC_END();
-    //}
-
 }

@@ -21,15 +21,19 @@ namespace secJoin
         mTriples = macoro::sync_wait(gen.binOleRequest(2 * cir.mNonlinearGateCount * oc::roundUpTo(mN, 128)));
 
         mCir = cir;
+        mN128 = oc::divCeil(mN, 128);
 
         if (mCir.mLevelCounts.size() == 0)
             mCir.levelByAndDepth(mLevelize);
 
         mNumRounds = mCir.mLevelCounts.size();
         mGates = mCir.mGates;
-        mWords.resize(mCir.mWireCount, oc::divCeil(mN, 128));
+        mWords.resize(0);
+        mWords.resize(mCir.mWireCount);//,
+        mRemainingMappings = mCir.mWireCount;
+        mMem.clear();
+        //memset(mWords.data(), 0, mWords.size() * sizeof(*mWords.data()));
 
-        memset(mWords.data(), 0, mWords.size() * sizeof(*mWords.data()));
         mPrng.SetSeed(gen.mPrng.get());
         mPrint = mCir.mPrints.begin();
     }
@@ -68,7 +72,7 @@ namespace secJoin
 
     //    if (mO.mDebug)
     //    {
-    //        mO.mWords.resize(mWords.rows(), mWords.cols());
+    //        mO.mWords.resize(mWords.rows(), mN128);
 
     //        MC_AWAIT(chl.send(coproto::copy(mWords)));
     //        MC_AWAIT(chl.recv(mO.mWords));
@@ -126,12 +130,34 @@ namespace secJoin
 
     oc::MatrixView<u8> Gmw::getMemView(BetaBundle& wires)
     {
-        // we assume the input bundles are contiguous.
+        // we require the input bundles and memory are contiguous.
         for (u64 j = 1; j < wires.size(); ++j)
+        {
             if (wires[j - 1] + 1 != wires[j])
                 throw RTE_LOC;
+        }
 
-        oc::MatrixView<u8> memView((u8*)mWords[wires[0]].data(), wires.size(), mWords.cols() * 16);
+        if (mWords[wires[0]])
+        {
+            // we require the input bundles and memory are contiguous.
+            for (u64 j = 1; j < wires.size(); ++j)
+            {
+                if (mWords[wires[j - 1]] + mN128 != mWords[wires[j]])
+                    throw RTE_LOC;
+            }
+        }
+        else
+        {
+            mMem.emplace_back();
+            mMem.back().resize(wires.size(), mN128, oc::AllocType::Uninitialized);
+            for (u64 j = 0; j < wires.size(); ++j)
+            {
+                  map(wires[j], mMem.back()[j].data());
+                //mWords[] =;
+            }
+        }
+
+        oc::MatrixView<u8> memView((u8*)mWords[wires[0]], wires.size(), mN128 * 16);
         return memView;
     }
 
@@ -290,26 +316,34 @@ namespace secJoin
             batchSize = 1ull << 14
         );
 
-        if (mIdx == -1)
+        if (mIdx == ~0ull)
             throw std::runtime_error("Gmw::init(...) was not called");
+
+        finalizeMapping();
 
         if (mO.mDebug)
         {
-            mO.mWords.resize(mWords.rows(), mWords.cols());
+            mO.mWords.resize(mWords.size(), mN128);
 
-            MC_AWAIT(chl.send(coproto::copy(mWords)));
+            for (u64 i = 0; i < mWords.size(); i++)
+            {
+                for (u64 j = 0; j < mN128; ++j)
+                    mO.mWords(i, j) = mWords[i][j];
+            }
+            MC_AWAIT(chl.send(std::move(mO.mWords)));
+
+            mO.mWords.resize(mWords.size(), mN128);
             MC_AWAIT(chl.recv(mO.mWords));
 
             for (u64 i = 0; i < mWords.size(); i++)
             {
-                mO.mWords(i) = mO.mWords(i) ^ mWords(i);
+                for (u64 j = 0; j < mN128; ++j)
+                    mO.mWords(i, j) = mO.mWords(i, j) ^ mWords[i][j];
             }
         }
 
         for (roundIdx = 0; roundIdx < numRounds(); ++roundIdx)
         {
-
-
             gates = mGates.subspan(0, mCir.mLevelCounts[roundIdx]);
             mGates = mGates.subspan(mCir.mLevelCounts[roundIdx]);
 
@@ -323,11 +357,11 @@ namespace secJoin
             }
 
 
-            a.resize(mWords.cols() * mCir.mLevelAndCounts[roundIdx]);
-            b.resize(mWords.cols() * mCir.mLevelAndCounts[roundIdx]);
-            c.resize(mWords.cols() * mCir.mLevelAndCounts[roundIdx]);
-            d.resize(mWords.cols() * mCir.mLevelAndCounts[roundIdx]);
-            roundRem = mWords.cols() * mCir.mLevelAndCounts[roundIdx] * 2;
+            a.resize(mN128 * mCir.mLevelAndCounts[roundIdx]);
+            b.resize(mN128 * mCir.mLevelAndCounts[roundIdx]);
+            c.resize(mN128 * mCir.mLevelAndCounts[roundIdx]);
+            d.resize(mN128 * mCir.mLevelAndCounts[roundIdx]);
+            roundRem = mN128 * mCir.mLevelAndCounts[roundIdx] * 2;
 
             j = 0;
             while (j != a.size())
@@ -387,9 +421,9 @@ namespace secJoin
             for (gate = gates.begin(); gate < gates.end(); ++gate)
             {
 
-                in[0] = mWords.data() + gate->mInput[0] * mWords.cols();
-                in[1] = mWords.data() + gate->mInput[1] * mWords.cols();
-                out = mWords.data() + gate->mOutput * mWords.cols();
+                in[0] = mWords[gate->mInput[0]];
+                in[1] = mWords[gate->mInput[1]];
+                out = mWords[gate->mOutput];
 
 
                 if (mO.mDebug)
@@ -408,7 +442,7 @@ namespace secJoin
 
                 if (gate->mType == oc::GateType::a)
                 {
-                    for (u64 i = 0; i < mWords.cols(); ++i)
+                    for (u64 i = 0; i < mN128; ++i)
                         out[i] = in[0][i];
                 }
                 else if (gate->mType == oc::GateType::na_And ||
@@ -419,7 +453,7 @@ namespace secJoin
                 {
                     if (buff.size() == 0 && roundRem)
                     {
-                        auto min = oc::roundUpTo(std::min<u64>(batchSize, roundRem), mWords.cols());
+                        auto min = oc::roundUpTo(std::min<u64>(batchSize, roundRem), mN128);
                         buff.resize(min);
                         roundRem -= min;
                         buffIter = buff.data();
@@ -428,7 +462,7 @@ namespace secJoin
 
                     buffIter = multSend(in[0], in[1], gate->mType, a.data() + j, c.data() + j, buffIter);
 
-                    j += mWords.cols();
+                    j += mN128;
 
                     if (mO.mDebug)
                     {
@@ -445,12 +479,12 @@ namespace secJoin
                     gate->mType == oc::GateType::Nxor)
                 {
 
-                    for (u64 i = 0; i < mWords.cols(); ++i)
+                    for (u64 i = 0; i < mN128; ++i)
                         out[i] = in[0][i] ^ in[1][i];
 
                     if (gate->mType == oc::GateType::Nxor && mIdx == 0)
                     {
-                        for (u64 i = 0; i < mWords.cols(); ++i)
+                        for (u64 i = 0; i < mN128; ++i)
                             out[i] = out[i] ^ oc::AllOneBlock;
                     }
                 }
@@ -460,7 +494,7 @@ namespace secJoin
             }
 
             assert(roundRem == 0 && buff.size() == 0);
-            roundRem = mWords.cols() * mCir.mLevelAndCounts[roundIdx] * 2;
+            roundRem = mN128 * mCir.mLevelAndCounts[roundIdx] * 2;
 
             j = 0;
             for (gate = gates.begin(); gate < gates.end(); ++gate)
@@ -472,24 +506,24 @@ namespace secJoin
                     gate->mType == oc::GateType::Nor)
                 {
 
-                    if (roundRem && buff.size() == 0 || buffIter == (buff.data() + buff.size()))
+                    if ((roundRem && buff.size() == 0) || buffIter == (buff.data() + buff.size()))
                     {
-                        buff.resize(oc::roundUpTo(std::min<u64>(batchSize, roundRem), mWords.cols()));
+                        buff.resize(oc::roundUpTo(std::min<u64>(batchSize, roundRem), mN128));
                         roundRem -= buff.size();
                         buffIter = buff.data();
                         MC_AWAIT(chl.recv(buff));
                     }
 
 
-                    in[0] = mWords.data() + gate->mInput[0] * mWords.cols();
-                    in[1] = mWords.data() + gate->mInput[1] * mWords.cols();
-                    out = mWords.data() + gate->mOutput * mWords.cols();
+                    in[0] = mWords[gate->mInput[0]];
+                    in[1] = mWords[gate->mInput[1]];
+                    out = mWords[gate->mOutput];
 
                     buffIter = multRecv(in[0], in[1], out, gate->mType,
                         b.data() + j,
                         c.data() + j,
                         d.data() + j, buffIter);
-                    j += mWords.cols();
+                    j += mN128;
                 }
             }
 
@@ -527,7 +561,7 @@ namespace secJoin
                     auto gIdx = &gate - mCir.mGates.data();
                     print(gIdx);
 
-                    for (u64 i = 0; i < mWords.cols(); ++i)
+                    for (u64 i = 0; i < mN128; ++i)
                     {
                         auto& a = mO.mWords(gate.mInput[0], i);
                         auto& b = mO.mWords(gate.mInput[1], i);
@@ -578,27 +612,35 @@ namespace secJoin
                     print(mCir.mGates.size());
                 }
 
-                MC_AWAIT(chl.send(coproto::copy(mWords)));
+                ww.resize(mWords.size()* mN128);
+                for (u64 i = 0; i < mWords.size(); ++i)
+                    for (u64 j = 0; j < mN128; ++j)
+                        ww[i * mN128 + j] = mWords[i][j];
+                MC_AWAIT(chl.send(std::move(ww)));
 
-                ww.resize(mWords.size());
+                ww.resize(mWords.size() * mN128);
                 MC_AWAIT(chl.recv(ww));
 
                 for (u64 i = 0; i < mWords.size(); ++i)
                 {
-                    auto exp = mO.mWords(i);
-                    auto act = ww[i] ^ mWords(i);
-
-                    if (neq(exp, act))
+                    for (u64 j = 0; j < mN128; ++j)
                     {
-                        auto row = (i / mWords.cols());
-                        auto col = (i % mWords.cols());
 
-                        oc::lout << "p" << mIdx << " mem[" << row << ", " << col <<
-                            "] exp: " << exp <<
-                            ", act: " << act <<
-                            "\ndiff:" << (exp ^ act) << std::endl;
+                        auto exp = mO.mWords(i, j);
+                        auto act = ww[i] ^ mWords[i][j];
 
-                        throw RTE_LOC;
+                        if (neq(exp, act))
+                        {
+                            auto row = i;
+                            auto col = j;
+
+                            oc::lout << "p" << mIdx << " mem[" << row << ", " << col <<
+                                "] exp: " << exp <<
+                                ", act: " << act <<
+                                "\ndiff:" << (exp ^ act) << std::endl;
+
+                            throw RTE_LOC;
+                        }
                     }
                 }
             }
@@ -694,7 +736,7 @@ namespace secJoin
     // Observer z1 + z2 = xy
     block* Gmw::multSendP1(block* x, oc::GateType gt, block* a, block* u)
     {
-        auto width = mWords.cols();
+        auto width = mN128;
         if (invertA(gt) == false)
         {
             for (u64 i = 0; i < width; ++i)
@@ -712,7 +754,7 @@ namespace secJoin
     block* Gmw::multSendP2(block* y, oc::GateType gt,
         block* c, block* w)
     {
-        auto width = mWords.cols();
+        auto width = mN128;
         //c = mC.subspan(0, width);
         //mC = mC.subspan(width);
 
@@ -733,7 +775,7 @@ namespace secJoin
     block* Gmw::multRecvP1(block* x, block* z, oc::GateType gt,
         block* b, block* w)
     {
-        auto width = mWords.cols();
+        auto width = mN128;
 
         if (invertA(gt) == false)
         {
@@ -760,7 +802,7 @@ namespace secJoin
         block* u
     )
     {
-        auto width = mWords.cols();
+        auto width = mN128;
 
         for (u64 i = 0; i < width; ++i)
         {
@@ -775,8 +817,8 @@ namespace secJoin
         block* c,
         block* buffIter)
     {
-        buffIter = multSendP1(x,gt, a, buffIter);
-        buffIter = multSendP2(y,gt, c, buffIter);
+        buffIter = multSendP1(x, gt, a, buffIter);
+        buffIter = multSendP2(y, gt, c, buffIter);
         return buffIter;
     }
 
@@ -797,8 +839,8 @@ namespace secJoin
         block* d,
         block* buffIter)
     {
-        oc::AlignedUnVector<block> zz(mWords.cols());
-        oc::AlignedUnVector<block> zz2(mWords.cols());
+        oc::AlignedUnVector<block> zz(mN128);
+        oc::AlignedUnVector<block> zz2(mN128);
 
         buffIter = multRecvP1(x, zz.data(), gt, b, buffIter);
         buffIter = multRecvP2(y, zz2.data(), c, d, buffIter);
@@ -831,8 +873,8 @@ namespace secJoin
         //    zz2 = std::vector<block>{}
         //);
 
-        oc::AlignedUnVector<block> zz(mWords.cols());
-        oc::AlignedUnVector<block> zz2(mWords.cols());
+        oc::AlignedUnVector<block> zz(mN128);
+        oc::AlignedUnVector<block> zz2(mN128);
 
         buffIter = multRecvP2(y, zz.data(), c, d, buffIter);
         buffIter = multRecvP1(x, zz2.data(), oc::GateType::And, b, buffIter);
