@@ -10,7 +10,7 @@
 #include "Matrix.h"
 #include "Util.h"
 
-namespace osuCrypto
+namespace secJoin
 {
     enum class TypeID
     {
@@ -142,9 +142,9 @@ namespace osuCrypto
 
     };
 
-    void populateTable(oc::Table& tb, std::string& fileName, oc::u64 rowCount);
-    void populateTable(oc::Table& tb, std::istream& in, oc::u64 rowCount);
-    void secretShareTable(oc::Table& table,std::array<oc::Table,2>& shares,
+    void populateTable(Table& tb, std::string& fileName, oc::u64 rowCount);
+    void populateTable(Table& tb, std::istream& in, oc::u64 rowCount);
+    void secretShareTable(Table& table,std::array<Table,2>& shares,
                         oc::PRNG &prng);
 
     // class SharedTable

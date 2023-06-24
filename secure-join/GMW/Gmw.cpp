@@ -148,7 +148,15 @@ namespace secJoin
         }
         else
         {
+            static_assert(std::is_nothrow_move_constructible<oc::Matrix<block>>::value,"assumes");
+            block* old = nullptr;
+            if(mMem.size())
+                old = mMem.back().data();
             mMem.emplace_back();
+
+            if(old && old != (mMem.end() - 2)->data())
+                throw RTE_LOC;
+                
             mMem.back().resize(wires.size(), mN128, oc::AllocType::Uninitialized);
             for (u64 j = 0; j < wires.size(); ++j)
             {

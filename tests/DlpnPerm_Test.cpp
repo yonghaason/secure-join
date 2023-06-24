@@ -1,5 +1,6 @@
 #include "DlpnPerm_Test.h"
 
+using namespace secJoin;
 
 /*
 This is the case where input has not

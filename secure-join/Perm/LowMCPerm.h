@@ -213,12 +213,12 @@ namespace secJoin
     inline macoro::task<> LowMCPerm::apply<u8>(
         const Perm& pi,
         oc::MatrixView<u8> sout,
-        oc::PRNG& prng,
+        oc::PRNG& _,
         coproto::Socket& chl,
         bool invPerm,
         OleGenerator& ole)
     {
-        MC_BEGIN(macoro::task<>, &pi, &chl, sout, &prng, invPerm, &ole,
+        MC_BEGIN(macoro::task<>, &pi, &chl, sout, invPerm, &ole,
             xEncrypted_ = std::vector<u8>{},
             xEncrypted = span<LowMC2<>::block>{},
             xPermuted = std::vector<LowMC2<>::block>{},

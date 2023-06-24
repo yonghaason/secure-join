@@ -25,6 +25,10 @@ namespace secJoin
 		std::vector<u32> mPerm;
 
 		Perm() = default;
+		Perm(const Perm&) = default;
+		Perm(Perm&&) noexcept = default;
+		Perm& operator=(const Perm&) = default;
+		Perm& operator=(Perm&&) noexcept = default;
 
 		//initializing perm with prng
 		Perm(u64 n, PRNG& prng)

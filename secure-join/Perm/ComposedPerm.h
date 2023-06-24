@@ -17,6 +17,10 @@ namespace secJoin
         bool mIsSecure = true;
 
         ComposedPerm() = default;
+        ComposedPerm(const ComposedPerm&) = default;
+        ComposedPerm(ComposedPerm&&) noexcept = default;
+        ComposedPerm& operator=(const ComposedPerm&) = default;
+        ComposedPerm& operator=(ComposedPerm&&) noexcept = default;
 
         //initializing the permutation
         ComposedPerm(Perm perm, u8 partyIdx)

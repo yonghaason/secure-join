@@ -64,11 +64,11 @@ namespace secJoin
     inline macoro::task<> InsecurePerm::apply<u8>(
         oc::MatrixView<const u8> x1,
         oc::MatrixView<u8> sout,
-        oc::PRNG& prng,
+        oc::PRNG&,
         coproto::Socket& chl,
-        OleGenerator& ole)
+        OleGenerator&)
     {
-        MC_BEGIN(macoro::task<>, x1, &chl, sout, &prng, &ole
+        MC_BEGIN(macoro::task<>, x1, &chl, sout
         );
 
         if (x1.rows() != sout.rows() ||
@@ -102,12 +102,12 @@ namespace secJoin
     inline macoro::task<> InsecurePerm::apply<u8>(
         const Perm& pi,
         oc::MatrixView<u8> sout,
-        oc::PRNG& prng,
+        oc::PRNG&,
         coproto::Socket& chl,
         bool invPerm,
-        OleGenerator& ole)
+        OleGenerator&)
     {
-        MC_BEGIN(macoro::task<>, &pi, &chl, sout, &prng, invPerm, &ole,
+        MC_BEGIN(macoro::task<>, &pi, &chl, sout, invPerm,
             o = oc::Matrix<u8>{}
         );
         if (sout.rows() != pi.size())

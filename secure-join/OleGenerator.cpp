@@ -29,8 +29,8 @@ namespace secJoin
     macoro::task<> OleGenerator::Gen::start()
     {
         MC_BEGIN(macoro::task<>, this,
-            slotIdx = u64{},
-            done = false,
+            //slotIdx = u64{},
+            //done = false,
             sendMsg = oc::AlignedUnVector<std::array<oc::block, 2>>{},
             recvMsg = oc::AlignedUnVector<oc::block>{},
             bv = oc::BitVector{},
@@ -196,7 +196,7 @@ namespace secJoin
             pushIdxs = std::vector<u64>{},
             //popIdx = u64{},
             numTasks = u64{},
-            getEvent = (macoro::async_manual_reset_event*)nullptr,
+
             baseSender = oc::SoftSpokenMalOtSender{},
             baseRecver = oc::SoftSpokenMalOtReceiver{},
             sessions = std::map<oc::block, CorRequest>{},

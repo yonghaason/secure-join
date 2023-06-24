@@ -75,7 +75,7 @@ namespace secJoin
             upLevels.resize(mLogn);
 
             MC_AWAIT(upstream(src, controlBits, op, type, comm, gen, root, upLevels));
-            MC_AWAIT(downstream(src, controlBits, op, root, upLevels, newVals, type, comm, gen));
+            MC_AWAIT(downstream(src, op, root, upLevels, newVals, type, comm, gen));
 
             upLevels.resize(1);
             dst.resize(mN, src.bitsPerEntry());
@@ -180,7 +180,6 @@ namespace secJoin
         // apply the downstream circuit to each level of the tree.
         macoro::task<> downstream(
             const BinMatrix& src,
-            const BinMatrix& controlBits,
             const Operator& op,
             Level& root,
             span<SplitLevel> levels,

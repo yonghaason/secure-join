@@ -31,25 +31,13 @@ namespace secJoin
     {
     public:
         static const std::array<block256, 128> mB, mBShuffled;
-
         static constexpr int KeySize = 128;
-        std::array<oc::block, KeySize / 128> mKey;
-        //oc::AlignedUnVector<u16> mPi;
 
-        //std::array<oc::block, 1024> mKeyMask;
+        std::array<oc::block, KeySize / 128> mKey;
 
         void setKey(oc::block k)
         {
-            // mKey = oc::PRNG(k).get();
             mKey[0] = k;
-            //std::array<block256, 2> zeroOne;
-            //memset(&zeroOne[0], 0, sizeof(zeroOne[0]));
-            //memset(&zeroOne[1], -1, sizeof(zeroOne[1]));
-
-            //for (u64 i = 0; i < 256; ++i)
-            //    mKeyMask[i] = zeroOne[*oc::BitIterator((u8*)&k, i)];
-
-            //mPi = samplePerm(oc::ZeroBlock, KeySize);
         }
 
         void compressH(std::array<u16, KeySize>& hj, block256m3& uj)
@@ -290,38 +278,40 @@ namespace secJoin
 
     class DLpnPrfSender : public oc::TimerAdapter
     {
-        std::vector<oc::PRNG> mKeyOTs;
     public:
-#ifdef SECUREJOIN_DK_USE_SILENT
-        oc::SilentOtExtSender mOtSender;
-#else
-        oc::SoftSpokenShOtSender<> mSoftSender;
-#endif
-
         static constexpr auto mDebug = false;
         static constexpr auto StepSize = 32;
         static constexpr auto n = DLpnPrf::KeySize;
         static constexpr auto m = 256;
         static constexpr auto t = 128;
         static constexpr int mNumOlePer = (m * 2) / 128;
+
+        std::vector<oc::PRNG> mKeyOTs;
         DLpnPrf mPrf;
-        //std::vector<block256> mU2;
         oc::AlignedUnVector<std::array<u16, m>> mU;
         oc::AlignedUnVector<u16> mH;
         bool mIsKeyOTsSet = false;
         bool mIsKeySet = false;
 
+
+        DLpnPrfSender() = default;
+        DLpnPrfSender(const DLpnPrfSender&) = default;
+        DLpnPrfSender(DLpnPrfSender&&) noexcept = default;
+        DLpnPrfSender& operator=(const DLpnPrfSender&) = default;
+        DLpnPrfSender& operator=(DLpnPrfSender&&) noexcept = default;
+
+
         macoro::task<> genKeyOTs(OleGenerator& ole)
         {
             MC_BEGIN(macoro::task<>, this, &ole,
                 totalSize = u64(),
-                s = u64(),
+
                 ots = OtRecv(),
                 req = Request<OtRecv>(),
                 keyBlock = oc::block());
 
             totalSize = 128;
-            s=0;
+
             MC_AWAIT_SET(req, ole.otRecvRequest(totalSize));
 
             MC_AWAIT_SET(ots, req.get());
@@ -356,11 +346,11 @@ namespace secJoin
         coproto::task<> evaluate(
             span<oc::block> y, 
             coproto::Socket& sock, 
-            oc::PRNG& prng,
+            oc::PRNG& _,
             OleGenerator& gen)
         {
 
-            MC_BEGIN(coproto::task<>, y, this, &sock, &prng, &gen,
+            MC_BEGIN(coproto::task<>, y, this, &sock, &gen,
                 buffer = oc::AlignedUnVector<u8>{},
                 //uu = oc::AlignedUnVector<u16>{},
                 f = oc::BitVector{},
@@ -780,38 +770,38 @@ namespace secJoin
 
     class DLpnPrfReceiver : public oc::TimerAdapter
     {
-        std::vector<std::array<oc::PRNG, 2>> mKeyOTs;
     public:
-        oc::SilentOtExtReceiver mOtReceiver;
-        oc::SoftSpokenShOtReceiver<> mSoftReceiver;
-
-        //std::vector<block256> mH, ;
-        oc::AlignedUnVector<std::array<u16, 256>> mU;
-        oc::AlignedUnVector<u16> mH;
-        bool mIsKeyOTsSet = false;
-
-
         static constexpr auto mDebug = false;
         static constexpr auto StepSize = 32;
         static constexpr auto n = DLpnPrf::KeySize;
         static constexpr auto m = 256;
         static constexpr auto t = 128;
-        DLpnPrf mPrf;
         static constexpr int mNumOlePer = (m * 2) / 128;
 
-        //oc::AlignedUnVector<u16> mPi;
+        std::vector<std::array<oc::PRNG, 2>> mKeyOTs;
+        oc::AlignedUnVector<std::array<u16, 256>> mU;
+        oc::AlignedUnVector<u16> mH;
+        bool mIsKeyOTsSet = false;
+        DLpnPrf mPrf;
+
+
+
+        DLpnPrfReceiver() = default;
+        DLpnPrfReceiver(const DLpnPrfReceiver&) = default;
+        DLpnPrfReceiver(DLpnPrfReceiver&&)  = default;
+        DLpnPrfReceiver& operator=(const DLpnPrfReceiver&) = default;
+        DLpnPrfReceiver& operator=(DLpnPrfReceiver&&) noexcept = default;
 
         macoro::task<> genKeyOTs(OleGenerator& ole)
         {
-
             MC_BEGIN(macoro::task<>, this, &ole,
             totalSize = u64(),
-            s = u64(),
+
             ots = OtSend(),
             req = Request<OtSend>());
 
             totalSize = 128;
-            s = 0;
+
 
             MC_AWAIT_SET(req, ole.otSendRequest(totalSize));
 
@@ -841,10 +831,10 @@ namespace secJoin
             span<oc::block> x, 
             span<oc::block> y, 
             coproto::Socket& sock, 
-            oc::PRNG& prng, 
+            oc::PRNG&, 
             OleGenerator& gen)
         {
-            MC_BEGIN(coproto::task<>, x, y, this, &sock, &prng, &gen,
+            MC_BEGIN(coproto::task<>, x, y, this, &sock, &gen,
                 X = oc::AlignedUnVector<std::array<oc::block, DLpnPrf::KeySize / 128>>{},
                 buffer = oc::AlignedUnVector<u8>{},
                 //h = oc::AlignedUnVector<u16>{},

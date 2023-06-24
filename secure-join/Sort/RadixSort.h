@@ -221,7 +221,7 @@ namespace secJoin
             bool additive)
         {
 
-            MC_BEGIN(macoro::task<>, this, &f, &s, dst, &comm, additive,
+            MC_BEGIN(macoro::task<>, &f, &s, dst, &comm, additive,
                 ff = BinMatrix{},
                 ss = Matrix32{},
                 dd = std::vector<u32>{},
@@ -279,7 +279,7 @@ namespace secJoin
             coproto::Socket& comm)
         {
             MC_BEGIN(macoro::task<>, this, &f, &s, &dst, &gen, &comm,
-                nc = u64{},
+
                 otRecvReq = Request<OtRecv>{},
                 otRecv = OtRecv{},
                 otSendReq = Request<OtSend>{},
@@ -444,7 +444,7 @@ namespace secJoin
             bool check)
         {
 
-            MC_BEGIN(macoro::task<>, this, &k, &f, &comm, check,
+            MC_BEGIN(macoro::task<>, &k, &f, &comm, check,
                 n = u64{},
                 L = bitCount,
                 kk = BinMatrix{},
@@ -532,7 +532,7 @@ namespace secJoin
             Matrix32& f,
             coproto::Socket& comm)
         {
-            MC_BEGIN(macoro::task<>, this, L, &k, &f, &comm,
+            MC_BEGIN(macoro::task<>, L, &k, &f, &comm,
                 n = u64{},
                 kk = BinMatrix{},
                 ff = Matrix32{});
@@ -773,7 +773,7 @@ namespace secJoin
             coproto::Socket& comm
         )
         {
-            MC_BEGIN(macoro::task<>, this, &f0, &s0, &comm,
+            MC_BEGIN(macoro::task<>, &f0, &s0, &comm,
                 L2 = u64{},
                 m = u64{},
                 sum = u32{},
@@ -1141,7 +1141,7 @@ namespace secJoin
             MC_BEGIN(macoro::task<>, this, keyBitCount, &k, &dst, &gen, &comm,
                 ll = u64{},
                 kIdx = u64{},
-                L2 = u64{},
+
                 sk = BinMatrix{},
                 ssk = BinMatrix{},
                 sigma2 = AdditivePerm{},

@@ -351,7 +351,7 @@ namespace secJoin
 					}
 					{
 						auto& v = parent.mSufVal[i];
-						auto& v0 = childUp.mSufVal[i * 2];
+						//auto& v0 = childUp.mSufVal[i * 2];
 						auto& v1 = childUp.mSufVal[i * 2 + 1];
 						auto& d0 = childDn.mSufVal[i * 2];
 						auto& d1 = childDn.mSufVal[i * 2 + 1];

@@ -16,7 +16,7 @@
 #include "AdditivePerm_Test.h"
 #include "CSVParser_Test.h"
 
-// #include "AggTree_Tests.h"
+#include "AggTree_Tests.h"
 
 namespace secJoin_Tests
 {
@@ -58,15 +58,10 @@ namespace secJoin_Tests
         //t.add("DarkMatter32Prf_proto_test                    ", DarkMatter32Prf_proto_test);
 
         t.add("DLpnPrf_plain_test                            ", DLpnPrf_plain_test);
-<<<<<<< HEAD
         t.add("DLpnPrf_proto_test                            ", DLpnPrf_proto_test); 
         t.add("Dlpn_perm_test1                               ", Dlpn_perm_test1);
         t.add("Dlpn_perm_test2                               ", Dlpn_perm_test2);
         t.add("Dlpn_perm_secret_shared_input_test            ", Dlpn_perm_secret_shared_input_test);
-=======
-        t.add("DLpnPrf_proto_test                            ", DLpnPrf_proto_test);
-        t.add("Dlpn_perm_test                                ", Dlpn_perm_test);
->>>>>>> 6078b654e0f0f8920285447a0a373f9cad18a74f
 
         t.add("RadixSort_aggregateSum_test                   ", RadixSort_aggregateSum_test);
         t.add("RadixSort_oneHot_test                         ", RadixSort_oneHot_test);
@@ -79,15 +74,6 @@ namespace secJoin_Tests
 
 
 
-<<<<<<< HEAD
-        // t.add("AggTree_levelReveal_Test                      ", AggTree_levelReveal_Test);
-        // t.add("AggTree_toPackedBin_Test                      ", AggTree_toPackedBin_Test);
-
-        // t.add("AggTree_dup_pre_levelReveal_Test              ", AggTree_dup_pre_levelReveal_Test);
-        // t.add("AggTree_dup_singleSetLeaves_Test              ", AggTree_dup_singleSetLeaves_Test);
-        // t.add("AggTree_dup_pre_setLeaves_Test                ", AggTree_dup_pre_setLeaves_Test);
-
-=======
         t.add("AggTree_plain_Test                            ", AggTree_plain_Test);
         t.add("AggTree_levelReveal_Test                      ", AggTree_levelReveal_Test);
 
@@ -105,6 +91,5 @@ namespace secJoin_Tests
         t.add("AggTree_xor_pre_full_Test                     ", AggTree_xor_pre_full_Test);
         
         
->>>>>>> 6078b654e0f0f8920285447a0a373f9cad18a74f
         });
 }

@@ -19,6 +19,10 @@ namespace secJoin
         bool isSetup() const { return mIsSetup; }
 
         AdditivePerm() = default;
+        AdditivePerm(const AdditivePerm&) = default;
+        AdditivePerm(AdditivePerm&&) noexcept = default;
+        AdditivePerm& operator=(const AdditivePerm&) = default;
+        AdditivePerm& operator=(AdditivePerm&&) noexcept = default;
 
         AdditivePerm(span<u32> shares, PRNG& prng, u8 partyIdx) :
             mPi(shares.size(), partyIdx, prng)

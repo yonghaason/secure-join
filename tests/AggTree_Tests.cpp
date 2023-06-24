@@ -6,7 +6,7 @@
 #include "coproto/Socket/LocalAsyncSock.h"
 #include "secure-join/OleGenerator.h"
 #include "secure-join/GMW/Gmw.h"
-#include "tests/util.h"
+#include "secure-join/Util.h"
 #include "AggTree_Tests.h"
 
 
@@ -971,9 +971,9 @@ void AggTree_xor_upstream_Test()
 
         Level root[2];
 
-        auto mN16 = tree.mN16;
+        //auto mN16 = tree.mN16;
         auto mLogn = tree.mLogn;
-        auto mLogfn = tree.mLogfn;
+        //auto mLogfn = tree.mLogfn;
         auto s = tree.shareVals(prng);
         auto c = tree.shareBits(prng);
 
@@ -1135,13 +1135,13 @@ void AggTree_dup_pre_downstream_cir_Test()
     eval(cir, 10, 10, false, ~0ull);
 }
 
-std::string hex(const oc::span<u8>& bb)
-{
-    std::stringstream ss;
-    for (u64 i = 0; i < bb.size(); ++i)
-        ss << std::hex << std::setw(2) << std::setfill('0') << int(bb[i]);
-    return ss.str();
-}
+// std::string hex(const oc::span<u8>& bb)
+// {
+//     std::stringstream ss;
+//     for (u64 i = 0; i < bb.size(); ++i)
+//         ss << std::hex << std::setw(2) << std::setfill('0') << int(bb[i]);
+//     return ss.str();
+// }
 
 template<typename Op, typename OpCir>
 void AggTree_xor_downstream_Test(Op op, OpCir opCir, u64 mN)
@@ -1192,8 +1192,8 @@ void AggTree_xor_downstream_Test(Op op, OpCir opCir, u64 mN)
         root2[1] = root[1];
 
         macoro::sync_wait(macoro::when_all_ready(
-            t[0].downstream(s[0], c[0], opCir, root[0], upLevels[0], preSuf[0], type, com[0], g[0], &dwLevels[0]),
-            t[1].downstream(s[1], c[1], opCir, root[1], upLevels[1], preSuf[1], type, com[1], g[1], &dwLevels[1])
+            t[0].downstream(s[0], opCir, root[0], upLevels[0], preSuf[0], type, com[0], g[0], &dwLevels[0]),
+            t[1].downstream(s[1], opCir, root[1], upLevels[1], preSuf[1], type, com[1], g[1], &dwLevels[1])
         ));
 
         std::vector<PLevel> levels(mLogn);

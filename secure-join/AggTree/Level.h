@@ -369,8 +369,8 @@ namespace secJoin
             //auto dstSize = srcSize + destOffset;
 
             resize(dstSize, src.bitsPerEntry(), src.type());
-            auto bps = bitsPerEntry();
-            auto doCopy = [bps, destOffset, srcOffset, srcSize](const auto& src, auto& dst)
+
+            auto doCopy = [destOffset, srcOffset, srcSize](const auto& src, auto& dst)
             {
                 for (u64 i = 0; i < src.bitsPerEntry(); ++i)
                 {

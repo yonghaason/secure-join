@@ -578,7 +578,7 @@ namespace secJoin
     // apply the downstream circuit to each level of the tree.
     macoro::task<> AggTree::downstream(
         const BinMatrix& src,
-        const BinMatrix& controlBits,
+        
         const Operator& op,
         Level& root,
         span<SplitLevel> levels,
@@ -588,7 +588,7 @@ namespace secJoin
         OleGenerator& gen,
         std::vector<SplitLevel>* debugLevels)
     {
-        MC_BEGIN(macoro::task<>, this, &src, &controlBits, &op, &root, levels, &newVals, type, &comm, &gen, debugLevels,
+        MC_BEGIN(macoro::task<>, this, &src, &op, &root, levels, &newVals, type, &comm, &gen, debugLevels,
             bitsPerEntry = u64{},
             nodeCir = oc::BetaCircuit{},
             bin = Gmw{},

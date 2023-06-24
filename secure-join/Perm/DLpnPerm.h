@@ -14,6 +14,12 @@ namespace secJoin
         DLpnPrfSender mSender;
         oc::Matrix<u8> mA, mDelta, mB;
 
+        DLpnPerm() = default;
+        DLpnPerm(const DLpnPerm&) = default;
+        DLpnPerm(DLpnPerm&&) noexcept = default;
+        DLpnPerm& operator=(const DLpnPerm&) = default;
+        DLpnPerm& operator=(DLpnPerm&&) noexcept = default;
+
         void setupDlpnSender(oc::block &key, std::vector<oc::block> &rk);
 
         void setupDlpnReceiver(std::vector<std::array<oc::block, 2>> &sk);

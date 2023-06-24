@@ -1,6 +1,6 @@
 #include "Table.h"
 
-namespace osuCrypto
+namespace secJoin
 {
     // SelectBundle SelectQuery::addInput(SharedTable::ColRef column)
     // {
@@ -268,7 +268,7 @@ namespace osuCrypto
     //         mSelect.addOp(selectDetails::Add, mMemIdx, r.mMemIdx) };
     // }
 
-    void populateTable(oc::Table& tb, std::istream& in, oc::u64 rowCount)
+    void populateTable(Table& tb, std::istream& in, oc::u64 rowCount)
     {
         bool isheader = true;
         std::string line, word;
@@ -288,7 +288,7 @@ namespace osuCrypto
             std::stringstream str(line);
             while(getline(str, word, CSV_COL_DELIM))
             {
-                if(tb.mColumns[colNum].getTypeID() == oc::TypeID::IntID)
+                if(tb.mColumns[colNum].getTypeID() == TypeID::IntID)
                 {
                     if(tb.mColumns[colNum].getByteCount() <= 4)
                     {
@@ -326,7 +326,7 @@ namespace osuCrypto
 
 
 
-    void populateTable(oc::Table& tb, std::string& fileName, oc::u64 rowCount)
+    void populateTable(Table& tb, std::string& fileName, oc::u64 rowCount)
     {
         std::fstream file (fileName, std::ios::in);
         std::istream in(file.rdbuf());
@@ -339,8 +339,8 @@ namespace osuCrypto
         file.close();
     }
 
-    void secretShareTable(oc::Table& table,
-        std::array<oc::Table,2>& shares,
+    void secretShareTable(Table& table,
+        std::array<Table,2>& shares,
         oc::PRNG &prng)
     {
         for(oc::u64 i =0; i<table.mColumns.size(); i++)
