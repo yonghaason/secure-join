@@ -157,7 +157,8 @@ namespace secJoin
             for (u64 i = 0; i < mCir.mInputs.size(); ++i)
                 for (u64 j = 0; j < mCir.mInputs[i].size(); ++j)
                     if (mWords[mCir.mInputs[i][j]] == nullptr)
-                        throw RTE_LOC;
+                        throw std::runtime_error("GMW input wire not set. input: " + std::to_string(i) + "\n" + LOCATION);
+
             //for (u64 i = 0; i < mCir.mOutputs.size(); ++i)
             //    for (u64 j = 0; j < mCir.mOutputs[i].size(); ++j)
             //        if (mWords[mCir.mOutputs[i][j]] == nullptr)

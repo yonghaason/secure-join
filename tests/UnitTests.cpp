@@ -59,9 +59,9 @@ namespace secJoin_Tests
 
         t.add("DLpnPrf_plain_test                            ", DLpnPrf_plain_test);
         t.add("DLpnPrf_proto_test                            ", DLpnPrf_proto_test); 
-        t.add("Dlpn_perm_test1                               ", Dlpn_perm_test1);
-        t.add("Dlpn_perm_test2                               ", Dlpn_perm_test2);
-        t.add("Dlpn_perm_secret_shared_input_test            ", Dlpn_perm_secret_shared_input_test);
+        t.add("DlpnPerm_setup_test                               ", DlpnPerm_setup_test);
+        t.add("DlpnPerm_apply_test                               ", DlpnPerm_apply_test);
+        t.add("DlpnPerm_sharedApply_test            ", DlpnPerm_sharedApply_test);
 
         t.add("RadixSort_aggregateSum_test                   ", RadixSort_aggregateSum_test);
         t.add("RadixSort_oneHot_test                         ", RadixSort_oneHot_test);

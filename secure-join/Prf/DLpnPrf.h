@@ -13,8 +13,8 @@
 
 namespace secJoin
 {
-    static u64 jj = 0;
-    static u64 ii = 11;
+    // static u64 jj = 0;
+    // static u64 ii = 11;
     
     template<typename T>
     int bit(T& x, u64 i)
@@ -279,7 +279,7 @@ namespace secJoin
     class DLpnPrfSender : public oc::TimerAdapter
     {
     public:
-        static constexpr auto mDebug = false;
+        static constexpr auto mDebug = true;
         static constexpr auto StepSize = 32;
         static constexpr auto n = DLpnPrf::KeySize;
         static constexpr auto m = 256;
@@ -300,8 +300,9 @@ namespace secJoin
         DLpnPrfSender& operator=(const DLpnPrfSender&) = default;
         DLpnPrfSender& operator=(DLpnPrfSender&&) noexcept = default;
 
+        bool hasKeyOts() const {return mIsKeyOTsSet;}
 
-        macoro::task<> genKeyOTs(OleGenerator& ole)
+        macoro::task<> genKeyOts(OleGenerator& ole)
         {
             MC_BEGIN(macoro::task<>, this, &ole,
                 totalSize = u64(),
@@ -321,6 +322,7 @@ namespace secJoin
             keyBlock = ots.mChoice.getSpan<oc::block>()[0];
             setKey(keyBlock);
             setKeyOts(ots.mMsg);
+
             MC_END();
         }
 
@@ -331,6 +333,8 @@ namespace secJoin
             mKeyOTs.resize(mPrf.KeySize);
             for (u64 i = 0; i < mPrf.KeySize; ++i)
             {
+                //auto ki = *oc::BitIterator((u8*) &mPrf.mKey, i);
+                //std::cout << "r" <<i << " " << ots[i] << " " << ki << std::endl;
                 mKeyOTs[i].SetSeed(ots[i]);
             }
             mIsKeyOTsSet = true;
@@ -362,10 +366,24 @@ namespace secJoin
                 ole = Request<BinOle>{}
             );
 
-            if (!mIsKeyOTsSet || !mIsKeySet)
+            if (!mIsKeyOTsSet)
+                MC_AWAIT(genKeyOts(gen));
+
+            if(mDebug)
             {
-                std::cerr << "Receiver Key or KeyOTS are not set " << LOCATION << std::endl;
-                throw RTE_LOC;
+                ots.resize(mKeyOTs.size());
+                MC_AWAIT(sock.recv(ots));
+                for(u64 i =0; i < ots.size(); ++i)
+                {
+                    auto ki = *oc::BitIterator((u8*) &mPrf.mKey, i);
+                    if(ots[i][ki] != mKeyOTs[i].getSeed())
+                    {
+                        std::cout << "bad key ot " << i << "\nki="<< ki << " " << mKeyOTs[i].getSeed() << " vs \n" 
+                            << ots[i][0] << " " << ots[i][1] << std::endl;
+
+                        throw RTE_LOC;
+                    }
+                }
             }
 
             setTimePoint("DarkMatter.sender.begin");
@@ -586,6 +604,12 @@ namespace secJoin
 
             setTimePoint("DarkMatter.sender.derand");
 
+            if(mDebug)
+            {
+                MC_AWAIT(sock.send(y));
+                MC_AWAIT(sock.send(mPrf.mKey));
+            }
+
             MC_END();
         }
 
@@ -709,14 +733,14 @@ namespace secJoin
                         }
                     }
 
-                    if (mDebug && i == ii)
-                    {
-                        std::cout << "s u " << bit2(t[0], jj) <<" = " << u[i][jj] << std::endl;
-                        auto jj2 = jj / 128 + (jj % 128) * 2;
-                        std::cout << "    " 
-                            << bit(packedU[0], jj2) << " "  
-                            << bit(packedU[2], jj2) << std::endl;
-                    }
+                    // if (mDebug && i == ii)
+                    // {
+                    //     std::cout << "s u " << bit2(t[0], jj) <<" = " << u[i][jj] << std::endl;
+                    //     auto jj2 = jj / 128 + (jj % 128) * 2;
+                    //     std::cout << "    " 
+                    //         << bit(packedU[0], jj2) << " "  
+                    //         << bit(packedU[2], jj2) << std::endl;
+                    // }
 
 
                     t0[0] = q0[0] ^ packedU[0];
@@ -742,13 +766,13 @@ namespace secJoin
                         buffW[j * 2 + 0] = t0[0];
                         buffW[j * 2 + 1] = t0[1];
 
-                        if (i == ii)
-                        {
-                            auto jj2 = jj / 128 + (jj % 128) * 2;
-                            std::cout << "s w " << bit(t0[0], jj2) <<" = q " <<bit(q0[0], jj2) << " ^ u " << bit(packedU[0] , jj2) << std::endl;
-                            std::cout << "    " << bit(t1[0], jj2) << std::endl;
-                            std::cout << "    " << bit(t2[0], jj2) << std::endl;
-                        }
+                        // if (i == ii)
+                        // {
+                        //     auto jj2 = jj / 128 + (jj % 128) * 2;
+                        //     std::cout << "s w " << bit(t0[0], jj2) <<" = q " <<bit(q0[0], jj2) << " ^ u " << bit(packedU[0] , jj2) << std::endl;
+                        //     std::cout << "    " << bit(t1[0], jj2) << std::endl;
+                        //     std::cout << "    " << bit(t2[0], jj2) << std::endl;
+                        // }
                     }
 
                     out[i] = DLpnPrf::shuffledCompress(t0);
@@ -771,7 +795,7 @@ namespace secJoin
     class DLpnPrfReceiver : public oc::TimerAdapter
     {
     public:
-        static constexpr auto mDebug = false;
+        static constexpr auto mDebug = DLpnPrfSender::mDebug;
         static constexpr auto StepSize = 32;
         static constexpr auto n = DLpnPrf::KeySize;
         static constexpr auto m = 256;
@@ -792,7 +816,9 @@ namespace secJoin
         DLpnPrfReceiver& operator=(const DLpnPrfReceiver&) = default;
         DLpnPrfReceiver& operator=(DLpnPrfReceiver&&) noexcept = default;
 
-        macoro::task<> genKeyOTs(OleGenerator& ole)
+        bool hasKeyOts() const {return mIsKeyOTsSet;}
+
+        macoro::task<> genKeyOts(OleGenerator& ole)
         {
             MC_BEGIN(macoro::task<>, this, &ole,
             totalSize = u64(),
@@ -809,6 +835,10 @@ namespace secJoin
 
             assert(ots.size() == totalSize);
 
+            // for(u64 i =0; i < totalSize; ++i)
+            // {
+            //     std::cout << "s" <<i << " " << ots.mMsg[i][0] << " " << ots.mMsg[i][1] << std::endl;
+            // }
             setKeyOts(ots.mMsg);
             MC_END();
         }
@@ -826,7 +856,6 @@ namespace secJoin
             mIsKeyOTsSet = true;
         }
 
-
         coproto::task<> evaluate(
             span<oc::block> x, 
             span<oc::block> y, 
@@ -843,6 +872,8 @@ namespace secJoin
                 diff = oc::BitVector{},
                 i = u64{},
                 ots = oc::AlignedUnVector<oc::block>{},
+                kk = oc::block{},
+                baseOts = oc::AlignedUnVector<std::array<oc::block,2>>{},
                 block3 = oc::block{},
                 xPtr = (u32*)nullptr,
                 compressedSizeAct = u64{},
@@ -850,10 +881,19 @@ namespace secJoin
                 ole = Request<BinOle>{}
             );
             if (!mIsKeyOTsSet)
+                MC_AWAIT(genKeyOts(gen));
+
+            if(mDebug)
             {
-                std::cerr << "Receiver KeyOTS are not set" << std::endl;
-                throw RTE_LOC;
+                baseOts.resize(mKeyOTs.size());
+                for(u64 i =0; i < baseOts.size(); ++i)
+                {
+                    baseOts[i][0] = mKeyOTs[i][0].getSeed();
+                    baseOts[i][1] = mKeyOTs[i][1].getSeed();
+                }
+                MC_AWAIT(sock.send(std::move(baseOts)));
             }
+
             setTimePoint("DarkMatter.recver.begin");
 
             MC_AWAIT_SET(ole, gen.binOleRequest(y.size() * m * 2));
@@ -1040,6 +1080,22 @@ namespace secJoin
             }
             setTimePoint("DarkMatter.recver.derand");
 
+            if(mDebug)
+            {
+                ots.resize(y.size());
+                MC_AWAIT(sock.recv(ots));
+                MC_AWAIT(sock.recv(kk));
+
+                DLpnPrf prf;prf.setKey(kk);
+                for(i =0; i < y.size(); ++i)
+                {
+                    ots[i] = ots[i] ^ y[i];
+
+                    if(prf.eval(x[i]) != ots[i])
+                        throw RTE_LOC;
+                }
+            }
+
             MC_END();
         }
 
@@ -1103,10 +1159,10 @@ namespace secJoin
                             (u[i][k + 3] << 6);
                     }
 
-                    if (mDebug && i == ii)
-                    {
-                        std::cout << "r u " << bit2(t[0], jj) << " = " << u[i][jj]  << std::endl;
-                    }
+                    // if (mDebug && i == ii)
+                    // {
+                    //     std::cout << "r u " << bit2(t[0], jj) << " = " << u[i][jj]  << std::endl;
+                    // }
 
                     // even bits in perfect shuffled order
                     // eg: 0 8 2 10 4 12 6 14
@@ -1165,30 +1221,15 @@ namespace secJoin
                         tIter->mAdd[tIdx + 1] ^
                         tIter->mAdd[tIdx + 3];
 
-                    //for (u64 k = 0; k < packedU.size() / 2; ++k, ++tIdx)
-                    //{
-                    //    packedU[i][k] =
-                    //        tIter->mAdd[tIdx] ^
-                    //        (buff[tIdx] & packedU[i][k]);
-
-                    //    packedU[i][k] = packedU[i][k] ^ (packedU[i][k] >> 1);
-                    //    packedU[i][k] = packedU[i][k] & mask;
-
-                    //}
-
-                    ////packedU[i][0] = packedU[i][0] ^ (packedU[i][1] << 1);
-                    ////packedU[i][1] = packedU[i][2] ^ (packedU[i][3] << 1);
-
-
                     if (mDebug)
                     {
-                        if (i == ii)
-                        {
-                            auto jj2 = jj / 128 + (jj % 128) * 2;
-                            std::cout << "r w " << bit(w[0], jj2) << std::endl;
-                            std::cout << " ww " << bit(ww[j],jj2) << std::endl;
+                        // if (i == ii)
+                        // {
+                        //     auto jj2 = jj / 128 + (jj % 128) * 2;
+                        //     std::cout << "r w " << bit(w[0], jj2) << std::endl;
+                        //     std::cout << " ww " << bit(ww[j],jj2) << std::endl;
                             
-                        }
+                        // }
 
                         block256 W = w ^ ww[j];
                         for (u64 k = 0; k < m; ++k)

@@ -16,28 +16,23 @@ namespace secJoin
 
     macoro::task<> DLpnPerm::setupDlpnSender(OleGenerator &ole)
     {
-        MC_BEGIN(macoro::task<>, this, &ole);
-        MC_AWAIT(mSender.genKeyOTs(ole));
-        MC_END();
+        return mSender.genKeyOts(ole);
     }
 
     macoro::task<> DLpnPerm::setupDlpnReceiver(OleGenerator &ole)
     {
-        MC_BEGIN(macoro::task<>, this, &ole);
-        MC_AWAIT(mRecver.genKeyOTs(ole));
-        MC_END();
+        return mRecver.genKeyOts(ole);
     }
 
     void xorShare(oc::MatrixView<const u8> v1,
-                            oc::MatrixView<const oc::u8> v2,
-                            oc::MatrixView<oc::u8> &s)
+                  oc::MatrixView<const oc::u8> v2,
+                  oc::MatrixView<oc::u8> &s)
     {
         // Checking the dimensions
         if (v1.rows() != v2.rows())
             throw RTE_LOC;
         if (v1.cols() != v2.cols())
             throw RTE_LOC;
-
         for (oc::u64 i = 0; i < v1.size(); ++i)
             s(i) = v1(i) ^ v2(i);
     }
@@ -60,8 +55,15 @@ namespace secJoin
                  aes = oc::AES(),
                  key = oc::block());
 
+
         totElements = pi.mPerm.size();
         blocksPerRow = oc::divCeil(bytesPerRow, sizeof(oc::block));
+
+        key = prng.get();
+        aes.setKey(key);
+        MC_AWAIT(chl.send(std::move(key)));
+        // if(mRecver.hasKeyOts() == false)
+        //     MC_AWAIT(mRecver.genKeyOts(ole));
 
         // Encryption starts here
         aesPlaintext.resize(totElements, blocksPerRow);
@@ -83,13 +85,7 @@ namespace secJoin
                 }
             }
         }
-
-        // TODO, pick a random block and use that as the aes key.
-        // send the key.
-        key = prng.get();
-        aes.setKey(key);
         aes.ecbEncBlocks(aesPlaintext, aesCipher);
-        MC_AWAIT(chl.send(std::move(key)));
 
         MC_AWAIT(mRecver.evaluate(aesCipher, dlpnCipher, chl, prng, ole));
 
@@ -102,11 +98,11 @@ namespace secJoin
 
     // DLpn Sender calls this setup
     macoro::task<> DLpnPerm::setup(
+        u64 totElements,
+        u64 bytesPerRow,
         oc::PRNG &prng,
         coproto::Socket &chl,
-        OleGenerator &ole,
-        u64 totElements,
-        u64 bytesPerRow)
+        OleGenerator &ole)
     {
 
         MC_BEGIN(macoro::task<>, &chl, &prng, &ole, totElements, bytesPerRow, this,
@@ -117,6 +113,7 @@ namespace secJoin
                  blocksPerRow = u64(),
                  aes = oc::AES(),
                  key = oc::block());
+
 
         blocksPerRow = oc::divCeil(bytesPerRow, sizeof(oc::block));
 
@@ -129,9 +126,12 @@ namespace secJoin
         for (u64 i = 0; i < aesPlaintext.size(); i++)
             aesPlaintext(i) = oc::block(0, i);
 
+
         MC_AWAIT(chl.recv(key));
         aes.setKey(key);
         aes.ecbEncBlocks(aesPlaintext, aesCipher);
+
+        MC_AWAIT(mSender.evaluate(dlpnCipher, chl, prng, ole));
 
         for (u64 i = 0; i < aesCipher.rows(); i++)
         {
@@ -146,29 +146,32 @@ namespace secJoin
         for (u64 i = 0; i < totElements; i++)
             memcpyMin(mA[i], preProsdlpnCipher[i]);
 
-        MC_AWAIT(mSender.evaluate(dlpnCipher, chl, prng, ole));
-
         // Placing [y] in sout[1]
         mB.resize(totElements, bytesPerRow);
 
         for (u64 i = 0; i < totElements; i++)
             memcpyMin(mB[i], dlpnCipher[i]);
-
         MC_END();
     }
-
-    // DLpn Receiver calls this apply
-    macoro::task<> DLpnPerm::apply(
+    
+    template <>
+    macoro::task<> DLpnPerm::apply<u8>(
         const Perm &pi,
-        oc::MatrixView<u8> sout,
         u64 bytesPerRow,
+        oc::PRNG &prng,
         coproto::Socket &chl,
+        OleGenerator &ole,
+        oc::MatrixView<u8> sout,
         bool invPerm)
     {
-        MC_BEGIN(macoro::task<>, &pi, &chl, sout, bytesPerRow, this, invPerm,
+        MC_BEGIN(macoro::task<>, &pi, &chl, &prng, &ole, bytesPerRow, this, sout, invPerm,
                  xEncrypted = oc::Matrix<u8>(),
                  xPermuted = oc::Matrix<u8>(),
                  totElements = u64());
+
+        if(hasSetup() == false)
+            MC_AWAIT(setup(pi, bytesPerRow, prng, chl, ole, invPerm));
+        //MC_AWAIT(apply(pi, sout, bytesPerRow, chl, invPerm));
 
         totElements = pi.mPerm.size();
         xPermuted.resize(totElements, bytesPerRow);
@@ -189,49 +192,7 @@ namespace secJoin
         }
 
         xorShare(mDelta, xPermuted, sout);
-
-        MC_END();
-    }
-
-    // DLpn Sender calls this apply
-    macoro::task<> DLpnPerm::apply(
-        oc::MatrixView<const u8> input,
-        oc::MatrixView<u8> sout,
-        coproto::Socket &chl)
-    {
-
-        MC_BEGIN(macoro::task<>, &chl, input, sout, this,
-                 xEncrypted = oc::Matrix<u8>(),
-                 totElements = u64());
-        totElements = input.rows();
-        xEncrypted.resize(input.rows(), input.cols());
-
-        xorShare(mA, input, xEncrypted);
-
-        MC_AWAIT(chl.send(std::move(xEncrypted)));
-
-        for (u64 i = 0; i < totElements; ++i)
-            memcpy(sout[i], mB[i]);
-
-        MC_END();
-    }
-
-    // If DLPN receiver only wants to call apply
-    // this will internally call setup for it
-    template <>
-    macoro::task<> DLpnPerm::apply<u8>(
-        const Perm &pi,
-        u64 bytesPerRow,
-        oc::PRNG &prng,
-        coproto::Socket &chl,
-        OleGenerator &ole,
-        oc::MatrixView<u8> sout,
-        bool invPerm)
-    {
-        MC_BEGIN(macoro::task<>, &pi, &chl, &prng, &ole, bytesPerRow, this, sout, invPerm);
-
-        MC_AWAIT(setup(pi, bytesPerRow, prng, chl, ole, invPerm));
-        MC_AWAIT(apply(pi, sout, bytesPerRow, chl, invPerm));
+        mDelta.resize(0,0);
 
         MC_END();
     }
@@ -258,8 +219,10 @@ namespace secJoin
 
         xPermuted.resize(in.rows(), in.cols());
         soutPerm.resize(sout.rows(), sout.cols());
-        MC_AWAIT(setup(pi, bytesPerRow, prng, chl, ole, invPerm));
-        MC_AWAIT(apply(pi, soutPerm, bytesPerRow, chl, invPerm));
+
+        MC_AWAIT(apply(pi, bytesPerRow, prng, chl, ole, soutPerm, invPerm));
+        // MC_AWAIT(setup(pi, bytesPerRow, prng, chl, ole, invPerm));
+        // MC_AWAIT(apply(pi, soutPerm, bytesPerRow, chl, invPerm));
 
         pi.apply<u8>(in, xPermuted, invPerm);
         xorShare(xPermuted, soutPerm, sout);
@@ -279,14 +242,27 @@ namespace secJoin
     {
         MC_BEGIN(macoro::task<>, &chl, &prng, &ole, this, input, sout,
                  totElements = u64(),
-                 bytesPerRow = u64());
+                 bytesPerRow = u64(),
+                 xEncrypted = oc::Matrix<u8>());
 
         totElements = input.rows();
         bytesPerRow = input.cols();
+        if(hasSetup() == false)
+            MC_AWAIT(setup(totElements, bytesPerRow, prng, chl, ole));
 
-        MC_AWAIT(setup(prng, chl, ole, totElements, bytesPerRow));
-        MC_AWAIT(apply(input, sout, chl));
+        // MC_AWAIT(apply(input, sout, chl));
+        //totElements = input.rows();
+        xEncrypted.resize(input.rows(), input.cols());
 
+        xorShare(mA, input, xEncrypted);
+
+        MC_AWAIT(chl.send(std::move(xEncrypted)));
+
+        for (u64 i = 0; i < totElements; ++i)
+            memcpy(sout[i], mB[i]);
+
+        mA.resize(0,0);
+        mB.resize(0,0);
         MC_END();
     }
 }

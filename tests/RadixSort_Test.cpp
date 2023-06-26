@@ -1,7 +1,7 @@
 #include "RadixSort_Test.h"
 #include "secure-join/Sort/RadixSort.h"
 #include "cryptoTools/Network/IOService.h"
-#include "secure-join/util.h"
+#include "secure-join/Util.h"
 
 using namespace oc;
 using namespace secJoin;

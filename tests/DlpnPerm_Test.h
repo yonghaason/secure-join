@@ -3,6 +3,6 @@
 #include "cryptoTools/Common/CLP.h"
 #include "secure-join/Util.h"
 
-void Dlpn_perm_test1(const oc::CLP& cmd);
-void Dlpn_perm_test2(const oc::CLP& cmd);
-void Dlpn_perm_secret_shared_input_test(const oc::CLP& cmd);
+void DlpnPerm_setup_test(const oc::CLP& cmd);
+void DlpnPerm_apply_test(const oc::CLP& cmd);
+void DlpnPerm_sharedApply_test(const oc::CLP& cmd);

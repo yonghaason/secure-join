@@ -8,7 +8,7 @@
 namespace secJoin
 {
 
-    class AdditivePerm : public oc::TimerAdapter
+    class AdditivePerm final : public oc::TimerAdapter
     {
     public:
         std::vector<u32> mShare;

@@ -8,12 +8,6 @@ void LocMC_eval_test(const oc::CLP& cmd)
     u64 n = cmd.getOr("n", 100);
 
     oc::Matrix<u8> x(n, 16);// , x2Perm(n, rowSize);
-    std::vector<oc::Matrix<u8>> k(13);// (n, LowMC2<>::getBlockSize());// , x2Perm(n, rowSize);
-
-    for (u64 i = 0; i < k.size(); ++i)
-    {
-        k[i].resize(n, 16);
-    }
 
     //auto cir = LowMCPerm::mLowMcCir();
     static oc::BetaCircuit cir;
@@ -23,6 +17,14 @@ void LocMC_eval_test(const oc::CLP& cmd)
         LowMC2<10,128,128,20>(false).to_enc_circuit(cir, true);
         cir.levelByAndDepth();
     }
+
+    std::vector<oc::Matrix<u8>> k(cir.mInputs.size()-2);// (n, LowMC2<>::getBlockSize());// , x2Perm(n, rowSize);
+
+    for (u64 i = 0; i < k.size(); ++i)
+    {
+        k[i].resize(n, 16);
+    }
+
     oc::PRNG prng0(oc::block(0, 0));
     oc::PRNG prng1(oc::block(0, 1));
 

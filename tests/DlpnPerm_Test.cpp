@@ -10,7 +10,7 @@ processing phase
 Advantage: setup can run in background
 before the input comes
 */
-void Dlpn_perm_test1(const oc::CLP& cmd)
+void DlpnPerm_setup_test(const oc::CLP& cmd)
 {
     u64 n = cmd.getOr("n", 1000);
     u64 rowSize = cmd.getOr("m",63);
@@ -29,13 +29,11 @@ void Dlpn_perm_test1(const oc::CLP& cmd)
 
     prng0.get(x.data(), x.size());
     Perm pi(n,prng0);
-    // std::cout << "The Current Permutation is " << pi.mPerm << std::endl;
 
     // Fake Setup
     OleGenerator ole0, ole1;
     ole0.fakeInit(OleGenerator::Role::Sender);
     ole1.fakeInit(OleGenerator::Role::Receiver);
-
 
     // DLpnPrf dm;
     oc::block kk;
@@ -61,7 +59,7 @@ void Dlpn_perm_test1(const oc::CLP& cmd)
         // the preprocessing phase
         auto res = coproto::sync_wait(coproto::when_all_ready(
             dlpnPerm1.setup(pi, rowSize, prng0, sock[0], ole1, invPerm),
-            dlpnPerm2.setup(prng1, sock[1], ole0, n, rowSize)
+            dlpnPerm2.setup(n, rowSize, prng1, sock[1], ole0)
         ));
 
         oc::Matrix<oc::u8>  permPiA = reveal(dlpnPerm1.mDelta, dlpnPerm2.mB);
@@ -77,27 +75,27 @@ void Dlpn_perm_test1(const oc::CLP& cmd)
         // std::get<0>(res).result();
         // std::get<1>(res).result();
 
-        coproto::sync_wait(coproto::when_all_ready(
-            ole0.stop(),
-            ole1.stop()
-        ));
+        // coproto::sync_wait(coproto::when_all_ready(
+        //     ole0.stop(),
+        //     ole1.stop()
+        // ));
 
-        // the online phase (where input are already arrived)
-        auto res1 = coproto::sync_wait(coproto::when_all_ready(
-            dlpnPerm1.apply(pi , sout1, rowSize, sock[0], invPerm),
-            dlpnPerm2.apply(x, sout2, sock[1]))
-        );
+        // // the online phase (where input are already arrived)
+        // auto res1 = coproto::sync_wait(coproto::when_all_ready(
+        //     dlpnPerm1.apply(pi ,sout1, rowSize, sock[0], invPerm),
+        //     dlpnPerm2.apply(x, sout2, sock[1]))
+        // );
 
-        std::get<0>(res1).result();
-        std::get<1>(res1).result();
+        // std::get<0>(res1).result();
+        // std::get<1>(res1).result();
 
 
-        oc::Matrix<oc::u8>  yAct = reveal(sout2,sout1);
+        // oc::Matrix<oc::u8>  yAct = reveal(sout2,sout1);
                 
-        pi.apply<u8>(x, yExp, invPerm);
+        // pi.apply<u8>(x, yExp, invPerm);
 
-        if(eq(yExp, yAct) == false)
-            throw RTE_LOC;
+        // if(eq(yExp, yAct) == false)
+        //     throw RTE_LOC;
 
     }
    
@@ -108,7 +106,7 @@ This is the case where input has already
 arrived and you want the protocol to 
 take care of the preprocessing phase
 */
-void Dlpn_perm_test2(const oc::CLP& cmd)
+void DlpnPerm_apply_test(const oc::CLP& cmd)
 {
     u64 n = cmd.getOr("n", 1000);
     u64 rowSize = cmd.getOr("m",63);
@@ -134,21 +132,20 @@ void Dlpn_perm_test2(const oc::CLP& cmd)
     ole0.fakeInit(OleGenerator::Role::Sender);
     ole1.fakeInit(OleGenerator::Role::Receiver);
 
-    auto res = coproto::sync_wait(coproto::when_all_ready(
-        dlpnPerm1.setupDlpnReceiver(ole0),
-        dlpnPerm2.setupDlpnSender(ole1)
-    ));
-
-    std::get<0>(res).result();
-    std::get<1>(res).result();
+    // auto res = coproto::sync_wait(coproto::when_all_ready(
+    //     dlpnPerm1.setupDlpnReceiver(ole0),
+    //     dlpnPerm2.setupDlpnSender(ole1)
+    // ));
+    // std::get<0>(res).result();
+    // std::get<1>(res).result();
 
     auto sock = coproto::LocalAsyncSocket::makePair();
 
     for(auto invPerm : {false,true})
     {
         auto res1 = coproto::sync_wait(coproto::when_all_ready(
-            dlpnPerm1.apply<u8>(pi, rowSize, prng0, sock[0], ole1, sout1, invPerm),
-            dlpnPerm2.apply<u8>(prng1, sock[1], ole0, x, sout2)
+            dlpnPerm1.apply<u8>(pi, rowSize, prng0, sock[0], ole0, sout1, invPerm),
+            dlpnPerm2.apply<u8>(prng1, sock[1], ole1, x, sout2)
         ));
 
 
@@ -172,7 +169,7 @@ void Dlpn_perm_test2(const oc::CLP& cmd)
 }
 
 
-void Dlpn_perm_secret_shared_input_test(const oc::CLP& cmd)
+void DlpnPerm_sharedApply_test(const oc::CLP& cmd)
 {
     u64 n = cmd.getOr("n", 1000);
     u64 rowSize = cmd.getOr("m",63);

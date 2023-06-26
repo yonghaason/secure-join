@@ -1,11 +1,7 @@
 #pragma once
 
 #include <cryptoTools/Common/MatrixView.h>
-// #include "aby3/sh3/Sh3BinaryEvaluator.h"
-// #include "aby3/sh3/Sh3Encryptor.h"
-// #include "aby3/sh3/Sh3Evaluator.h"
-// #include "aby3/Circuit/CircuitLibrary.h"
-// #include <boost/optional.hpp>
+
 #include <fstream>
 #include "Matrix.h"
 #include "Util.h"
@@ -18,60 +14,32 @@ namespace secJoin
         StringID = 1
     };
 
-    struct DataType
-    {
-        virtual TypeID getTypeID() const = 0;
-        virtual u64 getBitCount() const = 0;
-    };
-
-    struct IntType : public DataType
-    {
-        u64 mBitCount = 0;
-
-        IntType(u64 bc) : mBitCount(bc) {}
-
-        u64 getBitCount() const override { return mBitCount; }
-        TypeID getTypeID() const override { return TypeID::IntID; }
-    };
-
-    struct StringType : public DataType
-    {
-        u64 mCharCount = 0;
-        StringType(u64 bc) : mCharCount(bc / 8) { if (bc % 8) throw RTE_LOC; }
-
-        u64 getBitCount() const override { return mCharCount * 8; }
-        TypeID getTypeID() const override { return TypeID::StringID; }
-
-    };
-
     class ColumnBase
     {
     public:
-
-        std::shared_ptr<const DataType> mType;
+        TypeID mType;
+        u64 mBitCount = 0;
         std::string mName;
+
 
         ColumnBase() = default;
         ColumnBase(const ColumnBase&) = default;
         ColumnBase(ColumnBase&&) = default;
 
         ColumnBase(std::string name, TypeID type, u64 size)
+            : mType(type)
+            , mBitCount(size)
+            , mName(std::move(name))
         {
-            mName = std::move(name);
-            if (type == TypeID::IntID)
-                mType = std::make_shared<IntType>(size);
-            else if (type == TypeID::StringID)
-                mType = std::make_shared<StringType>(size);
-            else
-                throw RTE_LOC;
+            if(mType == TypeID::StringID && mBitCount % 8)
+                throw std::runtime_error("String type must have a multiple of 8 bits. " LOCATION);
         }
 
 		ColumnBase& operator=(const ColumnBase&) = default;
 
-
         u64 getByteCount() const { return (getBitCount() + 7) / 8; }
-        u64 getBitCount() const { return mType->getBitCount(); }
-        TypeID getTypeID() const { return mType->getTypeID(); }
+        u64 getBitCount() const { return mBitCount; }
+        TypeID getTypeID() const { return mType; }
     };
 
     class Column : public ColumnBase
