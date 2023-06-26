@@ -58,7 +58,7 @@ void DlpnPerm_setup_test(const oc::CLP& cmd)
 
         // the preprocessing phase
         auto res = coproto::sync_wait(coproto::when_all_ready(
-            dlpnPerm1.setup(pi, rowSize, prng0, sock[0], ole1, invPerm),
+            dlpnPerm1.setup(pi, rowSize, prng0, sock[0], invPerm, ole1),
             dlpnPerm2.setup(n, rowSize, prng1, sock[1], ole0)
         ));
 
@@ -144,8 +144,8 @@ void DlpnPerm_apply_test(const oc::CLP& cmd)
     for(auto invPerm : {false,true})
     {
         auto res1 = coproto::sync_wait(coproto::when_all_ready(
-            dlpnPerm1.apply<u8>(pi, rowSize, prng0, sock[0], ole0, sout1, invPerm),
-            dlpnPerm2.apply<u8>(prng1, sock[1], ole1, x, sout2)
+            dlpnPerm1.apply<u8>(pi, sout1, prng0, sock[0], invPerm, ole0),
+            dlpnPerm2.apply<u8>(x, sout2, prng1, sock[1], ole1)
         ));
 
 
@@ -210,8 +210,8 @@ void DlpnPerm_sharedApply_test(const oc::CLP& cmd)
     for(auto invPerm : {false,true})
     {
         auto res1 = coproto::sync_wait(coproto::when_all_ready(
-            dlpnPerm1.apply<u8>(pi, prng0, sock[0], ole1,  xShares[0], sout1, invPerm),
-            dlpnPerm2.apply<u8>(prng1, sock[1], ole0, xShares[1], sout2)
+            dlpnPerm1.apply<u8>(pi, xShares[0], sout1, prng0, sock[0], invPerm, ole1),
+            dlpnPerm2.apply<u8>(xShares[1], sout2, prng1, sock[1], ole0)
         ));
 
 

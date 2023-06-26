@@ -96,8 +96,8 @@ namespace secJoin
             {
                 if(mIsSecure)
                 {
-                    MC_AWAIT(mDlpnPerm.apply<T>(prng, chl, ole, in, soutperm));
-                    MC_AWAIT(mDlpnPerm.apply<T>(mPerm, prng, chl, ole, soutperm, out, inv));
+                    MC_AWAIT(mDlpnPerm.apply<T>(in, soutperm, prng, chl, ole));
+                    MC_AWAIT(mDlpnPerm.apply<T>(mPerm, soutperm, out, prng, chl, inv, ole));
                 }
                 else
                 {
@@ -109,8 +109,8 @@ namespace secJoin
             {
                 if(mIsSecure)
                 {
-                    MC_AWAIT(mDlpnPerm.apply<T>(mPerm, prng, chl, ole, in, soutperm, inv));
-                    MC_AWAIT(mDlpnPerm.apply<T>(prng, chl, ole, soutperm, out));
+                    MC_AWAIT(mDlpnPerm.apply<T>(mPerm, in, soutperm, prng, chl, inv, ole));
+                    MC_AWAIT(mDlpnPerm.apply<T>(soutperm, out, prng, chl, ole));
                 }
                 else
                 {

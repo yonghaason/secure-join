@@ -22,59 +22,42 @@ namespace secJoin
         DLpnPerm& operator=(const DLpnPerm&) = default;
         DLpnPerm& operator=(DLpnPerm&&) noexcept = default;
 
-        // permute a remote vector by pi and get shares as output.
+        // Sender apply: permute a remote x by our pi and get shares as output.
         template <typename T>
         macoro::task<> apply(
             const Perm &pi,
-            u64 bytesPerRow,
-            oc::PRNG &prng,
-            coproto::Socket &chl,
-            OleGenerator &ole,
             oc::MatrixView<T> sout,
-            bool invPerm);
 
-        // Generic version of below method
+            oc::PRNG &prng,
+            coproto::Socket &chl,
+            bool invPerm,
+            OleGenerator &ole);
+
+        // Sender apply: permute a secret shared input x by our pi and get shares as output
         template <typename T>
         macoro::task<> apply(
             const Perm &pi,
-            oc::PRNG &prng,
-            coproto::Socket &chl,
-            OleGenerator &ole,
             oc::MatrixView<const T> in,
             oc::MatrixView<T> sout,
-            bool invPerm);
 
-        // If DLPN receiver only wants to call apply
-        // when it also has inputs
-        // this will internally call setup for it
-        template <>
-        macoro::task<> apply<u8>(
-            const Perm &pi,
             oc::PRNG &prng,
             coproto::Socket &chl,
-            OleGenerator &ole,
-            oc::MatrixView<const u8> in,
-            oc::MatrixView<u8> sout,
-            bool invPerm);
+            bool invPerm,
+            OleGenerator &ole
+            );
 
-        // Generic version of below method
+        // Receiver apply: permute a secret shared input x by the other party's pi and get shares as output
         template <typename T>
         macoro::task<> apply(
-            oc::PRNG &prng,
-            coproto::Socket &chl,
-            OleGenerator &ole,
             oc::MatrixView<const T> in,
-            oc::MatrixView<T> sout);
+            oc::MatrixView<T> sout,
 
-        
-        template <>
-        macoro::task<> apply<u8>(
             oc::PRNG &prng,
             coproto::Socket &chl,
-            OleGenerator &ole,
-            oc::MatrixView<const u8> input,
-            oc::MatrixView<u8> sout);
+            OleGenerator &ole
+            );
 
+    
 
         void setupDlpnSender(oc::block &key, std::vector<oc::block> &rk);
         void setupDlpnReceiver(std::vector<std::array<oc::block, 2>> &sk);
@@ -90,8 +73,8 @@ namespace secJoin
             u64 bytesPerRow,
             oc::PRNG &prng,
             coproto::Socket &chl,
-            OleGenerator &ole,
-            bool invPerm);
+            bool invPerm,
+            OleGenerator &ole);
 
         // generate the preprocessing when the other party hold pi.
         macoro::task<> setup(
@@ -106,75 +89,74 @@ namespace secJoin
     template <>
     macoro::task<> DLpnPerm::apply<u8>(
         const Perm &pi,
-        u64 bytesPerRow,
+        oc::MatrixView<u8> sout,
         oc::PRNG &prng,
         coproto::Socket &chl,
-        OleGenerator &ole,
-        oc::MatrixView<u8> sout,
-        bool invPerm);
+        bool invPerm,
+        OleGenerator &ole);
 
     template <typename T>
     macoro::task<> DLpnPerm::apply(
         const Perm &pi,
-        u64 bytesPerRow,
+        oc::MatrixView<T> sout,
         oc::PRNG &prng,
         coproto::Socket &chl,
-        OleGenerator &ole,
-        oc::MatrixView<T> sout,
-        bool invPerm)
+        bool invPerm,
+        OleGenerator &ole)
     {
         oc::MatrixView<u8> oo((u8 *)sout.data(), sout.rows(), sout.cols() * sizeof(T));
-        return apply<u8>(pi, bytesPerRow, prng, chl, ole, sout, invPerm);
+        return apply<u8>(pi, sout, prng, chl, invPerm, ole);
     }
 
         // Generic version of below method
         template <>
         macoro::task<> DLpnPerm::apply<u8>(
             const Perm &pi,
-            oc::PRNG &prng,
-            coproto::Socket &chl,
-            OleGenerator &ole,
             oc::MatrixView<const u8> in,
             oc::MatrixView<u8> sout,
-            bool invPerm);
+            oc::PRNG &prng,
+            coproto::Socket &chl,
+            bool invPerm,
+            OleGenerator &ole);
 
         // Generic version of below method
         template <typename T>
         macoro::task<> DLpnPerm::apply(
             const Perm &pi,
-            oc::PRNG &prng,
-            coproto::Socket &chl,
-            OleGenerator &ole,
             oc::MatrixView<const T> in,
             oc::MatrixView<T> sout,
-            bool invPerm)
+            oc::PRNG &prng,
+            coproto::Socket &chl,
+            bool invPerm,
+            OleGenerator &ole)
         {
             oc::MatrixView<const u8> xx((u8 *)in.data(), in.rows(), in.cols() * sizeof(T));
             oc::MatrixView<u8> oo((u8 *)sout.data(), sout.rows(), sout.cols() * sizeof(T));
-            return apply<u8>(pi, prng, chl, ole, xx, oo, invPerm);
+            return apply<u8>(pi, xx, oo, prng, chl, invPerm, ole);
         }
 
 
         template <>
         macoro::task<> DLpnPerm::apply<u8>(
+            oc::MatrixView<const u8> in,
+            oc::MatrixView<u8> sout,
             oc::PRNG &prng,
             coproto::Socket &chl,
-            OleGenerator &ole,
-            oc::MatrixView<const u8> in,
-            oc::MatrixView<u8> sout);
+            OleGenerator &ole
+            );
 
         // Generic version of below method
         template <typename T>
         macoro::task<> DLpnPerm::apply(
+            oc::MatrixView<const T> in,
+            oc::MatrixView<T> sout,
             oc::PRNG &prng,
             coproto::Socket &chl,
-            OleGenerator &ole,
-            oc::MatrixView<const T> in,
-            oc::MatrixView<T> sout)
+            OleGenerator &ole)
         {
             oc::MatrixView<const u8> xx((u8 *)in.data(), in.rows(), in.cols() * sizeof(T));
             oc::MatrixView<u8> oo((u8 *)sout.data(), sout.rows(), sout.cols() * sizeof(T));
-            return apply<u8>(prng, chl, ole, xx, oo);
+            return apply<u8>(xx, oo, prng, chl, ole);
         }
 
 }

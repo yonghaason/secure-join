@@ -43,8 +43,8 @@ namespace secJoin
         u64 bytesPerRow,
         oc::PRNG &prng,
         coproto::Socket &chl,
-        OleGenerator &ole,
-        bool invPerm)
+        bool invPerm,
+        OleGenerator &ole)
     {
         MC_BEGIN(macoro::task<>, &pi, &chl, &prng, &ole, bytesPerRow, this, invPerm,
                  aesPlaintext = oc::Matrix<oc::block>(),
@@ -157,25 +157,24 @@ namespace secJoin
     template <>
     macoro::task<> DLpnPerm::apply<u8>(
         const Perm &pi,
-        u64 bytesPerRow,
+        oc::MatrixView<u8> sout,
         oc::PRNG &prng,
         coproto::Socket &chl,
-        OleGenerator &ole,
-        oc::MatrixView<u8> sout,
-        bool invPerm)
+        bool invPerm,
+        OleGenerator &ole)
     {
-        MC_BEGIN(macoro::task<>, &pi, &chl, &prng, &ole, bytesPerRow, this, sout, invPerm,
+        MC_BEGIN(macoro::task<>, &pi, &chl, &prng, &ole, this, sout, invPerm,
                  xEncrypted = oc::Matrix<u8>(),
                  xPermuted = oc::Matrix<u8>(),
                  totElements = u64());
 
         if(hasSetup() == false)
-            MC_AWAIT(setup(pi, bytesPerRow, prng, chl, ole, invPerm));
+            MC_AWAIT(setup(pi, sout.cols(), prng, chl, invPerm, ole));
         //MC_AWAIT(apply(pi, sout, bytesPerRow, chl, invPerm));
 
         totElements = pi.mPerm.size();
-        xPermuted.resize(totElements, bytesPerRow);
-        xEncrypted.resize(totElements, bytesPerRow);
+        xPermuted.resize(totElements, sout.cols());
+        xEncrypted.resize(totElements, sout.cols());
 
         MC_AWAIT(chl.recv(xEncrypted));
 
@@ -203,24 +202,21 @@ namespace secJoin
     template <>
     macoro::task<> DLpnPerm::apply<u8>(
         const Perm &pi,
-        oc::PRNG &prng,
-        coproto::Socket &chl,
-        OleGenerator &ole,
         oc::MatrixView<const u8> in,
         oc::MatrixView<u8> sout,
-        bool invPerm)
+        oc::PRNG &prng,
+        coproto::Socket &chl,
+        bool invPerm,
+        OleGenerator &ole)
     {
         MC_BEGIN(macoro::task<>, &pi, &chl, &prng, &ole, this, sout, invPerm, in,
                  xPermuted = oc::Matrix<u8>(),
-                 soutPerm = oc::Matrix<u8>(),
-                 bytesPerRow = u64());
-
-        bytesPerRow = in.cols();
+                 soutPerm = oc::Matrix<u8>());
 
         xPermuted.resize(in.rows(), in.cols());
         soutPerm.resize(sout.rows(), sout.cols());
 
-        MC_AWAIT(apply(pi, bytesPerRow, prng, chl, ole, soutPerm, invPerm));
+        MC_AWAIT(apply(pi, soutPerm, prng, chl, invPerm, ole));
         // MC_AWAIT(setup(pi, bytesPerRow, prng, chl, ole, invPerm));
         // MC_AWAIT(apply(pi, soutPerm, bytesPerRow, chl, invPerm));
 
@@ -234,11 +230,11 @@ namespace secJoin
     // this will internally call setup for it
     template <>
     macoro::task<> DLpnPerm::apply<u8>(
+        oc::MatrixView<const u8> input,
+        oc::MatrixView<u8> sout,
         oc::PRNG &prng,
         coproto::Socket &chl,
-        OleGenerator &ole,
-        oc::MatrixView<const u8> input,
-        oc::MatrixView<u8> sout)
+        OleGenerator &ole)
     {
         MC_BEGIN(macoro::task<>, &chl, &prng, &ole, this, input, sout,
                  totElements = u64(),
