@@ -82,6 +82,20 @@ namespace secJoin
     public:
         std::vector<Column> mColumns;
 
+        struct ColRef
+        {
+            Table& mTable;
+            Column& mCol;
+
+            ColRef(Table& t, Column& c)
+                : mTable(t), mCol(c)
+            {}
+
+            ColRef(const ColRef&) = default;
+            ColRef(ColRef&&) = default;
+
+        };
+
         Table() = default;
         Table(const Table&) = default;
         Table(Table&&) = default;
