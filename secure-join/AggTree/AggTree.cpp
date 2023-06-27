@@ -184,9 +184,9 @@ namespace secJoin
     //    auto& d = dest;
 
     //    oc::MatrixView<u8> inView(
-    //        (u8*)s.data() + srcRowStartIdx * s.bytesPerEnrty(),
-    //        (u8*)s.data() + (srcRowStartIdx + numRows) * s.bytesPerEnrty(),
-    //        s.bytesPerEnrty());
+    //        (u8*)s.data() + srcRowStartIdx * s.bytesPerEntry(),
+    //        (u8*)s.data() + (srcRowStartIdx + numRows) * s.bytesPerEntry(),
+    //        s.bytesPerEntry());
 
     //    assert(inView.data() + inView.size() <= s.data() + s.size());
 
@@ -578,7 +578,7 @@ namespace secJoin
     // apply the downstream circuit to each level of the tree.
     macoro::task<> AggTree::downstream(
         const BinMatrix& src,
-        
+
         const Operator& op,
         Level& root,
         span<SplitLevel> levels,

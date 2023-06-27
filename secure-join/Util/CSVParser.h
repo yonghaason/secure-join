@@ -1,7 +1,7 @@
 #pragma once
 #include <cmath>
 #include "cryptoTools/Crypto/PRNG.h"
-#include "secure-join/Table.h"
+#include "secure-join/Join/Table.h"
 #include <fstream>
 #include "secure-join/Defines.h"
 

@@ -1,7 +1,7 @@
 #include "secure-join/Perm/ComposedPerm.h"
 #include "ComposedPerm_Test.h"
 using namespace secJoin;
-#include "secure-join/Util.h"
+#include "secure-join/Util/Util.h"
 
 // This is the insecure perm test
 void ComposedPerm_replicated_perm_test()

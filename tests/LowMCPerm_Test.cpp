@@ -1,6 +1,6 @@
 #include "LowMCPerm_Test.h"
 #include "secure-join/Perm/LowMCPerm.h"
-#include "secure-join/Util.h"
+#include "secure-join/Util/Util.h"
 using namespace secJoin;
 
 void LocMC_eval_test(const oc::CLP& cmd)

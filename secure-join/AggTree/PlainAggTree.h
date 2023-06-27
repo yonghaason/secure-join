@@ -53,9 +53,9 @@ namespace secJoin
 
 	//		for (u64 i = 0; i < mInput.size(); ++i)
 	//		{
-	//			memcpy(ret[1].data(i), mInput.data(i), mInput.bytesPerEnrty());
+	//			memcpy(ret[1].data(i), mInput.data(i), mInput.bytesPerEntry());
 
-	//			for (u64 j = 0; j < ret[1].bytesPerEnrty(); ++i)
+	//			for (u64 j = 0; j < ret[1].bytesPerEntry(); ++i)
 	//			{
 	//				ret[1](i, j) ^= ret[0](i, j);
 	//			}
@@ -118,7 +118,7 @@ namespace secJoin
 		x0.trim();
 		for (u64 i = 0; i < d.rows(); ++i)
 		{
-			for (u64 j = 0; j < x0.bytesPerEnrty(); ++j)
+			for (u64 j = 0; j < x0.bytesPerEntry(); ++j)
 			{
 				x1(i, j) = d(i, j) ^ x0(i, j);
 			}
@@ -195,7 +195,7 @@ namespace secJoin
 			ret[0].resize(mInput.size(), mInput[0].size());
 			ret[1].resize(mInput.size(), mInput[0].size());
 
-			oc::Matrix<u8> v(ret[0].numEntries(), ret[0].bytesPerEnrty());
+			oc::Matrix<u8> v(ret[0].numEntries(), ret[0].bytesPerEntry());
 			for (u64 i = 0; i < v.rows(); ++i)
 				memcpy(v[i].data(), mInput[i].data(), mInput[i].sizeBytes());
 

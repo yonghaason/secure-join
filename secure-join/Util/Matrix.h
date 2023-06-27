@@ -1,5 +1,5 @@
 #pragma once
-#include "Defines.h"
+#include "secure-join/Defines.h"
 #include "cryptoTools/Common/Matrix.h"
 #include "libOTe/Tools/Tools.h"
 #include "Trim.h"
@@ -12,6 +12,15 @@ namespace secJoin
     // bit vector of data. 
     struct BinMatrix
     {
+        using iterator = span<u8>::iterator;
+        using const_iterator = span<u8>::iterator;
+        using reverse_iterator = std::reverse_iterator<iterator>;
+        using const_reverse_iterator = std::reverse_iterator<const_iterator>;
+        using value_type = u8;
+        using pointer = value_type*;
+        using size_type = u64;
+
+
         oc::Matrix<u8> mData;
 
         u64 mBitCount = 0;
@@ -27,17 +36,18 @@ namespace secJoin
             resize(rows, bits, aligment);
         }
 
-        void resize(u64 rows, u64 bits, u64 aligment = 1)
+        void resize(u64 rows, u64 bits, u64 aligment = 1, oc::AllocType alloc = oc::AllocType::Zeroed)
         {
-            mData.resize(rows, oc::divCeil(bits, 8 * aligment));
+            mData.resize(rows, oc::divCeil(bits, 8 * aligment), alloc);
             mBitCount = bits;
         }
+
 
         u64 bitsPerEntry() const {
             return mBitCount;
         }
 
-        u64 bytesPerEnrty() const
+        u64 bytesPerEntry() const
         {
             return mData.cols();
         }
@@ -46,6 +56,8 @@ namespace secJoin
             return mData.rows();
         }
 
+        u64 rows() const { return numEntries(); }
+        u64 cols() const { return bytesPerEntry(); }
         u8* data()
         {
             return mData.data();
@@ -90,6 +102,12 @@ namespace secJoin
         void transpose(TBinMatrix& dst) const;
         TBinMatrix transpose() const;
 
+        void setZero()
+        {   
+            if(mData.size())
+                memset(mData.data(), 0, mData.size());
+        }
+        
         bool operator==(const BinMatrix& b) const
         {
             if (numEntries() != b.numEntries())
@@ -97,7 +115,7 @@ namespace secJoin
             if (bitsPerEntry() != b.bitsPerEntry())
                 return false;
 
-            if (size() == b.size() && bitsPerEntry() == bytesPerEnrty() * 8)
+            if (size() == b.size() && bitsPerEntry() == bytesPerEntry() * 8)
             {
                 return std::memcmp(data(), b.data(), size()) == 0;
             }

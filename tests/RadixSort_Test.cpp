@@ -1,7 +1,7 @@
 #include "RadixSort_Test.h"
 #include "secure-join/Sort/RadixSort.h"
 #include "cryptoTools/Network/IOService.h"
-#include "secure-join/Util.h"
+#include "secure-join/Util/Util.h"
 
 using namespace oc;
 using namespace secJoin;
@@ -58,11 +58,11 @@ void RadixSort_hadamardSum_test()
     RadixSort s0(0), s1(1);
 
     oc::Matrix<u32> r(rows, cols);
-    oc::Matrix<u8> l(1, oc::divCeil(rows * cols, 8));
+    BinMatrix l(1, rows * cols);
 
-    oc::Matrix<u8> 
-        l0(1, oc::divCeil(rows * cols, 8)), 
-        l1(1, oc::divCeil(rows * cols, 8));
+    BinMatrix 
+        l0(1, rows * cols), 
+        l1(1, rows * cols);
 
     oc::Matrix<u32> r0(rows, cols), r1(rows, cols);
     AdditivePerm p0, p1;
@@ -244,10 +244,10 @@ void RadixSort_genValMasks2_test()
             PRNG prng(block(0, 0));
             RadixSort s0(0), s1(1);
 
-            oc::Matrix<u8> k(n, oc::divCeil(L, 8));
-            oc::Matrix<u8> k0(n, oc::divCeil(L, 8)), k1(n, oc::divCeil(L, 8));
+            BinMatrix k(n, L);
+            BinMatrix k0(n, L), k1(n, L);
+            BinMatrix fBin0, fBin1;
             oc::Matrix<u32> f0(n, 1ull << L), f1(n, 1ull << L);
-            oc::Matrix<u8> fBin0, fBin1;
 
             std::vector<std::vector<i64>> vals(1 << L);
             for (u64 i = 0; i < k.rows(); ++i)
@@ -261,7 +261,7 @@ void RadixSort_genValMasks2_test()
             g0.fakeInit(OleGenerator::Role::Receiver);
             g1.fakeInit(OleGenerator::Role::Sender);
 
-            share(k, L, k0, k1, prng);
+            share(k, k0, k1, prng);
 
             macoro::sync_wait(macoro::when_all_ready(
                 s0.genValMasks2(L, k0, f0, fBin0, g0, comm[0]),
@@ -404,8 +404,8 @@ void RadixSort_genBitPerm_test()
                     std::vector<AdditivePerm> p[2];
 
                     assert(m < 64);
-                    oc::Matrix<u8> k(n, oc::divCeil(m, 8));
-                    oc::Matrix<u8> sk[2];
+                    BinMatrix k(n, m);
+                    BinMatrix sk[2];
                     OleGenerator g[2];
                     g[0].fakeInit(OleGenerator::Role::Sender);
                     g[1].fakeInit(OleGenerator::Role::Receiver);
@@ -413,7 +413,7 @@ void RadixSort_genBitPerm_test()
                     //m = L;
                     auto ll = oc::divCeil(m, L);
                     std::vector<Perm> exp(ll);
-                    std::vector<oc::Matrix<u8>> ke(ll);
+                    std::vector<BinMatrix> ke(ll);
                     for (u64 i = 0; i < 2; ++i)
                     {
                         p[i].resize(ll);
@@ -451,12 +451,12 @@ void RadixSort_genBitPerm_test()
                         exp[jj] = exp[jj].inverse();
                     }
 
-                    share(k, m, sk[0], sk[1], prng);
+                    share(k, sk[0], sk[1], prng);
 
 
                     for (u64 j = 0; j < ll; ++j)
                     {
-                        oc::Matrix<u8> kk[2];
+                        BinMatrix kk[2];
                         for (u64 i = 0; i < 2; ++i)
                             kk[i] = s[i].extract(j * L, L, sk[i]);
                         auto kka = reveal(kk[0], kk[1]);
@@ -530,8 +530,8 @@ void RadixSort_genPerm_test()
                     Perm exp(n);
 
                     std::vector<u64> k64(n);
-                    oc::Matrix<u8> k(n, oc::divCeil(bitCount, 8));
-                    oc::Matrix<u8> k0, k1;
+                    BinMatrix k(n, bitCount);
+                    BinMatrix k0, k1;
 
                     auto mask = ((1ull << bitCount) - 1);
                     for (u64 i = 0; i < k.rows(); ++i)
@@ -548,11 +548,11 @@ void RadixSort_genPerm_test()
                         });
                     exp = exp.inverse();
 
-                    share(k, bitCount, k0, k1, prng);
+                    share(k, k0, k1, prng);
 
                     macoro::sync_wait(macoro::when_all_ready(
-                        s0.genPerm(bitCount, k0, p0, g0, comm[0]),
-                        s1.genPerm(bitCount, k1, p1, g1, comm[1])
+                        s0.genPerm(k0, p0, g0, comm[0]),
+                        s1.genPerm(k1, p1, g1, comm[1])
                     ));
 
                     auto act = reveal(p0, p1);

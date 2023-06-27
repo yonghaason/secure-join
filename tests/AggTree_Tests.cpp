@@ -6,7 +6,7 @@
 #include "coproto/Socket/LocalAsyncSock.h"
 #include "secure-join/OleGenerator.h"
 #include "secure-join/GMW/Gmw.h"
-#include "secure-join/Util.h"
+#include "secure-join/Util/Util.h"
 #include "AggTree_Tests.h"
 
 
@@ -390,7 +390,7 @@ void AggTree_levelReveal_Test()
                     sufBitsOdd(i / 2) = sufBits(i + 1);
                 }
 
-                for (u64 j = 0; j < preVals.bytesPerEnrty(); ++j)
+                for (u64 j = 0; j < preVals.bytesPerEntry(); ++j)
                 {
                     preValsEven(i / 2, j) = preVals(i, j);
                     sufValsEven(i / 2, j) = sufVals(i, j);
@@ -441,7 +441,7 @@ void AggTree_levelReveal_Test()
 
                 if (i < preValsEven.numEntries())
                 {
-                    for (u64 j = 0; j < preVals.bytesPerEnrty(); ++j)
+                    for (u64 j = 0; j < preVals.bytesPerEntry(); ++j)
                     {
                         if (even.mPreVal[i].getSpan<u8>()[j] != preValsEven(i, j))
                         {
@@ -454,7 +454,7 @@ void AggTree_levelReveal_Test()
                     }
                 }
 
-                for (u64 j = 0; j < preVals.bytesPerEnrty(); ++j)
+                for (u64 j = 0; j < preVals.bytesPerEntry(); ++j)
                 {
                     if (leaves.mPreVal[i].getSpan<u8>()[j] != preVals(i, j))
                     {
@@ -506,7 +506,7 @@ void AggTree_levelReveal_Test()
 //        for (u64 i = 0; i < mN; ++i)
 //        {
 //
-//            for (u64 j = 0; j < in.bytesPerEnrty(); ++j)
+//            for (u64 j = 0; j < in.bytesPerEntry(); ++j)
 //            {
 //                if (act(i, j) != in(i + startIdx, j))
 //                    throw RTE_LOC;
@@ -525,9 +525,9 @@ BinMatrix perfectShuffle(const BinMatrix& x0, const BinMatrix& x1)
 
     BinMatrix mR(x0.numEntries() + x1.numEntries(), x0.bitsPerEntry());
     for (u64 i = 0; i < x0.numEntries(); ++i)
-        memcpy(mR.data(i * 2), x0.data(i), mR.bytesPerEnrty());
+        memcpy(mR.data(i * 2), x0.data(i), mR.bytesPerEntry());
     for (u64 i = 0; i < x1.numEntries(); ++i)
-        memcpy(mR.data(i * 2 + 1), x1.data(i), mR.bytesPerEnrty());
+        memcpy(mR.data(i * 2 + 1), x1.data(i), mR.bytesPerEntry());
     return mR;
 }
 
@@ -571,7 +571,7 @@ void AggTree_dup_pre_levelReveal_Test()
                 sufBitsOdd(i / 2) = sufBits(i + 1);
             }
 
-            for (u64 j = 0; j < preVals.bytesPerEnrty(); ++j)
+            for (u64 j = 0; j < preVals.bytesPerEntry(); ++j)
             {
                 preValsEven(i / 2, j) = preVals(i, j);
                 sufValsEven(i / 2, j) = sufVals(i, j);
@@ -622,7 +622,7 @@ void AggTree_dup_pre_levelReveal_Test()
 
             if (i < preValsEven.numEntries())
             {
-                for (u64 j = 0; j < preVals.bytesPerEnrty(); ++j)
+                for (u64 j = 0; j < preVals.bytesPerEntry(); ++j)
                 {
                     if (even.mPreVal[i].getSpan<u8>()[j] != preValsEven(i, j))
                     {
@@ -635,7 +635,7 @@ void AggTree_dup_pre_levelReveal_Test()
                 }
             }
 
-            for (u64 j = 0; j < preVals.bytesPerEnrty(); ++j)
+            for (u64 j = 0; j < preVals.bytesPerEntry(); ++j)
             {
                 if (leaves.mPreVal[i].getSpan<u8>()[j] != preVals(i, j))
                 {
@@ -774,7 +774,7 @@ void AggTree_dup_singleSetLeaves_Test()
                         }
                     }
 
-                    for (u64 j = 0; j < s.bytesPerEnrty(); ++j)
+                    for (u64 j = 0; j < s.bytesPerEntry(); ++j)
                     {
 
                         if ((type & AggTree::Type::Prefix) &&

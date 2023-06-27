@@ -3,8 +3,8 @@
 #include <cryptoTools/Common/MatrixView.h>
 
 #include <fstream>
-#include "Matrix.h"
-#include "Util.h"
+#include "secure-join/Util/Matrix.h"
+#include "secure-join/Util/Util.h"
 
 namespace secJoin
 {
@@ -14,35 +14,7 @@ namespace secJoin
         StringID = 1
     };
 
-    class ColumnBase
-    {
-    public:
-        TypeID mType;
-        u64 mBitCount = 0;
-        std::string mName;
-
-
-        ColumnBase() = default;
-        ColumnBase(const ColumnBase&) = default;
-        ColumnBase(ColumnBase&&) = default;
-
-        ColumnBase(std::string name, TypeID type, u64 size)
-            : mType(type)
-            , mBitCount(size)
-            , mName(std::move(name))
-        {
-            if(mType == TypeID::StringID && mBitCount % 8)
-                throw std::runtime_error("String type must have a multiple of 8 bits. " LOCATION);
-        }
-
-		ColumnBase& operator=(const ColumnBase&) = default;
-
-        u64 getByteCount() const { return (getBitCount() + 7) / 8; }
-        u64 getBitCount() const { return mBitCount; }
-        TypeID getTypeID() const { return mType; }
-    };
-
-    class Column : public ColumnBase
+    class Column
     {
     public:
 
@@ -51,29 +23,30 @@ namespace secJoin
         Column(Column&&) = default;
 
         Column(std::string name, TypeID type, u64 size)
-            : ColumnBase(std::move(name), type, size)
-        { }
+            : mType(type)
+            , mBitCount(size)
+            , mName(std::move(name))
+        {
+            if(mType == TypeID::StringID && mBitCount % 8)
+                throw std::runtime_error("String type must have a multiple of 8 bits. " LOCATION);
+        }
 
+        TypeID mType;
+        u64 mBitCount = 0;
+        std::string mName;
 
+        u64 getByteCount() const { return (getBitCount() + 7) / 8; }
+        u64 getBitCount() const { return mBitCount; }
+        TypeID getTypeID() const { return mType; }
 
-        // aby3::i64Matrix mData;
         secJoin::BinMatrix mData;
+
+        u8* data() {return mData.data(); }
+        const u8* data() const {return mData.data(); }
+        u64 rows() {return mData.rows(); }
+        u64 cols() {return mData.cols(); }
+
     };
-
-    // class SharedColumn : public ColumnBase, public aby3::sbMatrix
-    // {
-    // public:
-
-    //     SharedColumn() = default;
-    //     SharedColumn(const SharedColumn&) = default;
-    //     SharedColumn(SharedColumn&&) = default;
-
-    //     SharedColumn(std::string name, TypeID type, u64 size)
-    //         : ColumnBase(std::move(name), type, size)
-    //     { }
-
-	// 	SharedColumn& operator=(const SharedColumn&) = default;
-    // };
 
     using ColumnInfo = std::tuple<std::string, TypeID, u64>;
 
@@ -107,6 +80,19 @@ namespace secJoin
         }
 
         u64 rows() { return mColumns.size() ? mColumns[0].mData.numEntries() : 0; }
+    };
+
+    struct ColRef
+    {
+        Table& mTable;
+        Column& mCol;
+
+        ColRef(Table& t, Column& c)
+            : mTable(t), mCol(c)
+        {}
+
+        ColRef(const ColRef&) = default;
+        ColRef(ColRef&&) = default;
 
     };
 

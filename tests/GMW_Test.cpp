@@ -9,7 +9,7 @@
 #include "Common.h"
 #include "coproto/Socket/LocalAsyncSock.h"
 
-#include "secure-join/Util.h"
+#include "secure-join/Util/Util.h"
 using coproto::LocalAsyncSocket;
 using namespace secJoin;
 

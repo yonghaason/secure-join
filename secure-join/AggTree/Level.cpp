@@ -53,7 +53,7 @@ namespace secJoin
 
         for (u64 j = 0; j < preSize; j += 2)
         {
-            for (u64 k = 0; k < mPreVal.bytesPerEnrty(); ++k)
+            for (u64 k = 0; k < mPreVal.bytesPerEntry(); ++k)
             {
                 mPreVal(j + 0, k) = l0.mPreBit(j / 2, k);
                 mPreVal(j + 1, k) = l1.mPreBit(j / 2, k);
@@ -65,7 +65,7 @@ namespace secJoin
 
         for (u64 j = 0; j < sufSize; j += 2)
         {
-            for (u64 k = 0; k < mSufVal.bytesPerEnrty(); ++k)
+            for (u64 k = 0; k < mSufVal.bytesPerEntry(); ++k)
             {
                 mSufVal(j + 0, k) = l0.mSufVal(j / 2, k);
                 mSufVal(j + 1, k) = l1.mSufVal(j / 2, k);

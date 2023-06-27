@@ -23,10 +23,11 @@ set(SRCS
     "AggTree/AggTree.cpp"
     "AggTree/Level.cpp"
     "AggTree/PlainAggTree.cpp"
-    "Table.cpp"
-    "Trim.cpp"
-    "CSVParser.cpp"
-
+    
+    "Util/Trim.cpp"
+    "Util/CSVParser.cpp"
+    
+    "join/Table.cpp"
     "Join/OmJoin.cpp"
     )
 

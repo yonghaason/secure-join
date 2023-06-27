@@ -148,8 +148,8 @@ namespace secJoin
     //                write(childDn.mPreVal, i * 2 + 1, v);
     //                //auto d0 = v;
 
-    //                //assert(d0.sizeBytes() == childDn.mPreVal.bytesPerEnrty());
-    //                //assert(d1.sizeBytes() == childDn.mPreVal.bytesPerEnrty());
+    //                //assert(d0.sizeBytes() == childDn.mPreVal.bytesPerEntry());
+    //                //assert(d1.sizeBytes() == childDn.mPreVal.bytesPerEntry());
 
     //                //auto dd0 = childDn.mPreVal.data(i * 2);
     //                //auto dd1 = childDn.mPreVal.data(i * 2+1);

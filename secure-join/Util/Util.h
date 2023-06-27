@@ -1,9 +1,9 @@
 #pragma once
 #include "cryptoTools/Common/Matrix.h"
 #include "cryptoTools/Crypto/PRNG.h"
-#include "Defines.h"
+#include "secure-join/Defines.h"
 #include <vector>
-#include "Perm/AdditivePerm.h"
+#include "secure-join/Perm/AdditivePerm.h"
 
 namespace secJoin
 {
@@ -37,6 +37,27 @@ namespace secJoin
 
         x0.resize(x.rows(), x.cols());
         x1.resize(x.rows(), x.cols());
+        prng.get(x0.data(), x0.size());
+        for (u64 i = 0; i < x.size(); ++i)
+            x1(i) = x(i) ^ x0(i);
+
+        if (bitCount % 8)
+        {
+            auto mask = (1 << (bitCount % 8)) - 1;
+            for (u64 i = 0; i < x.rows(); ++i)
+            {
+                x0[i].back() &= mask;
+                x1[i].back() &= mask;
+            }
+        }
+    }
+
+
+    inline void share(const BinMatrix &x, BinMatrix &x0, BinMatrix &x1, PRNG &prng)
+    {        
+        auto bitCount = x.bitsPerEntry();
+        x0.resize(x.rows(), x.bitsPerEntry());
+        x1.resize(x.rows(), x.bitsPerEntry());
         prng.get(x0.data(), x0.size());
         for (u64 i = 0; i < x.size(); ++i)
             x1(i) = x(i) ^ x0(i);
@@ -134,6 +155,26 @@ namespace secJoin
             s1[i] = v[i] ^ s0[i];
 
         return {s0, s1};
+    }
+
+
+    inline BinMatrix reveal(
+       const BinMatrix& v1,
+       const BinMatrix& v2)
+    {
+
+        // Checking the dimensions
+        if (v1.rows() != v2.rows())
+            throw RTE_LOC;
+        if (v1.bitsPerEntry() != v2.bitsPerEntry())
+            throw RTE_LOC;
+
+        BinMatrix s(v1.rows(), v1.bitsPerEntry());
+
+        for (oc::u64 i = 0; i < v1.size(); ++i)
+            s(i) = v1(i) ^ v2(i);
+
+        return s;
     }
 
     inline oc::Matrix<oc::u8> reveal(

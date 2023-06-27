@@ -196,7 +196,7 @@ namespace secJoin
         bool mDebug = false;
 
         using Matrix32 = oc::Matrix<u32>;
-        using BinMatrix = oc::Matrix<u8>;
+        //using BinMatrix = oc::Matrix<u8>;
 
         RadixSort() = default;
         RadixSort(RadixSort&&) = default;
@@ -232,7 +232,7 @@ namespace secJoin
             MC_AWAIT(comm.send(coproto::copy(s)));
             MC_AWAIT(comm.send(coproto::copy(dst)));
 
-            ff.resize(f.rows(), f.cols());
+            ff.resize(f.rows(), f.bitsPerEntry());
             ss.resize(s.rows(), s.cols());
             dd.resize(dst.size());
 
@@ -600,8 +600,8 @@ namespace secJoin
 
 
             // we oversized fBin to make sure we have trailing zeros.
-            fBin.resize(k.rows() + sizeof(block), oc::divCeil(1ull << bitCount, 8), oc::AllocType::Uninitialized);
-            fBin.resize(k.rows(), oc::divCeil(1ull << bitCount, 8), oc::AllocType::Uninitialized);
+            fBin.resize(k.rows() + sizeof(block), 1ull << bitCount, 1, oc::AllocType::Uninitialized);
+            fBin.resize(k.rows(), 1ull << bitCount, 1, oc::AllocType::Uninitialized);
 
             if (bitCount == 1)
             {
@@ -647,7 +647,7 @@ namespace secJoin
                     *dst = ((src[j] & 3) << (2 * j)) | (bool(j) * (*dst));
                 }
 
-                fBin.resize(1, oc::divCeil(fBin.rows(), 4));
+                fBin.resize(1, fBin.rows() * 2);
             }
             else if (bitCount == 2)
             {
@@ -668,11 +668,11 @@ namespace secJoin
                 {
                     *dst = ((src[j] & 15) << (4 * j)) | (bool(j) * (*dst));
                 }
-                fBin.resize(1, oc::divCeil(fBin.rows(), 2));
+                fBin.resize(1, fBin.rows() * 4);
             }
             else
             {
-                fBin.resize(1, fBin.rows() * fBin.cols());
+                fBin.resize(1, fBin.rows() * fBin.cols() * 8);
             }
 
             // we oversized fBin at the start of this fn to make sure we have trailing zeros.
@@ -680,7 +680,7 @@ namespace secJoin
             memset(fBin.data() + fBin.size(), 0, sizeof(block));
 
             TODO("determine min bit count required. currently 32");
-            MC_AWAIT(bitInjection((1ull << bitCount) * k.rows(), fBin, 32, f, gen, comm));
+            MC_AWAIT(bitInjection((1ull << bitCount) * k.rows(), fBin.mData, 32, f, gen, comm));
 
             f.reshape(k.rows(), 1ull << bitCount);
 
@@ -1002,7 +1002,7 @@ namespace secJoin
                 {
                     for (u64 j = 0; j < size; ++j)
                     {
-                        if (*oc::BitIterator(k[i].data(), begin + j) !=
+                        if (*oc::BitIterator((u8*)k[i].data(), begin + j) !=
                             *oc::BitIterator(sk[i].data(), j))
                             throw RTE_LOC;
                     }
@@ -1014,15 +1014,14 @@ namespace secJoin
 
 
         macoro::task<std::vector<Perm>> debugGenPerm(
-            u64 keyBitCount,
             const BinMatrix& k,
             coproto::Socket& comm)
         {
-            MC_BEGIN(macoro::task<std::vector<Perm>>, this, keyBitCount, &k, &comm,
+            MC_BEGIN(macoro::task<std::vector<Perm>>, this, &k, &comm,
                 kk = BinMatrix{}
             );
 
-            kk.resize(k.rows(), k.cols());
+            kk.resize(k.numEntries(), k.bitsPerEntry());
             MC_AWAIT(comm.send(coproto::copy(k)));
             MC_AWAIT(comm.recv(kk));
 
@@ -1043,7 +1042,7 @@ namespace secJoin
                     return exp.inverse();
                 };
 
-                auto ll = oc::divCeil(keyBitCount, mL);
+                auto ll = oc::divCeil(k.bitsPerEntry(), mL);
                 auto kIdx = 0;
                 auto sk = extract(kIdx, mL, kk); kIdx += mL;
 
@@ -1067,9 +1066,9 @@ namespace secJoin
                     for (u64 j = 1; j < k.rows(); ++j)
                     {
                         auto k0 = oc::BitVector((u8*)sk[j - 1].data(),
-                            std::min<u64>(kIdx, keyBitCount));
+                            std::min<u64>(kIdx, k.bitsPerEntry()));
                         auto k1 = oc::BitVector((u8*)sk[j].data(),
-                            std::min<u64>(kIdx, keyBitCount));
+                            std::min<u64>(kIdx, k.bitsPerEntry()));
 
                         if (k0 > k1)
                         {
@@ -1110,9 +1109,9 @@ namespace secJoin
                     for (u64 j = 1; j < k.rows(); ++j)
                     {
                         auto k0 = oc::BitVector((u8*)sk[j - 1].data(),
-                            std::min<u64>(kIdx, keyBitCount));
+                            std::min<u64>(kIdx, k.bitsPerEntry()));
                         auto k1 = oc::BitVector((u8*)sk[j].data(),
-                            std::min<u64>(kIdx, keyBitCount));
+                            std::min<u64>(kIdx, k.bitsPerEntry()));
 
                         if (k0 > k1)
                             throw RTE_LOC;
@@ -1131,14 +1130,13 @@ namespace secJoin
         u64 mL = 2;
         // generate the (inverse) permutation that sorts the keys k.
         macoro::task<> genPerm(
-            u64 keyBitCount,
             const BinMatrix& k,
             AdditivePerm& dst,
             OleGenerator& gen,
             coproto::Socket& comm)
         {
 
-            MC_BEGIN(macoro::task<>, this, keyBitCount, &k, &dst, &gen, &comm,
+            MC_BEGIN(macoro::task<>, this, &k, &dst, &gen, &comm,
                 ll = u64{},
                 kIdx = u64{},
 
@@ -1153,13 +1151,10 @@ namespace secJoin
 
             setTimePoint("genPerm begin");
 
-            if (keyBitCount > k.cols() * 8)
-                throw RTE_LOC;
-
             if (mDebug)
-                MC_AWAIT_SET(debugPerms, debugGenPerm(keyBitCount, k, comm));
+                MC_AWAIT_SET(debugPerms, debugGenPerm(k, comm));
 
-            ll = oc::divCeil(keyBitCount, mL);
+            ll = oc::divCeil(k.bitsPerEntry(), mL);
             kIdx = 0;
             sk = extract(kIdx, mL, k); kIdx += mL;
 
@@ -1199,7 +1194,7 @@ namespace secJoin
                     dst.setTimer(getTimer());
                 // apply the partial sort that we have so far 
                 // to the next L bits of the key.
-                MC_AWAIT(dst.apply<u8>(sk, ssk, gen.mPrng, comm, gen, true));
+                MC_AWAIT(dst.apply<u8>(sk.mData, ssk.mData, gen.mPrng, comm, gen, true));
                 setTimePoint("apply(sk)");
 
                 // generate the sorting permutation for the

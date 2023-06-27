@@ -358,7 +358,7 @@ namespace secJoin
                 auto d0 = dst.data();
                 auto l0 = leftOut.data();
                 auto r0 = rghtOut.data();
-                auto s1 = dst.bytesPerEnrty();
+                auto s1 = dst.bytesPerEntry();
                 auto n2 = mN / 2;
                 for (u64 i = 0; i < n2; ++i)
                 {

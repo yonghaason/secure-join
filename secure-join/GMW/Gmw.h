@@ -15,7 +15,7 @@
 #include <cryptoTools/Network/Channel.h>
 #include <cryptoTools/Common/Matrix.h>
 #include "secure-join/OleGenerator.h"
-#include "secure-join/Matrix.h"
+#include "secure-join/Util/Matrix.h"
 
 namespace secJoin
 {
@@ -103,6 +103,11 @@ namespace secJoin
             implSetInput(i, ii, sizeof(T));
         }
         
+        void setInput(u64 i, BinMatrix input)
+        {
+            setInput<u8>(i, input.mData);
+        }
+
         // Set the i'th input to zero. Useful when only one party has input i (in plaintext).
         void setZeroInput(u64 i);
 

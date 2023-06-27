@@ -1,5 +1,5 @@
 #pragma once
-#include "Defines.h"
+#include "secure-join/Defines.h"
 #include "cryptoTools/Common/MatrixView.h"
 
 namespace secJoin

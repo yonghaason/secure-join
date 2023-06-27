@@ -1,5 +1,5 @@
 #pragma once
-#include "secure-join/Matrix.h"
+#include "secure-join/Util/Matrix.h"
 #include "cryptoTools/Common/BitVector.h"
 #include <vector>
 

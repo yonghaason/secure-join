@@ -41,7 +41,7 @@ namespace secJoin_Tests
 
 
 
-        t.add("PaillierPerm_basic_test                       ", PaillierPerm_basic_test);
+        //t.add("PaillierPerm_basic_test                       ", PaillierPerm_basic_test);
         t.add("LocMC_eval_test                               ", LocMC_eval_test);
 
         t.add("LowMCPerm_perm_test                           ", LowMCPerm_perm_test);

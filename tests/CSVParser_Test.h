@@ -1,8 +1,8 @@
 #pragma once
-#include "secure-join/Table.h"
+#include "secure-join/Join/Table.h"
 #include "cryptoTools/Crypto/PRNG.h"
-#include "secure-join/Util.h"
-#include "secure-join/CSVParser.h"
+#include "secure-join/Util/Util.h"
+#include "secure-join/Util/CSVParser.h"
 #include "FileContent.h"
 
 void secret_share_table_test();
