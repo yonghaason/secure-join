@@ -3,7 +3,6 @@
 #include "cryptoTools/Common/BitVector.h"
 #include <vector>
 
-
 namespace secJoin
 {
 
@@ -19,7 +18,7 @@ namespace secJoin
         // the number of real inputs
         u64 mN = 0;
 
-        //the number of inputs rounded upto a power of 2 or multiple of 16
+        // the number of inputs rounded upto a power of 2 or multiple of 16
         u64 mN16 = 0;
 
         // log2 floor of mN16
@@ -39,20 +38,20 @@ namespace secJoin
 
         // Here we compute various tree size parameters such as the depth
         // and the number of leaves on the lowest two levels (mN0,mN1).
-        // 
+        //
         // for example, if we simply use mN16=mN=5, we get:
-        // 
+        //
         //        *
         //    *       *
         //  *   *   *   *
-        // * * 
-        // 
-        // mLogfn = 2 
+        // * *
+        //
+        // mLogfn = 2
         // mLogn  = 3
         // mR     = 1     one parent one the second level (second partial).
         // mN0    = 2     two leaves on the first level (first partial).
         // mN1    = 3     three leaves on the first level (first partial).
-        // 
+        //
         void computeTreeSizes(u64 n_)
         {
             mN = n_;
@@ -62,10 +61,10 @@ namespace secJoin
 
             // log 2 floor
             mLogfn = oc::log2floor(mN16);
-            // log 2 ceiling 
+            // log 2 ceiling
             mLogn = oc::log2ceil(mN16);
 
-            // the size of the second level 
+            // the size of the second level
             auto secondPartial = (1ull << mLogfn);
 
             // the number of parents in the second level.
@@ -79,9 +78,7 @@ namespace secJoin
 
             assert(mR % 8 == 0);
         }
-
     };
-
 
     struct AggTreeLevel
     {
@@ -102,7 +99,7 @@ namespace secJoin
         }
     };
 
-    // an agg tree level that stores the left and right children 
+    // an agg tree level that stores the left and right children
     // in separate arrays.
     struct AggTreeSplitLevel
     {
@@ -119,7 +116,8 @@ namespace secJoin
             mLeftRight[1].mPreBit.resize(n1, 1, sizeof(oc::block));
         }
 
-        u64 bitsPerEntry() const {
+        u64 bitsPerEntry() const
+        {
             return std::max(
                 mLeftRight[0].mPreVal.bitsPerEntry(),
                 mLeftRight[0].mSufVal.bitsPerEntry());
@@ -128,7 +126,7 @@ namespace secJoin
         u64 prefixSize() const { return mLeftRight[0].mPreBit.numEntries() + mLeftRight[1].mPreBit.numEntries(); }
         u64 suffixSize() const { return mLeftRight[0].mSufBit.numEntries() + mLeftRight[1].mSufBit.numEntries(); }
 
-        AggTreeLevel& operator[](u64 i)
+        AggTreeLevel &operator[](u64 i)
         {
             return mLeftRight[i];
         }
@@ -142,7 +140,8 @@ namespace secJoin
         {
             auto srcSize = src.rows();
             auto bitCount = bitsPerEntry();
-            auto n = size();;
+            auto n = size();
+            ;
             auto available = std::min<u64>(srcSize, n);
             auto available2 = available & ~1ull;
             if (src.cols() != oc::divCeil(bitCount, 8))
@@ -151,7 +150,7 @@ namespace secJoin
                 throw RTE_LOC;
             if (offset & 1)
                 throw RTE_LOC;
-            //if (size() > offset + available)
+            // if (size() > offset + available)
             //	throw RTE_LOC;
 
             if (prefixSize())
@@ -201,11 +200,10 @@ namespace secJoin
                 vals[1].transpose(mLeftRight[1].mPreVal);
             }
 
-
             if (suffixSize())
             {
 
-                //if (preSize)
+                // if (preSize)
                 //{
                 //	mLeftRight[0].mSufVal = mLeftRight[0].mPreVal;
                 //	mLeftRight[1].mSufVal = mLeftRight[1].mPreVal;
@@ -229,7 +227,7 @@ namespace secJoin
                 //	mLeftRight[0].mSufBit(n0) = mLeftRight[0].mPreBit(n0) >> 1;
                 //	mLeftRight[1].mSufBit(n1) = mLeftRight[1].mPreBit(n1) >> 1;
                 //}
-                //else
+                // else
                 {
                     std::array<BinMatrix, 2> vals;
                     vals[0].resize(oc::divCeil(n, 2), bitCount);
@@ -237,7 +235,7 @@ namespace secJoin
 
                     auto n = available / 2;
                     u64 i = 0, d = offset / 2;
-                    //std::cout << "d " << d << std::endl;
+                    // std::cout << "d " << d << std::endl;
                     for (; i < available2 - 2; i += 2, ++d)
                     {
                         memcpy(vals[0][d], src[i + 0]);
@@ -254,8 +252,7 @@ namespace secJoin
                         if (i + 2 < controlBits.size())
                         {
                             cLast = controlBits[i + 2];
-                            //std::cout << "act clast " << d*2+1<< ": " << (int)cLast << " = c[" << i + 2 << "]" << std::endl;
-
+                            // std::cout << "act clast " << d*2+1<< ": " << (int)cLast << " = c[" << i + 2 << "]" << std::endl;
                         }
 
                         *oc::BitIterator(mLeftRight[0].mSufBit.data(), d) = controlBits[i + 1];
@@ -270,15 +267,12 @@ namespace secJoin
                         memcpy(vals[0][d], src[i + 0]);
                         memset(vals[1][d], 0);
 
-
                         auto cLast = 0;
                         if (i + 1 < controlBits.size())
                         {
                             cLast = controlBits[i + 1];
                             std::cout << "act clast* " << (int)cLast << std::endl;
-
                         }
-
 
                         *oc::BitIterator(mLeftRight[0].mSufBit.data(), d) = cLast;
                         *oc::BitIterator(mLeftRight[1].mSufBit.data(), d) = 0;
@@ -295,19 +289,13 @@ namespace secJoin
                         *oc::BitIterator(mLeftRight[1].mPreBit.data(), d) = 0;
                     }
 
-
-
                     vals[0].transpose(mLeftRight[0].mSufVal);
                     vals[1].transpose(mLeftRight[1].mSufVal);
                 }
-
             }
-
-
         }
 
-
-        // load the leaf values and control bits. 
+        // load the leaf values and control bits.
         // src are the values, controlBits are ...
         // leaves are where we will write the results.
         // They are separated into left and right children.
@@ -318,12 +306,12 @@ namespace secJoin
         // dIdx means that we should start writing results to
         // leaf index dIdx.
         //
-        // We require dIdx to be a multiple of 8 and therefore 
+        // We require dIdx to be a multiple of 8 and therefore
         // we will pad the overall tree to be a multiple of 16.
         // We will assign zero to the padded control bits.
         void setLeafVals(
-            const BinMatrix& src,
-            const BinMatrix& controlBits,
+            const BinMatrix &src,
+            const BinMatrix &controlBits,
             u64 sIdx,
             u64 dIdx)
         {
@@ -333,12 +321,13 @@ namespace secJoin
             auto available = std::min<u64>(srcSize, dstSize);
             auto availableC = available + (controlBits.size() > sIdx + available);
 
+            if (oc::divCeil(src.bitsPerEntry(), 8) != src.bytesPerEntry())
+                throw RTE_LOC;
 
             setLeafVals(
                 src.subMatrix(sIdx, available),
                 controlBits.subMatrix(sIdx, availableC),
                 dIdx);
-
         }
 
         AggTreeType type() const
@@ -350,27 +339,27 @@ namespace secJoin
             return AggTreeType::Full;
         }
 
-        void copy(const AggTreeSplitLevel& src, u64 srcOffset, u64 destOffset, u64 dstSize)
+        void copy(const AggTreeSplitLevel &src, u64 srcOffset, u64 destOffset, u64 dstSize)
         {
-            // AggTreeSplitLevel is split into left and right and we require that the offset begin at 
-            //a byte boundary. Therefore srcOffset must be a multiple of 2 * 8.
+            // AggTreeSplitLevel is split into left and right and we require that the offset begin at
+            // a byte boundary. Therefore srcOffset must be a multiple of 2 * 8.
             if (srcOffset % 16)
                 throw RTE_LOC;
-            // AggTreeSplitLevel is split into left and right and we require that the offset begin at 
-            //a byte boundary. Therefore destOffset must be a multiple of 2 * 8.
+            // AggTreeSplitLevel is split into left and right and we require that the offset begin at
+            // a byte boundary. Therefore destOffset must be a multiple of 2 * 8.
             if (destOffset % 16)
-                throw RTE_LOC;           
+                throw RTE_LOC;
             auto srcSize = src.size() - srcOffset;
 
             if (srcSize % 16)
                 throw RTE_LOC;
             if (dstSize < srcSize + destOffset)
                 throw RTE_LOC;
-            //auto dstSize = srcSize + destOffset;
+            // auto dstSize = srcSize + destOffset;
 
             resize(dstSize, src.bitsPerEntry(), src.type());
 
-            auto doCopy = [destOffset, srcOffset, srcSize](const auto& src, auto& dst)
+            auto doCopy = [destOffset, srcOffset, srcSize](const auto &src, auto &dst)
             {
                 for (u64 i = 0; i < src.bitsPerEntry(); ++i)
                 {
@@ -392,16 +381,20 @@ namespace secJoin
         {
             for (u64 j = 0; j < 2; ++j)
             {
-                if (mLeftRight[j].mPreBit.size()) mLeftRight[j].mPreBit.reshape(shareCount / 2);
-                if (mLeftRight[j].mPreVal.size()) mLeftRight[j].mPreVal.reshape(shareCount / 2);
-                if (mLeftRight[j].mSufBit.size()) mLeftRight[j].mSufBit.reshape(shareCount / 2);
-                if (mLeftRight[j].mSufVal.size()) mLeftRight[j].mSufVal.reshape(shareCount / 2);
+                if (mLeftRight[j].mPreBit.size())
+                    mLeftRight[j].mPreBit.reshape(shareCount / 2);
+                if (mLeftRight[j].mPreVal.size())
+                    mLeftRight[j].mPreVal.reshape(shareCount / 2);
+                if (mLeftRight[j].mSufBit.size())
+                    mLeftRight[j].mSufBit.reshape(shareCount / 2);
+                if (mLeftRight[j].mSufVal.size())
+                    mLeftRight[j].mSufVal.reshape(shareCount / 2);
             }
         }
 
-        bool operator !=(const AggTreeSplitLevel& o) const
+        bool operator!=(const AggTreeSplitLevel &o) const
         {
-            auto neq = [](auto& l, auto& r)
+            auto neq = [](auto &l, auto &r)
             {
                 if (l.bitsPerEntry() != r.bitsPerEntry())
                     return false;
@@ -426,18 +419,16 @@ namespace secJoin
                 if (neq(mLeftRight[j].mSufBit, o.mLeftRight[j].mSufBit))
                     return true;
                 if (neq(mLeftRight[j].mSufVal, o.mLeftRight[j].mSufVal))
-                    return true;;
-
+                    return true;
+                ;
             }
             return false;
         }
-
     };
 
-    //struct DLevel
+    // struct DLevel
     //{
     //	BinMatrix mPreVal, mSufVal, mPreBit, mSufBit;
-
 
     //	void load(std::array<AggTreeLevel, 2>& tvs)
     //	{
@@ -495,7 +486,6 @@ namespace secJoin
     //		//}
     //	}
 
-
     //	void load(AggTreeLevel& tvs)
     //	{
     //		//throw RTE_LOC;
@@ -507,9 +497,7 @@ namespace secJoin
     //	}
     //};
 
-
-
-    //struct Level
+    // struct Level
     //{
     //	TBinMatrix mPreVal, mSufVal, mPreBit, mSufBit;
 
@@ -536,7 +524,6 @@ namespace secJoin
         BinMatrix mPreVal, mSufVal;
         BinMatrix mPreBit, mSufBit;
 
-
         u64 numEntries() { return mPreVal.numEntries(); }
 
         void resize(u64 n, u64 elementBitCount)
@@ -549,24 +536,23 @@ namespace secJoin
             mSufBit.resize(n, 1);
         }
 
-        //void load(DLevel* dl);
+        // void load(DLevel* dl);
 
-        //void validate(TBinMatrix& tvs0, TBinMatrix& tvs1, TBinMatrix& tvs2);
+        // void validate(TBinMatrix& tvs0, TBinMatrix& tvs1, TBinMatrix& tvs2);
 
-        //void validate(AggTreeLevel& tvs0, AggTreeLevel& tvs1, AggTreeLevel& tvs2);
+        // void validate(AggTreeLevel& tvs0, AggTreeLevel& tvs1, AggTreeLevel& tvs2);
 
-        void reveal(std::array<AggTreeLevel, 2>& tvs0, std::array<AggTreeLevel, 2>& tvs1);
-        void reveal(AggTreeLevel& tvs0, AggTreeLevel& tvs1);
+        void reveal(std::array<AggTreeLevel, 2> &tvs0, std::array<AggTreeLevel, 2> &tvs1);
+        void reveal(AggTreeLevel &tvs0, AggTreeLevel &tvs1);
 
-        void perfectUnshuffle(PLevelNew& l0, PLevelNew& l1);
-        //void load(AggTreeLevel& tvs0);
+        void perfectUnshuffle(PLevelNew &l0, PLevelNew &l1);
+        // void load(AggTreeLevel& tvs0);
     };
 
     struct PLevel
     {
         std::vector<oc::BitVector> mPreVal, mSufVal;
         oc::BitVector mPreBit, mSufBit;
-
 
         u64 numEntries() { return mPreVal.size(); }
 
@@ -582,16 +568,16 @@ namespace secJoin
             mSufBit.resize(n);
         }
 
-        //void load(DLevel* dl);
+        // void load(DLevel* dl);
 
-        //void validate(TBinMatrix& tvs0, TBinMatrix& tvs1, TBinMatrix& tvs2);
+        // void validate(TBinMatrix& tvs0, TBinMatrix& tvs1, TBinMatrix& tvs2);
 
-        //void validate(AggTreeLevel& tvs0, AggTreeLevel& tvs1, AggTreeLevel& tvs2);
+        // void validate(AggTreeLevel& tvs0, AggTreeLevel& tvs1, AggTreeLevel& tvs2);
 
-        void reveal(AggTreeSplitLevel& tvs0, AggTreeSplitLevel& tvs1);
-        void reveal(AggTreeLevel& tvs0, AggTreeLevel& tvs1);
+        void reveal(AggTreeSplitLevel &tvs0, AggTreeSplitLevel &tvs1);
+        void reveal(AggTreeLevel &tvs0, AggTreeLevel &tvs1);
 
-        void perfectUnshuffle(PLevel& l0, PLevel& l1);
-        //void load(AggTreeLevel& tvs0);
+        void perfectUnshuffle(PLevel &l0, PLevel &l1);
+        // void load(AggTreeLevel& tvs0);
     };
 }

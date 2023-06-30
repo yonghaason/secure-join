@@ -17,6 +17,7 @@ set(SRCS
 	AggTree_Tests.cpp
 	DlpnPerm_Test.cpp
 	CSVParser_Test.cpp
+	OmJoin_Test.cpp
 	)
 
 	

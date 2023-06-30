@@ -17,17 +17,16 @@ namespace secJoin
     class Column
     {
     public:
-
-        Column() = delete;
+        Column() = default;
         Column(const Column&) = default;
         Column(Column&&) = default;
+        Column& operator=(const Column&) = default;
+        Column& operator=(Column&&) = default;
 
         Column(std::string name, TypeID type, u64 size)
-            : mType(type)
-            , mBitCount(size)
-            , mName(std::move(name))
+            : mType(type), mBitCount(size), mName(std::move(name))
         {
-            if(mType == TypeID::StringID && mBitCount % 8)
+            if (mType == TypeID::StringID && mBitCount % 8)
                 throw std::runtime_error("String type must have a multiple of 8 bits. " LOCATION);
         }
 
@@ -41,18 +40,33 @@ namespace secJoin
 
         secJoin::BinMatrix mData;
 
-        u8* data() {return mData.data(); }
-        const u8* data() const {return mData.data(); }
-        u64 rows() {return mData.rows(); }
-        u64 cols() {return mData.cols(); }
-
+        u8* data() { return mData.data(); }
+        auto size() { return mData.size(); }
+        const u8* data() const { return mData.data(); }
+        u64 rows() { return mData.rows(); }
+        u64 cols() { return mData.cols(); }
     };
 
     using ColumnInfo = std::tuple<std::string, TypeID, u64>;
+    class Table;
 
+    struct ColRef
+    {
+        Table& mTable;
+        Column& mCol;
+
+        ColRef(Table& t, Column& c)
+            : mTable(t), mCol(c)
+        {
+        }
+
+        ColRef(const ColRef&) = default;
+        ColRef(ColRef&&) = default;
+    };
     class Table
     {
     public:
+        std::vector<u8> mIsActive;
         std::vector<Column> mColumns;
 
         Table() = default;
@@ -63,7 +77,7 @@ namespace secJoin
             init(rows, columns);
         }
 
-        void init(u64 rows, std::vector<ColumnInfo>& columns)
+        void init(u64 rows, std::vector<ColumnInfo> columns)
         {
             mColumns.reserve(columns.size());
             // mColumns.resize(columns.size());
@@ -72,34 +86,38 @@ namespace secJoin
                 mColumns.emplace_back(
                     std::get<0>(columns[i]),
                     std::get<1>(columns[i]),
-                    std::get<2>(columns[i])
-                );
+                    std::get<2>(columns[i]));
                 // auto size = (std::get<2>(columns[i]) + 7) / 8;
                 mColumns.back().mData.resize(rows, std::get<2>(columns[i]));
             }
         }
 
+        void resize(u64 n)
+        {
+            for (u64 i = 0; i < mColumns.size(); ++i)
+                mColumns[i].mData.resize(n, mColumns[i].mBitCount);
+        }
+
         u64 rows() { return mColumns.size() ? mColumns[0].mData.numEntries() : 0; }
-    };
 
-    struct ColRef
-    {
-        Table& mTable;
-        Column& mCol;
+        ColRef operator[](u64 i)
+        {
+            return { *this, mColumns[i] };
+        }
+        ColRef operator[](std::string name)
+        {
+            for (u64 i = 0; i < mColumns.size(); ++i)
+                if (mColumns[i].mName == name)
+                    return { *this, mColumns[i] };
 
-        ColRef(Table& t, Column& c)
-            : mTable(t), mCol(c)
-        {}
-
-        ColRef(const ColRef&) = default;
-        ColRef(ColRef&&) = default;
-
+            throw RTE_LOC;
+        }
     };
 
     void populateTable(Table& tb, std::string& fileName, oc::u64 rowCount);
     void populateTable(Table& tb, std::istream& in, oc::u64 rowCount);
-    void secretShareTable(Table& table,std::array<Table,2>& shares,
-                        oc::PRNG &prng);
+    void secretShareTable(Table& table, std::array<Table, 2>& shares,
+        oc::PRNG& prng);
 
     // class SharedTable
     // {
@@ -121,7 +139,6 @@ namespace secJoin
 
     //     };
 
-
     //     ColRef operator[](std::string c)
     //     {
     //         for (u64 i = 0; i < mColumns.size(); ++i)
@@ -137,7 +154,6 @@ namespace secJoin
     //     {
     //         return { *this, mColumns[i] };
     //     }
-
 
     //     u64 rows();
     // };
@@ -161,7 +177,6 @@ namespace secJoin
     //     };
     //     struct Input;
     //     struct Output;
-
 
     //     struct Mem
     //     {
@@ -213,8 +228,8 @@ namespace secJoin
     //     SelectQuery & mSelect;
     //     int mMemIdx;
 
-	// 	SelectBundle(const SelectBundle&) = default;
-	// 	SelectBundle(SelectBundle&&) = default;
+    // 	SelectBundle(const SelectBundle&) = default;
+    // 	SelectBundle(SelectBundle&&) = default;
 
     //     SelectBundle(SelectQuery& cir, int memIdx)
     //         : mSelect(cir)
@@ -227,7 +242,7 @@ namespace secJoin
     //     SelectBundle operator<(const SelectBundle& r) const;
     //     SelectBundle operator*(const SelectBundle& r) const;
     //     SelectBundle operator+(const SelectBundle& r) const;
-    // };                                                
+    // };
 
     // class SelectQuery
     // {
@@ -246,8 +261,8 @@ namespace secJoin
     //     std::vector<selectDetails::Output> mOutputs;
     //     std::vector<selectDetails::Gate> mGates;
 
-    //     std::vector<selectDetails::Input*> 
-    //         mLeftInputs, 
+    //     std::vector<selectDetails::Input*>
+    //         mLeftInputs,
     //         mRightInputs;
 
     //     //SelectQuery(std::vector<SharedTable::ColRef> passThrough)
@@ -257,8 +272,6 @@ namespace secJoin
     //     //}
 
     //     SelectQuery() = default;
-
-        
 
     //     SelectBundle addInput(SharedTable::ColRef column);
 
@@ -290,4 +303,3 @@ namespace secJoin
     //     bool isCircuitInput(selectDetails::Input input)const;
     // };
 }
-

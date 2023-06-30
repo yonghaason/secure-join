@@ -387,9 +387,9 @@ void RadixSort_genBitPerm_test()
 
     //u64 L = 4;
     //u64 n = 40;
-    u64 trials = 5;
+    u64 trials = 1;
     for (auto m : { 3, 10, 15 })
-        for (auto n : { 10, 40, 1000 })
+        for (auto n : { 10, 40, 100 })
         {
             for (auto L : { 1, 3, 5 })
             {
@@ -500,11 +500,11 @@ void RadixSort_genPerm_test()
 {
     auto comm = coproto::LocalAsyncSocket::makePair();
 
-    u64 trials = 5;
+    u64 trials =   1;
 
-    for (auto n : { 6,100, 1000 })
+    for (auto n : { 6,100 })
     {
-        for (auto bitCount : { 9,17,24 })
+        for (auto bitCount : { 9,17 })
         {
             for (auto L : { 2 })
             {

@@ -86,7 +86,7 @@
       "binaryDir": "${sourceDir}/out/build/${presetName}",
       "cacheVariables": {
         "FETCH_AUTO": true,
-        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "CMAKE_BUILD_TYPE": "Debug",
         "SECUREJOIN_ENABLE_ASAN": true,
         "SECUREJOIN_ENABLE_FAKE_GEN": true,
         "SECUREJOIN_ENABLE_BOOST": false,
