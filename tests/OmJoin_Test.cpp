@@ -234,3 +234,45 @@ void OmJoin_getOutput_Test()
             throw RTE_LOC;
     }
 }
+
+void OmJoin_join_Test()
+{
+    u64 nL = 234,
+        nR = 99;
+
+
+    Table L, R;
+
+    L.init(nL, { {
+        {"L1", TypeID::IntID, 8}
+    } });
+    R.init(nR, { {
+        {"R1", TypeID::IntID, 8}
+    } });
+
+    // PRNG prng(oc::ZeroBlock);
+    // prng.get(L.mColumns[0].data(), L.mColumns[0].size());
+    // prng.get(R.mColumns[0].data(), R.mColumns[0].size());
+
+    for (u64 i = 0; i < nL; ++i)
+        L.mColumns[0].mData.mData(i) = i;
+    for (u64 i = 0; i < nR; ++i)
+        R.mColumns[0].mData.mData(i) = i * 2;
+
+    OmJoin join0, join1;
+
+    OleGenerator ole0, ole1;
+    ole0.fakeInit(OleGenerator::Role::Sender);
+    ole1.fakeInit(OleGenerator::Role::Receiver);
+
+    PRNG prng0(oc::ZeroBlock);
+    PRNG prng1(oc::OneBlock);
+    auto sock = coproto::LocalAsyncSocket::makePair();
+
+    Table out[2];
+
+    macoro::sync_wait(macoro::when_all_ready(
+        join0.join(L[0], R[0], { L[0], R[0] }, out[0], prng0, ole0, sock[0]),
+        join1.join(L[0], R[0], { L[0], R[0] }, out[1], prng1, ole1, sock[1])
+    ));
+}

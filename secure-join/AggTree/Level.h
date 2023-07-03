@@ -126,7 +126,7 @@ namespace secJoin
         u64 prefixSize() const { return mLeftRight[0].mPreBit.numEntries() + mLeftRight[1].mPreBit.numEntries(); }
         u64 suffixSize() const { return mLeftRight[0].mSufBit.numEntries() + mLeftRight[1].mSufBit.numEntries(); }
 
-        AggTreeLevel &operator[](u64 i)
+        AggTreeLevel& operator[](u64 i)
         {
             return mLeftRight[i];
         }
@@ -140,11 +140,12 @@ namespace secJoin
         {
             auto srcSize = src.rows();
             auto bitCount = bitsPerEntry();
+            auto byteCount = oc::divCeil(bitCount, 8);
             auto n = size();
             ;
             auto available = std::min<u64>(srcSize, n);
             auto available2 = available & ~1ull;
-            if (src.cols() != oc::divCeil(bitCount, 8))
+            if (src.cols() < byteCount)
                 throw RTE_LOC;
             if (controlBits.size() != srcSize && controlBits.size() != srcSize + 1)
                 throw RTE_LOC;
@@ -163,8 +164,8 @@ namespace secJoin
                 // for the first even number of rows split te values into left and right
                 for (; i < available2; i += 2, ++d)
                 {
-                    memcpy(vals[0][d], src[i + 0]);
-                    memcpy(vals[1][d], src[i + 1]);
+                    memcpy(vals[0][d], src[i + 0].subspan(0, byteCount));
+                    memcpy(vals[1][d], src[i + 1].subspan(0, byteCount));
 
                     assert(mLeftRight[0].mPreBit.size() > d / 8);
                     assert(mLeftRight[1].mPreBit.size() > d / 8);
@@ -177,7 +178,7 @@ namespace secJoin
                 if (available & 1)
                 {
                     assert(i == src.rows() - 1);
-                    memcpy(vals[0][d], src[i]);
+                    memcpy(vals[0][d], src[i].subspan(0, byteCount));
                     memset(vals[1][d], 0);
                     assert(mLeftRight[0].mPreBit.size() > d / 8);
                     *oc::BitIterator(mLeftRight[0].mPreBit.data(), d) = controlBits[i];
@@ -238,15 +239,15 @@ namespace secJoin
                     // std::cout << "d " << d << std::endl;
                     for (; i < available2 - 2; i += 2, ++d)
                     {
-                        memcpy(vals[0][d], src[i + 0]);
-                        memcpy(vals[1][d], src[i + 1]);
+                        memcpy(vals[0][d], src[i + 0].subspan(0, byteCount));
+                        memcpy(vals[1][d], src[i + 1].subspan(0, byteCount));
                         *oc::BitIterator(mLeftRight[0].mSufBit.data(), d) = controlBits[i + 1];
                         *oc::BitIterator(mLeftRight[1].mSufBit.data(), d) = controlBits[i + 2];
                     }
 
                     {
-                        memcpy(vals[0][d], src[i + 0]);
-                        memcpy(vals[1][d], src[i + 1]);
+                        memcpy(vals[0][d], src[i + 0].subspan(0, byteCount));
+                        memcpy(vals[1][d], src[i + 1].subspan(0, byteCount));
 
                         auto cLast = 0;
                         if (i + 2 < controlBits.size())
@@ -264,7 +265,7 @@ namespace secJoin
 
                     if (available & 1)
                     {
-                        memcpy(vals[0][d], src[i + 0]);
+                        memcpy(vals[0][d], src[i + 0].subspan(0, byteCount));
                         memset(vals[1][d], 0);
 
                         auto cLast = 0;
@@ -310,8 +311,8 @@ namespace secJoin
         // we will pad the overall tree to be a multiple of 16.
         // We will assign zero to the padded control bits.
         void setLeafVals(
-            const BinMatrix &src,
-            const BinMatrix &controlBits,
+            const BinMatrix& src,
+            const BinMatrix& controlBits,
             u64 sIdx,
             u64 dIdx)
         {
@@ -321,8 +322,8 @@ namespace secJoin
             auto available = std::min<u64>(srcSize, dstSize);
             auto availableC = available + (controlBits.size() > sIdx + available);
 
-            if (oc::divCeil(src.bitsPerEntry(), 8) != src.bytesPerEntry())
-                throw RTE_LOC;
+            // if (oc::divCeil(src.bitsPerEntry(), 8) != src.bytesPerEntry())
+            //     throw RTE_LOC;
 
             setLeafVals(
                 src.subMatrix(sIdx, available),
@@ -339,7 +340,7 @@ namespace secJoin
             return AggTreeType::Full;
         }
 
-        void copy(const AggTreeSplitLevel &src, u64 srcOffset, u64 destOffset, u64 dstSize)
+        void copy(const AggTreeSplitLevel& src, u64 srcOffset, u64 destOffset, u64 dstSize)
         {
             // AggTreeSplitLevel is split into left and right and we require that the offset begin at
             // a byte boundary. Therefore srcOffset must be a multiple of 2 * 8.
@@ -359,15 +360,15 @@ namespace secJoin
 
             resize(dstSize, src.bitsPerEntry(), src.type());
 
-            auto doCopy = [destOffset, srcOffset, srcSize](const auto &src, auto &dst)
-            {
-                for (u64 i = 0; i < src.bitsPerEntry(); ++i)
+            auto doCopy = [destOffset, srcOffset, srcSize](const auto& src, auto& dst)
                 {
-                    auto d = &dst.mData(i, destOffset / 16);
-                    auto s = &src.mData(i, srcOffset / 16);
-                    memcpy(d, s, srcSize / 16);
-                }
-            };
+                    for (u64 i = 0; i < src.bitsPerEntry(); ++i)
+                    {
+                        auto d = &dst.mData(i, destOffset / 16);
+                        auto s = &src.mData(i, srcOffset / 16);
+                        memcpy(d, s, srcSize / 16);
+                    }
+                };
             for (u64 j = 0; j < 2; ++j)
             {
                 doCopy(src.mLeftRight[j].mPreBit, mLeftRight[j].mPreBit);
@@ -392,24 +393,24 @@ namespace secJoin
             }
         }
 
-        bool operator!=(const AggTreeSplitLevel &o) const
+        bool operator!=(const AggTreeSplitLevel& o) const
         {
-            auto neq = [](auto &l, auto &r)
-            {
-                if (l.bitsPerEntry() != r.bitsPerEntry())
-                    return false;
-                if (l.numEntries() != r.numEntries())
-                    return false;
-                auto bytes = l.numEntries() / 8;
-
-                for (u64 i = 0; i < l.bitsPerEntry(); ++i)
+            auto neq = [](auto& l, auto& r)
                 {
-                    for (u64 k = 0; k < bytes; ++k)
-                        if (l.mData(i, k) != r.mData(i, k))
-                            return true;
-                }
-                return false;
-            };
+                    if (l.bitsPerEntry() != r.bitsPerEntry())
+                        return false;
+                    if (l.numEntries() != r.numEntries())
+                        return false;
+                    auto bytes = l.numEntries() / 8;
+
+                    for (u64 i = 0; i < l.bitsPerEntry(); ++i)
+                    {
+                        for (u64 k = 0; k < bytes; ++k)
+                            if (l.mData(i, k) != r.mData(i, k))
+                                return true;
+                    }
+                    return false;
+                };
             for (u64 j = 0; j < 2; ++j)
             {
                 if (neq(mLeftRight[j].mPreBit, o.mLeftRight[j].mPreBit))
@@ -542,10 +543,10 @@ namespace secJoin
 
         // void validate(AggTreeLevel& tvs0, AggTreeLevel& tvs1, AggTreeLevel& tvs2);
 
-        void reveal(std::array<AggTreeLevel, 2> &tvs0, std::array<AggTreeLevel, 2> &tvs1);
-        void reveal(AggTreeLevel &tvs0, AggTreeLevel &tvs1);
+        void reveal(std::array<AggTreeLevel, 2>& tvs0, std::array<AggTreeLevel, 2>& tvs1);
+        void reveal(AggTreeLevel& tvs0, AggTreeLevel& tvs1);
 
-        void perfectUnshuffle(PLevelNew &l0, PLevelNew &l1);
+        void perfectUnshuffle(PLevelNew& l0, PLevelNew& l1);
         // void load(AggTreeLevel& tvs0);
     };
 
@@ -574,10 +575,10 @@ namespace secJoin
 
         // void validate(AggTreeLevel& tvs0, AggTreeLevel& tvs1, AggTreeLevel& tvs2);
 
-        void reveal(AggTreeSplitLevel &tvs0, AggTreeSplitLevel &tvs1);
-        void reveal(AggTreeLevel &tvs0, AggTreeLevel &tvs1);
+        void reveal(AggTreeSplitLevel& tvs0, AggTreeSplitLevel& tvs1);
+        void reveal(AggTreeLevel& tvs0, AggTreeLevel& tvs1);
 
-        void perfectUnshuffle(PLevel &l0, PLevel &l1);
+        void perfectUnshuffle(PLevel& l0, PLevel& l1);
         // void load(AggTreeLevel& tvs0);
     };
 }

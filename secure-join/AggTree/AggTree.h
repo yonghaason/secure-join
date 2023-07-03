@@ -78,7 +78,9 @@ namespace secJoin
             MC_AWAIT(downstream(src, op, root, upLevels, newVals, type, comm, gen));
 
             upLevels.resize(1);
-            dst.resize(mN, src.bitsPerEntry());
+
+            if (dst.numEntries() != mN || dst.bitsPerEntry() != src.bitsPerEntry())
+                dst.resize(mN, src.bitsPerEntry());
 
             MC_AWAIT(computeLeaf(upLevels[0], newVals, op, dst, type, comm, gen));
 
@@ -355,24 +357,28 @@ namespace secJoin
                 bin.getOutput(0, leftOut);
                 bin.getOutput(1, rghtOut);
 
-                auto d0 = dst.data();
-                auto l0 = leftOut.data();
-                auto r0 = rghtOut.data();
-                auto s1 = dst.bytesPerEntry();
+                auto d = dst.data();
+                auto ds = dst.bytesPerEntry();
+                auto l = leftOut.data();
+                auto r = rghtOut.data();
+                auto ls = leftOut.bytesPerEntry();
+                auto rs = rghtOut.bytesPerEntry();
+                assert(ds >= ls && ds >= rs);
+
                 auto n2 = mN / 2;
                 for (u64 i = 0; i < n2; ++i)
                 {
-                    assert(d0 + s1 <= dst.data() + dst.size());
-                    assert(l0 + s1 <= leftOut.data() + leftOut.size());
-                    assert(r0 + s1 <= rghtOut.data() + rghtOut.size());
+                    assert(d + ds <= dst.data() + dst.size());
+                    assert(l + ls <= leftOut.data() + leftOut.size());
+                    assert(r + rs <= rghtOut.data() + rghtOut.size());
 
-                    memcpy(d0, l0, s1); d0 += s1; l0 += s1;
-                    memcpy(d0, r0, s1); d0 += s1; r0 += s1;
+                    memcpy(d, l, ls); d += ds; l += ls;
+                    memcpy(d, r, rs); d += ds; r += rs;
                 }
 
                 if (mN & 1)
                 {
-                    memcpy(d0, l0, s1);
+                    memcpy(d, l, ls);
                 }
             }
 

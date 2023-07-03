@@ -192,7 +192,6 @@ namespace secJoin
     class RadixSort : public oc::TimerAdapter
     {
     public:
-        u64 mPartyIdx = -1;
         bool mDebug = false;
 
         using Matrix32 = oc::Matrix<u32>;
@@ -201,15 +200,15 @@ namespace secJoin
         RadixSort() = default;
         RadixSort(RadixSort&&) = default;
 
-        RadixSort(u64 partyIdx) {
-            init(partyIdx);
-        }
+        // RadixSort(u64 partyIdx) {
+        //     init(partyIdx);
+        // }
 
-        void init(u64 partyIdx)
-        {
-            mPartyIdx = partyIdx;
-            mArith2BinCir = {};
-        }
+        // void init(u64 partyIdx)
+        // {
+        //     mPartyIdx = partyIdx;
+        //     mArith2BinCir = {};
+        // }
 
         oc::BetaCircuit mArith2BinCir;
 
@@ -245,7 +244,7 @@ namespace secJoin
 
             for (u64 i = 0; i < ss.size(); ++i)
                 ss(i) += s(i);
-            
+
             for (u64 i = 0; i < dd.size(); ++i)
             {
                 if (additive)
@@ -296,7 +295,8 @@ namespace secJoin
                 gmw = Gmw{},
                 tt = std::vector<u32>{},
                 dd = std::vector<u32>{},
-                fIter = (block*)nullptr
+                fIter = (block*)nullptr,
+                bitCount = u64{}
             );
 
             // A = f + a
@@ -318,9 +318,10 @@ namespace secJoin
             }
 
 
-            if (mArith2BinCir.mGates.size() == 0)
+            bitCount = std::max<u64>(1, oc::log2ceil(shares.size()));
+            if (mArith2BinCir.mGates.size() == 0 ||
+                mArith2BinCir.mInputs[0].size() != bitCount)
             {
-                u64 bitCount = std::max<u64>(1, oc::log2ceil(shares.size()));
                 oc::BetaLibrary lib;
                 mArith2BinCir = *lib.uint_uint_add(bitCount, bitCount, bitCount, oc::BetaLibrary::Optimized::Depth);
                 mArith2BinCir.levelByAndDepth();
@@ -483,7 +484,7 @@ namespace secJoin
                     for (u64 ii = 0; ii < (1ull << L); ++ii)
                         std::cout << *oc::BitIterator((u8*)&(ff(j, 0)), ii) << " ";
                     std::cout << "\n";
-                };
+                    };
                 print();
 
                 for (u64 i = 0; i < (1ull << L); ++i, ++iter)
@@ -627,12 +628,12 @@ namespace secJoin
 
             if (bitCount == 1)
             {
-                auto src = fBin.data(); 
+                auto src = fBin.data();
                 auto dst = fBin.data();
                 auto main = fBin.rows() / 4;
                 for (u64 i = 0; i < main; ++i)
                 {
-                    *dst = 
+                    *dst =
                         ((src[0] & 3) << 0) |
                         ((src[1] & 3) << 2) |
                         ((src[2] & 3) << 4) |
@@ -899,7 +900,7 @@ namespace secJoin
             MC_AWAIT(genValMasks2(keyBitCount, k, f, fBin, gen, comm));
 
 
-            aggregateSum(f, s, mPartyIdx);
+            aggregateSum(f, s, gen.mRole == OleGenerator::Role::Sender ? 1 : 0);
 
             if (mDebug)
                 MC_AWAIT(checkAggregateSum(f, s, comm));
@@ -935,7 +936,7 @@ namespace secJoin
                                 return (k(a) < k(b));
                             });
                         return exp.inverse();
-                    };
+                        };
                     auto p2 = genBitPerm(sk);
 
                     std::cout << "k ";
@@ -1040,7 +1041,7 @@ namespace secJoin
                             return (k(a) < k(b));
                         });
                     return exp.inverse();
-                };
+                    };
 
                 auto ll = oc::divCeil(k.bitsPerEntry(), mL);
                 auto kIdx = 0;

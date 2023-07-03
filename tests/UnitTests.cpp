@@ -89,6 +89,7 @@ namespace secJoin_Tests
             t.add("OmJoin_getControlBits_Test                    ", OmJoin_getControlBits_Test);
             t.add("OmJoin_concatColumns_Test                     ", OmJoin_concatColumns_Test);
             t.add("OmJoin_getOutput_Test                         ", OmJoin_getOutput_Test);
+            t.add("OmJoin_join_Test                              ", OmJoin_join_Test);
 
         });
 }

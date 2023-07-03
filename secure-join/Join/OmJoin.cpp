@@ -245,7 +245,8 @@ namespace secJoin
             temp = BinMatrix{},
             aggTree = AggTree{},
             sort = RadixSort{},
-            keyOffset = u64{});
+            keyOffset = u64{},
+            dup = AggTree::Operator{});
 
         setTimePoint("start");
 
@@ -268,6 +269,8 @@ namespace secJoin
 
         // Apply the sortin permutation. What you end up with are the keys
         // in sorted order and the rows of L also in sorted order.
+        temp.resize(data.numEntries(), data.bitsPerEntry() + 8);
+        temp.resize(data.numEntries(), data.bitsPerEntry());
         MC_AWAIT(sPerm.apply<u8>(data.mData, temp.mData, prng, sock, ole, true));
         std::swap(data, temp);
         setTimePoint("applyInv-sort");
@@ -279,19 +282,26 @@ namespace secJoin
         setTimePoint("control");
 
         // reshape data so that the key at then end of each row are discarded.
-        data.reshape(keyOffset);
+        data.reshape(keyOffset * 8);
+        temp.reshape(keyOffset * 8);
 
         // duplicate the rows in data that are from L into any matching
         // rows that correspond to R.
-        MC_AWAIT(aggTree.apply(data, controlBits, getDupCircuit(), AggTreeType::Prefix, sock, ole, temp));
+        dup = getDupCircuit();
+        MC_AWAIT(aggTree.apply(data, controlBits, dup, AggTreeType::Prefix, sock, ole, temp));
         std::swap(data, temp);
         setTimePoint("duplicate");
+
+        data.reshape(data.bitsPerEntry() + 1);
+        for (u64 i = 0; i < data.numEntries(); ++i)
+            data.mData[i].back() = controlBits(i);
 
         // unpermute `data`. What we are left with is
         //     L
         //     L'
         // where L' are the matching rows from L for each row of R.
         // That is, L' || R is the result we want.
+        temp.resize(data.numEntries(), data.bitsPerEntry());
         MC_AWAIT(sPerm.apply<u8>(data.mData, temp.mData, prng, sock, ole, false));
         std::swap(data, temp);
         setTimePoint("apply-sort");

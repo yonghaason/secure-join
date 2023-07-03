@@ -55,13 +55,13 @@ void RadixSort_hadamardSum_test()
 
 
     PRNG prng(block(0, 0));
-    RadixSort s0(0), s1(1);
+    RadixSort s0, s1;
 
     oc::Matrix<u32> r(rows, cols);
     BinMatrix l(1, rows * cols);
 
-    BinMatrix 
-        l0(1, rows * cols), 
+    BinMatrix
+        l0(1, rows * cols),
         l1(1, rows * cols);
 
     oc::Matrix<u32> r0(rows, cols), r1(rows, cols);
@@ -236,13 +236,13 @@ void RadixSort_genValMasks2_test()
     //u64 L = 1;
     //u64 n = 128 * 8;
 
-    for (u64 n : { 10, 324,3242 })
+    for (u64 n : { 10, 324, 3242 })
     {
-        for (u64 L : { 1 , 2 ,5 })
+        for (u64 L : { 1, 2, 5 })
         {
 
             PRNG prng(block(0, 0));
-            RadixSort s0(0), s1(1);
+            RadixSort s0, s1;
 
             BinMatrix k(n, L);
             BinMatrix k0(n, L), k1(n, L);
@@ -417,7 +417,6 @@ void RadixSort_genBitPerm_test()
                     for (u64 i = 0; i < 2; ++i)
                     {
                         p[i].resize(ll);
-                        s[i].init(i);
                         sk[i].resize(n, m);
                     }
 
@@ -500,7 +499,7 @@ void RadixSort_genPerm_test()
 {
     auto comm = coproto::LocalAsyncSocket::makePair();
 
-    u64 trials =   1;
+    u64 trials = 1;
 
     for (auto n : { 6,100 })
     {
@@ -515,7 +514,7 @@ void RadixSort_genPerm_test()
                     g1.fakeInit(OleGenerator::Role::Receiver);
 
                     PRNG prng(block(0, 0));
-                    RadixSort s0(0), s1(1);
+                    RadixSort s0, s1;
                     s0.mL = L;
                     s1.mL = L;
 
