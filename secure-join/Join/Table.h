@@ -4,7 +4,7 @@
 
 #include <fstream>
 #include "secure-join/Util/Matrix.h"
-#include "secure-join/Util/Util.h"
+#include "secure-join/Defines.h"
 
 namespace secJoin
 {
@@ -13,6 +13,7 @@ namespace secJoin
         IntID = 0,
         StringID = 1
     };
+    using ColumnInfo = std::tuple<std::string, TypeID, u64>;
 
     class Column
     {
@@ -45,9 +46,28 @@ namespace secJoin
         const u8* data() const { return mData.data(); }
         u64 rows() { return mData.rows(); }
         u64 cols() { return mData.cols(); }
+
+
+        ColumnInfo getColumnInfo() const
+        {
+            return { mName, mType, mBitCount };
+        }
+
+
+        bool operator!=(const Column& o) const
+        {
+            return !(*this == o);
+        }
+        bool operator==(const Column& o) const
+        {
+            if (mBitCount != o.mBitCount)
+                return false;
+            if (mName != o.mName)
+                return false;
+            return mData == o.mData;
+        }
     };
 
-    using ColumnInfo = std::tuple<std::string, TypeID, u64>;
     class Table;
 
     struct ColRef
@@ -92,13 +112,23 @@ namespace secJoin
             }
         }
 
+        std::vector<ColumnInfo> getColumnInfo() const
+        {
+            std::vector<ColumnInfo> ret(mColumns.size());
+            for (u64 i = 0; i < ret.size(); ++i)
+            {
+                ret[i] = mColumns[i].getColumnInfo();
+            }
+            return ret;
+        }
+
         void resize(u64 n)
         {
             for (u64 i = 0; i < mColumns.size(); ++i)
                 mColumns[i].mData.resize(n, mColumns[i].mBitCount);
         }
 
-        u64 rows() { return mColumns.size() ? mColumns[0].mData.numEntries() : 0; }
+        u64 rows() const { return mColumns.size() ? mColumns[0].mData.numEntries() : 0; }
 
         ColRef operator[](u64 i)
         {
@@ -112,13 +142,40 @@ namespace secJoin
 
             throw RTE_LOC;
         }
+
+
+        bool operator!=(const Table& o) const
+        {
+            return !(*this == o);
+        }
+        bool operator==(const Table& o) const
+        {
+            if (getColumnInfo() != o.getColumnInfo())
+                return false;
+            if (rows() != o.rows())
+                return false;
+
+            for (u64 j = 0; j < mColumns.size(); ++j)
+            {
+                if (mColumns[j] != o.mColumns[j])
+                    return false;
+            }
+
+            return true;
+        }
     };
+
+
+    std::ostream& operator<<(std::ostream& o, const Table& t);
 
     void populateTable(Table& tb, std::string& fileName, oc::u64 rowCount);
     void populateTable(Table& tb, std::istream& in, oc::u64 rowCount);
-    void secretShareTable(Table& table, std::array<Table, 2>& shares,
+    void share(Table& table, std::array<Table, 2>& shares,
         oc::PRNG& prng);
 
+
+
+    Table join(const ColRef& l, const ColRef& r, std::vector<ColRef> select);
     // class SharedTable
     // {
     // public:

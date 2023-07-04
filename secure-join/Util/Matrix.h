@@ -17,7 +17,7 @@ namespace secJoin
         using reverse_iterator = std::reverse_iterator<iterator>;
         using const_reverse_iterator = std::reverse_iterator<const_iterator>;
         using value_type = u8;
-        using pointer = value_type *;
+        using pointer = value_type*;
         using size_type = u64;
 
         oc::Matrix<u8> mData;
@@ -25,10 +25,10 @@ namespace secJoin
         u64 mBitCount = 0;
 
         BinMatrix() = default;
-        BinMatrix(const BinMatrix &) = default;
-        BinMatrix(BinMatrix &&) = default;
-        BinMatrix &operator=(const BinMatrix &) = default;
-        BinMatrix &operator=(BinMatrix &&) = default;
+        BinMatrix(const BinMatrix&) = default;
+        BinMatrix(BinMatrix&&) = default;
+        BinMatrix& operator=(const BinMatrix&) = default;
+        BinMatrix& operator=(BinMatrix&&) = default;
 
         BinMatrix(u64 rows, u64 bits, u64 aligment = 1)
         {
@@ -41,6 +41,7 @@ namespace secJoin
             mBitCount = bits;
         }
 
+        // keep the number of entries the same but change the bit count;
         void reshape(u64 bitCount)
         {
             if (bitCount > mData.cols() * 8)
@@ -65,20 +66,20 @@ namespace secJoin
 
         u64 rows() const { return numEntries(); }
         u64 cols() const { return bytesPerEntry(); }
-        u8 *data()
+        u8* data()
         {
             return mData.data();
         }
-        const u8 *data() const
+        const u8* data() const
         {
             return mData.data();
         }
 
-        u8 *data(u64 i)
+        u8* data(u64 i)
         {
             return mData.data(i);
         }
-        const u8 *data(u64 i) const
+        const u8* data(u64 i) const
         {
             return mData.data(i);
         }
@@ -100,14 +101,14 @@ namespace secJoin
         span<u8> operator[](u64 i) { return mData[i]; }
         span<const u8> operator[](u64 i) const { return mData[i]; }
 
-        u8 &operator()(u64 i) { return mData(i); }
-        u8 &operator()(u64 i, u64 j) { return mData(i, j); }
+        u8& operator()(u64 i) { return mData(i); }
+        u8& operator()(u64 i, u64 j) { return mData(i, j); }
 
-        const u8 &operator()(u64 i) const { return mData(i); }
-        const u8 &operator()(u64 i, u64 j) const { return mData(i, j); }
+        const u8& operator()(u64 i) const { return mData(i); }
+        const u8& operator()(u64 i, u64 j) const { return mData(i, j); }
 
         void transpose(oc::MatrixView<u8> dst) const;
-        void transpose(TBinMatrix &dst) const;
+        void transpose(TBinMatrix& dst) const;
         TBinMatrix transpose() const;
 
         void setZero()
@@ -116,7 +117,7 @@ namespace secJoin
                 memset(mData.data(), 0, mData.size());
         }
 
-        bool operator==(const BinMatrix &b) const
+        bool operator==(const BinMatrix& b) const
         {
             if (numEntries() != b.numEntries())
                 return false;
@@ -134,7 +135,7 @@ namespace secJoin
                 // throw RTE_LOC;
             }
         }
-        bool operator!=(const BinMatrix &b) const
+        bool operator!=(const BinMatrix& b) const
         {
             return !(*this == b);
         }
@@ -188,10 +189,10 @@ namespace secJoin
     {
 
         TBinMatrix() = default;
-        TBinMatrix(TBinMatrix &&) = default;
-        TBinMatrix(const TBinMatrix &) = default;
-        TBinMatrix &operator=(TBinMatrix &&) = default;
-        TBinMatrix &operator=(const TBinMatrix &) = default;
+        TBinMatrix(TBinMatrix&&) = default;
+        TBinMatrix(const TBinMatrix&) = default;
+        TBinMatrix& operator=(TBinMatrix&&) = default;
+        TBinMatrix& operator=(const TBinMatrix&) = default;
         TBinMatrix(u64 rows, u64 bits, u64 alignment = 1)
         {
             resize(rows, bits, alignment);
@@ -223,16 +224,16 @@ namespace secJoin
             return mEntryCount;
         }
 
-        u8 *data() { return mData.data(); }
-        u8 *data(u64 bitIdx) { return mData.data(bitIdx); }
+        u8* data() { return mData.data(); }
+        u8* data(u64 bitIdx) { return mData.data(bitIdx); }
         u64 size() const { return mData.size(); }
         u64 bytesPerRow() const { return mData.cols(); }
 
-        u8 &operator()(u64 i) { return mData(i); }
-        u8 &operator()(u64 i, u64 j) { return mData(i, j); }
+        u8& operator()(u64 i) { return mData(i); }
+        u8& operator()(u64 i, u64 j) { return mData(i, j); }
 
-        const u8 &operator()(u64 i) const { return mData(i); }
-        const u8 &operator()(u64 i, u64 j) const { return mData(i, j); }
+        const u8& operator()(u64 i) const { return mData(i); }
+        const u8& operator()(u64 i, u64 j) const { return mData(i, j); }
 
         template <typename T>
         u64 simdWidth() const
@@ -249,7 +250,7 @@ namespace secJoin
         span<u8> operator[](u64 i) { return mData[i]; }
         span<u8 const> operator[](u64 i) const { return mData[i]; }
 
-        void transpose(BinMatrix &dst) const
+        void transpose(BinMatrix& dst) const
         {
             if (dst.bitsPerEntry() != bitsPerEntry() ||
                 dst.numEntries() != numEntries())
@@ -266,7 +267,7 @@ namespace secJoin
         }
     };
 
-    inline void BinMatrix::transpose(TBinMatrix &dst) const
+    inline void BinMatrix::transpose(TBinMatrix& dst) const
     {
         if (dst.bitsPerEntry() != bitsPerEntry() ||
             dst.numEntries() != numEntries())

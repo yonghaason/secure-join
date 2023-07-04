@@ -6,13 +6,13 @@
 #include "Paillier/Defines.h"
 
 #ifndef SECJOIN_ENABLE_LOGGING
-    #define SECJOIN_ENABLE_LOGGING true
+#define SECJOIN_ENABLE_LOGGING true
 #endif
 
 
 namespace secJoin
 {
-    const char CSV_COL_DELIM =';';
+    const char CSV_COL_DELIM = ';';
     const std::string STRING_META_TYPE = "STRING";
     const std::string ROWS_META_TYPE = "Rows";
 
@@ -37,13 +37,17 @@ namespace secJoin
     {
         ::memset(dst.data(), v, dst.size_bytes());
     }
-    
-    inline std::string hex(oc::span<u8> d)
+
+    inline std::string hex(oc::span<const u8> d)
     {
         std::stringstream ss;
         for (u64 i = d.size() - 1; i < d.size(); --i)
             ss << std::hex << std::setw(2) << std::setfill('0') << int(d[i]);
         return ss.str();
+    }
+    inline std::string hex(u8 const* d, u64 s)
+    {
+        return hex(span<const u8>(d, s));
     }
 
 

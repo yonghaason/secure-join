@@ -12,12 +12,7 @@ namespace secJoin
 
 	struct OmJoin : public oc::TimerAdapter
 	{
-		// OleGenerator* mOle = nullptr;
-
-		// void init(OleGenerator& ole)
-		// {
-		//     mOle = &ole;
-		// }
+		bool mDebug = true, mInsecureSort = false;
 
 		// output a combined table that has the leftColumn
 		// concatenated with the rightColumn (doubling the
@@ -37,7 +32,8 @@ namespace secJoin
 		// going to the end of each row i.
 		static macoro::task<> getControlBits(
 			BinMatrix& data,
-			u64 keyOffset,
+			u64 keyByteOffset,
+			u64 keyBitCount,
 			coproto::Socket& sock,
 			BinMatrix& out,
 			OleGenerator& ole);

@@ -4,6 +4,7 @@
 #include "secure-join/Defines.h"
 #include <vector>
 #include "secure-join/Perm/AdditivePerm.h"
+#include "secure-join/Join/Table.h"
 
 namespace secJoin
 {
@@ -11,7 +12,7 @@ namespace secJoin
     using oc::Matrix;
     using oc::PRNG;
 
-    inline void share(const Matrix<u32> &x, Matrix<u32> &x0, Matrix<u32> &x1, PRNG &prng)
+    inline void share(const Matrix<u32>& x, Matrix<u32>& x0, Matrix<u32>& x1, PRNG& prng)
     {
         x0.resize(x.rows(), x.cols());
         x1.resize(x.rows(), x.cols());
@@ -21,7 +22,7 @@ namespace secJoin
             x1(i) = x(i) - x0(i);
     }
 
-    inline void share(const span<u32> x, std::vector<u32> &x0, std::vector<u32> &x1, PRNG &prng)
+    inline void share(const span<u32> x, std::vector<u32>& x0, std::vector<u32>& x1, PRNG& prng)
     {
         x0.resize(x.size());
         x1.resize(x.size());
@@ -30,7 +31,7 @@ namespace secJoin
             x1[i] = x[i] - x0[i];
     }
 
-    inline void share(const Matrix<u8> &x, u64 bitCount, Matrix<u8> &x0, Matrix<u8> &x1, PRNG &prng)
+    inline void share(const Matrix<u8>& x, u64 bitCount, Matrix<u8>& x0, Matrix<u8>& x1, PRNG& prng)
     {
         if (x.cols() != oc::divCeil(bitCount, 8))
             throw RTE_LOC;
@@ -53,8 +54,8 @@ namespace secJoin
     }
 
 
-    inline void share(const BinMatrix &x, BinMatrix &x0, BinMatrix &x1, PRNG &prng)
-    {        
+    inline void share(const BinMatrix& x, BinMatrix& x0, BinMatrix& x1, PRNG& prng)
+    {
         auto bitCount = x.bitsPerEntry();
         x0.resize(x.rows(), x.bitsPerEntry());
         x1.resize(x.rows(), x.bitsPerEntry());
@@ -73,11 +74,11 @@ namespace secJoin
         }
     }
 
-    inline void share(const Matrix<u8> &x, Matrix<u8> &x0, Matrix<u8> &x1, PRNG &prng)
+    inline void share(const Matrix<u8>& x, Matrix<u8>& x0, Matrix<u8>& x1, PRNG& prng)
     {
         share(x, x.cols() * 8, x0, x1, prng);
     }
-    inline Perm reveal(const AdditivePerm &x0, const AdditivePerm &x1)
+    inline Perm reveal(const AdditivePerm& x0, const AdditivePerm& x1)
     {
         if (x0.mRho != x1.mRho)
             throw RTE_LOC;
@@ -97,7 +98,7 @@ namespace secJoin
         return p;
     }
 
-    inline Matrix<u32> reveal(const Matrix<u32> &x0, const Matrix<u32> &x1)
+    inline Matrix<u32> reveal(const Matrix<u32>& x0, const Matrix<u32>& x1)
     {
         Matrix<u32> r(x0.rows(), x0.cols());
         for (u64 i = 0; i < r.size(); ++i)
@@ -107,7 +108,7 @@ namespace secJoin
 
     inline std::array<oc::Matrix<oc::u8>, 2> share(
         oc::Matrix<oc::u8> v,
-        oc::PRNG &prng)
+        oc::PRNG& prng)
     {
         auto n = v.rows();
         oc::Matrix<oc::u8>
@@ -119,12 +120,12 @@ namespace secJoin
         for (oc::u64 i = 0; i < v.size(); ++i)
             s1(i) = v(i) ^ s0(i);
 
-        return {s0, s1};
+        return { s0, s1 };
     }
 
     inline std::array<oc::Matrix<oc::u32>, 2> share(
         oc::Matrix<oc::u32> v,
-        oc::PRNG &prng)
+        oc::PRNG& prng)
     {
         auto n = v.rows();
         oc::Matrix<oc::u32>
@@ -136,12 +137,12 @@ namespace secJoin
         for (oc::u64 i = 0; i < v.size(); ++i)
             s1(i) = v(i) - s0(i);
 
-        return {s0, s1};
+        return { s0, s1 };
     }
 
     inline std::array<std::vector<u32>, 2> xorShare(
         span<const u32> v,
-        oc::PRNG &prng)
+        oc::PRNG& prng)
     {
         auto n = v.size();
         std::vector<u32>
@@ -149,18 +150,18 @@ namespace secJoin
             s1(n);
 
         prng.get(s0.data(), s0.size());
-        prng.get((u8 *)s0.data(), n * sizeof(u32));
+        prng.get((u8*)s0.data(), n * sizeof(u32));
 
         for (oc::u64 i = 0; i < v.size(); ++i)
             s1[i] = v[i] ^ s0[i];
 
-        return {s0, s1};
+        return { s0, s1 };
     }
 
 
     inline BinMatrix reveal(
-       const BinMatrix& v1,
-       const BinMatrix& v2)
+        const BinMatrix& v1,
+        const BinMatrix& v2)
     {
 
         // Checking the dimensions
@@ -197,8 +198,8 @@ namespace secJoin
     }
 
     inline bool eq(
-        const oc::Matrix<oc::u8> &v1,
-        const oc::Matrix<oc::u8> &v2)
+        const oc::Matrix<oc::u8>& v1,
+        const oc::Matrix<oc::u8>& v2)
     {
         // Checking the dimensions
         if (v1.rows() != v2.rows())
@@ -209,8 +210,8 @@ namespace secJoin
         return std::equal(v1.begin(), v1.end(), v2.begin());
     }
     inline bool eq(
-        const oc::Matrix<oc::u32> &v1,
-        const oc::Matrix<oc::u32> &v2)
+        const oc::Matrix<oc::u32>& v1,
+        const oc::Matrix<oc::u32>& v2)
     {
         // Checking the dimensions
         if (v1.rows() != v2.rows())
@@ -221,12 +222,54 @@ namespace secJoin
         return std::equal(v1.begin(), v1.end(), v2.begin());
     }
 
-    inline void printMatrix(const oc::Matrix<oc::u8> &v1)
+    inline void printMatrix(const oc::Matrix<oc::u8>& v1)
     {
         for (int i = 0; i < v1.rows(); i++)
         {
             std::cout << hex(v1[i]) << " ";
             std::cout << std::endl;
         }
+    }
+
+
+    inline Table reveal(const Table& t0, const Table& t1)
+    {
+        u64 size = 0;
+        if (t0.getColumnInfo() != t1.getColumnInfo() || t0.rows() != t1.rows())
+        {
+            throw RTE_LOC;
+        }
+        if (t0.mIsActive.size())
+        {
+            for (u64 i = 0; i < t0.rows(); ++i)
+            {
+                assert((t0.mIsActive[i] ^ t1.mIsActive[i]) < 2);
+                size += t0.mIsActive[i] ^ t1.mIsActive[i];
+            }
+        }
+        else
+            size = t0.rows();
+
+
+        Table ret;
+        ret.init(size, t0.getColumnInfo());
+        for (u64 i = 0, j = 0; i < t0.rows(); ++i)
+        {
+            if (t0.mIsActive[i] ^ t1.mIsActive[i])
+            {
+                for (u64 k = 0; k < t0.mColumns.size(); ++k)
+                {
+                    for (u64 l = 0;l < ret.mColumns[k].mData.cols(); ++l)
+                    {
+                        ret.mColumns[k].mData(j, l) =
+                            t0.mColumns[k].mData(j, l) ^
+                            t1.mColumns[k].mData(j, l);
+                    }
+                }
+                ++j;
+            }
+        }
+
+        return ret;
     }
 }

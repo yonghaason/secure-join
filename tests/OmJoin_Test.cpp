@@ -2,7 +2,7 @@
 
 #include "OmJoin_Test.h"
 #include "secure-join/Join/OmJoin.h"
-
+#include "secure-join/Util/Util.h" 
 using namespace secJoin;
 
 void OmJoin_loadKeys_Test()
@@ -47,15 +47,27 @@ void OmJoin_loadKeys_Test()
 void OmJoin_getControlBits_Test()
 {
     u64 n = 342;
-    u64 m = 31;
-    u64 offset = 32;
+    // u64 m = 32;
+    u64 offset = 2;
+    u64 keyBitCount = 21;
 
     auto sock = coproto::LocalAsyncSocket::makePair();
 
-    BinMatrix k(n, m + offset), kk[2], cc[2];
+    BinMatrix k(n, offset * 8 + keyBitCount), kk[2], cc[2];
     PRNG prng(oc::ZeroBlock);
     prng.get(k.data(), k.size());
-    k.trim();
+
+    std::vector<u8> exp(n);
+    for (u64 i = 1; i < n; ++i)
+    {
+        exp[i] = prng.getBit();
+        if (exp[i])
+        {
+            memcpy(k.data(i) + offset, k.data(i - 1) + offset, k.cols() - offset);
+        }
+    }
+
+    // k.trim();
 
     share(k, kk[0], kk[1], prng);
 
@@ -64,8 +76,8 @@ void OmJoin_getControlBits_Test()
     ole1.fakeInit(OleGenerator::Role::Receiver);
 
     auto r = macoro::sync_wait(macoro::when_all_ready(
-        OmJoin::getControlBits(kk[0], offset, sock[0], cc[0], ole0),
-        OmJoin::getControlBits(kk[1], offset, sock[1], cc[1], ole1)));
+        OmJoin::getControlBits(kk[0], offset, keyBitCount, sock[0], cc[0], ole0),
+        OmJoin::getControlBits(kk[1], offset, keyBitCount, sock[1], cc[1], ole1)));
 
     std::get<0>(r).result();
     std::get<1>(r).result();
@@ -76,10 +88,10 @@ void OmJoin_getControlBits_Test()
         throw RTE_LOC;
     for (u64 i = 1; i < n; ++i)
     {
-        auto exp = memcmp(k[i - 1].data() + offset / 8, k[i].data() + offset / 8, k.bytesPerEntry() - offset / 8) == 0;
+        // auto expi = memcmp(k[i - 1].data() + offset / 8, k[i].data() + offset / 8, k.bytesPerEntry() - offset / 8) == 0;
         auto act = c(i);
 
-        if (exp != act)
+        if (exp[i] != act)
             throw RTE_LOC;
     }
 }
@@ -237,29 +249,43 @@ void OmJoin_getOutput_Test()
 
 void OmJoin_join_Test()
 {
-    u64 nL = 234,
-        nR = 99;
-
+    u64 nL = 20,
+        nR = 9;
+    bool verbose = false;
 
     Table L, R;
 
     L.init(nL, { {
-        {"L1", TypeID::IntID, 8}
+        {"L1", TypeID::IntID, 8},
+        {"L2", TypeID::IntID, 16}
     } });
     R.init(nR, { {
-        {"R1", TypeID::IntID, 8}
+        {"R1", TypeID::IntID, 8},
+        {"R2", TypeID::IntID, 7}
     } });
 
-    // PRNG prng(oc::ZeroBlock);
-    // prng.get(L.mColumns[0].data(), L.mColumns[0].size());
-    // prng.get(R.mColumns[0].data(), R.mColumns[0].size());
-
     for (u64 i = 0; i < nL; ++i)
+    {
         L.mColumns[0].mData.mData(i) = i;
+        L.mColumns[1].mData.mData(i, 0) = i % 4;
+        L.mColumns[1].mData.mData(i, 1) = i % 3;
+    }
+
     for (u64 i = 0; i < nR; ++i)
+    {
         R.mColumns[0].mData.mData(i) = i * 2;
+        R.mColumns[1].mData.mData(i) = i % 3;
+    }
+
+    PRNG prng(oc::ZeroBlock);
+    std::array<Table, 2> Ls, Rs;
+    share(L, Ls, prng);
+    share(R, Rs, prng);
 
     OmJoin join0, join1;
+
+    join0.mDebug = verbose;
+    join1.mDebug = verbose;
 
     OleGenerator ole0, ole1;
     ole0.fakeInit(OleGenerator::Role::Sender);
@@ -271,8 +297,19 @@ void OmJoin_join_Test()
 
     Table out[2];
 
+    auto exp = join(L[0], R[0], { L[0], R[1], L[1] });
+
     macoro::sync_wait(macoro::when_all_ready(
-        join0.join(L[0], R[0], { L[0], R[0] }, out[0], prng0, ole0, sock[0]),
-        join1.join(L[0], R[0], { L[0], R[0] }, out[1], prng1, ole1, sock[1])
+        join0.join(Ls[0][0], Rs[0][0], { Ls[0][0], Rs[0][1], Ls[0][1] }, out[0], prng0, ole0, sock[0]),
+        join1.join(Ls[1][0], Rs[1][0], { Ls[1][0], Rs[1][1], Ls[1][1] }, out[1], prng1, ole1, sock[1])
     ));
+
+    auto res = reveal(out[0], out[1]);
+
+    if (res != exp)
+    {
+        std::cout << "exp \n" << exp << std::endl;
+        std::cout << "act \n" << res << std::endl;
+        throw RTE_LOC;
+    }
 }

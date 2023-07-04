@@ -1,4 +1,5 @@
 #include "Table.h"
+#include "secure-join/Util/Util.h"
 
 namespace secJoin
 {
@@ -10,9 +11,9 @@ namespace secJoin
     //     mMem.emplace_back();
     //     auto& mem = mMem.back();
     //     mInputs.emplace_back(
-	// 		(int)(mMem.size()) - 1,
-	// 		column, 
-	// 		(int)(mInputs.size()));
+    // 		(int)(mMem.size()) - 1,
+    // 		column, 
+    // 		(int)(mInputs.size()));
 
     //     mem.mType = column.mCol.mType;
     //     mem.mInputIdx = (mInputs.size()) - 1;
@@ -273,12 +274,12 @@ namespace secJoin
         bool isheader = true;
         std::string line, word;
 
-        for(oc::u64 rowNum = 0; rowNum < rowCount; rowNum++)
+        for (oc::u64 rowNum = 0; rowNum < rowCount; rowNum++)
         {
             getline(in, line);
 
             // Skipping the header
-            if(isheader)
+            if (isheader)
             {
                 isheader = false;
                 rowNum--;
@@ -286,24 +287,24 @@ namespace secJoin
             }
             oc::u64 colNum = 0;
             std::stringstream str(line);
-            while(getline(str, word, CSV_COL_DELIM))
+            while (getline(str, word, CSV_COL_DELIM))
             {
-                if(tb.mColumns[colNum].getTypeID() == TypeID::IntID)
+                if (tb.mColumns[colNum].getTypeID() == TypeID::IntID)
                 {
-                    if(tb.mColumns[colNum].getByteCount() <= 4)
+                    if (tb.mColumns[colNum].getByteCount() <= 4)
                     {
                         oc::i32 number = stoi(word);
-                        memcpy(tb.mColumns[colNum].mData.data(rowNum), &number, sizeof(i32) );
+                        memcpy(tb.mColumns[colNum].mData.data(rowNum), &number, sizeof(i32));
                     }
-                    else if(tb.mColumns[colNum].getByteCount() <= 8)
+                    else if (tb.mColumns[colNum].getByteCount() <= 8)
                     {
                         oc::i64 number = stol(word);
-                        memcpy(tb.mColumns[colNum].mData.data(rowNum), &number, sizeof(i64) );
+                        memcpy(tb.mColumns[colNum].mData.data(rowNum), &number, sizeof(i64));
 
                     }
-                    else if(tb.mColumns[colNum].getByteCount() > 9)
+                    else if (tb.mColumns[colNum].getByteCount() > 9)
                     {
-                        std::string temp = tb.mColumns[colNum].mName  
+                        std::string temp = tb.mColumns[colNum].mName
                             + " can't be stored as int type\n"
                             + LOCATION;
                         throw std::runtime_error(temp);
@@ -312,10 +313,10 @@ namespace secJoin
                 }
                 else
                 {
-                    oc::u64 minSize = tb.mColumns[colNum].getByteCount() > word.size() ? 
-                                        word.size() : tb.mColumns[colNum].getByteCount();
-                    
-                    memcpy(tb.mColumns[colNum].mData.data(rowNum), word.data(), minSize );
+                    oc::u64 minSize = tb.mColumns[colNum].getByteCount() > word.size() ?
+                        word.size() : tb.mColumns[colNum].getByteCount();
+
+                    memcpy(tb.mColumns[colNum].mData.data(rowNum), word.data(), minSize);
                 }
                 colNum++;
             }
@@ -328,28 +329,170 @@ namespace secJoin
 
     void populateTable(Table& tb, std::string& fileName, oc::u64 rowCount)
     {
-        std::fstream file (fileName, std::ios::in);
+        std::fstream file(fileName, std::ios::in);
         std::istream in(file.rdbuf());
-        if(!file.is_open())
+        if (!file.is_open())
         {
-            std::cout<<"Could not open the file" << std::endl;
+            std::cout << "Could not open the file" << std::endl;
             throw RTE_LOC;
         }
         populateTable(tb, in, rowCount);
         file.close();
     }
 
-    void secretShareTable(Table& table,
-        std::array<Table,2>& shares,
-        oc::PRNG &prng)
+    void share(Table& table,
+        std::array<Table, 2>& shares,
+        oc::PRNG& prng)
     {
-        for(oc::u64 i =0; i<table.mColumns.size(); i++)
+        shares[0].mColumns.resize(table.mColumns.size());
+        shares[1].mColumns.resize(table.mColumns.size());
+        for (oc::u64 i = 0; i < table.mColumns.size(); i++)
         {
-            std::array<oc::Matrix<oc::u8>, 2> temp = share(table.mColumns[i].mData.mData, prng);
-            shares[0].mColumns[i].mData.mData = temp[0];
-            shares[1].mColumns[i].mData.mData = temp[1];
+            std::array<BinMatrix, 2> temp;
+            share(table.mColumns[i].mData, temp[0], temp[1], prng);
+
+            for (u64 k = 0;k < 2; ++k)
+            {
+                shares[k].mColumns[i].mBitCount = table.mColumns[i].mBitCount;
+                shares[k].mColumns[i].mName = table.mColumns[i].mName;
+                shares[k].mColumns[i].mType = table.mColumns[i].mType;
+                shares[k].mColumns[i].mData = temp[k];
+            }
         }
-        
+
+    }
+
+    bool eq(span<const u8> l, span<const u8> r)
+    {
+        assert(l.size() == r.size());
+        for (u64 i = 0; i < l.size(); ++i)
+            if (l[i] != r[i])
+                return false;
+        return _CMP_TRUE_US;
+    }
+
+    bool lessThan(span<const u8> l, span<const u8> r)
+    {
+        assert(l.size() == r.size());
+        for (u64 i = l.size() - 1; i < l.size(); --i)
+            if (l[i] < r[i])
+                return true;
+        return false;
+    }
+    Perm sort(const ColRef& x)
+    {
+        Perm res(x.mCol.rows());
+
+        std::stable_sort(res.begin(), res.end(),
+            [&](const auto& a, const auto& b) {
+                return lessThan(x.mCol.mData[a], x.mCol.mData[b]);
+                // return (k64[a] < k64[b]);
+                // for (u64 i = x.mCol.cols() - 1; i < x.mCol.cols(); --i)
+                //     if (x.mCol.mData(a, i) < x.mCol.mData(b, i))
+                //         return true;
+                // return false;
+            });
+        return res;
+    }
+
+    Table join(const ColRef& l, const ColRef& r, std::vector<ColRef> select)
+    {
+        // std::unordered_map<oc::block, u64>
+        auto LPerm = sort(l);
+        auto RPerm = sort(r);
+
+        std::cout << " L " << std::endl;
+        for (u64 i = 0; i < LPerm.size(); ++i)
+        {
+            std::cout << i << ": " << hex(l.mCol.mData[LPerm[i]]) << std::endl;
+        }
+
+        std::vector<std::array<u64, 2>> I;
+        I.reserve(r.mCol.rows());
+
+        u64 lIdx = 0;
+        for (u64 i = 0; i < r.mCol.rows(); ++i)
+        {
+            while (
+                lIdx < l.mCol.rows() &&
+                lessThan(l.mCol.mData[LPerm[lIdx]], r.mCol.mData[RPerm[i]]))
+            {
+                if (lIdx)
+                {
+                    if (eq(l.mCol.mData[LPerm[lIdx - 1]], l.mCol.mData[LPerm[lIdx]]))
+                        throw RTE_LOC;// L duplicate key
+                }
+                ++lIdx;
+            }
+
+            if (lIdx < l.mCol.rows())
+            {
+                if (eq(l.mCol.mData[LPerm[lIdx]], r.mCol.mData[RPerm[i]]))
+                {
+                    I.push_back({ LPerm[lIdx], RPerm[i] });
+                }
+            }
+        }
+
+        std::vector<ColumnInfo> colInfo(select.size());
+        for (u64 i = 0; i < colInfo.size(); ++i)
+        {
+            colInfo[i] = select[i].mCol.getColumnInfo();
+        }
+        Table ret(I.size(), colInfo);
+
+        for (u64 i = 0; i < I.size(); ++i)
+        {
+            for (u64 j = 0; j < colInfo.size(); ++j)
+            {
+                auto lr = (&select[j].mTable == &r.mTable) ? 1 : 0;
+                auto src = select[j].mCol.mData.data(I[i][lr]);
+                auto dst = ret.mColumns[j].mData.data(i);
+                auto size = ret.mColumns[j].mData.cols();
+
+                memcpy(dst, src, size);
+            }
+        }
+
+        return ret;
+    }
+
+    std::ostream& operator<<(std::ostream& o, const Table& t)
+    {
+        auto width = 8;
+        auto separator = ' ';
+        auto printElem = [&](auto&& t)
+            {
+                o << std::left << std::setw(width) << std::setfill(separator) << t;
+            };
+
+        o << "      ";
+        for (u64 i = 0; i < t.mColumns.size(); ++i)
+            printElem(t.mColumns[i].mName);
+
+        std::cout << "\n-------------------------------" << std::endl;
+        for (u64 i = 0; i < t.rows(); ++i)
+        {
+            o << std::setw(2) << std::setfill(' ') << i << " ";
+            if (t.mIsActive.size())
+                printElem((int)t.mIsActive[i]);
+            else
+                o << 1;
+
+            o << ": ";
+            for (u64 j = 0; j < t.mColumns.size(); ++j)
+            {
+                if (t.mColumns[j].mType == TypeID::StringID)
+                    printElem(std::string((const char*)t.mColumns[j].mData.data(i), t.mColumns[j].getByteCount()));
+                else
+                    printElem(hex(t.mColumns[j].mData.data(i), t.mColumns[j].getByteCount()));
+            }
+            o << "\n";
+
+        }
+
+        return o;
+
     }
 
 

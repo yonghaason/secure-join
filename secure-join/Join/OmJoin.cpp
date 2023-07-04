@@ -39,32 +39,32 @@ namespace secJoin
     }
 
     macoro::task<> OmJoin::getControlBits(
-        BinMatrix& sKeys,
-        u64 keyOffset,
+        BinMatrix& data,
+        u64 keyByteOffset,
+        u64 keyBitCount,
         coproto::Socket& sock,
         BinMatrix& out,
         OleGenerator& ole)
     {
-        MC_BEGIN(macoro::task<>, &sKeys, &sock, &out, &ole,
+        MC_BEGIN(macoro::task<>, &data, &sock, &out, &ole, keyByteOffset, keyBitCount,
             cir = oc::BetaCircuit{},
+            sKeys = BinMatrix{},
             bin = Gmw{},
-            n = u64{}, m = u64{});
-        cir = getControlBitsCircuit(sKeys.bitsPerEntry());
-        bin.init(sKeys.numEntries(), cir, ole);
+            n = u64{},
+            keyByteSize = u64{});
 
-        bin.setInput(0, sKeys);
-
-        n = sKeys.numEntries();
-        m = sKeys.bytesPerEntry();
-
-        // shift the keys by 1 row
+        n = data.numEntries();
+        keyByteSize = oc::divCeil(keyBitCount, 8);
+        cir = getControlBitsCircuit(keyBitCount);
+        sKeys.resize(data.rows() + 1, keyBitCount);
+        for (u64 i = 0; i < n; ++i)
         {
-            auto s0 = sKeys[0].data();
-            auto s1 = s0 + m;
-            memmove(s1, s0, (n - 1) * m);
+            memcpy(sKeys.data(i + 1), data.data(i) + keyByteOffset, keyByteSize);
         }
+        bin.init(n, cir, ole);
 
-        bin.setInput(1, sKeys);
+        bin.setInput(0, sKeys.subMatrix(0, n));
+        bin.setInput(1, sKeys.subMatrix(1, n));
 
         MC_AWAIT(bin.run(sock));
 
@@ -80,11 +80,12 @@ namespace secJoin
         span<BinMatrix*> cols)
     {
         auto m = cols.size();
-        auto n = cols[0]->rows();
-        auto d0 = dst.data();
+        //auto n = cols[0]->rows();
+        //auto d0 = dst.data();
         auto e0 = dst.data() + dst.size();
 
         std::vector<u64>
+            offsets(m),
             sizes(m),
             srcSteps(m);
         std::vector<u8*> srcs(m);
@@ -92,28 +93,30 @@ namespace secJoin
         for (u64 i = 0; i < m; ++i)
         {
             sizes[i] = oc::divCeil(cols[i]->bitsPerEntry(), 8);
-            srcs[i] = cols[i]->data();
+            if (i)
+                offsets[i] = offsets[i - 1] + sizes[i - 1];
 
-            assert(rem >= sizes[i]);
-            rem -= sizes[i];
+            srcs[i] = cols[i]->data();
             srcSteps[i] = cols[i]->mData.cols();
         }
 
-        for (u64 i = 0; i < n; ++i)
+        for (u64 j = 0; j < m; ++j)
         {
-            for (u64 j = 0; j < m; ++j)
+            auto n = cols[j]->rows();
+            assert(n <= dst.rows());
+            auto d0 = dst.data() + offsets[j];
+
+            auto src = srcs[j];
+            auto size = sizes[j];
+            auto step = srcSteps[j];
+            for (u64 i = 0; i < n; ++i)
             {
-                assert(d0 + sizes[j] <= e0);
+                assert(d0 + size <= e0);
+                memcpy(d0, src, size);
 
-                // std::cout << hex({srcs[j], sizes[j]}) << " " << std::flush;
-                memcpy(d0, srcs[j], sizes[j]);
-
-                srcs[j] += srcSteps[j];
-                d0 += sizes[j];
+                src += step;
+                d0 += rem;
             }
-            // std::cout << std::endl;
-
-            d0 += rem;
         }
     }
 
@@ -227,6 +230,43 @@ namespace secJoin
             };
     }
 
+    macoro::task<> print(const BinMatrix& data, const BinMatrix& control, coproto::Socket& sock, int role, std::string name)
+    {
+        MC_BEGIN(macoro::task<>, &data, &control, &sock, role, name,
+            D = BinMatrix{},
+            C = BinMatrix{});
+
+        if (role)
+        {
+            MC_AWAIT(sock.send(data));
+
+            if (control.size())
+                MC_AWAIT(sock.send(control));
+        }
+        else
+        {
+            D.resize(data.numEntries(), data.bytesPerEntry() * 8);
+            MC_AWAIT(sock.recv(D));
+            if (control.size())
+                C.resize(control.numEntries(), control.bitsPerEntry());
+            if (control.size())
+                MC_AWAIT(sock.recv(C));
+
+
+            for (u64 i = 0; i < D.size(); ++i)
+                D(i) ^= data(i);
+            for (u64 i = 0; i < C.size(); ++i)
+                C(i) ^= control(i);
+
+            std::cout << name << std::endl;
+            for (u64 i = 0; i < D.numEntries(); ++i)
+            {
+                std::cout << i << ": " << (C.size() ? (int)C(i) : -1) << " ~ " << hex(D[i]) << std::endl;
+            }
+        }
+        MC_END();
+    }
+
     // leftJoinCol should be unique
     macoro::task<> OmJoin::join(
         ColRef leftJoinCol,
@@ -254,6 +294,9 @@ namespace secJoin
         keys = loadKeys(leftJoinCol, rightJoinCol);
         setTimePoint("load");
 
+        if (mDebug)
+            MC_AWAIT(print(keys, controlBits, sock, (int)ole.mRole, "keys"));
+
         // get the stable sorting permutation sPerm
         MC_AWAIT(sort.genPerm(keys, sPerm, ole, sock));
         setTimePoint("sort");
@@ -265,25 +308,35 @@ namespace secJoin
         //     0 | kR
         concatColumns(leftJoinCol, selects, rightJoinCol.mTable.rows(), keys, keyOffset, data);
         setTimePoint("concat");
-        keys = {};
+        keys.mData = {};
+
+        if (mDebug)
+            MC_AWAIT(print(data, controlBits, sock, (int)ole.mRole, "preSort"));
 
         // Apply the sortin permutation. What you end up with are the keys
         // in sorted order and the rows of L also in sorted order.
         temp.resize(data.numEntries(), data.bitsPerEntry() + 8);
         temp.resize(data.numEntries(), data.bitsPerEntry());
+        // temp.reshape(data.bitsPerEntry());
         MC_AWAIT(sPerm.apply<u8>(data.mData, temp.mData, prng, sock, ole, true));
         std::swap(data, temp);
         setTimePoint("applyInv-sort");
 
+        if (mDebug)
+            MC_AWAIT(print(data, controlBits, sock, (int)ole.mRole, "sort"));
+
         // compare adjacent keys. controlBits[i] = 1 if k[i]==k[i-1].
         // put another way, controlBits[i] = 1 if keys[i] is from the
         // right table and has a matching key from the left table.
-        MC_AWAIT(getControlBits(data, keyOffset, sock, controlBits, ole));
+        MC_AWAIT(getControlBits(data, keyOffset, keys.bitsPerEntry(), sock, controlBits, ole));
         setTimePoint("control");
 
         // reshape data so that the key at then end of each row are discarded.
         data.reshape(keyOffset * 8);
         temp.reshape(keyOffset * 8);
+
+        if (mDebug)
+            MC_AWAIT(print(data, controlBits, sock, (int)ole.mRole, "control"));
 
         // duplicate the rows in data that are from L into any matching
         // rows that correspond to R.
