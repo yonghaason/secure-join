@@ -19,19 +19,19 @@ namespace secJoin
         bool isSetup() const { return mIsSetup; }
 
         AdditivePerm() = default;
-        AdditivePerm(const AdditivePerm &) = default;
-        AdditivePerm(AdditivePerm &&) noexcept = default;
-        AdditivePerm &operator=(const AdditivePerm &) = default;
-        AdditivePerm &operator=(AdditivePerm &&) noexcept = default;
+        AdditivePerm(const AdditivePerm&) = default;
+        AdditivePerm(AdditivePerm&&) noexcept = default;
+        AdditivePerm& operator=(const AdditivePerm&) = default;
+        AdditivePerm& operator=(AdditivePerm&&) noexcept = default;
 
-        AdditivePerm(span<u32> shares, PRNG &prng, u8 partyIdx);
+        AdditivePerm(span<u32> shares, PRNG& prng, u8 partyIdx);
         void init(u64 size);
 
-        void setupDlpnSender(oc::block &key, std::vector<oc::block> &rk);
-        void setupDlpnReceiver(std::vector<std::array<oc::block, 2>> &sk);
+        void setupDlpnSender(oc::block& key, std::vector<oc::block>& rk);
+        void setupDlpnReceiver(std::vector<std::array<oc::block, 2>>& sk);
 
-        macoro::task<> setupDlpnSender(OleGenerator &ole);
-        macoro::task<> setupDlpnReceiver(OleGenerator &ole);
+        macoro::task<> setupDlpnSender(OleGenerator& ole);
+        macoro::task<> setupDlpnReceiver(OleGenerator& ole);
 
         // generate the masking (replicated) permutation mPi
         // and then reveal mRhoPP = mPi(mShares).
@@ -46,9 +46,9 @@ namespace secJoin
         // have protocols for both.
         //
         macoro::task<> setup(
-            coproto::Socket &chl,
-            OleGenerator &ole,
-            PRNG &prng);
+            coproto::Socket& chl,
+            OleGenerator& ole,
+            PRNG& prng);
 
         u64 size() const { return mShare.size(); }
 
@@ -56,83 +56,114 @@ namespace secJoin
         macoro::task<> apply(
             oc::span<const T> in,
             oc::span<T> out,
-            oc::PRNG &prng,
-            coproto::Socket &chl,
-            OleGenerator &ole,
+            oc::PRNG& prng,
+            coproto::Socket& chl,
+            OleGenerator& ole,
             bool inv = false);
 
         template <typename T>
         macoro::task<> apply(
             oc::MatrixView<const T> in,
             oc::MatrixView<T> out,
-            oc::PRNG &prng,
-            coproto::Socket &chl,
-            OleGenerator &ole,
+            oc::PRNG& prng,
+            coproto::Socket& chl,
+            OleGenerator& ole,
             bool inv = false);
 
+
+        macoro::task<> apply(
+            BinMatrix& in,
+            BinMatrix& out,
+            oc::PRNG& prng,
+            coproto::Socket& chl,
+            OleGenerator& ole,
+            bool inv = false)
+        {
+            if (in.cols() != oc::divCeil(in.bitsPerEntry(), 8))
+                throw RTE_LOC;
+            if (out.cols() != oc::divCeil(out.bitsPerEntry(), 8))
+                throw RTE_LOC;
+            return apply<u8>(in.mData, out.mData, prng, chl, ole, inv);
+        }
+
         macoro::task<> compose(
-            AdditivePerm &pi,
-            AdditivePerm &dst,
-            oc::PRNG &prng,
-            coproto::Socket &chl,
-            OleGenerator &gen);
+            AdditivePerm& pi,
+            AdditivePerm& dst,
+            oc::PRNG& prng,
+            coproto::Socket& chl,
+            OleGenerator& gen);
     };
 
 
 
-        template <typename T>
-        macoro::task<> AdditivePerm::apply(
-            oc::span<const T> in,
-            oc::span<T> out,
-            oc::PRNG &prng,
-            coproto::Socket &chl,
-            OleGenerator &ole,
-            bool inv)
+    template <typename T>
+    macoro::task<> AdditivePerm::apply(
+        oc::span<const T> in,
+        oc::span<T> out,
+        oc::PRNG& prng,
+        coproto::Socket& chl,
+        OleGenerator& ole,
+        bool inv)
+    {
+        return apply<T>(
+            oc::MatrixView<const T>(in.data(), in.size(), 1),
+            oc::MatrixView<T>(out.data(), out.size(), 1),
+            prng, chl, ole, inv);
+    }
+
+
+    // macoro::task<> AdditivePerm::apply(
+    //     BinMatrix& in,
+    //     BinMatrix& out,
+    //     oc::PRNG& prng,
+    //     coproto::Socket& chl,
+    //     OleGenerator& ole,
+    //     bool inv)
+    // {
+    //     MC_BEGIN(macoro::task<>, &in, &out, &prng, &chl, &ole, inv);
+
+    //     MC_END();
+    // }
+
+    template <typename T>
+    macoro::task<> AdditivePerm::apply(
+        oc::MatrixView<const T> in,
+        oc::MatrixView<T> out,
+        oc::PRNG& prng,
+        coproto::Socket& chl,
+        OleGenerator& ole,
+        bool inv)
+    {
+        if (out.rows() != in.rows())
+            throw RTE_LOC;
+        if (out.cols() != in.cols())
+            throw RTE_LOC;
+        if (out.rows() != size())
+            throw RTE_LOC;
+
+        MC_BEGIN(macoro::task<>, this, in, out, &prng, &chl, &ole, inv,
+            temp = oc::Matrix<T>{},
+            soutInv = oc::Matrix<T>{});
+
+
+        if (isSetup() == false)
+            MC_AWAIT(setup(chl, ole, prng));
+
+        if (inv)
         {
-            return apply<T>(
-                oc::MatrixView<const T>(in.data(), in.size(), 1),
-                oc::MatrixView<T>(out.data(), out.size(), 1),
-                prng, chl, ole, inv);
+            temp.resize(in.rows(), in.cols());
+            MC_AWAIT(mPi.apply<T>(in, temp, chl, ole, false));
+            mRho.apply<T>(temp, out, true);
+        }
+        else
+        {
+            // Local Permutation of [x]
+            temp.resize(in.rows(), in.cols());
+            mRho.apply<T>(in, temp);
+            MC_AWAIT(mPi.apply<T>(temp, out, chl, ole, true));
         }
 
-        template <typename T>
-        macoro::task<> AdditivePerm::apply(
-            oc::MatrixView<const T> in,
-            oc::MatrixView<T> out,
-            oc::PRNG &prng,
-            coproto::Socket &chl,
-            OleGenerator &ole,
-            bool inv)
-        {
-            MC_BEGIN(macoro::task<>, this, in, out, &prng, &chl, &ole, inv,
-                     temp = oc::Matrix<T>{},
-                     soutInv = oc::Matrix<T>{});
-
-            if (out.rows() != in.rows())
-                throw RTE_LOC;
-            if (out.cols() != in.cols())
-                throw RTE_LOC;
-            if (out.rows() != size())
-                throw RTE_LOC;
-
-            if (isSetup() == false)
-                MC_AWAIT(setup(chl, ole, prng));
-
-            if (inv)
-            {
-                temp.resize(in.rows(), in.cols());
-                MC_AWAIT(mPi.apply<T>(in, temp, chl, ole, false));
-                mRho.apply<T>(temp, out, true);
-            }
-            else
-            {
-                // Local Permutation of [x]
-                temp.resize(in.rows(), in.cols());
-                mRho.apply<T>(in, temp);
-                MC_AWAIT(mPi.apply<T>(temp, out, chl, ole, true));
-            }
-
-            MC_END();
-        }
+        MC_END();
+    }
 
 }

@@ -2,7 +2,7 @@
 #include "secure-join/Sort/RadixSort.h"
 #include "cryptoTools/Network/IOService.h"
 #include "secure-join/Util/Util.h"
-
+#include "secure-join/Sort/BitInjection.h"
 using namespace oc;
 using namespace secJoin;
 
@@ -566,6 +566,90 @@ void RadixSort_genPerm_test()
                     }
 
                 }
+            }
+        }
+    }
+
+}
+
+
+void RadixSort_mock_test()
+{
+    auto comm = coproto::LocalAsyncSocket::makePair();
+
+    u64 trials = 1;
+
+    for (auto n : { 6,100 })
+    {
+        for (auto bitCount : { 8,17 })
+        {
+            for (u64 tt = 0; tt < trials; ++tt)
+            {
+                OleGenerator g0, g1;
+                g0.fakeInit(OleGenerator::Role::Sender);
+                g1.fakeInit(OleGenerator::Role::Receiver);
+
+                PRNG prng(block(0, 0));
+                RadixSort s0, s1;
+                s0.mMock = true;
+                s1.mMock = true;
+                //s0.mDebug = true;
+                //s1.mDebug = true;
+
+                oc::Timer timer;
+                s0.setTimer(timer);
+                s1.setTimer(timer);
+
+                AdditivePerm p0, p1;
+                Perm exp(n);
+
+                std::vector<u64> k64(n);
+                BinMatrix k(n, bitCount);
+                BinMatrix k0, k1;
+
+                auto mask = ((1ull << bitCount) - 1);
+                for (u64 i = 0; i < k.rows(); ++i)
+                {
+                    assert(bitCount < 64);
+                    u64 v = prng.get<u64>() & mask;
+                    k64[i] = v;
+                    memcpy(k[i].data(), &v, k[i].size());
+                }
+
+                std::stable_sort(exp.begin(), exp.end(),
+                    [&](const auto& a, const auto& b) {
+                        return (k64[a] < k64[b]);
+                    });
+                exp = exp.inverse();
+
+                share(k, k0, k1, prng);
+
+                macoro::sync_wait(macoro::when_all_ready(
+                    s0.genPerm(k0, p0, g0, comm[0]),
+                    s1.genPerm(k1, p1, g1, comm[1])
+                ));
+
+                auto act = reveal(p0, p1);
+
+
+                //std::cout << timer << std::endl;
+                if (exp != act)
+                {
+                    std::cout << "n " << n << " b " << bitCount << std::endl;
+                    std::cout << "\nexp : " << exp << "\nact : " << act << std::endl;
+
+                    auto e = exp.inverse();
+                    auto a = act.inverse();
+
+                    std::cout << "exp" << std::endl;
+                    for (u64 i = 0; i < k.rows(); ++i)
+                        std::cout << i << ": " << hex(k[e[i]]) << std::endl;
+                    std::cout << "out" << std::endl;
+                    for (u64 i = 0; i < k.rows(); ++i)
+                        std::cout << i << ": " << hex(k[a[i]]) << std::endl;
+                    throw RTE_LOC;
+                }
+
             }
         }
     }

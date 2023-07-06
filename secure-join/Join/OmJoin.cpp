@@ -267,6 +267,19 @@ namespace secJoin
         MC_END();
     }
 
+    void appendChoiceBit(BinMatrix& data, BinMatrix& choice, BinMatrix& out)
+    {
+        auto n = data.rows();
+        auto m = data.bitsPerEntry();
+        auto m8 = oc::divCeil(m, 8);
+        out.resize(n, m + 8);
+        for (u64 i = 0; i < n; ++i)
+        {
+            memcpy(out.data(i), data.data(i), m8);
+            out(i, m8) = choice(i);
+        }
+    }
+
     // leftJoinCol should be unique
     macoro::task<> OmJoin::join(
         ColRef leftJoinCol,
@@ -297,6 +310,8 @@ namespace secJoin
         if (mDebug)
             MC_AWAIT(print(keys, controlBits, sock, (int)ole.mRole, "keys"));
 
+        sort.mMock = mInsecureMock;
+
         // get the stable sorting permutation sPerm
         MC_AWAIT(sort.genPerm(keys, sPerm, ole, sock));
         setTimePoint("sort");
@@ -318,7 +333,7 @@ namespace secJoin
         temp.resize(data.numEntries(), data.bitsPerEntry() + 8);
         temp.resize(data.numEntries(), data.bitsPerEntry());
         // temp.reshape(data.bitsPerEntry());
-        MC_AWAIT(sPerm.apply<u8>(data.mData, temp.mData, prng, sock, ole, true));
+        MC_AWAIT(sPerm.apply(data, temp, prng, sock, ole, true));
         std::swap(data, temp);
         setTimePoint("applyInv-sort");
 
@@ -345,17 +360,18 @@ namespace secJoin
         std::swap(data, temp);
         setTimePoint("duplicate");
 
-        data.reshape(data.bitsPerEntry() + 1);
-        for (u64 i = 0; i < data.numEntries(); ++i)
-            data.mData[i].back() = controlBits(i);
+
+        appendChoiceBit(data, controlBits, temp);
+        std::swap(data, temp);
 
         // unpermute `data`. What we are left with is
         //     L
         //     L'
         // where L' are the matching rows from L for each row of R.
         // That is, L' || R is the result we want.
-        temp.resize(data.numEntries(), data.bitsPerEntry());
-        MC_AWAIT(sPerm.apply<u8>(data.mData, temp.mData, prng, sock, ole, false));
+        temp.resize(data.numEntries(), data.cols() * 8);
+        temp.reshape(data.bitsPerEntry());
+        MC_AWAIT(sPerm.apply(data, temp, prng, sock, ole, false));
         std::swap(data, temp);
         setTimePoint("apply-sort");
 

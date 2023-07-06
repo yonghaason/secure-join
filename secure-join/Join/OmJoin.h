@@ -12,7 +12,7 @@ namespace secJoin
 
 	struct OmJoin : public oc::TimerAdapter
 	{
-		bool mDebug = true, mInsecureSort = false;
+		bool mDebug = true, mInsecureMock = false;
 
 		// output a combined table that has the leftColumn
 		// concatenated with the rightColumn (doubling the

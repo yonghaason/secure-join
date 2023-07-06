@@ -1,5 +1,6 @@
 #include "Table.h"
 #include "secure-join/Util/Util.h"
+#include "secure-join/Sort/RadixSort.h"
 
 namespace secJoin
 {
@@ -371,28 +372,29 @@ namespace secJoin
         return _CMP_TRUE_US;
     }
 
-    bool lessThan(span<const u8> l, span<const u8> r)
-    {
-        assert(l.size() == r.size());
-        for (u64 i = l.size() - 1; i < l.size(); --i)
-            if (l[i] < r[i])
-                return true;
-        return false;
-    }
+    // bool lessThan(span<const u8> l, span<const u8> r)
+    // {
+    //     assert(l.size() == r.size());
+    //     for (u64 i = l.size() - 1; i < l.size(); --i)
+    //         if (l[i] < r[i])
+    //             return true;
+    //     return false;
+    // }
     Perm sort(const ColRef& x)
     {
-        Perm res(x.mCol.rows());
+        return sort(x.mCol.mData);
+        // Perm res(x.mCol.rows());
 
-        std::stable_sort(res.begin(), res.end(),
-            [&](const auto& a, const auto& b) {
-                return lessThan(x.mCol.mData[a], x.mCol.mData[b]);
-                // return (k64[a] < k64[b]);
-                // for (u64 i = x.mCol.cols() - 1; i < x.mCol.cols(); --i)
-                //     if (x.mCol.mData(a, i) < x.mCol.mData(b, i))
-                //         return true;
-                // return false;
-            });
-        return res;
+        // std::stable_sort(res.begin(), res.end(),
+        //     [&](const auto& a, const auto& b) {
+        //         return lessThan(x.mCol.mData[a], x.mCol.mData[b]);
+        //         // return (k64[a] < k64[b]);
+        //         // for (u64 i = x.mCol.cols() - 1; i < x.mCol.cols(); --i)
+        //         //     if (x.mCol.mData(a, i) < x.mCol.mData(b, i))
+        //         //         return true;
+        //         // return false;
+        //     });
+        // return res;
     }
 
     Table join(const ColRef& l, const ColRef& r, std::vector<ColRef> select)
@@ -401,11 +403,11 @@ namespace secJoin
         auto LPerm = sort(l);
         auto RPerm = sort(r);
 
-        std::cout << " L " << std::endl;
-        for (u64 i = 0; i < LPerm.size(); ++i)
-        {
-            std::cout << i << ": " << hex(l.mCol.mData[LPerm[i]]) << std::endl;
-        }
+        // std::cout << " L " << std::endl;
+        // for (u64 i = 0; i < LPerm.size(); ++i)
+        // {
+        //     std::cout << i << ": " << hex(l.mCol.mData[LPerm[i]]) << std::endl;
+        // }
 
         std::vector<std::array<u64, 2>> I;
         I.reserve(r.mCol.rows());

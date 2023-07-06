@@ -69,6 +69,9 @@ namespace secJoin_Tests
             t.add("RadixSort_hadamardSum_test                    ", RadixSort_hadamardSum_test);
             t.add("RadixSort_genBitPerm_test                     ", RadixSort_genBitPerm_test);
             t.add("RadixSort_genPerm_test                        ", RadixSort_genPerm_test);
+            t.add("RadixSort_mock_test                           ", RadixSort_mock_test);
+
+
             t.add("secret_share_table_test                       ", secret_share_table_test);
 
             t.add("AggTree_plain_Test                            ", AggTree_plain_Test);

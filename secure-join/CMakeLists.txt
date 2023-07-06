@@ -18,6 +18,7 @@ set(SRCS
     "GMW/Circuit.cpp"
     "GMW/Gmw.cpp"
 
+    "Sort/BitInjection.cpp"
     "Sort/RadixSort.cpp"
     
     "AggTree/AggTree.cpp"

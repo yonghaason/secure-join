@@ -12,5 +12,6 @@ void RadixSort_bitInjection_test();
 void RadixSort_genValMasks2_test();
 void RadixSort_genBitPerm_test();
 void RadixSort_genPerm_test();
+void RadixSort_mock_test();
 
 

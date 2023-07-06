@@ -183,6 +183,42 @@ namespace secJoin
         }
     };
 
+    // struct BinMatrixView : oc::MatrixView<u8>
+    // {
+    //     u64 mBitCount = 0;
+
+    //     BinMatrixView() = default;
+    //     BinMatrixView(const BinMatrixView&) = default;
+    //     BinMatrixView(BinMatrixView&&) = default;
+    //     BinMatrixView& operator=(const BinMatrixView&) = default;
+    //     BinMatrixView& operator=(BinMatrixView&&) = default;
+
+    //     BinMatrixView(const BinMatrix& m)
+    //         : oc::MatrixView<u8>(m.mData)
+    //         , mBitCount(m.mBitCount)
+    //     {}
+
+    //     BinMatrixView(const oc::MatrixView<u8>& m)
+    //         : oc::MatrixView<u8>(m)
+    //         , mBitCount(m.cols() * 8)
+    //     {}
+
+    //     BinMatrixView& operator=(const BinMatrix& m)
+    //     {
+    //         (oc::MatrixView<u8>&)(*this) = (m.mData);
+    //         mBitCount = (m.mBitCount);
+
+    //     }
+
+    //     BinMatrixView& operator=(const oc::MatrixView<u8>& m)
+    //     {
+    //         (oc::MatrixView<u8>&)(*this) = m;
+    //         mBitCount = (m.cols() * 8);
+    //     }
+
+    //     u64 bitsPerEntry() const { return mBitCount; }
+    // };
+
     // represents a binary matrix in bit transpose format.
     // the i'th row shorts the i'th bit of the elements.
     struct TBinMatrix

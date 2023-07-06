@@ -247,33 +247,34 @@ void OmJoin_getOutput_Test()
     }
 }
 
-void OmJoin_join_Test()
+void OmJoin_join_Test(const oc::CLP& cmd)
 {
     u64 nL = 20,
         nR = 9;
-    bool verbose = false;
+    bool printSteps = cmd.isSet("print");
+    bool mock = !cmd.isSet("noMock");
 
     Table L, R;
 
     L.init(nL, { {
-        {"L1", TypeID::IntID, 8},
+        {"L1", TypeID::IntID, 12},
         {"L2", TypeID::IntID, 16}
     } });
     R.init(nR, { {
-        {"R1", TypeID::IntID, 8},
+        {"R1", TypeID::IntID, 12},
         {"R2", TypeID::IntID, 7}
     } });
 
     for (u64 i = 0; i < nL; ++i)
     {
-        L.mColumns[0].mData.mData(i) = i;
+        L.mColumns[0].mData.mData(i, 0) = i;
         L.mColumns[1].mData.mData(i, 0) = i % 4;
         L.mColumns[1].mData.mData(i, 1) = i % 3;
     }
 
     for (u64 i = 0; i < nR; ++i)
     {
-        R.mColumns[0].mData.mData(i) = i * 2;
+        R.mColumns[0].mData.mData(i, 0) = i * 2;
         R.mColumns[1].mData.mData(i) = i % 3;
     }
 
@@ -284,8 +285,11 @@ void OmJoin_join_Test()
 
     OmJoin join0, join1;
 
-    join0.mDebug = verbose;
-    join1.mDebug = verbose;
+    join0.mDebug = printSteps;
+    join1.mDebug = printSteps;
+
+    join0.mInsecureMock = mock;
+    join1.mInsecureMock = mock;
 
     OleGenerator ole0, ole1;
     ole0.fakeInit(OleGenerator::Role::Sender);
@@ -298,12 +302,18 @@ void OmJoin_join_Test()
     Table out[2];
 
     auto exp = join(L[0], R[0], { L[0], R[1], L[1] });
+    oc::Timer timer;
+    join0.setTimer(timer);
+    // join1.setTimer(timer);
 
-    macoro::sync_wait(macoro::when_all_ready(
+
+
+    auto r = macoro::sync_wait(macoro::when_all_ready(
         join0.join(Ls[0][0], Rs[0][0], { Ls[0][0], Rs[0][1], Ls[0][1] }, out[0], prng0, ole0, sock[0]),
         join1.join(Ls[1][0], Rs[1][0], { Ls[1][0], Rs[1][1], Ls[1][1] }, out[1], prng1, ole1, sock[1])
     ));
-
+    std::get<0>(r).result();
+    std::get<1>(r).result();
     auto res = reveal(out[0], out[1]);
 
     if (res != exp)
@@ -312,4 +322,7 @@ void OmJoin_join_Test()
         std::cout << "act \n" << res << std::endl;
         throw RTE_LOC;
     }
+
+    if (cmd.isSet("timing"))
+        std::cout << timer << std::endl;
 }
