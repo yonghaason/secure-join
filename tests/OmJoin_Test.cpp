@@ -249,32 +249,35 @@ void OmJoin_getOutput_Test()
 
 void OmJoin_join_Test(const oc::CLP& cmd)
 {
-    u64 nL = 20,
-        nR = 9;
+    u64 nL = 2000,
+        nR = 999;
     bool printSteps = cmd.isSet("print");
     bool mock = !cmd.isSet("noMock");
 
     Table L, R;
 
     L.init(nL, { {
-        {"L1", TypeID::IntID, 12},
+        {"L1", TypeID::IntID, 21},
         {"L2", TypeID::IntID, 16}
     } });
     R.init(nR, { {
-        {"R1", TypeID::IntID, 12},
+        {"R1", TypeID::IntID, 21},
         {"R2", TypeID::IntID, 7}
     } });
 
     for (u64 i = 0; i < nL; ++i)
     {
-        L.mColumns[0].mData.mData(i, 0) = i;
+        // u64 k 
+        memcpy(&L.mColumns[0].mData.mData(i, 0), &i, L.mColumns[0].mData.bytesPerEntry());
         L.mColumns[1].mData.mData(i, 0) = i % 4;
         L.mColumns[1].mData.mData(i, 1) = i % 3;
     }
 
     for (u64 i = 0; i < nR; ++i)
     {
-        R.mColumns[0].mData.mData(i, 0) = i * 2;
+        auto ii = i * 2;
+        memcpy(&R.mColumns[0].mData.mData(i, 0), &ii, R.mColumns[0].mData.bytesPerEntry());
+        // R.mColumns[0].mData.mData(i, 0) = i * 2;
         R.mColumns[1].mData.mData(i) = i % 3;
     }
 
@@ -285,11 +288,11 @@ void OmJoin_join_Test(const oc::CLP& cmd)
 
     OmJoin join0, join1;
 
-    join0.mDebug = printSteps;
-    join1.mDebug = printSteps;
+    join0.mInsecurePrint = printSteps;
+    join1.mInsecurePrint = printSteps;
 
-    join0.mInsecureMock = mock;
-    join1.mInsecureMock = mock;
+    join0.mInsecureMockSubroutines = mock;
+    join1.mInsecureMockSubroutines = mock;
 
     OleGenerator ole0, ole1;
     ole0.fakeInit(OleGenerator::Role::Sender);

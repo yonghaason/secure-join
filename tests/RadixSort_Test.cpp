@@ -591,8 +591,8 @@ void RadixSort_mock_test()
 
                 PRNG prng(block(0, 0));
                 RadixSort s0, s1;
-                s0.mMock = true;
-                s1.mMock = true;
+                s0.mInsecureMock = true;
+                s1.mInsecureMock = true;
                 //s0.mDebug = true;
                 //s1.mDebug = true;
 

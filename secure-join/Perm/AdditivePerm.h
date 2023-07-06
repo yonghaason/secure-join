@@ -15,6 +15,7 @@ namespace secJoin
         ComposedPerm mPi;
         Perm mRho;
         bool mIsSetup = false;
+        bool mInsecureMock = false;
 
         bool isSetup() const { return mIsSetup; }
 
@@ -92,6 +93,17 @@ namespace secJoin
             oc::PRNG& prng,
             coproto::Socket& chl,
             OleGenerator& gen);
+
+
+
+        template <typename T>
+        macoro::task<> mockApply(
+            oc::MatrixView<const T> in,
+            oc::MatrixView<T> out,
+            oc::PRNG& prng,
+            coproto::Socket& chl,
+            OleGenerator& ole,
+            bool inv);
     };
 
 
@@ -145,9 +157,15 @@ namespace secJoin
             temp = oc::Matrix<T>{},
             soutInv = oc::Matrix<T>{});
 
+        if (mInsecureMock)
+        {
+            MC_AWAIT(mockApply<T>(in, out, prng, chl, ole, inv));
+            MC_RETURN_VOID();
+        }
 
         if (isSetup() == false)
             MC_AWAIT(setup(chl, ole, prng));
+
 
         if (inv)
         {
@@ -166,4 +184,35 @@ namespace secJoin
         MC_END();
     }
 
+
+    template <typename T>
+    macoro::task<> AdditivePerm::mockApply(
+        oc::MatrixView<const T> in,
+        oc::MatrixView<T> out,
+        oc::PRNG& prng,
+        coproto::Socket& chl,
+        OleGenerator& ole,
+        bool inv)
+    {
+        if (mInsecureMock == false)
+            throw RTE_LOC;
+        if (out.rows() != in.rows())
+            throw RTE_LOC;
+        if (out.cols() != in.cols())
+            throw RTE_LOC;
+        if (out.rows() != size())
+            throw RTE_LOC;
+
+        MC_BEGIN(macoro::task<>, this, in, out, &prng, &chl, &ole, inv,
+            temp = oc::Matrix<T>{},
+            soutInv = oc::Matrix<T>{});
+
+        if (mIsSetup == false)
+            MC_AWAIT(setup(chl, ole, prng));
+
+        mRho.apply<T>(in, out, inv);
+
+        MC_END();
+
+    }
 }

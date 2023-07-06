@@ -35,7 +35,7 @@ namespace secJoin
         bool mDebug = false;
 
         // mock the sorting protocol (insecure).
-        bool mMock = false;
+        bool mInsecureMock = false;
 
         using Matrix32 = oc::Matrix<u32>;
 
@@ -154,6 +154,6 @@ namespace secJoin
 
 
     bool lessThan(span<const u8> l, span<const u8> r);
-     Perm sort(const BinMatrix& x);
-     
+    Perm sort(const BinMatrix& x);
+
 }
