@@ -8,6 +8,7 @@ macro(EVAL var)
 endmacro()
 
 option(FETCH_AUTO      "automaticly download and build dependancies" OFF)
+option(SECUREJOIN_ENABLE_WRAPPER   "enable java wrapper" OFF)
 option(SECUREJOIN_ENABLE_ASAN      "Enable Asan" OFF)
 option(SECUREJOIN_ENABLE_BOOST     "Enable boost networking" OFF)
 option(SECUREJOIN_ENABLE_PAILLIER     "Enable paillier" OFF)

@@ -130,19 +130,23 @@ namespace secJoin
 
         u64 rows() const { return mColumns.size() ? mColumns[0].mData.numEntries() : 0; }
 
+        u64 cols() { return mColumns.size() ? mColumns.size() : 0; }
+
+        ColRef operator[](std::string c)
+        {
+            for (u64 i = 0; i < mColumns.size(); ++i)
+            {
+                if (mColumns[i].mName == c)
+                    return { *this, mColumns[i] };
+            }
+
+            throw std::runtime_error(c + " Col not found " + LOCATION + "\n");
+        }
+
         ColRef operator[](u64 i)
         {
             return { *this, mColumns[i] };
         }
-        ColRef operator[](std::string name)
-        {
-            for (u64 i = 0; i < mColumns.size(); ++i)
-                if (mColumns[i].mName == name)
-                    return { *this, mColumns[i] };
-
-            throw RTE_LOC;
-        }
-
 
         bool operator!=(const Table& o) const
         {

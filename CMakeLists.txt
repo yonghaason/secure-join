@@ -20,6 +20,10 @@ endif()
 # build volePSI
 add_subdirectory(secure-join)
 
+if(SECUREJOIN_ENABLE_WRAPPER)
+	# build wrapper
+	add_subdirectory(Wrapper)
+endif()
 
 # build the tests.
 add_subdirectory(tests)

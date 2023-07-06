@@ -73,6 +73,7 @@ namespace secJoin_Tests
 
 
             t.add("secret_share_table_test                       ", secret_share_table_test);
+            t.add("table_write_csv_test                          ", table_write_csv_test);
 
             t.add("AggTree_plain_Test                            ", AggTree_plain_Test);
             t.add("AggTree_levelReveal_Test                      ", AggTree_levelReveal_Test);

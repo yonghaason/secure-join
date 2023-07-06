@@ -13,4 +13,9 @@ namespace secJoin
     void getFileInfo(std::string& fileName, std::vector<ColumnInfo>& columnInfo, u64& rowCount);
     void getFileInfo(std::string& fileName, std::istream& in, std::vector<ColumnInfo>& columnInfo, 
                     u64& rowCount);
+    void writeFileInfo(std::string &filePath, Table& tb);
+    void writeColumnInfo(std::ofstream &file, Table &tb);
+    void writeFileData(std::string &filePath, Table& tb);
+    void writeFileHeader(std::ofstream &file, Table &tb);
+
 }
