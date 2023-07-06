@@ -6,7 +6,7 @@
 #include "Paillier/Defines.h"
 
 #ifndef SECJOIN_ENABLE_LOGGING
-    #define SECJOIN_ENABLE_LOGGING true
+    #define SECJOIN_ENABLE_LOGGING false
 #endif
 
 

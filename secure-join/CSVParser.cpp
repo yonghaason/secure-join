@@ -2,7 +2,7 @@
 
 namespace secJoin
 {
-
+    // Reading files starts here
     u64 getRows(std::string line)
     {
         std::stringstream str(line);
@@ -121,12 +121,127 @@ namespace secJoin
         std::istream in(file.rdbuf());
 
         if (!file.is_open())
-        {
-            std::cout << "Could not open the file" << std::endl;
-            throw RTE_LOC;
-        }
+            throw std::runtime_error("Could not open the file " LOCATION);
 
         getFileInfo(fileName, in, columnInfo, rowCount);
         file.close();
     }
+
+
+    // Writing to files starts here
+    void writeFileInfo(std::string &filePath, Table& tb)
+    {
+
+        std::ofstream file;
+        file.open(filePath);
+
+        if (!file.is_open())
+            throw std::runtime_error("Could not open the file " LOCATION);
+        
+
+        // Adding the Row Count to the file
+        file << ROWS_META_TYPE << CSV_COL_DELIM << tb.rows() << "\n";
+
+        // Adding the Column info to the file
+        writeColumnInfo(file, tb);
+        
+        file.close();
+    }
+
+    void writeColumnInfo(std::ofstream &file, Table &tb)
+    {
+        for(u64 i=0; i<tb.mColumns.size(); i++)
+        {
+            if( tb.mColumns[i].getTypeID() == TypeID::IntID)
+            {
+                file << tb.mColumns[i].mName << CSV_COL_DELIM
+                     << "INT" << CSV_COL_DELIM
+                     << tb.mColumns[i].getByteCount()
+                     << "\n";
+            }
+            else
+            {
+                file << tb.mColumns[i].mName << CSV_COL_DELIM
+                << "STRING" << CSV_COL_DELIM
+                << tb.mColumns[i].getByteCount()
+                << "\n";
+            }
+        }
+    }
+
+    void writeFileHeader(std::ofstream &file, Table &tb)
+    {
+        for(u64 i=0; i < tb.cols(); i++)
+        {
+            file << tb.mColumns[i].mName;
+
+            if( i == tb.cols() - 1 )
+                file << "\n";
+            else
+                file << CSV_COL_DELIM;
+        }
+    }
+
+    void writeFileData(std::string &filePath, Table& tb)
+    {
+        std::ofstream file;
+        file.open(filePath);
+
+        if (!file.is_open())
+            throw std::runtime_error("Could not open the file " LOCATION);
+    
+        // Adding the Columns names to the file
+        writeFileHeader(file, tb);
+        
+        for(u64 rowNum=0; rowNum<tb.rows(); rowNum++)
+        {
+            for(u64 colNum=0; colNum<tb.cols(); colNum++)
+            {
+                if( tb.mColumns[colNum].getTypeID() == TypeID::IntID)
+                {
+                    if(tb.mColumns[colNum].getByteCount() <= 4)
+                    {
+                        u8* ptr = tb.mColumns[colNum].mData[rowNum].data();
+                        i32 number = *(i32*)ptr;
+
+                        file << number;
+                    }
+                    else if(tb.mColumns[colNum].getByteCount() <= 8)
+                    {
+                        u8* ptr = tb.mColumns[colNum].mData[rowNum].data();
+                        i64 number = *(i64*)ptr;
+                        
+                        file << number;
+                    }
+                    else
+                    {
+                        std::string temp = tb.mColumns[colNum].mName  
+                            + " can't be stored as int type\n"
+                            + LOCATION;
+                        throw std::runtime_error(temp);
+                    }
+                }
+                else
+                {
+                    std::string temp(tb.mColumns[colNum].getByteCount(), '\0');
+
+                    // Is this safe?
+                    memcpy(temp.data(), tb.mColumns[colNum].mData[rowNum].begin(),  
+                                tb.mColumns[colNum].getByteCount() );
+
+                    temp.erase(temp.find('\0'));
+                    file << temp;
+                }
+
+                if( colNum == tb.cols() - 1 )
+                    file << "\n";
+                else
+                    file << CSV_COL_DELIM;
+
+            }
+        }
+
+        file.close();
+    }
+
 }

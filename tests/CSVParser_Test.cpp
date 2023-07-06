@@ -47,8 +47,6 @@ void secret_share_csv_test()
     
     getFileInfo(csvMetaFileNm, columnInfo, rowCount);
 
-    // std::cout << "The row size is " << rowCount << std::endl;
-
     Table table(rowCount, columnInfo);
     std::array<Table,2> shareTables;
     shareTables[0].init(rowCount, columnInfo);
@@ -70,3 +68,24 @@ void secret_share_csv_test()
 
 }
 
+void table_write_csv_test()
+{
+
+    using oc::block;
+    std::vector<ColumnInfo> columnInfo;
+    u64 rowCount = 0;
+    
+    std::string filename = "Visa Meta File";
+    std::istream in(visa_meta_text.rdbuf());
+    getFileInfo(filename, in, columnInfo, rowCount);
+
+    Table table(rowCount, columnInfo);
+    std::istream in1(visa_csv.rdbuf());
+    populateTable(table, in1, rowCount);
+
+    std::string csvMetaFileNm = "/Users/harshah/Documents/Core/testing/secret_sharing/output/joindata_meta.txt";
+    std::string csvFileNm = "/Users/harshah/Documents/Core/testing/secret_sharing/output/joindata.csv";
+
+    writeFileInfo(csvMetaFileNm, table);
+    writeFileData(csvFileNm, table);
+}

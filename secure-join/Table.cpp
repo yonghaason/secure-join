@@ -299,9 +299,8 @@ namespace secJoin
                     {
                         oc::i64 number = stol(word);
                         memcpy(tb.mColumns[colNum].mData.data(rowNum), &number, sizeof(i64) );
-
                     }
-                    else if(tb.mColumns[colNum].getByteCount() > 9)
+                    else
                     {
                         std::string temp = tb.mColumns[colNum].mName  
                             + " can't be stored as int type\n"

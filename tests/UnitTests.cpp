@@ -71,6 +71,8 @@ namespace secJoin_Tests
         t.add("RadixSort_genBitPerm_test                     ", RadixSort_genBitPerm_test);
         t.add("RadixSort_genPerm_test                        ", RadixSort_genPerm_test);
         t.add("secret_share_table_test                       ", secret_share_table_test);
+        t.add("table_write_csv_test                          ", table_write_csv_test);
+        
 
 
 
