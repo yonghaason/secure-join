@@ -40,7 +40,7 @@ if(NOT ${DEP_NAME}_FOUND OR LIBOTE_DEV)
                        -DENABLE_SILENTOT=ON
                        -DENABLE_SILENT_VOLE=ON
                        ${LIBOTE_OS_ARGS}
-                       #-DENABLE_SSE=${SECUREJOIN_ENABLE_SSE}
+                       -DENABLE_SSE=${SECUREJOIN_ENABLE_SSE}
                        #-DCOPROTO_ENABLE_BOOST=${COPROTO_ENABLE_BOOST}
                        #-DCOPROTO_ENABLE_OPENSSL=${COPROTO_ENABLE_OPENSSL}
                        #-DOC_PIC=${SECUREJOIN_PIC}
