@@ -299,7 +299,7 @@ namespace secJoin
                     }
                     else if (tb.mColumns[colNum].getByteCount() <= 8)
                     {
-                        oc::i64 number = stol(word);
+                        oc::i64 number = stoll(word);
                         memcpy(tb.mColumns[colNum].mData.data(rowNum), &number, sizeof(i64));
                     }
                     else
@@ -368,7 +368,7 @@ namespace secJoin
         for (u64 i = 0; i < l.size(); ++i)
             if (l[i] != r[i])
                 return false;
-        return _CMP_TRUE_US;
+        return true;
     }
 
     // bool lessThan(span<const u8> l, span<const u8> r)

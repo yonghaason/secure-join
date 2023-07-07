@@ -5,6 +5,7 @@
 #include <fstream>
 #include "secure-join/Util/Matrix.h"
 #include "secure-join/Defines.h"
+#include <vector>
 
 namespace secJoin
 {

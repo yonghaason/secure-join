@@ -4,6 +4,7 @@
 #include "secure-join/Prf/DLpnPrf.h"
 #include "cryptoTools/Crypto/PRNG.h"
 #include "cryptoTools/Common/Matrix.h"
+
 #include "cryptoTools/Common/TestCollection.h"
 
 using namespace secJoin;
@@ -675,8 +676,9 @@ void DLpnPrf_proto_test(const oc::CLP& cmd)
                 u8 ki = *kIter;
                 h[i] = ki & xi;
 
-                auto r = recver.mH[i * x.size() + ii];
-                auto s = sender.mH[i * x.size() + ii];
+                assert(recver.mH.cols() == x.size());
+                auto r = recver.mH(i, ii);
+                auto s = sender.mH(i, ii);
                 //auto neg = (3 - r) % 3;
                 auto act = (s + r) % 3;
                 if (act != h[i])

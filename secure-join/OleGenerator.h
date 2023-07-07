@@ -283,6 +283,7 @@ namespace secJoin
         u64 mBaseSize = 0;
         bool mStopRequested = false;
         Role mRole = Role::Sender;
+        u64 mNumBinOle = 0;
 
         std::unique_ptr<macoro::mpsc::channel<Command>> mControlQueue;
 
@@ -345,31 +346,8 @@ namespace secJoin
 
         //void getBaseOts(Chunk& chunk, CorRequest& ses);
 
-        void fakeFill(u64 m, BinOle& ole, const BinOle&)
-        {
-            //oc::PRNG prng(oc::block(mCurSize++));
-            ole.mAdd.resize(m);
-            ole.mMult.resize(m);
+        void fakeFill(u64 m, BinOle& ole, const BinOle&);
 
-            for (u32 i = 0; i < ole.mAdd.size(); ++i)
-            {
-                oc::block m0 = std::array<u32, 4>{i, i, i, i};// prng.get();
-                oc::block m1 = std::array<u32, 4>{i, i, i, i};//prng.get();
-                oc::block a0 = std::array<u32, 4>{0, i, 0, i};//prng.get();
-                auto a1 = std::array<u32, 4>{i, 0, i, 0};;// m0& m1^ a0;
-
-                if (mRole == Role::Sender)
-                {
-                    ole.mMult[i] = m0;
-                    ole.mAdd[i] = a0;
-                }
-                else
-                {
-                    ole.mMult[i] = m1;
-                    ole.mAdd[i] = a1;
-                }
-            }
-        }
         void fakeFill(u64 m, OtRecv& ole, const OtRecv&)
         {
             //oc::PRNG prng(oc::block(mCurSize++));
