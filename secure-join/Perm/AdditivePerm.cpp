@@ -3,10 +3,10 @@
 namespace secJoin
 {
 
-    AdditivePerm::AdditivePerm(span<u32> shares, PRNG &prng, u8 partyIdx) : mPi(shares.size(), partyIdx, prng)
+    AdditivePerm::AdditivePerm(span<u32> shares, PRNG& prng, u8 partyIdx) : mPi(shares.size(), partyIdx, prng)
     {
         mShare.resize(shares.size());
-        std::copy(shares.begin(), shares.end(), (u32 *)mShare.data());
+        std::copy(shares.begin(), shares.end(), (u32*)mShare.data());
     }
 
     void AdditivePerm::init(u64 size)
@@ -17,22 +17,22 @@ namespace secJoin
         mIsSetup = false;
     }
 
-    void AdditivePerm::setupDlpnSender(oc::block &key, std::vector<oc::block> &rk)
+    void AdditivePerm::setupDlpnSender(oc::block& key, std::vector<oc::block>& rk)
     {
         mPi.setupDlpnSender(key, rk);
     }
 
-    void AdditivePerm::setupDlpnReceiver(std::vector<std::array<oc::block, 2>> &sk)
+    void AdditivePerm::setupDlpnReceiver(std::vector<std::array<oc::block, 2>>& sk)
     {
         mPi.setupDlpnReceiver(sk);
     }
 
-    macoro::task<> AdditivePerm::setupDlpnSender(OleGenerator &ole)
+    macoro::task<> AdditivePerm::setupDlpnSender(OleGenerator& ole)
     {
         return (mPi.setupDlpnSender(ole));
     }
 
-    macoro::task<> AdditivePerm::setupDlpnReceiver(OleGenerator &ole)
+    macoro::task<> AdditivePerm::setupDlpnReceiver(OleGenerator& ole)
     {
         return (mPi.setupDlpnReceiver(ole));
     }
@@ -50,15 +50,29 @@ namespace secJoin
     // have protocols for both.
     //
     macoro::task<> AdditivePerm::setup(
-        coproto::Socket &chl,
-        OleGenerator &ole,
-        PRNG &prng)
+        coproto::Socket& chl,
+        OleGenerator& ole,
+        PRNG& prng)
     {
         MC_BEGIN(macoro::task<>, this, &chl, &ole, &prng,
-                 rho1 = oc::Matrix<u32>{},
-                 rho2 = oc::Matrix<u32>{},
-                 ss = std::vector<u32>{},
-                 i = u64{});
+            rho1 = oc::Matrix<u32>{},
+            rho2 = oc::Matrix<u32>{},
+            ss = std::vector<u32>{},
+            i = u64{});
+
+        if (mInsecureMock)
+        {
+            rho1.resize(mShare.size(), 1);
+            MC_AWAIT(chl.send(coproto::copy(mShare)));
+            MC_AWAIT(chl.recv(rho1));
+
+            mRho.mPerm = mShare;
+            for (u64 i = 0;i < mRho.size(); ++i)
+                mRho.mPerm[i] ^= rho1(i);
+
+            mIsSetup = true;
+            MC_RETURN_VOID();
+        }
 
         mPi.init(mShare.size(), (int)ole.mRole, prng);
 
@@ -104,7 +118,7 @@ namespace secJoin
         {
             for (i = 0; i < rho1.rows(); ++i)
             {
-                mRho.mPerm[i] = *(u32 *)rho1.data(i) ^ *(u32 *)rho2.data(i);
+                mRho.mPerm[i] = *(u32*)rho1.data(i) ^ *(u32*)rho2.data(i);
                 // #ifndef NDEBUG
                 //                     if (mRho[i] >= size())
                 //                     {
@@ -131,17 +145,17 @@ namespace secJoin
     }
 
 
-        macoro::task<> AdditivePerm::compose(
-            AdditivePerm &pi,
-            AdditivePerm &dst,
-            oc::PRNG &prng,
-            coproto::Socket &chl,
-            OleGenerator &gen)
-        {
-            if (pi.size() != size())
-                throw RTE_LOC;
-            // dst.init(p2.size(), p2.mPi.mPartyIdx, gen);
-            dst.init(size());
-            return pi.apply<u32>(mShare, dst.mShare, prng, chl, gen);
-        }
+    macoro::task<> AdditivePerm::compose(
+        AdditivePerm& pi,
+        AdditivePerm& dst,
+        oc::PRNG& prng,
+        coproto::Socket& chl,
+        OleGenerator& gen)
+    {
+        if (pi.size() != size())
+            throw RTE_LOC;
+        // dst.init(p2.size(), p2.mPi.mPartyIdx, gen);
+        dst.init(size());
+        return pi.apply<u32>(mShare, dst.mShare, prng, chl, gen);
+    }
 }

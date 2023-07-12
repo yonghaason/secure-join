@@ -944,7 +944,7 @@ namespace secJoin
 
         setTimePoint("genPerm begin");
 
-        if (mMock)
+        if (mInsecureMock)
         {
             MC_AWAIT(mockSort(k, dst, gen, comm));
             MC_RETURN_VOID();

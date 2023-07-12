@@ -307,10 +307,11 @@ namespace secJoin
         keys = loadKeys(leftJoinCol, rightJoinCol);
         setTimePoint("load");
 
-        if (mDebug)
+        if (mInsecurePrint)
             MC_AWAIT(print(keys, controlBits, sock, (int)ole.mRole, "keys"));
 
-        sort.mMock = mInsecureMock;
+        sort.mInsecureMock = mInsecureMockSubroutines;
+        sPerm.mInsecureMock = mInsecureMockSubroutines;
 
         // get the stable sorting permutation sPerm
         MC_AWAIT(sort.genPerm(keys, sPerm, ole, sock));
@@ -325,7 +326,7 @@ namespace secJoin
         setTimePoint("concat");
         keys.mData = {};
 
-        if (mDebug)
+        if (mInsecurePrint)
             MC_AWAIT(print(data, controlBits, sock, (int)ole.mRole, "preSort"));
 
         // Apply the sortin permutation. What you end up with are the keys
@@ -337,7 +338,7 @@ namespace secJoin
         std::swap(data, temp);
         setTimePoint("applyInv-sort");
 
-        if (mDebug)
+        if (mInsecurePrint)
             MC_AWAIT(print(data, controlBits, sock, (int)ole.mRole, "sort"));
 
         // compare adjacent keys. controlBits[i] = 1 if k[i]==k[i-1].
@@ -350,7 +351,7 @@ namespace secJoin
         data.reshape(keyOffset * 8);
         temp.reshape(keyOffset * 8);
 
-        if (mDebug)
+        if (mInsecurePrint)
             MC_AWAIT(print(data, controlBits, sock, (int)ole.mRole, "control"));
 
         // duplicate the rows in data that are from L into any matching
