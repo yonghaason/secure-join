@@ -378,12 +378,12 @@ void OmJoin_join_Test1(const oc::CLP& cmd)
     // share(R, Rs, prng);
 
     OmJoin join0, join1;
+    
+    join0.mInsecurePrint = printSteps;
+    join1.mInsecurePrint = printSteps;
 
-    join0.mDebug = printSteps;
-    join1.mDebug = printSteps;
-
-    join0.mInsecureMock = mock;
-    join1.mInsecureMock = mock;
+    join0.mInsecureMockSubroutines = mock;
+    join1.mInsecureMockSubroutines = mock;
 
     OleGenerator ole0, ole1;
     ole0.fakeInit(OleGenerator::Role::Sender);

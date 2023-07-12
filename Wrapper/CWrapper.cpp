@@ -117,8 +117,8 @@ JNIEXPORT jlong JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_init
     
     // Initializing the join protocol
     cState->mPrng.SetSeed(oc::ZeroBlock);
-    cState->mJoin.mDebug = false;
-    cState->mJoin.mInsecureMock = false;
+    cState->mJoin.mInsecurePrint = false;
+    cState->mJoin.mInsecureMockSubroutines = false;
 
     // Current assumption are that Visa always provides table with unique keys 
     // Which means Visa always has to be left Table
