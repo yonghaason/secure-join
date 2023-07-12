@@ -74,6 +74,7 @@ namespace secJoin_Tests
 
             t.add("secret_share_table_test                       ", secret_share_table_test);
             t.add("table_write_csv_test                          ", table_write_csv_test);
+            
 
             t.add("AggTree_plain_Test                            ", AggTree_plain_Test);
             t.add("AggTree_levelReveal_Test                      ", AggTree_levelReveal_Test);
@@ -94,6 +95,7 @@ namespace secJoin_Tests
             t.add("OmJoin_concatColumns_Test                     ", OmJoin_concatColumns_Test);
             t.add("OmJoin_getOutput_Test                         ", OmJoin_getOutput_Test);
             t.add("OmJoin_join_Test                              ", OmJoin_join_Test);
+            t.add("OmJoin_join_Test1                             ", OmJoin_join_Test1);
 
         });
 }

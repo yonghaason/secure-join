@@ -17,7 +17,7 @@ if(SECUREJOIN_ENABLE_PAILLIER)
 	add_subdirectory(Paillier)
 endif()
 
-# build volePSI
+# build secureJoin
 add_subdirectory(secure-join)
 
 if(SECUREJOIN_ENABLE_WRAPPER)
