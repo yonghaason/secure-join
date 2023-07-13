@@ -50,14 +50,19 @@ namespace secJoin_Tests
             t.add("AdditivePerm_xor_test                         ", AdditivePerm_xor_test);
             t.add("AdditivePerm_add_test                         ", AdditivePerm_add_test);
 
-            // t.add("DarkMatter22Prf_plain_test                    ", DarkMatter22Prf_plain_test);
-            // t.add("DarkMatter32Prf_plain_test                    ", DarkMatter32Prf_plain_test);
-            // t.add("DarkMatter22Prf_util_test                     ", DarkMatter22Prf_util_test);
-            // t.add("DarkMatter22Prf_proto_test                    ", DarkMatter22Prf_proto_test);
-            // t.add("DarkMatter32Prf_proto_test                    ", DarkMatter32Prf_proto_test);
+            //t.add("DarkMatter22Prf_plain_test                    ", DarkMatter22Prf_plain_test);
+            //t.add("DarkMatter32Prf_plain_test                    ", DarkMatter32Prf_plain_test);
+            //t.add("DarkMatter22Prf_util_test                     ", DarkMatter22Prf_util_test);
+            //t.add("DarkMatter22Prf_proto_test                    ", DarkMatter22Prf_proto_test);
+            //t.add("DarkMatter32Prf_proto_test                    ", DarkMatter32Prf_proto_test);
+            t.add("DLpnPrf_mod3BitDecompostion_test              ", DLpnPrf_mod3BitDecompostion_test);
 
+
+            t.add("DLpnPrf_BMult_test                            ", DLpnPrf_BMult_test);
+            t.add("DLpnPrf_mod2_test                             ", DLpnPrf_mod2_test);
             t.add("DLpnPrf_plain_test                            ", DLpnPrf_plain_test);
             t.add("DLpnPrf_proto_test                            ", DLpnPrf_proto_test);
+
             t.add("DlpnPerm_setup_test                           ", DlpnPerm_setup_test);
             t.add("DlpnPerm_apply_test                           ", DlpnPerm_apply_test);
             t.add("DlpnPerm_sharedApply_test                     ", DlpnPerm_sharedApply_test);

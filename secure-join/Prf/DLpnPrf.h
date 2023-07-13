@@ -7,14 +7,9 @@
 #include "cryptoTools/Common/BitIterator.h"
 #include <bitset>
 #include "libOTe/Tools/Tools.h"
-//#include "libOTe/TwoChooseOne/Silent/SilentOtExtSender.h"
-//#include "libOTe/TwoChooseOne/Silent/SilentOtExtReceiver.h"
-//#include "libOTe/TwoChooseOne/SoftSpokenOT/SoftSpokenShOtExt.h"
 
 namespace secJoin
 {
-    // static u64 jj = 0;
-    // static u64 ii = 11;
     
     template<typename T>
     int bit(T& x, u64 i)
@@ -26,6 +21,18 @@ namespace secJoin
     {
         return  *oc::BitIterator((u8*)&x, i * 2) + 2 * *oc::BitIterator((u8*)&x, i * 2 + 1);;
     }
+    void mod3BitDecompostion(oc::MatrixView<u16> u, oc::MatrixView<oc::block> u0, oc::MatrixView<oc::block> u1);
+
+    template<int keySize>
+    void compressH2(
+        oc::Matrix<u16>&& mH,
+        oc::Matrix<u16>& mU
+    );
+
+    void compressB(
+        oc::MatrixView<oc::block> v,
+        span<oc::block> y
+    );
 
     class DLpnPrf
     {
@@ -51,7 +58,7 @@ namespace secJoin
     class DLpnPrfSender : public oc::TimerAdapter
     {
     public:
-        static constexpr auto mDebug = true;
+        static constexpr auto mDebug = false;
         static constexpr auto StepSize = 32;
         static constexpr auto n = DLpnPrf::KeySize;
         static constexpr auto m = 256;
@@ -62,8 +69,12 @@ namespace secJoin
         DLpnPrf mPrf;
         oc::Matrix<u16> mU;
         oc::Matrix<u16> mH;
+        oc::Matrix<oc::block> mV;
         bool mIsKeyOTsSet = false;
         bool mIsKeySet = false;
+
+        u64 mPrintI = -1;
+        u64 mPrintJ = -1;
 
 
         DLpnPrfSender() = default;
@@ -91,6 +102,15 @@ namespace secJoin
             span<oc::block> out,
             coproto::Socket& sock,
             Request<BinOle>& ole);
+
+        macoro::task<> mod2(
+            oc::MatrixView<oc::block> u0,
+            oc::MatrixView<oc::block> u1,
+            oc::MatrixView<oc::block> out,
+            coproto::Socket& sock,
+            Request<BinOle>& ole);
+
+
     };
 
 
@@ -108,10 +128,12 @@ namespace secJoin
         std::vector<std::array<oc::PRNG, 2>> mKeyOTs;
         oc::Matrix<u16> mU;
         oc::Matrix<u16> mH;
+        oc::Matrix<oc::block> mV;
         bool mIsKeyOTsSet = false;
         DLpnPrf mPrf;
 
-
+        u64 mPrintI = -1;
+        u64 mPrintJ = -1;
 
         DLpnPrfReceiver() = default;
         DLpnPrfReceiver(const DLpnPrfReceiver&) = default;
@@ -140,8 +162,10 @@ namespace secJoin
             Request<BinOle>& ole);
 
         macoro::task<> mod2(
-            oc::MatrixView<u16> u,
-            span<oc::block> out,
+            //oc::MatrixView<u16> u,
+            oc::MatrixView<oc::block> u0,
+            oc::MatrixView<oc::block> u1,
+            oc::MatrixView<oc::block> out,
             coproto::Socket& sock,
             Request<BinOle>& ole);
 

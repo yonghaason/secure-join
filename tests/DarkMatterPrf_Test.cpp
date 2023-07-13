@@ -6,6 +6,7 @@
 #include "cryptoTools/Common/Matrix.h"
 
 #include "cryptoTools/Common/TestCollection.h"
+#include "secure-join/Util/Util.h"
 
 using namespace secJoin;
 
@@ -440,6 +441,178 @@ void mult(oc::DenseMtx& C, std::vector<u64>& X, std::vector<u64>& Y)
         }
     }
 }
+
+
+void DLpnPrf_mod3BitDecompostion_test()
+{
+    u64 n = 256;
+    u64 m = 1024;
+
+
+    oc::Matrix<u16> u(n, m);
+    oc::Matrix<oc::block> u0(n, m / 128);
+    oc::Matrix<oc::block> u1(n, m / 128);
+
+    mod3BitDecompostion(u, u0, u1);
+
+
+    for (u64 i = 0; i < n; ++i)
+    {
+        auto iter0 = oc::BitIterator((u8*)u0.data(i));
+        auto iter1 = oc::BitIterator((u8*)u1.data(i));
+        for (u64 j = 0; j < m; ++j)
+        {
+            auto uu0 = u(i, j) & 1;
+            auto uu1 = (u(i, j) >> 1) & 1;
+
+            if (uu0 != *iter0++)
+                throw RTE_LOC;
+            if (uu1 != *iter1++)
+                throw RTE_LOC;
+        }
+    }
+}
+
+void DLpnPrf_BMult_test()
+{
+    u64 n = 256;
+    u64 n128 = n / 128;
+    oc::Matrix<oc::block> v(256, n128);
+    std::vector<block256> V(n);
+    PRNG prng(oc::ZeroBlock);
+    prng.get(V.data(), V.size());
+
+    for (u64 i = 0; i < n; ++i)
+    {
+        for (u64 j = 0; j < 256; ++j)
+        {
+            *oc::BitIterator((u8*)&v(j, 0), i) = bit(V[i], j);
+        }
+    }
+    std::vector<oc::block> y(n);
+    compressB(v, y);
+
+    for (u64 i = 0; i < n; ++i)
+    {
+        auto Y = DLpnPrf::compress(V[i]);
+        if (y[i] != Y)
+            throw RTE_LOC;
+
+    }
+}
+
+void DLpnPrf_mod2_test(const oc::CLP& cmd)
+{
+
+
+    u64 n = cmd.getOr("n", 128);
+    u64 m = cmd.getOr("m", 128);
+    auto m128 = oc::divCeil(m, 128);
+
+
+    u64 printI = cmd.getOr("i", -1);
+    u64 printJ = cmd.getOr("j", -1);
+
+    oc::PRNG prng0(oc::ZeroBlock);
+    oc::PRNG prng1(oc::OneBlock);
+    oc::Timer timer;
+
+    DLpnPrfSender sender;
+    DLpnPrfReceiver recver;
+
+    sender.mPrintI = printI;
+    sender.mPrintJ = printJ;
+    recver.mPrintI = printI;
+    recver.mPrintJ = printJ;
+
+    sender.setTimer(timer);
+    recver.setTimer(timer);
+
+    oc::Matrix<u16> u(n, m);
+    std::array<oc::Matrix<u16>, 2> us;
+    us[0].resize(n, m);
+    us[1].resize(n, m);
+    for (u64 i = 0; i < u.rows(); ++i)
+    {
+        for (u64 j = 0; j < u.cols(); ++j)
+        {
+
+            u(i, j) = prng0.get<u8>() % 3;
+            us[0](i, j) = prng0.get<u8>() % 3;
+            us[1](i, j) = u8(u(i, j) + 3 - us[0](i, j)) % 3;
+            assert((u8(us[0](i, j) + us[1](i, j)) % 3) == u(i, j));
+        }
+    }
+
+
+    //auto us = xorShare(u, prng0);
+
+    std::array<oc::Matrix<oc::block>, 2> u0s, u1s;
+    u0s[0].resize(n, m128);
+    u0s[1].resize(n, m128);
+    u1s[0].resize(n, m128);
+    u1s[1].resize(n, m128);
+    mod3BitDecompostion(us[0], u0s[0], u1s[0]);
+    mod3BitDecompostion(us[1], u0s[1], u1s[1]);
+
+    //if (i == printI && j == printJ)
+    if (printI < n)
+    {
+        auto i = printI;
+        auto j = printJ;
+        std::cout << "\nu(" << i << ", " << j << ") \n"
+            << "    = " << u(i, j) << "\n"
+            << "    = " << us[0](i, j) << " + " << us[1](i, j) << "\n"
+            << "    = " << bit(u1s[0](i, 0), j) << bit(u0s[0](i, 0), j) << " + "
+            << bit(u1s[1](i, 0), j) << bit(u0s[1](i, 0), j) << std::endl;
+    }
+
+    //auto u0s = share(u0, prng0);
+    //auto u1s = share(u1, prng0);
+    std::array<oc::Matrix<oc::block>, 2> outs;
+    outs[0].resize(n, m128);
+    outs[1].resize(n, m128);
+
+    auto sock = coproto::LocalAsyncSocket::makePair();
+
+
+    OleGenerator ole0, ole1;
+    ole0.fakeInit(OleGenerator::Role::Sender);
+    ole1.fakeInit(OleGenerator::Role::Receiver);
+
+    auto req0 = macoro::sync_wait(ole0.binOleRequest(2 * n * m));
+    auto req1 = macoro::sync_wait(ole1.binOleRequest(2 * n * m));
+
+    macoro::sync_wait(macoro::when_all_ready(
+        sender.mod2(u0s[0], u1s[0], outs[0], sock[0], req0),
+        recver.mod2(u0s[1], u1s[1], outs[1], sock[1], req1)
+    ));
+
+    auto out = reveal(outs);
+
+
+    for (u64 i = 0; i < n; ++i)
+    {
+        auto iter = oc::BitIterator((u8*)out[i].data());
+        for (u64 j = 0; j < m; ++j)
+        {
+            u8 uij = u(i, j);
+            u8 exp = uij % 2;
+            u8 act = *iter++;
+            if (exp != act)
+            {
+                std::cout << "i " << i << " j " << j << "\n"
+                    << "act " << int(act) << " = "
+                    << *oc::BitIterator((u8*)&outs[0](i, 0), j) << " ^ "
+                    << *oc::BitIterator((u8*)&outs[1](i, 0), j) << std::endl
+                    << "exp " << int(exp) << " = " << u(i, j) << " = " << us[0](i, j) << " + " << us[1](i, j) << std::endl;
+                throw RTE_LOC;
+            }
+        }
+    }
+}
+
+
 void DLpnPrf_plain_test()
 {
 
@@ -605,13 +778,6 @@ void DLpnPrf_proto_test(const oc::CLP& cmd)
     sender.setKey(kk);
 
     OleGenerator ole0, ole1;
-    macoro::thread_pool tp;
-    auto w = tp.make_work();
-    tp.create_threads(6);
-    //ole0.mFakeGen = true;
-    //ole1.mFakeGen = true;
-    //ole0.init(OleGenerator::Role::Sender, tp, sock[0], prng0, 4, 1<< 18);
-    //ole1.init(OleGenerator::Role::Receiver, tp, sock[1], prng1, 4, 1 << 18);
     ole0.fakeInit(OleGenerator::Role::Sender);
     ole1.fakeInit(OleGenerator::Role::Receiver);
 
@@ -641,7 +807,7 @@ void DLpnPrf_proto_test(const oc::CLP& cmd)
         ole0.stop(),
         ole1.stop()
     ));
-        
+
     if (cmd.isSet("v"))
     {
         std::cout << timer << std::endl;
@@ -654,7 +820,9 @@ void DLpnPrf_proto_test(const oc::CLP& cmd)
     for (u64 ii = 0; ii < n; ++ii)
     {
         oc::block y;
+        if (sender.mU.size())
         {
+
             std::array<u16, sender.mPrf.KeySize> h;
             std::array<oc::block, sender.mPrf.KeySize / 128> X;
             if (sender.mPrf.KeySize / 128 > 1)
@@ -683,10 +851,6 @@ void DLpnPrf_proto_test(const oc::CLP& cmd)
                 auto act = (s + r) % 3;
                 if (act != h[i])
                     throw RTE_LOC;
-                //if (i < 20)
-                //    std::cout << "h[" << i << "] = " << h[i] 
-                //    << " = " << *kIter 
-                //    <<" ^ " << *xIter <<std::endl;
 
                 ++kIter;
                 ++xIter;
@@ -697,27 +861,39 @@ void DLpnPrf_proto_test(const oc::CLP& cmd)
 
             for (u64 i = 0; i < 256; ++i)
             {
-
-                if ((sender.mU[ii][i] + recver.mU[ii][i]) % 3 != u.mData[i])
+                if ((sender.mU[i][ii] + recver.mU[i][ii]) % 3 != u.mData[i])
                 {
                     throw RTE_LOC;
                 }
+
             }
 
             block256 w;
             for (u64 i = 0; i < u.mData.size(); ++i)
             {
-                //if (i < 10)
-                //    std::cout << "u[" << i << "] = " << (int)u.mData[i] << std::endl;
-
                 *oc::BitIterator((u8*)&w, i) = u.mData[i] % 2;
+
+                auto v0 = bit(sender.mV(i, 0), ii);
+                auto v1 = bit(recver.mV(i, 0), ii);
+
+                if ((v0 ^ v1) != u.mData[i] % 2)
+                {
+                    throw RTE_LOC;
+                }
             }
+
+
             y = sender.mPrf.compress(w);
         }
-        //auto y = sender.mPrf.eval(x[ii]);
+        else
+            y = sender.mPrf.eval(x[ii]);
 
         auto yy = (y0[ii] ^ y1[ii]);
         if (yy != y)
+        {
+            std::cout << "act " << yy << std::endl;
+            std::cout << "exp " << y << std::endl;
             throw RTE_LOC;
+        }
     }
 }

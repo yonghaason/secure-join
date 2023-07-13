@@ -126,6 +126,7 @@ namespace secJoin
 	}
 
 
+
 	inline std::array<BinMatrix,2> share(BinMatrix d, oc::PRNG& prng)
 	{
 		std::array<BinMatrix, 2> r;

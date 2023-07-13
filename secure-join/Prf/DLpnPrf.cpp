@@ -1,7 +1,7 @@
 
 
 #include "DLpnPrf.h"
-
+#include "secure-join/AggTree/PerfectShuffle.h"
 
 namespace secJoin
 {
@@ -301,14 +301,16 @@ namespace secJoin
     }
 
     template<int keySize>
-    inline void compressH2(
+    void compressH2(
         oc::Matrix<u16>&& mH,
         oc::Matrix<u16>& mU
     )
     {
         static_assert(keySize == 128);
-        assert(mH.rows() % keySize == 0);
-        assert(mU.rows() % keySize == 0);
+        assert(mH.rows() == keySize);
+        assert(mU.rows() == 2 * keySize);;
+        assert(mH.cols() == mU.cols());
+
         {
             auto n = mH.size() / keySize;
             auto& h2 = mH;
@@ -336,16 +338,17 @@ namespace secJoin
                     assert(h1[j] == (h0j + h1j) % 3);
                 }
             }
-
-            for (u64 i = 0; i < keySize; ++i)
-            {
-                auto hi = &mH[i * n];
-                for (u64 j = 0; j < n; ++j)
-                {
-                    mU[j][i] = hi[j];
-                    mU[j][i + keySize] = hi[j];
-                }
-            }
+            memcpy(mU.data(), mH.data(), mH.size() * sizeof(u16));
+            memcpy(mU.data(keySize), mH.data(), mH.size() * sizeof(u16));
+            //for (u64 i = 0; i < keySize; ++i)
+            //{
+            //    auto hi = &mH[i * n];
+            //    for (u64 j = 0; j < n; ++j)
+            //    {
+            //        mU[j][i] = hi[j];
+            //        mU[j][i + keySize] = hi[j];
+            //    }
+            //}
         }
 
         mH = {};
@@ -397,6 +400,128 @@ namespace secJoin
         mIsKeySet = true;
     }
 
+    void mod3BitDecompostion(oc::MatrixView<u16> u, oc::MatrixView<oc::block> u0, oc::MatrixView<oc::block> u1)
+    {
+        if (u.rows() != u0.rows())
+            throw RTE_LOC;
+        if (u.rows() != u1.rows())
+            throw RTE_LOC;
+
+        if (oc::divCeil(u.cols(), 128) != u0.cols())
+            throw RTE_LOC;
+        if (oc::divCeil(u.cols(), 128) != u1.cols())
+            throw RTE_LOC;
+
+        u64 n = u.rows();
+        u64 m = u.cols();
+
+        oc::AlignedUnVector<u8> temp(oc::divCeil(m * 2, 8));
+        for (u64 i = 0; i < n; ++i)
+        {
+            auto iter = temp.data();
+
+            assert(m % 4 == 0);
+
+            for (u64 k = 0; k < m; k += 4)
+            {
+                assert(u[i][k + 0] < 3);
+                assert(u[i][k + 1] < 3);
+                assert(u[i][k + 2] < 3);
+                assert(u[i][k + 3] < 3);
+
+                // 00 01 10 11 20 21 30 31
+                *iter++ =
+                    (u[i][k + 0] << 0) |
+                    (u[i][k + 1] << 2) |
+                    (u[i][k + 2] << 4) |
+                    (u[i][k + 3] << 6);
+            }
+
+            span<u8> out0((u8*)u0.data(i), temp.size() / 2);
+            span<u8> out1((u8*)u1.data(i), temp.size() / 2);
+            perfectUnshuffle(temp, out0, out1);
+
+#ifndef NDEBUG
+            for (u64 j = 0; j < out0.size(); ++j)
+            {
+                if (out0[j] & out1[j])
+                    throw RTE_LOC;
+            }
+#endif
+            //// even bits in perfect shuffled order
+            //// eg: 0 128 2 130 4 132 6 134 ... 126 254
+            //packedU[0] =
+            //    (t[0] & mask0) |
+            //    ((t[2] & mask0) << 1);
+            //packedU[1] =
+            //    (t[1] & mask0) |
+            //    ((t[3] & mask0) << 1);
+
+            //// odd bits in perfect shuffled order
+            //// eg: 1 9 3 11 5 13 7 15
+            //packedU[2] =
+            //    ((t[0] & mask1) >> 1) |
+            //    (t[2] & mask1);
+            //packedU[3] =
+            //    ((t[1] & mask1) >> 1) |
+            //    (t[3] & mask1);
+        }
+    }
+
+
+    void compressB(
+        oc::MatrixView<oc::block> v,
+        span<oc::block> y
+    )
+    {
+        auto n = y.size();
+        auto n128 = oc::divCeil(n, 128);
+        oc::Matrix<oc::block> yt(128, n128);
+
+        auto B = DLpnPrf::mB;
+        assert(v.rows() == 256);
+        assert(v.cols() == yt.cols());
+
+        for (u64 i = 0; i < 128; ++i)
+        {
+            u64 j = 0;
+            while (bit(B[i], j) == 0)
+                ++j;
+
+            memcpy(yt[i], v[j++]);
+            while (j < 256)
+            {
+                if (bit(B[i], j))
+                {
+                    auto yti = yt[i].data();
+                    auto vj = v[j].data();
+
+                    for (u64 k = 0; k < n128; ++k)
+                        yti[k] = yti[k] ^ vj[k];
+                }
+
+                ++j;
+            }
+        }
+
+        oc::AlignedArray<oc::block, 128> tt;
+        for (u64 i = 0, ii = 0; i < n; i += 128, ++ii)
+        {
+            for (u64 j = 0; j < 128; ++j)
+            {
+                tt[j] = yt(j, ii);
+            }
+
+            oc::transpose128(tt.data());
+            auto m = std::min<u64>(n - i, 128);
+
+            for (u64 j = 0; j < m; ++j)
+            {
+                y[i + j] = tt[j];
+            }
+        }
+    }
+
 
     coproto::task<> DLpnPrfSender::evaluate(
         span<oc::block> y,
@@ -407,14 +532,16 @@ namespace secJoin
 
         MC_BEGIN(coproto::task<>, y, this, &sock, &gen,
             buffer = oc::AlignedUnVector<u8>{},
-            //uu = oc::AlignedUnVector<u16>{},
             f = oc::BitVector{},
             diff = oc::BitVector{},
             ots = oc::AlignedUnVector<std::array<oc::block, 2>>{},
             i = u64{},
             compressedSizeAct = u64{},
             compressedSize = u64{},
-            ole = Request<BinOle>{}
+            ole = Request<BinOle>{},
+            u0 = oc::Matrix<oc::block>{},
+            u1 = oc::Matrix<oc::block>{},
+            v = oc::Matrix<oc::block>{}
         );
 
         if (!mIsKeyOTsSet)
@@ -441,10 +568,6 @@ namespace secJoin
 
         MC_AWAIT_SET(ole, gen.binOleRequest(y.size() * m * 2));
 
-        //xk
-        //uu.resize(y.size());
-
-        // y.size() rows, each of size 1024
         mH.resize(mPrf.KeySize, y.size());
         compressedSizeAct = oc::divCeil(y.size(), 4);
         compressedSize = oc::roundUpTo(compressedSizeAct, sizeof(oc::block));
@@ -461,52 +584,43 @@ namespace secJoin
                 u8 ki = *oc::BitIterator((u8*)&mPrf.mKey, i);
                 if (ki)
                 {
-                    // ui = ui ^ H(mKeyOTs[i])
-                    //std::cout << "recv ui " << int(ui[0]) << std::endl;
                     xorVector(ui, mKeyOTs[i]);
-                    //std::cout << "recv ui " << int(ui[0]) << std::endl;
                     decompressMod3(hh, ui);
                 }
                 else
                 {
                     sampleMod3(mKeyOTs[i], hh);
                 }
-
-                //for (u64 j = 0; j < y.size(); ++j)
-                //{
-
-                //    if (j == 1)
-                //    {
-                //        std::cout << i << " r " << hh[j] << std::endl;
-                //    }
-                //}
             }
         }
 
-        if (1)
+
+        mU.resize(m, y.size(), oc::AllocType::Uninitialized);
+
+
+        if (mDebug)
         {
-            mU.resize(y.size(), m, oc::AllocType::Uninitialized);
-
-            if (mDebug)
-            {
-                compressH<DLpnPrf::KeySize>(coproto::copy(mH), mU);
-            }
-            else
-            {
-                compressH<DLpnPrf::KeySize>(std::move(mH), mU);
-            }
-
-
-            setTimePoint("DarkMatter.sender.kxMult");
-
-            // mod 2
-            MC_AWAIT(mod2Compress(mU, y, sock, ole));
+            compressH2<DLpnPrf::KeySize>(coproto::copy(mH), mU);
         }
         else
         {
-
-            mU.resize(m, y.size());
+            compressH2<DLpnPrf::KeySize>(std::move(mH), mU);
         }
+
+        u0.resize(mU.rows(), oc::divCeil(mU.cols(), 128));
+        u1.resize(mU.rows(), oc::divCeil(mU.cols(), 128));
+        mod3BitDecompostion(mU, u0, u1);
+
+        if (!mDebug)
+            mU = {};
+
+        v.resize(m, u0.cols());
+        MC_AWAIT(mod2(u0, u1, v, sock, ole));
+
+        if (mDebug)
+            mV = v;
+
+        compressB(v, y);
 
         MC_END();
     }
@@ -690,7 +804,6 @@ namespace secJoin
 
 
 
-
     macoro::task<> DLpnPrfReceiver::genKeyOts(OleGenerator& ole)
     {
         MC_BEGIN(macoro::task<>, this, &ole,
@@ -739,19 +852,16 @@ namespace secJoin
         MC_BEGIN(coproto::task<>, x, y, this, &sock, &gen,
             X = oc::AlignedUnVector<std::array<oc::block, DLpnPrf::KeySize / 128>>{},
             buffer = oc::AlignedUnVector<u8>{},
-            //h = oc::AlignedUnVector<u16>{},
-            rKeys = oc::AlignedUnVector<oc::block>{},
             mod3 = oc::AlignedUnVector<u16>{},
-            diff = oc::BitVector{},
             i = u64{},
-            ots = oc::AlignedUnVector<oc::block>{},
-            kk = oc::block{},
             baseOts = oc::AlignedUnVector<std::array<oc::block, 2>>{},
-            block3 = oc::block{},
             xPtr = (u32*)nullptr,
             compressedSizeAct = u64{},
             compressedSize = u64{},
-            ole = Request<BinOle>{}
+            ole = Request<BinOle>{},
+            u0 = oc::Matrix<oc::block>{},
+            u1 = oc::Matrix<oc::block>{},
+            v = oc::Matrix<oc::block>{}
         );
         if (!mIsKeyOTsSet)
             MC_AWAIT(genKeyOts(gen));
@@ -770,7 +880,6 @@ namespace secJoin
         setTimePoint("DarkMatter.recver.begin");
 
         MC_AWAIT_SET(ole, gen.binOleRequest(y.size() * m * 2));
-        block3 = std::array<u16, 8>{3, 3, 3, 3, 3, 3, 3, 3};
 
 
         if constexpr (DLpnPrf::KeySize / 128 > 1)
@@ -826,30 +935,33 @@ namespace secJoin
             MC_AWAIT(sock.send(std::move(buffer)));
         }
 
-        if (1)
+        mU.resize(m, x.size(), oc::AllocType::Uninitialized);
+
+
+        if (mDebug)
         {
-            mU.resize(x.size(), m, oc::AllocType::Uninitialized);
-
-            if (mDebug)
-            {
-                compressH<DLpnPrf::KeySize>(coproto::copy(mH), mU);
-            }
-            else
-            {
-                compressH<DLpnPrf::KeySize>(std::move(mH), mU);
-            }
-            //compressH<DLpnPrf::KeySize>(mH, mU);
-
-            setTimePoint("DarkMatter.recver.mod2");
-
-            // mod 2
-            MC_AWAIT(mod2Compress(mU, y, sock, ole));
+            compressH2<DLpnPrf::KeySize>(coproto::copy(mH), mU);
         }
         else
         {
-            mU.resize(m, x.size(), oc::AllocType::Uninitialized);
-
+            compressH2<DLpnPrf::KeySize>(std::move(mH), mU);
         }
+
+
+        u0.resize(mU.rows(), oc::divCeil(mU.cols(), 128));
+        u1.resize(mU.rows(), oc::divCeil(mU.cols(), 128));
+        mod3BitDecompostion(mU, u0, u1);
+
+        if (!mDebug)
+            mU = {};
+
+        v.resize(m, u0.cols());
+        MC_AWAIT(mod2(u0, u1, v, sock, ole));
+
+        if (mDebug)
+            mV = v;
+
+        compressB(v, y);
 
         MC_END();
     }
@@ -986,6 +1098,403 @@ namespace secJoin
                     }
                 }
                 out[i] = DLpnPrf::shuffledCompress(w);
+            }
+        }
+
+        MC_END();
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+    // The parties input a sharing of the u=(u0,u1) such that 
+    // 
+    //   u = u0 + u1 mod 3
+    // 
+    // When looking at the truth table of u mod 2 we have
+    // 
+    //           u1
+    //          0 1 2
+    //         ________
+    //      0 | 0 1 0
+    //   u0 1 | 1 0 0 
+    //      2 | 0 0 1
+    //   
+    // Logically, what we are going to do is a 1-out-of-3
+    // OT. The PrfSender with u0 will use select the row of
+    // this table based on u0. For example, if u0=0 then the 
+    // truth table reduces to
+    // 
+    //   0 1 0
+    // 
+    // where the PrfReceiver should use the OT to pick up
+    // the element indexed bu u1. For example, they should pick up 
+    // 1 iff u1 = 1.
+    // 
+    // To maintain security, we need to give the PrfReceiver a sharing
+    // of this value, not the value itself. The PrfSender will pick a random mask
+    // 
+    //   r
+    // 
+    // and then the PrfReceiver should learn that table above XOR r.
+    // 
+    // We can build a 1-out-of-3 OT from OLE. Each mod2 / 1-out-of-3 OT consumes 2 
+    // binary OLE's. A single OLE consists of PrfSender holding 
+    // 
+    //     x0, y0
+    // 
+    // the PrfReceiver holding
+    // 
+    //     x1, y1
+    // 
+    // such that (x0+x1) = (y0*y1). We will partially derandomize these
+    // by allowing the PrfSender to change their y0 to be a chosen
+    // value, b. This is done by sending
+    // 
+    //   d = (y1+b)
+    // 
+    // and the PrfSender updates their share as
+    // 
+    //   x0' = x0 + y0 * d
+    // 
+    // It is now the case that the parties hold the correlation
+    // 
+    //   x1 + x0'                   = y0 * b
+    //   x1 + x0 + y0 * d           = y0 * b
+    //   x1 + x0 + y0 * (y1+b)      = y0 * b
+    //   x1 + x0 + y0 * y1 + y0 * b = y0 * b
+    //                       y0 * b = y0 * b
+    //
+    // Ok, now let us perform the mod 2 operations. As state, this 
+    // will consume 2 OLEs. Let these be denoted as
+    // 
+    //   (x0,x1,y0,y1), (x0',x1',y0',y1')
+    //
+    // These have not been derandomized yet. To get an 1-out-of-3 OT, we
+    // will derandomize them using the PrfReceiver's u1. This value is 
+    // represented using two bits (u00,u01) such that u1 = u10 + 2 * u11
+    // 
+    // We will derandomize (x0,x1,y0,y1) using u10 and (x0',x1',y0',y1') 
+    // using u11. Let us redefine these correlations as 
+    // 
+    //   (x0,x1,y0,u10), (x0',x1',y0',u11)
+    // 
+    // That is, we also redefined x0,x0' accordingly.
+    // 
+    // We will define the random OT strings (in this case a single bit)
+    // as 
+    //    
+    //    m0 = x0      + x0'
+    //    m1 = x0 + y0 + x0'
+    //    m2 = x0      + x0' + y0'
+    // 
+    // Note that 
+    //  - when u10 = u11 = 0, then x1=x0, x1'=x0' and therefore
+    //    the PrfReceiver knows m0. m1,m2 is uniform due to y0, y0' being 
+    //    uniform, respectively. 
+    // - When u10 = 1, u11 = 0, then x1 = x0 + y0 and x1' = x0 and therefore 
+    //   PrfReceiver knows m1 = x1 + x1' = (x0 + y0) + x0'. m0 is uniform because 
+    //   x0 = x1 + y0 and y0 is uniform given x1. m2 is uniform because y0' 
+    //   is uniform given x1. 
+    // - Finally, when u10 = 0, u11 = 1, the same basic case as above applies.
+    // 
+    // 
+    // these will be used to mask the truth table T. That is, the PrfSender
+    // will sample a mask r and send
+    // 
+    //   t0 = m0 + T[u0, 0] + r
+    //   t1 = m1 + T[u0, 1] + r
+    //   t2 = m2 + T[u0, 2] + r
+    // 
+    // The PrfReceiver can therefore compute
+    // 
+    //   z1 = t_u1 + m_u1
+    //      = T[u1, u1] + r
+    //      = (u mod 2) + r
+    // 
+    // and the PrfSender can compute
+    //  
+    //   z0 = r
+    // 
+    // and therefor we have z0+z1 = u mod 2.
+    // 
+    // As an optimization, we dont need to send t0. The idea is that if
+    // the receiver want to learn T[u0, 0], then they can set their share
+    // as m0. That is,
+    // 
+    //   z1 = (u1 == 0) ? m0 : t_u1 + m_u1
+    //      = u10 * t_u1 + mu1
+    // 
+    // The sender now needs to define r appropriately. In particular, 
+    // 
+    //   r = m0 + T[u0, 0]
+    // 
+    // In the case of u1 = 0, z1 = m0, z0 = r + T[u0,0], and therefore we 
+    // get the right result. The other cases are the same with the randomness
+    // of the mast r coming from m0.
+    // 
+    //
+    // u has 256 rows
+    // each row holds 2bit values
+    // 
+    // out will have 256 rows.
+    // each row will hold packed bits.
+    // 
+    macoro::task<> DLpnPrfSender::mod2(
+        oc::MatrixView<oc::block> u0,
+        oc::MatrixView<oc::block> u1,
+        oc::MatrixView<oc::block> out,
+        coproto::Socket& sock,
+        Request<BinOle>& ole)
+    {
+        MC_BEGIN(macoro::task<>, this, u0, u1, out, &sock, &ole,
+            triple = BinOle{},
+            tIter = std::vector<BinOle>::iterator{},
+            tIdx = u64{},
+            tSize = u64{},
+            i = u64{},
+            j = u64{},
+            rows = u64{},
+            cols = u64{},
+            step = u64{},
+            end = u64{},
+            buff = oc::AlignedUnVector<oc::block>{}
+        );
+
+        if (out.rows() != u0.rows())
+            throw RTE_LOC;
+        if (out.rows() != u1.rows())
+            throw RTE_LOC;
+        if (out.cols() != u0.cols())
+            throw RTE_LOC;
+        if (out.cols() != u1.cols())
+            throw RTE_LOC;
+
+        tIdx = 0;
+        tSize = 0;
+        rows = u0.rows();
+        cols = u0.cols();
+        for (i = 0; i < rows; ++i)
+        {
+            for (j = 0; j < cols; )
+            {
+
+                if (tIdx == tSize)
+                {
+                    MC_AWAIT_SET(triple, ole.get());
+
+                    tSize = triple.mAdd.size();
+                    tIdx = 0;
+                    buff.resize(tSize);
+                    MC_AWAIT(sock.recv(buff));
+                }
+
+
+                // we have (cols - j) * 128 elems left in the row.
+                // we have (tSize - tIdx) * 128 oles left
+                // each elem requires 2 oles
+                // 
+                // so the amount we can do this iteration is 
+                step = std::min<u64>(cols - j, (tSize - tIdx) / 2);
+                end = step + j;
+
+                for (; j < end; j += 1, tIdx += 2)
+                {
+                    // we have x1, y1, s.t. x0 + x1 = y0 * y1
+                    auto x = &triple.mAdd[tIdx];
+                    auto y = &triple.mMult[tIdx];
+                    auto d = &buff[tIdx];
+
+                    // x1[0] = x1[0] ^ (y1[0] * d[0])
+                    //       = x1[0] ^ (y1[0] * (u0[0] ^ y0[0]))
+                    //       = x1[0] ^ (y[0] * u0[0])
+                    for (u64 k = 0; k < 2; ++k)
+                    {
+                        //HERE...
+                        //x[k] = oc::ZeroBlock;
+                        //y[k] = oc::ZeroBlock;
+
+                        x[k] = x[k] ^ (y[k] & d[k]);
+                    }
+
+                    oc::block m0, m1, m2, t0, t1, t2;
+                    m0 = x[0] ^ x[1];
+                    m1 = m0 ^ y[0];
+                    m2 = m0 ^ y[1];
+
+                    // 
+                    //           u1
+                    //          0 1 2
+                    //         ________
+                    //      0 | 0 1 0
+                    //   u0 1 | 1 0 0 
+                    //      2 | 0 0 1
+                    //t0 = m0 + T[u0,0] 
+                    //   = m0 + u0(i,j)  
+
+                    assert((u0(i, j) & u1(i, j)) == oc::ZeroBlock);
+
+                    t0 = m0 ^ u0(i, j);
+                    t1 = t0 ^ m1 ^ u0(i, j) ^ u1(i, j) ^ oc::AllOneBlock;
+                    t2 = t0 ^ m2 ^ u1(i, j);
+
+                    if (mDebug && i == mPrintI && (j == (mPrintJ / 128)))
+                    {
+                        auto bitIdx = mPrintJ % 128;
+                        std::cout << j << " m  " << bit(m0, bitIdx) << " " << bit(m1, bitIdx) << " " << bit(m2, bitIdx) << std::endl;
+                        std::cout << j << " u " << bit(u1(i, j), bitIdx) << bit(u0(i, j), bitIdx) << " = " <<
+                            (bit(u1(i, j), bitIdx) * 2 + bit(u0(i, j), bitIdx)) << std::endl;
+                        std::cout << j << " r  " << bit(m0, bitIdx) << std::endl;
+                        std::cout << j << " t  " << bit(t0, bitIdx) << " " << bit(t1, bitIdx) << " " << bit(t2, bitIdx) << std::endl;
+                    }
+
+                    // r
+                    out(i, j) = t0;
+                    d[0] = t1;
+                    d[1] = t2;
+                }
+
+                if (tIdx == tSize)
+                {
+                    MC_AWAIT(sock.send(std::move(buff)));
+                }
+            }
+        }
+
+        assert(buff.size() == 0);
+
+        MC_END();
+    }
+
+
+
+
+    macoro::task<> DLpnPrfReceiver::mod2(
+        oc::MatrixView<oc::block> u0,
+        oc::MatrixView<oc::block> u1,
+        oc::MatrixView<oc::block> out,
+        coproto::Socket& sock,
+        Request<BinOle>& ole)
+    {
+        MC_BEGIN(macoro::task<>, this, u0, u1, out, &sock, &ole,
+            triple = std::vector<BinOle>{},
+            tIter = std::vector<BinOle>::iterator{},
+            tIdx = u64{},
+            tSize = u64{},
+            i = u64{},
+            j = u64{},
+            step = u64{},
+            rows = u64{},
+            end = u64{},
+            cols = u64{},
+            buff = oc::AlignedUnVector<oc::block>{},
+            ww = oc::AlignedUnVector<block256>{},
+            mask0 = oc::block{},
+            mask1 = oc::block{},
+            add = span<oc::block>{},
+            mlt = span<oc::block>{}
+        );
+
+        memset(&mask0, 0b01010101, sizeof(mask0));
+        memset(&mask1, 0b10101010, sizeof(mask1));
+
+        triple.reserve(ole.mCorrelations.size());
+        tIdx = 0;
+        tSize = 0;
+        rows = u0.rows();
+        cols = u0.cols();
+        for (i = 0; i < rows; ++i)
+        {
+            for (j = 0; j < cols;)
+            {
+
+                if (tSize == tIdx)
+                {
+
+                    triple.emplace_back();
+                    MC_AWAIT_SET(triple.back(), ole.get());
+
+                    tSize = triple.back().mAdd.size();
+                    tIdx = 0;
+                    buff.resize(tSize);
+                }
+
+                step = std::min<u64>(cols - j, (tSize - tIdx) / 2);
+                end = step + j;
+
+                for (; j < end; ++j, tIdx += 2)
+                {
+                    auto y = &triple.back().mMult[tIdx];
+                    buff[tIdx + 0] = u0(i, j) ^ y[0];
+                    buff[tIdx + 1] = u1(i, j) ^ y[1];
+
+                }
+
+                if (tSize == tIdx)
+                {
+                    MC_AWAIT(sock.send(std::move(buff)));
+                    triple.back().mMult.clear();
+                }
+            }
+        }
+
+        if (buff.size())
+            MC_AWAIT(sock.send(std::move(buff)));
+
+        tIdx = 0;
+        tSize = 0;
+        tIter = triple.begin();
+        for (i = 0; i < rows; ++i)
+        {
+            for (j = 0; j < cols; )
+            {
+
+                if (tIdx == tSize)
+                {
+
+                    tIdx = 0;
+                    tSize = tIter->mAdd.size();
+                    add = tIter->mAdd;
+                    ++tIter;
+                    buff.resize(tSize);
+                    MC_AWAIT(sock.recv(buff));
+                }
+
+                step = std::min<u64>(cols - j, (tSize - tIdx) / 2);
+                end = step + j;
+
+                for (; j < end; ++j, tIdx += 2)
+                {
+
+                    assert((u0(i, j) & u1(i, j)) == oc::ZeroBlock);
+
+                    // if u = 0, w = m0
+                    // if u = 1, w = m1 + t1
+                    // if u = 2, w = m2 + t2
+                    oc::block w =
+                        (u0(i, j) & buff[tIdx + 0]) ^ // t1
+                        (u1(i, j) & buff[tIdx + 1]) ^ // t2
+                        add[tIdx + 0] ^ add[tIdx + 1];// m_u
+
+                    if (mDebug && i == mPrintI && (j == (mPrintJ / 128)))
+                    {
+                        auto bitIdx = mPrintJ % 128;
+                        std::cout << j << " u " << bit(u1(i, j), bitIdx) << bit(u0(i, j), bitIdx) << " = " <<
+                            (bit(u1(i, j), bitIdx) * 2 + bit(u0(i, j), bitIdx)) << std::endl;
+                        std::cout << j << " t  _ " << bit(buff[tIdx + 0], bitIdx) << " " << bit(buff[tIdx + 1], bitIdx) << std::endl;
+                        std::cout << j << " w  " << bit(w, bitIdx) << std::endl;
+                    }
+
+                    out(i, j) = w;
+                }
             }
         }
 
