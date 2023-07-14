@@ -5,6 +5,7 @@
 
 set(SRCS
 	CWrapper.cpp
+	JniWrapper.cpp
 	)
 
 add_library(WrapperSecJoin SHARED ${SRCS})
