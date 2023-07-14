@@ -1,5 +1,4 @@
 #include "com_visa_secureml_wrapper_SecJoinWrapper.h"
-#include "JNIExample.h"
 #include "secure-join/Util/CSVParser.h"
 #include "coproto/Socket/BufferingSocket.h"
 #include "secure-join/Join/Table.h"
@@ -18,53 +17,13 @@ struct State
   macoro::eager_task<void> mProtocol;
 };
 
+JNIEXPORT void JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_testApi
+  (JNIEnv *env, jobject obj)
+  {
+    std::cout << "Hello World!" << std::endl;
+  }
 
-
-// JNIEXPORT void JNICALL Java_JNIExample_jointable
-//   (JNIEnv *env, jobject obj, jstring csvPath, 
-//    jstring metaDataPath, jstring joinCols, jstring selectCols, jint totalSelectCols)
-//   {
-//     std::string cppCSVPath = env->GetStringUTFChars(csvPath, NULL);
-//     std::string cppMetaPath = env->GetStringUTFChars(metaDataPath, NULL);
-//     std::string cppJoinCol = env->GetStringUTFChars(joinCols, NULL);
-
-//     std::vector<secJoin::ColumnInfo> columnInfo;
-//     oc::u64 rowCount = 0;
-    
-//     getFileInfo(cppMetaPath, columnInfo, rowCount);
-
-//     secJoin::Table leftTable(rowCount, columnInfo);
-//     populateTable(leftTable, cppCSVPath, rowCount);
-
-
-//     secJoin::Table rightTable(rowCount, columnInfo);
-//     // Need to check if the rightTable is initialized with 0(s)
-
-//     // Constructing Select Cols
-//     std::vector<secJoin::Table::ColRef> selects;
-//     selects.reserve(totalSelectCols);
-
-//     std::string word;
-//     std::stringstream str(cppJoinCol);
-//     while(getline(str, word, secJoin::CSV_COL_DELIM))
-//     {
-//         selects.emplace_back(leftTable[word]);
-//     }
-
-
-
-//     // Constructing Join Cols 
-//     // Current Assumption is there is only one Join Columns
-//     secJoin::Table::ColRef leftJoinCol = leftTable[cppJoinCol];
-//     secJoin::Table::ColRef rightJoinCol = rightTable[cppJoinCol];
-
-//     // Initialize a table with 0
-    
-    
-//   }
-
-
-JNIEXPORT jlong JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_init
+JNIEXPORT jlong JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_initState
   (JNIEnv *env, jobject obj, jstring csvPath, jstring visaMetaDataPath, jstring clientMetaDataPath, 
   jstring joinVisaCols, jstring joinClientCols, jstring selectVisaCols, jstring selectClientCols, 
   jboolean isUnique)

@@ -7,13 +7,12 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-/*
- * Class:     SecJoinWrapper
- * Method:    join
- * Signature: (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
- */
-JNIEXPORT jlong JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_init
-  (JNIEnv *, jobject, jstring, jstring, jstring, jstring, jstring, jint, jboolean, jboolean);
+
+JNIEXPORT void JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_testApi
+  (JNIEnv *, jobject);
+
+JNIEXPORT jlong JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_initState
+  (JNIEnv *, jobject, jstring, jstring, jstring, jstring, jstring, jstring, jstring, jboolean);
 
 JNIEXPORT jbyteArray JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_runJoin
   (JNIEnv *, jobject, jlong, jbyteArray, jlong);
