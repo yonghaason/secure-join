@@ -192,4 +192,4 @@ def main(projectName, argv):
 
 if __name__ == "__main__":
 
-    main("vole-psi", sys.argv[1:])
+    main("secure-join", sys.argv[1:])

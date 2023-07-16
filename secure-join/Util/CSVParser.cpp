@@ -121,7 +121,7 @@ namespace secJoin
         std::istream in(file.rdbuf());
 
         if (!file.is_open())
-            throw std::runtime_error("Could not open the file " LOCATION);
+            throw std::runtime_error("Could not open the file " + fileName + "\n" LOCATION);
 
         getFileInfo(fileName, in, columnInfo, rowCount);
         file.close();
@@ -136,7 +136,7 @@ namespace secJoin
         file.open(filePath);
 
         if (!file.is_open())
-            throw std::runtime_error("Could not open the file " LOCATION);
+            throw std::runtime_error("Could not open the file " + filePath + "\n" LOCATION);
         
 
         // Adding the Row Count to the file
@@ -188,7 +188,7 @@ namespace secJoin
         file.open(filePath);
 
         if (!file.is_open())
-            throw std::runtime_error("Could not open the file " LOCATION);
+            throw std::runtime_error("Could not open the file " + filePath + "\n" LOCATION);
     
         // Adding the Columns names to the file
         writeFileHeader(file, tb);

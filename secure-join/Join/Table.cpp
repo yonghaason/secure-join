@@ -278,20 +278,24 @@ namespace secJoin
         remoteShare = Table(),
         i = u64()
         );
+        std::cout << "Inside Reveal Local" << std::endl;
 
         remoteShare.init(share.rows(), share.getColumnInfo());
         for(i = 0; i < remoteShare.mColumns.size(); i++)
         {
             MC_AWAIT(sock.recv(remoteShare.mColumns[i].mData.mData));
+            std::cout << "Recevied message i = " << i << std::endl;
         }
         
         if(share.mIsActive.size() > 0) 
         {
             remoteShare.mIsActive.resize(share.mIsActive.size());
             MC_AWAIT(sock.recv(remoteShare.mIsActive)); 
+            std::cout << "Received is active bits" << i << std::endl;
         }
         reveal(share, remoteShare, out);
 
+        std::cout << "Table revealing complete" << std::endl;
         MC_END();
     }
 
@@ -300,13 +304,23 @@ namespace secJoin
     {
         MC_BEGIN(macoro::task<>, &share, &sock, i = u64());
 
+        std::cout << "Inside Reveal Remote" << std::endl;
+
         for(i = 0; i < share.mColumns.size(); i++)
+        {
             MC_AWAIT(sock.send(share.mColumns[i].mData.mData));
+            std::cout << "Sending message i = " << i << std::endl;
+        }
+            
             
         // std::move() will the delete the local share
         if(share.mIsActive.size() > 0) 
+        {
             MC_AWAIT(sock.send(share.mIsActive));
+            std::cout << "Sending IsActive bits" << std::endl;
+        }
             
+        std::cout << "Sending Complete" << std::endl; 
         MC_END();
     }
 

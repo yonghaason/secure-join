@@ -18,9 +18,11 @@ set(SRCS
 	DlpnPerm_Test.cpp
 	CSVParser_Test.cpp
 	OmJoin_Test.cpp
+	CWrapper_Test.cpp
 	)
 
 	
 add_library(secureJoin_Tests ${SRCS})
 
+target_link_libraries(secureJoin_Tests WrapperSecJoin)
 target_link_libraries(secureJoin_Tests secureJoin)

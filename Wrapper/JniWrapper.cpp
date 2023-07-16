@@ -1,12 +1,10 @@
 #include "com_visa_secureml_wrapper_SecJoinWrapper.h"
-#include "secure-join/Util/CSVParser.h"
-#include "coproto/Socket/BufferingSocket.h"
-#include "secure-join/Join/Table.h"
-#include "secure-join/Join/OmJoin.h"
-extern "C"
-{
-  #include "CWrapper.h"
-}
+// #include "secure-join/Util/CSVParser.h"
+// #include "coproto/Socket/BufferingSocket.h"
+// #include "secure-join/Join/Table.h"
+// #include "secure-join/Join/OmJoin.h"
+#include "CppWrapper.h"
+
 
 JNIEXPORT void JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_testApi
   (JNIEnv *env, jobject obj)

@@ -18,6 +18,7 @@
 
 #include "AggTree_Tests.h"
 #include "OmJoin_Test.h"
+#include "CWrapper_Test.h"
 
 namespace secJoin_Tests
 {
@@ -49,6 +50,7 @@ namespace secJoin_Tests
             t.add("ComposedPerm_replicated_secure_perm_test      ", ComposedPerm_replicated_secure_perm_test);
             t.add("AdditivePerm_xor_test                         ", AdditivePerm_xor_test);
             t.add("AdditivePerm_add_test                         ", AdditivePerm_add_test);
+            t.add("wrapper_test                                  ", wrapper_test);
 
             // t.add("DarkMatter22Prf_plain_test                    ", DarkMatter22Prf_plain_test);
             // t.add("DarkMatter32Prf_plain_test                    ", DarkMatter32Prf_plain_test);
