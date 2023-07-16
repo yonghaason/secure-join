@@ -12,7 +12,7 @@ void wrapper_test()
     std::string clientMetaDataPath("/Users/harshah/Documents/Core/secure-join/tests/tables/bank_meta.txt");
     std::string joinVisaCols("PAN");
     std::string joinClientCols("PAN");
-    std::string selectVisaCols("Risk_Score");
+    std::string selectVisaCols("Risk_Score,PAN");
     std::string selectClientCols("Balance");
     std::string joinCsvPath("/Users/harshah/Documents/Core/secure-join/tests/tables/joindata.csv");
     std::string joinMetaPath("/Users/harshah/Documents/Core/secure-join/tests/tables/joindata_meta.txt");
@@ -47,7 +47,7 @@ void runProtocol(long visaState, long bankState)
 {
     std::vector<oc::u8> buff;
 
-    while (isProtocolReady(visaState))
+    while (!isProtocolReady(visaState))
     {
         buff = runJoin(visaState, buff);
         std::cout << "Visa is sending " << buff.size() << " bytes" << std::endl;
