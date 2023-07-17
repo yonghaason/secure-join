@@ -6,16 +6,17 @@ void wrapper_test()
     std::string str("Harshal");
     testApi(str);
 
-    std::string visaCsvPath("/Users/harshah/Documents/Core/secure-join/tests/tables/visa.csv");
-    std::string bankCsvPath("/Users/harshah/Documents/Core/secure-join/tests/tables/bank.csv");
-    std::string visaMetaDataPath("/Users/harshah/Documents/Core/secure-join/tests/tables/visa_meta.txt");
-    std::string clientMetaDataPath("/Users/harshah/Documents/Core/secure-join/tests/tables/bank_meta.txt");
+    std::string rootPath(SEC_JOIN_ROOT_DIRECTORY);
+    std::string visaCsvPath = rootPath + "/tests/tables/visa.csv";
+    std::string bankCsvPath  = rootPath + "/tests/tables/bank.csv";
+    std::string visaMetaDataPath = rootPath + "/tests/tables/visa_meta.txt";
+    std::string clientMetaDataPath = rootPath + "/tests/tables/bank_meta.txt";
     std::string joinVisaCols("PAN");
     std::string joinClientCols("PAN");
     std::string selectVisaCols("Risk_Score,PAN");
     std::string selectClientCols("Balance");
-    std::string joinCsvPath("/Users/harshah/Documents/Core/secure-join/tests/tables/joindata.csv");
-    std::string joinMetaPath("/Users/harshah/Documents/Core/secure-join/tests/tables/joindata_meta.txt");
+    std::string joinCsvPath = rootPath + "/tests/tables/joindata.csv";
+    std::string joinMetaPath= rootPath + "/tests/tables/joindata_meta.txt";
     bool isUnique = true;
 
     long visaState = initState(visaCsvPath, visaMetaDataPath, clientMetaDataPath, joinVisaCols,
