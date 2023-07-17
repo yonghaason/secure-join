@@ -369,6 +369,7 @@ namespace secJoin
 
     }
 
+
     inline oc::AlignedUnVector<u16> sampleMod3(oc::PRNG& prng, u64 n)
     {
         oc::AlignedUnVector<u16> mBuffer(n);

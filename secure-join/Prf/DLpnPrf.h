@@ -34,6 +34,18 @@ namespace secJoin
         span<oc::block> y
     );
 
+    //void mod3Add(span<oc::block> a, span<oc::block> b, span<oc::block> c);
+
+    void mod3Add(
+        span<oc::block> z1, span<oc::block> z0,
+        span<oc::block> x1, span<oc::block> x0,
+        span<oc::block> y1, span<oc::block> y0);
+
+    void mod3Add(
+        span<oc::block> z1, span<oc::block> z0,
+        span<oc::block> x1, span<oc::block> x0,
+        span<oc::block> y0);
+
     class DLpnPrf
     {
     public:
@@ -97,12 +109,6 @@ namespace secJoin
             oc::PRNG& _,
             OleGenerator& gen);
 
-        macoro::task<> mod2Compress(
-            oc::MatrixView<u16> u,
-            span<oc::block> out,
-            coproto::Socket& sock,
-            Request<BinOle>& ole);
-
         macoro::task<> mod2(
             oc::MatrixView<oc::block> u0,
             oc::MatrixView<oc::block> u1,
@@ -154,15 +160,7 @@ namespace secJoin
             oc::PRNG&,
             OleGenerator& gen);
 
-
-        macoro::task<> mod2Compress(
-            oc::MatrixView<u16> u,
-            span<oc::block> out,
-            coproto::Socket& sock,
-            Request<BinOle>& ole);
-
         macoro::task<> mod2(
-            //oc::MatrixView<u16> u,
             oc::MatrixView<oc::block> u0,
             oc::MatrixView<oc::block> u1,
             oc::MatrixView<oc::block> out,

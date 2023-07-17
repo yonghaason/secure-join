@@ -612,6 +612,79 @@ void DLpnPrf_mod2_test(const oc::CLP& cmd)
     }
 }
 
+void DLpnPrf_mod3_test(const oc::CLP& cmd)
+{
+
+
+    PRNG prng(oc::ZeroBlock);
+    u64 n = 100;
+    for (u64 i = 0; i < n;++i)
+    {
+        u8 x = prng.get<u8>() % 3;
+        u8 y = prng.get<u8>() % 3;
+        auto a = (x >> 1) & 1;
+        auto b = x & 1;
+        auto c = (y >> 1) & 1;
+        auto d = y & 1;
+
+        auto ab = a ^ b;
+        auto z1 = (1 ^ d ^ b) * (ab ^ c);
+        auto z0 = (1 ^ a ^ c) * (ab ^ d);
+        auto e = (x + y) % 3;
+        if (z0 != (e & 1))
+            throw RTE_LOC;
+        if (z1 != (e >> 1))
+            throw RTE_LOC;
+    }
+
+
+    //     c
+    // ab  0  1   // msb = bc+a(1+c)  = bc + a + ac
+    // 00  0  0          = a + (b+a)c =
+    // 01  0  1          = 
+    // 10  1  0    
+    // 
+    //     0  1   // lsb = b(1+c) + (1+b+a)c
+    // 00  0  1          = b + (1 + a) c
+    // 01  1  0 
+    // 10  0  0
+    for (u64 i = 0; i < n;++i)
+    {
+        u8 x = prng.get<u8>() % 3;
+        u8 c = prng.get<u8>() % 2;
+        auto a = (x >> 1) & 1;
+        auto b = x & 1;
+
+        //auto ab = a ^ b;
+        //auto z1 = (1 ^ b) * (ab ^ c);
+        //auto z0 = (1 ^ a ^ c) * (ab);
+        auto z1 = a ^ (a ^ b) * c;
+        auto z0 = b ^ (1 ^ a) * c;
+        auto e = (x + c) % 3;
+        if (z0 != (e & 1))
+            throw RTE_LOC;
+        if (z1 != (e >> 1))
+            throw RTE_LOC;
+
+        oc::block A = oc::block::allSame(-a);
+        oc::block B = oc::block::allSame(-b);
+        oc::block C = oc::block::allSame(-c);
+        oc::block Z0 = oc::block::allSame(-z0);
+        oc::block Z1 = oc::block::allSame(-z1);
+
+        mod3Add(
+            span<oc::block>(&A, 1), span<oc::block>(&B, 1),
+            span<oc::block>(&A, 1), span<oc::block>(&B, 1), 
+            span<oc::block>(&C, 1));
+
+        if (Z0 != B)
+            throw RTE_LOC;
+        if (Z1 != A)
+            throw RTE_LOC;
+    }
+
+}
+
 
 void DLpnPrf_plain_test()
 {
@@ -752,7 +825,7 @@ void DLpnPrf_proto_test(const oc::CLP& cmd)
 {
 
 
-    u64 n = cmd.getOr("n", 1000);
+    u64 n = cmd.getOr("n", 1024);
     bool noCheck = cmd.isSet("nc");
 
     oc::Timer timer;

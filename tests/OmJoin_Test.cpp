@@ -3,6 +3,8 @@
 #include "OmJoin_Test.h"
 #include "secure-join/Join/OmJoin.h"
 #include "secure-join/Util/Util.h" 
+#include "coproto/Socket/BufferingSocket.h"
+
 using namespace secJoin;
 
 void OmJoin_loadKeys_Test()
@@ -317,6 +319,203 @@ void OmJoin_join_Test(const oc::CLP& cmd)
     ));
     std::get<0>(r).result();
     std::get<1>(r).result();
+    auto res = reveal(out[0], out[1]);
+
+    if (res != exp)
+    {
+        std::cout << "exp \n" << exp << std::endl;
+        std::cout << "act \n" << res << std::endl;
+        throw RTE_LOC;
+    }
+
+    if (cmd.isSet("timing"))
+        std::cout << timer << std::endl;
+}
+
+
+
+// This example demonstates how one can get and manually send the protocol messages
+// that are generated. This communicate method is one possible way of doing this.
+// It takes a protocol that has been started and coproto buffering socket as input.
+// It alternates between "sending" and "receiving" protocol messages. Instead of
+// sending the messages on a socket, this program writes them to a file and the other
+// party reads that file to get the message. In a real program the communication could 
+// handled in any way the user decides.
+auto communicate(
+    macoro::eager_task<>& protocol,
+    bool sender,
+    coproto::BufferingSocket& sock,
+    bool verbose)
+{
+
+    int s = 0, r = 0;
+    std::string me = sender ? "sender" : "recver";
+    std::string them = !sender ? "sender" : "recver";
+
+    // write any outgoing data to a file me_i.bin where i in the message index.
+    auto write = [&]()
+    {
+        // the the outbound messages that the protocol has generated.
+        // This will consist of all the outbound messages that can be 
+        // generated without receiving the next inbound message.
+        auto b = sock.getOutbound();
+
+        // If we do have outbound messages, then lets write them to a file.
+        if (b && b->size())
+        {
+            std::ofstream message;
+            auto temp = me + ".tmp";
+            auto file = me + "_" + std::to_string(s) + ".bin";
+            message.open(temp, std::ios::binary | std::ios::trunc);
+            message.write((char*)b->data(), b->size());
+            message.close();
+
+            if (verbose)
+            {
+                // optional for debug purposes.
+                oc::RandomOracle hash(16);
+                hash.Update(b->data(), b->size());
+                oc::block h; hash.Final(h);
+
+                std::cout << me << " write " << std::to_string(s) << ", " << b->size() << " bytes "<< h << "\n";
+            }
+
+            if (rename(temp.c_str(), file.c_str()) != 0)
+                std::cout << me << " file renamed failed\n";
+            else if (verbose)
+                std::cout << me << " file renamed successfully\n";
+
+            ++s;
+        }
+
+    };
+
+    // write incoming data from a file them_i.bin where i in the message index.
+    auto read = [&]() {
+
+        std::ifstream message;
+        auto file = them + "_" + std::to_string(r) + ".bin";
+        while (message.is_open() == false)
+        {
+            message.open(file, std::ios::binary);
+            if ((message.is_open() == false))
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+
+        auto fsize = message.tellg();
+        message.seekg(0, std::ios::end);
+        fsize = message.tellg() - fsize;
+        message.seekg(0, std::ios::beg);
+        std::vector<oc::u8> buff(fsize);
+        message.read((char*)buff.data(), fsize);
+        message.close();
+        std::remove(file.c_str());
+
+        if (verbose)
+        {
+            oc::RandomOracle hash(16);
+            hash.Update(buff.data(), buff.size());
+            oc::block h; hash.Final(h);
+
+            std::cout << me << " read " << std::to_string(r)<< ", "<< buff.size() << " bytes " << h << "\n";
+        }
+        ++r;
+
+        // This gives this socket the message which forwards it to the protocol and
+        // run the protocol forward, possibly generating more outbound protocol
+        // messages.
+        sock.processInbound(buff);
+    };
+
+    // The sender we generate the first message.
+    if (sender)
+        write();
+
+    // While the protocol is not done we alternate between reading and writing messages.
+    while (protocol.is_ready() == false)
+    {
+        read();
+        write();
+    }
+}
+
+
+void OmJoin_join_round_Test(const oc::CLP& cmd)
+{
+    u64 nL = 2000,
+        nR = 999;
+    bool printSteps = cmd.isSet("print");
+    bool mock = !cmd.isSet("noMock");
+
+    Table L, R;
+
+    L.init(nL, { {
+        {"L1", TypeID::IntID, 21},
+        {"L2", TypeID::IntID, 16}
+    } });
+    R.init(nR, { {
+        {"R1", TypeID::IntID, 21},
+        {"R2", TypeID::IntID, 7}
+    } });
+
+    for (u64 i = 0; i < nL; ++i)
+    {
+        // u64 k 
+        memcpy(&L.mColumns[0].mData.mData(i, 0), &i, L.mColumns[0].mData.bytesPerEntry());
+        L.mColumns[1].mData.mData(i, 0) = i % 4;
+        L.mColumns[1].mData.mData(i, 1) = i % 3;
+    }
+
+    for (u64 i = 0; i < nR; ++i)
+    {
+        auto ii = i * 2;
+        memcpy(&R.mColumns[0].mData.mData(i, 0), &ii, R.mColumns[0].mData.bytesPerEntry());
+        // R.mColumns[0].mData.mData(i, 0) = i * 2;
+        R.mColumns[1].mData.mData(i) = i % 3;
+    }
+
+    PRNG prng(oc::ZeroBlock);
+    std::array<Table, 2> Ls, Rs;
+    share(L, Ls, prng);
+    share(R, Rs, prng);
+
+    OmJoin join0, join1;
+
+    join0.mInsecurePrint = printSteps;
+    join1.mInsecurePrint = printSteps;
+
+    join0.mInsecureMockSubroutines = mock;
+    join1.mInsecureMockSubroutines = mock;
+
+    OleGenerator ole0, ole1;
+    ole0.fakeInit(OleGenerator::Role::Sender);
+    ole1.fakeInit(OleGenerator::Role::Receiver);
+
+    PRNG prng0(oc::ZeroBlock);
+    PRNG prng1(oc::OneBlock);
+    std::array<coproto::BufferingSocket, 2> sock;
+
+    Table out[2];
+
+    auto exp = join(L[0], R[0], { L[0], R[1], L[1] });
+    oc::Timer timer;
+    join0.setTimer(timer);
+    // join1.setTimer(timer);
+
+
+
+    auto proto0 = join0.join(Ls[0][0], Rs[0][0], { Ls[0][0], Rs[0][1], Ls[0][1] }, out[0], prng0, ole0, sock[0])
+        | macoro::make_eager();
+    auto proto1 = join1.join(Ls[1][0], Rs[1][0], { Ls[1][0], Rs[1][1], Ls[1][1] }, out[1], prng1, ole1, sock[1])
+        | macoro::make_eager();
+
+
+
+    auto f = std::async([&] { communicate(proto0, true, sock[0], true); });
+    communicate(proto1, false, sock[1], false);
+
+    f.get();
+
     auto res = reveal(out[0], out[1]);
 
     if (res != exp)

@@ -59,6 +59,7 @@ namespace secJoin_Tests
 
 
             t.add("DLpnPrf_BMult_test                            ", DLpnPrf_BMult_test);
+            t.add("DLpnPrf_mod3_test                             ", DLpnPrf_mod3_test);
             t.add("DLpnPrf_mod2_test                             ", DLpnPrf_mod2_test);
             t.add("DLpnPrf_plain_test                            ", DLpnPrf_plain_test);
             t.add("DLpnPrf_proto_test                            ", DLpnPrf_proto_test);
@@ -99,6 +100,7 @@ namespace secJoin_Tests
             t.add("OmJoin_concatColumns_Test                     ", OmJoin_concatColumns_Test);
             t.add("OmJoin_getOutput_Test                         ", OmJoin_getOutput_Test);
             t.add("OmJoin_join_Test                              ", OmJoin_join_Test);
-
+            t.add("OmJoin_join_round_Test                        ", OmJoin_join_round_Test);
+            
         });
 }
