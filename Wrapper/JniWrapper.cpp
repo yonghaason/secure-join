@@ -10,7 +10,7 @@ JNIEXPORT void JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_testApi
   (JNIEnv *env, jobject obj)
   {
     std::string temp("Hello Word");
-    testApi(temp);
+    secJoin::testApi(temp);
   }
 
 JNIEXPORT jlong JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_initState
@@ -27,7 +27,7 @@ JNIEXPORT jlong JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_initState
     std::string cppselectVisaCols = env->GetStringUTFChars(selectVisaCols, NULL);
     std::string cppselectClientCols = env->GetStringUTFChars(selectClientCols, NULL);
 
-    return initState(cppCSVPath, cppVisaMetaDataPath, cppClientMetaDataPath, cppVisaJoinCols,
+    return secJoin::initState(cppCSVPath, cppVisaMetaDataPath, cppClientMetaDataPath, cppVisaJoinCols,
       cppClientJoinCols, cppselectVisaCols, cppselectClientCols, isUnique);
 
 }
@@ -42,7 +42,7 @@ JNIEXPORT jlong JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_initState
     std::vector<oc::u8> buff(dataSize);
     memcpy(buff.data(),elements,dataSize);
     
-    auto b = runJoin(stateAddress, buff);
+    auto b = secJoin::runJoin(stateAddress, buff);
 
     jbyteArray byteArray = (*env).NewByteArray( b.size());
     (*env).SetByteArrayRegion(byteArray, 0,  b.size(), reinterpret_cast<const signed char*>(b.data()));
@@ -56,7 +56,7 @@ JNIEXPORT jlong JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_initState
 JNIEXPORT void JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_releaseState
   (JNIEnv *env, jobject obj, jlong memoryAddress)
   {
-    releaseState(memoryAddress);
+    secJoin::releaseState(memoryAddress);
   }
 
 
@@ -64,13 +64,13 @@ JNIEXPORT void JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_releaseStat
   (JNIEnv *env, jobject obj, jlong stateAddress)
   {
 
-    return isProtocolReady(stateAddress);
+    return secJoin::isProtocolReady(stateAddress);
   }
 
 JNIEXPORT void JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_getOtherShare
   (JNIEnv *env, jobject obj, jlong stateAddress, jboolean isUnique)
 {
-  getOtherShare(stateAddress, isUnique);
+  secJoin::getOtherShare(stateAddress, isUnique);
 }
 
 
@@ -83,5 +83,5 @@ JNIEXPORT void JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_getJoinTabl
     std::string cppCSVPath = env->GetStringUTFChars(csvPath, NULL);
     std::string cppMetaPath = env->GetStringUTFChars(metaDataPath, NULL);
 
-    getJoinTable(stateAddress, cppCSVPath, cppMetaPath, isUnique);
+    secJoin::getJoinTable(stateAddress, cppCSVPath, cppMetaPath, isUnique);
   }

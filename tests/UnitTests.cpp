@@ -50,7 +50,9 @@ namespace secJoin_Tests
             t.add("ComposedPerm_replicated_secure_perm_test      ", ComposedPerm_replicated_secure_perm_test);
             t.add("AdditivePerm_xor_test                         ", AdditivePerm_xor_test);
             t.add("AdditivePerm_add_test                         ", AdditivePerm_add_test);
+            #if SECUREJOIN_ENABLE_WRAPPER
             t.add("wrapper_test                                  ", wrapper_test);
+            #endif
 
             // t.add("DarkMatter22Prf_plain_test                    ", DarkMatter22Prf_plain_test);
             // t.add("DarkMatter32Prf_plain_test                    ", DarkMatter32Prf_plain_test);

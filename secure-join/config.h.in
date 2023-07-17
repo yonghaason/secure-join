@@ -9,3 +9,6 @@
 
 // defining the root directory
 #cmakedefine SEC_JOIN_ROOT_DIRECTORY "@SEC_JOIN_ROOT_DIRECTORY@"
+
+// build with wrapper
+#cmakedefine SECUREJOIN_ENABLE_WRAPPER @SECUREJOIN_ENABLE_WRAPPER@
