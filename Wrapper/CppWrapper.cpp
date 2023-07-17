@@ -58,8 +58,8 @@ long initState(std::string& csvPath, std::string& visaMetaDataPath, std::string&
     
     // Initializing the join protocol
     cState->mPrng.SetSeed(oc::ZeroBlock); // Make Change
-    cState->mJoin.mInsecurePrint = true;
-    cState->mJoin.mInsecureMockSubroutines = true;
+    cState->mJoin.mInsecurePrint = false;
+    cState->mJoin.mInsecureMockSubroutines = false;
 
     // Current assumption are that Visa always provides table with unique keys 
     // Which means Visa always has to be left Table
@@ -89,7 +89,7 @@ std::vector<oc::u8> runJoin(long stateAddress, std::vector<oc::u8>& buff)
 
     auto b = cState->mSock.getOutbound();
 
-    std::cout << "In the C code, the size of byte array is " << b->size() << std::endl ;
+    // std::cout << "In the C code, the size of byte array is " << b->size() << std::endl ;
 
     return b.value();
 
@@ -97,7 +97,7 @@ std::vector<oc::u8> runJoin(long stateAddress, std::vector<oc::u8>& buff)
 
 void releaseState(long memoryAddress)
 {
-    std::cout << "Releasing Memory" << std::endl;
+    // std::cout << "Releasing Memory" << std::endl;
     void *state = (void *) memoryAddress;
     delete (State*) state;
 }
@@ -113,6 +113,7 @@ void getOtherShare(long stateAddress, bool isUnique)
 {
     void *state = (void *) stateAddress;
     State* cState = (State*)state;
+    
     // Assuming Visa always receives the client's share
     if(isUnique)
     {

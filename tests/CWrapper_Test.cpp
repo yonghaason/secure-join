@@ -3,8 +3,8 @@
 
 void wrapper_test()
 {
-    std::string str("Harshal");
-    testApi(str);
+    // std::string str("Hello World!");
+    // testApi(str);
 
     std::string rootPath(SEC_JOIN_ROOT_DIRECTORY);
     std::string visaCsvPath = rootPath + "/tests/tables/visa.csv";
@@ -29,7 +29,7 @@ void wrapper_test()
 
     runProtocol(visaState, bankState);
 
-    std::cout << "Join Protocol Completed" << std::endl;
+    // std::cout << "Join Protocol Completed" << std::endl;
 
     getOtherShare(visaState, isUnique);
     getOtherShare(bankState, !isUnique);
@@ -51,9 +51,9 @@ void runProtocol(long visaState, long bankState)
     while (!isProtocolReady(visaState))
     {
         buff = runJoin(visaState, buff);
-        std::cout << "Visa is sending " << buff.size() << " bytes" << std::endl;
+        // std::cout << "Visa is sending " << buff.size() << " bytes" << std::endl;
         buff = runJoin(bankState, buff);
-        std::cout << "Bank is sending " << buff.size() << " bytes" << std::endl;
+        // std::cout << "Bank is sending " << buff.size() << " bytes" << std::endl;
     }
     
 }

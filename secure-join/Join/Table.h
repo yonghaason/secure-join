@@ -93,6 +93,10 @@ namespace secJoin
         Table() = default;
         Table(const Table&) = default;
         Table(Table&&) = default;
+
+        Table&operator=(const Table&) = default;
+        Table&operator=(Table&&) = default;
+
         Table(u64 rows, std::vector<ColumnInfo> columns)
         {
             init(rows, columns);

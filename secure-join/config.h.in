@@ -9,4 +9,3 @@
 
 // defining the root directory
 #cmakedefine SEC_JOIN_ROOT_DIRECTORY "@SEC_JOIN_ROOT_DIRECTORY@"
-
