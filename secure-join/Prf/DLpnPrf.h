@@ -50,6 +50,8 @@ namespace secJoin
     {
     public:
         static const std::array<block256, 128> mB, mBShuffled;
+        static const std::array<std::array<u8, 256>, 128> mBExpanded;
+
         static constexpr int KeySize = 128;
 
         std::array<oc::block, KeySize / 128> mKey;
@@ -79,9 +81,9 @@ namespace secJoin
 
         std::vector<oc::PRNG> mKeyOTs;
         DLpnPrf mPrf;
-        oc::Matrix<u16> mU;
-        oc::Matrix<u16> mH;
-        oc::Matrix<oc::block> mV;
+        //oc::Matrix<u16> mU;
+        //oc::Matrix<u16> mH;
+        //oc::Matrix<oc::block> mV;
         bool mIsKeyOTsSet = false;
         bool mIsKeySet = false;
 
@@ -132,9 +134,9 @@ namespace secJoin
         static constexpr int mNumOlePer = (m * 2) / 128;
 
         std::vector<std::array<oc::PRNG, 2>> mKeyOTs;
-        oc::Matrix<u16> mU;
-        oc::Matrix<u16> mH;
-        oc::Matrix<oc::block> mV;
+        //oc::Matrix<u16> mU;
+        //oc::Matrix<u16> mH;
+        //oc::Matrix<oc::block> mV;
         bool mIsKeyOTsSet = false;
         DLpnPrf mPrf;
 

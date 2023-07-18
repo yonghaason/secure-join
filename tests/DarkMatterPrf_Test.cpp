@@ -893,72 +893,72 @@ void DLpnPrf_proto_test(const oc::CLP& cmd)
     for (u64 ii = 0; ii < n; ++ii)
     {
         oc::block y;
-        if (sender.mU.size())
-        {
+        //if (sender.mU.size())
+        //{
 
-            std::array<u16, sender.mPrf.KeySize> h;
-            std::array<oc::block, sender.mPrf.KeySize / 128> X;
-            if (sender.mPrf.KeySize / 128 > 1)
-            {
-                for (u64 i = 0; i < X.size(); ++i)
-                    X[i] = x[ii] ^ oc::block(i, i);
-                oc::mAesFixedKey.hashBlocks<X.size()>(X.data(), X.data());
-            }
-            else
-            {
-                X[0] = x[ii];
-            }
+        //    std::array<u16, sender.mPrf.KeySize> h;
+        //    std::array<oc::block, sender.mPrf.KeySize / 128> X;
+        //    if (sender.mPrf.KeySize / 128 > 1)
+        //    {
+        //        for (u64 i = 0; i < X.size(); ++i)
+        //            X[i] = x[ii] ^ oc::block(i, i);
+        //        oc::mAesFixedKey.hashBlocks<X.size()>(X.data(), X.data());
+        //    }
+        //    else
+        //    {
+        //        X[0] = x[ii];
+        //    }
 
-            auto kIter = oc::BitIterator((u8*)sender.mPrf.mKey.data());
-            auto xIter = oc::BitIterator((u8*)X.data());
-            for (u64 i = 0; i < sender.mPrf.KeySize; ++i)
-            {
-                u8 xi = *xIter;
-                u8 ki = *kIter;
-                h[i] = ki & xi;
+        //    auto kIter = oc::BitIterator((u8*)sender.mPrf.mKey.data());
+        //    auto xIter = oc::BitIterator((u8*)X.data());
+        //    for (u64 i = 0; i < sender.mPrf.KeySize; ++i)
+        //    {
+        //        u8 xi = *xIter;
+        //        u8 ki = *kIter;
+        //        h[i] = ki & xi;
 
-                assert(recver.mH.cols() == x.size());
-                auto r = recver.mH(i, ii);
-                auto s = sender.mH(i, ii);
-                //auto neg = (3 - r) % 3;
-                auto act = (s + r) % 3;
-                if (act != h[i])
-                    throw RTE_LOC;
+        //        assert(recver.mH.cols() == x.size());
+        //        auto r = recver.mH(i, ii);
+        //        auto s = sender.mH(i, ii);
+        //        //auto neg = (3 - r) % 3;
+        //        auto act = (s + r) % 3;
+        //        if (act != h[i])
+        //            throw RTE_LOC;
 
-                ++kIter;
-                ++xIter;
-            }
+        //        ++kIter;
+        //        ++xIter;
+        //    }
 
-            block256m3 u;
-            sender.mPrf.compressH(h, u);
+        //    block256m3 u;
+        //    sender.mPrf.compressH(h, u);
 
-            for (u64 i = 0; i < 256; ++i)
-            {
-                if ((sender.mU[i][ii] + recver.mU[i][ii]) % 3 != u.mData[i])
-                {
-                    throw RTE_LOC;
-                }
+        //    for (u64 i = 0; i < 256; ++i)
+        //    {
+        //        if ((sender.mU[i][ii] + recver.mU[i][ii]) % 3 != u.mData[i])
+        //        {
+        //            throw RTE_LOC;
+        //        }
 
-            }
+        //    }
 
-            block256 w;
-            for (u64 i = 0; i < u.mData.size(); ++i)
-            {
-                *oc::BitIterator((u8*)&w, i) = u.mData[i] % 2;
+        //    block256 w;
+        //    for (u64 i = 0; i < u.mData.size(); ++i)
+        //    {
+        //        *oc::BitIterator((u8*)&w, i) = u.mData[i] % 2;
 
-                auto v0 = bit(sender.mV(i, 0), ii);
-                auto v1 = bit(recver.mV(i, 0), ii);
+        //        auto v0 = bit(sender.mV(i, 0), ii);
+        //        auto v1 = bit(recver.mV(i, 0), ii);
 
-                if ((v0 ^ v1) != u.mData[i] % 2)
-                {
-                    throw RTE_LOC;
-                }
-            }
+        //        if ((v0 ^ v1) != u.mData[i] % 2)
+        //        {
+        //            throw RTE_LOC;
+        //        }
+        //    }
 
 
-            y = sender.mPrf.compress(w);
-        }
-        else
+        //    y = sender.mPrf.compress(w);
+        //}
+        //else
             y = sender.mPrf.eval(x[ii]);
 
         auto yy = (y0[ii] ^ y1[ii]);

@@ -27,6 +27,125 @@ namespace secJoin
         return shuffled;
     }();
 
+    const std::array<std::array<u8, 256>, 128> DLpnPrf::mBExpanded = []() {
+
+        std::array<std::array<u8, 256>, 128> r;
+        for (u64 i = 0; i < mB.size(); ++i)
+        {
+            auto iter0 = oc::BitIterator((u8*)&mB[i].mData[0]);
+            for (u64 j = 0; j < r[i].size(); ++j)
+                r[i][j] = *iter0++;
+        }
+
+        return r;
+    }();
+
+
+    void compressB(
+        u64 begin,
+        u64 n,
+        oc::MatrixView<oc::block> v,
+        span<oc::block> y
+    )
+    {
+        //auto n = y.size();
+        auto begin128 = oc::divCeil(begin, 128);
+        auto n128 = oc::divCeil(n, 128);
+        auto n1024 = n128 / 8 * 8;
+        oc::Matrix<oc::block> yt(128, n128);
+
+        //auto B = DLpnPrf::mB;
+        assert(begin % 128 == 0);
+        assert(n % 128 == 0);
+        assert(v.rows() == 256);
+        assert(v.cols() >= begin128 + n128);
+        assert(y.size() >= begin + n);
+
+        auto vStep = v.cols();
+        auto ytIter = yt.data();
+        auto ytstep = yt.cols();
+        auto vSize = n128 * sizeof(oc::block);
+
+        for (u64 i = 0; i < 128; ++i)
+        {
+            u64 j = 0;
+            while (DLpnPrf::mBExpanded[i][j] == 0)
+                ++j;
+
+            auto vIter = v.data() + begin128 + j * vStep;
+            assert(yt[i].data() == ytIter);
+            assert(v[j].subspan(begin128).data() == vIter);
+            memcpy(ytIter, vIter, vSize);
+            vIter += vStep;
+            ++j;
+
+            //memcpy(yt[i], v[j++].subspan(begin128, n128));
+            while (j < 256)
+            {
+                if (DLpnPrf::mBExpanded[i][j])
+                {
+                    assert(yt[i].data() == ytIter);
+                    assert(vIter == v[j].data() + begin128);
+                    oc::block* __restrict yti = ytIter;
+                    oc::block* __restrict vj = vIter;
+                    u64 k = begin;
+
+                    for (; k < n1024; k += 8)
+                    {
+                        yti[k + 0] = yti[k + 0] ^ vj[k + 0];
+                        yti[k + 1] = yti[k + 1] ^ vj[k + 1];
+                        yti[k + 2] = yti[k + 2] ^ vj[k + 2];
+                        yti[k + 3] = yti[k + 3] ^ vj[k + 3];
+                        yti[k + 4] = yti[k + 4] ^ vj[k + 4];
+                        yti[k + 5] = yti[k + 5] ^ vj[k + 5];
+                        yti[k + 6] = yti[k + 6] ^ vj[k + 6];
+                        yti[k + 7] = yti[k + 7] ^ vj[k + 7];
+
+                    }
+                    for (; k < n128; ++k)
+                        yti[k] = yti[k] ^ vj[k];
+                }
+                vIter += vStep;
+                ++j;
+            }
+
+            ytIter += ytstep;
+        }
+
+        oc::AlignedArray<oc::block, 128> tt;
+        auto step = yt.cols();
+        for (u64 i = 0, ii = 0; i < n; i += 128, ++ii)
+        {
+            auto offset = yt.data() + ii;
+            for (u64 j = 0; j < 128; ++j)
+            {
+                assert(&yt(j, ii) == offset);
+                tt[j] = *offset;
+                offset += step;
+            }
+
+            oc::transpose128(tt.data());
+            auto m = std::min<u64>(n - i, 128);
+
+            memcpy(y.data() +i + begin, tt.data(), m * sizeof(oc::block));
+            //if (m == 128)
+            //{
+
+            //    for (u64 j = 0; j < m; ++j)
+            //    {
+            //        y[i + j] = tt[j];
+            //    }
+            //}
+            //else
+            //{
+            //    for (u64 j = 0; j < m; ++j)
+            //    {
+            //        y[i + j] = tt[j];
+            //    }
+            //}
+        }
+    }
+
 
 
     void compressB(
@@ -34,51 +153,12 @@ namespace secJoin
         span<oc::block> y
     )
     {
+        u64 batch = 1ull << 16;
         auto n = y.size();
-        auto n128 = oc::divCeil(n, 128);
-        oc::Matrix<oc::block> yt(128, n128);
-
-        auto B = DLpnPrf::mB;
-        assert(v.rows() == 256);
-        assert(v.cols() == yt.cols());
-
-        for (u64 i = 0; i < 128; ++i)
+        for (u64 i = 0; i < n; i += batch)
         {
-            u64 j = 0;
-            while (bit(B[i], j) == 0)
-                ++j;
-
-            memcpy(yt[i], v[j++]);
-            while (j < 256)
-            {
-                if (bit(B[i], j))
-                {
-                    auto yti = yt[i].data();
-                    auto vj = v[j].data();
-
-                    for (u64 k = 0; k < n128; ++k)
-                        yti[k] = yti[k] ^ vj[k];
-                }
-
-                ++j;
-            }
-        }
-
-        oc::AlignedArray<oc::block, 128> tt;
-        for (u64 i = 0, ii = 0; i < n; i += 128, ++ii)
-        {
-            for (u64 j = 0; j < 128; ++j)
-            {
-                tt[j] = yt(j, ii);
-            }
-
-            oc::transpose128(tt.data());
-            auto m = std::min<u64>(n - i, 128);
-
-            for (u64 j = 0; j < m; ++j)
-            {
-                y[i + j] = tt[j];
-            }
+            auto m = std::min<u64>(batch, n - i);
+            compressB(i, m, v, y);
         }
     }
 
@@ -88,16 +168,22 @@ namespace secJoin
         span<oc::block> x1, span<oc::block> x0,
         span<oc::block> y1, span<oc::block> y0)
     {
+        assert(z1.size() == z0.size());
+        assert(z1.size() == x0.size());
+        assert(z1.size() == y0.size());
+        assert(x1.size() == x0.size());
+        assert(y1.size() == y0.size());
+
         //auto x1x0 = x1 ^ x0;
         //auto z1 = (1 ^ y0 ^ x0) * (x1x0 ^ y1);
         //auto z0 = (1 ^ x1 ^ y1) * (x1x0 ^ y0);
         //auto e = (x + y) % 3;
         for (u64 i = 0; i < z0.size(); ++i)
         {
-            auto x1i = x1[i];
-            auto x0i = x0[i];
-            auto y1i = y1[i];
-            auto y0i = y0[i];
+            auto x1i = x1.data()[i];
+            auto x0i = x0.data()[i];
+            auto y1i = y1.data()[i];
+            auto y0i = y0.data()[i];
             auto x1x0 = x1i ^ x0i;
             z1[i] = (y0i ^ x0i).andnot_si128(x1x0 ^ y1i);
             z0[i] = (x1i ^ y1i).andnot_si128(x1x0 ^ y0i);
@@ -117,17 +203,21 @@ namespace secJoin
     {
         //auto z1 = x1 ^ (x1 ^ x0) * y0;
         //auto z0 = x0 ^ (1 ^ x1) * y0;
+        assert(z1.size() == z0.size());
+        assert(z1.size() == x0.size());
+        assert(z1.size() == y0.size());
         assert(x1.size() == x0.size());
-        assert(x1.size() == y0.size());
+
+
         for (u64 i = 0; i < x1.size(); ++i)
         {
-            auto ab = x1[i] ^ x0[i];
-            auto abc = ab & y0[i];
+            auto ab = x1.data()[i] ^ x0.data()[i];
+            auto abc = ab & y0.data()[i];
 
-            auto zz1 = x1[i] ^ abc;
+            auto zz1 = x1.data()[i] ^ abc;
 
-            auto nac = x1[i].andnot_si128(y0[i]);
-            auto zz0 = x0[i] ^ nac;
+            auto nac = x1.data()[i].andnot_si128(y0.data()[i]);
+            auto zz0 = x0.data()[i] ^ nac;
 
             z1[i] = zz1;
             z0[i] = zz0;
@@ -135,23 +225,165 @@ namespace secJoin
         }
     }
 
-    inline void sampleMod3(oc::PRNG& prng, span<oc::block> msb, span<oc::block> lsb)
-    {
-        oc::AlignedUnVector<u16> b(msb.size() * 128);
-        sampleMod3(prng, b);
 
-        for (u64 i = 0; i < b.size(); ++i)
+
+    inline void sampleMod3(oc::PRNG& prng, span<u8> mBuffer)
+    {
+        auto n = mBuffer.size();
+        auto dst = mBuffer.data();
+        oc::block m[8], t[8], eq[8];
+        oc::block allOne = oc::AllOneBlock;
+        oc::block block1 = oc::block::allSame<u16>(1);
+        oc::block block3 = oc::block::allSame<u16>(3);
+
+        static constexpr int batchSize = 16;
+        std::array<std::array<oc::block, 8>, 64> buffer;
+        std::array<u8* __restrict, 64> iters;
+
+        for (u64 i = 0; i < n;)
         {
-            assert(b[i] < 3);
-            *oc::BitIterator((u8*)msb.data(), i) = (b[i] >> 1);
-            *oc::BitIterator((u8*)lsb.data(), i) = (b[i] & 1);
+            for (u64 j = 0; j < 64; ++j)
+                iters[j] = (u8*)buffer[j].data();
+
+            for (u64 bb = 0; bb < batchSize; ++bb)
+            {
+                prng.mAes.ecbEncCounterMode(prng.mBlockIdx, 8, m);
+                prng.mBlockIdx += 8;
+
+                for (u64 j = 0; j < 8; ++j)
+                {
+                    if (j)
+                    {
+                        m[0] = m[0] >> 2;
+                        m[1] = m[1] >> 2;
+                        m[2] = m[2] >> 2;
+                        m[3] = m[3] >> 2;
+                        m[4] = m[4] >> 2;
+                        m[5] = m[5] >> 2;
+                        m[6] = m[6] >> 2;
+                        m[7] = m[7] >> 2;
+                    }
+
+                    t[0] = m[0] & block3;
+                    t[1] = m[1] & block3;
+                    t[2] = m[2] & block3;
+                    t[3] = m[3] & block3;
+                    t[4] = m[4] & block3;
+                    t[5] = m[5] & block3;
+                    t[6] = m[6] & block3;
+                    t[7] = m[7] & block3;
+
+                    eq[0] = _mm_cmpeq_epi16(t[0], block3);
+                    eq[1] = _mm_cmpeq_epi16(t[1], block3);
+                    eq[2] = _mm_cmpeq_epi16(t[2], block3);
+                    eq[3] = _mm_cmpeq_epi16(t[3], block3);
+                    eq[4] = _mm_cmpeq_epi16(t[4], block3);
+                    eq[5] = _mm_cmpeq_epi16(t[5], block3);
+                    eq[6] = _mm_cmpeq_epi16(t[6], block3);
+                    eq[7] = _mm_cmpeq_epi16(t[7], block3);
+
+                    eq[0] = eq[0] ^ allOne;
+                    eq[1] = eq[1] ^ allOne;
+                    eq[2] = eq[2] ^ allOne;
+                    eq[3] = eq[3] ^ allOne;
+                    eq[4] = eq[4] ^ allOne;
+                    eq[5] = eq[5] ^ allOne;
+                    eq[6] = eq[6] ^ allOne;
+                    eq[7] = eq[7] ^ allOne;
+
+                    eq[0] = eq[0] & block1;
+                    eq[1] = eq[1] & block1;
+                    eq[2] = eq[2] & block1;
+                    eq[3] = eq[3] & block1;
+                    eq[4] = eq[4] & block1;
+                    eq[5] = eq[5] & block1;
+                    eq[6] = eq[6] & block1;
+                    eq[7] = eq[7] & block1;
+
+                    auto t16 = (u16 * __restrict)t;
+                    auto e16 = (u16 * __restrict)eq;
+                    for (u64 j = 0; j < 64; ++j)
+                    {
+                        iters[j][0] = t16[j];
+                        iters[j] += e16[j];
+                    }
+                }
+            }
+
+            for (u64 j = 0; j < 64 && i < n; ++j)
+            {
+                auto b = (u8*)buffer[j].data();
+
+                auto size = iters[j] - b;
+                auto min = std::min<u64>(size, n - i);
+                if (min)
+                {
+                    memcpy(dst + i, b, min);
+                    i += min;
+                }
+            }
         }
+    }
+
+    inline void sampleMod3(oc::PRNG& prng, span<oc::block> msb, span<oc::block> lsb, oc::AlignedUnVector<u8>& b)
+    {
+        b.resize(msb.size() * 128);
+        sampleMod3(prng, b);
+        oc::block block1 = oc::block::allSame<u8>(1);
+        oc::block block2 = oc::block::allSame<u8>(2);
+
+        for (u64 i = 0; i < msb.size(); ++i)
+        {
+            auto bb = (oc::block*)&b.data()[i * 128];
+            oc::block tt[8];
+            tt[0] = bb[0] & block1;
+            tt[1] = bb[1] & block1;
+            tt[2] = bb[2] & block1;
+            tt[3] = bb[3] & block1;
+            tt[4] = bb[4] & block1;
+            tt[5] = bb[5] & block1;
+            tt[6] = bb[6] & block1;
+            tt[7] = bb[7] & block1;
+
+            lsb[i] =
+                tt[0] << 0 ^
+                tt[1] << 1 ^
+                tt[2] << 2 ^
+                tt[3] << 3 ^
+                tt[4] << 4 ^
+                tt[5] << 5 ^
+                tt[6] << 6 ^
+                tt[7] << 7;
+
+
+            tt[0] = bb[0] & block2;
+            tt[1] = bb[1] & block2;
+            tt[2] = bb[2] & block2;
+            tt[3] = bb[3] & block2;
+            tt[4] = bb[4] & block2;
+            tt[5] = bb[5] & block2;
+            tt[6] = bb[6] & block2;
+            tt[7] = bb[7] & block2;
+
+            msb[i] =
+                tt[0] >> 1 ^
+                tt[1] << 0 ^
+                tt[2] << 1 ^
+                tt[3] << 2 ^
+                tt[4] << 3 ^
+                tt[5] << 4 ^
+                tt[6] << 5 ^
+                tt[7] << 6;
+
+
+        }
+
     }
     void compare(span<oc::block> m1, span<oc::block> m0, span<u16> u, bool verbose = false)
     {
         for (u64 i = 0; i < u.size(); ++i)
         {
-            if (verbose & i < 10)
+            if (verbose && i < 10)
             {
                 std::cout << i << ": " << u[i] << " ~ (" << bit(m1[0], i) << " " << bit(m0[0], i) << std::endl;
             }
@@ -550,61 +782,6 @@ namespace secJoin
 
 
 
-    template<int keySize>
-    void compressH2(
-        oc::Matrix<u16>&& mH,
-        oc::Matrix<u16>& mU
-    )
-    {
-        static_assert(keySize == 128);
-        assert(mH.rows() == keySize);
-        assert(mU.rows() == 2 * keySize);;
-        assert(mH.cols() == mU.cols());
-
-        {
-            auto n = mH.size() / keySize;
-            auto& h2 = mH;
-
-            for (u64 i = 1; i < keySize; ++i)
-            {
-                auto h0 = h2.data() + n * (i - 1);
-                auto h1 = h2.data() + n * (i);
-                for (u64 j = 0; j < n; ++j)
-                {
-                    auto h0j = h0[j];
-                    auto h1j = h1[j];
-                    //__assume(h0j < 3);
-                    //__assume(h1j < 3);
-                    // 000 0
-                    // 001 1
-                    // 010 2
-                    // 011 3
-                    // 100 4
-
-                    auto s = (h0j + h1j);
-                    __assume(s < 5);
-                    auto q = s == 3 || s == 4;
-                    h1[j] = s - 3 * q;
-                    assert(h1[j] == (h0j + h1j) % 3);
-                }
-            }
-            memcpy(mU.data(), mH.data(), mH.size() * sizeof(u16));
-            memcpy(mU.data(keySize), mH.data(), mH.size() * sizeof(u16));
-            //for (u64 i = 0; i < keySize; ++i)
-            //{
-            //    auto hi = &mH[i * n];
-            //    for (u64 j = 0; j < n; ++j)
-            //    {
-            //        mU[j][i] = hi[j];
-            //        mU[j][i + keySize] = hi[j];
-            //    }
-            //}
-        }
-
-        mH = {};
-    }
-
-
 
     macoro::task<> DLpnPrfSender::genKeyOts(OleGenerator& ole)
     {
@@ -637,8 +814,6 @@ namespace secJoin
         mKeyOTs.resize(mPrf.KeySize);
         for (u64 i = 0; i < mPrf.KeySize; ++i)
         {
-            //auto ki = *oc::BitIterator((u8*) &mPrf.mKey, i);
-            //std::cout << "r" <<i << " " << ots[i] << " " << ki << std::endl;
             mKeyOTs[i].SetSeed(ots[i]);
         }
         mIsKeyOTsSet = true;
@@ -766,124 +941,45 @@ namespace secJoin
 
         setTimePoint("DarkMatter.sender.begin");
 
-        MC_AWAIT_SET(ole, gen.binOleRequest(y.size() * m * 2));
-#ifdef DLPN_NEW
+        MC_AWAIT_SET(ole, gen.binOleRequest(oc::roundUpTo(y.size(),128) * m * 2));
         H2.resize(2 * mPrf.KeySize, oc::divCeil(y.size(), 128));
-#else
-        mH.resize(mPrf.KeySize, y.size());
-#endif
 
         compressedSizeAct = oc::divCeil(y.size(), 4);
         compressedSize = oc::roundUpTo(compressedSizeAct, sizeof(oc::block));
         for (i = 0; i < mPrf.KeySize;)
         {
-#ifdef DLPN_NEW
             msg.resize(StepSize, H2.cols() * 2); // y.size() * 256 * 2 bits
             MC_AWAIT(sock.recv(msg));
-#else
-            buffer.resize(compressedSize * StepSize); // y.size() * 256 * 2 bits
-            MC_AWAIT(sock.recv(buffer));
-#endif
             for (u64 k = 0; k < StepSize; ++i, ++k)
             {
-#ifndef DLPN_NEW
-                auto ui = buffer.subspan(compressedSize * k, compressedSizeAct);
-                auto hh = mH[i];
-#endif
-
                 u8 ki = *oc::BitIterator((u8*)&mPrf.mKey, i);
                 if (ki)
                 {
-#ifdef DLPN_NEW
                     // ui = (hi1,hi0)                                   ^ G(OT(i,1))
                     //    = { [ G(OT(i,0))  + x  mod 3 ] ^ G(OT(i,1)) } ^ G(OT(i,1))
                     //    =     G(OT(i,0))  + x  mod 3 
-                    //xorVector(hh0, hh1, m0, m1, mKeyOTs[i]);
                     xorVector({ H2[i * 2].data(), H2.cols() * 2 }, msg[k], mKeyOTs[i]);
-#else
-                    // ui = ui                                           ^ G(OT(i,1))
-                    //    = { [ G(OT(i,0))  + x  mod 3 ] ^ G(OT(i,1)) } ^ G(OT(i,1))
-                    //    =     G(OT(i,0))  + x  mod 3 
-                    xorVector(ui, mKeyOTs[i]);
-
-                    // hh = G(OT(i,0))  + x  mod 3 
-                    decompressMod3(hh, ui);
-#endif
-                    //if (i == 1)
-                    //    for (u64 j = 0; j < 4;++j)
-                    //    {
-                    //        std::cout << "s " << j << ": " << bit(H2[i * 2 + 1][0], j) << " " << bit(H2[i * 2 + 0][0], j) << std::endl;
-                    //    }
-
-                    //for (u64 j = 0; j < y.size(); ++j)
-                    //{
-                    //    auto b1 = bit(H2[i * 2 + 1][0], j);
-                    //    auto b0 = bit(H2[i * 2 + 0][0], j);
-                    //    assert((b0 & b1) == 0);
-
-                    //    auto b = 2 * b1 + b0;
-                    //    auto hij = hh[j];
-                    //    if (b != hij)
-                    //        throw RTE_LOC;
-                    //}
                 }
                 else
                 {
-
                     // ui = (hi1,hi0)         
                     //    = G(OT(i,0))  mod 3 
-#ifdef DLPN_NEW
                     auto hh1 = H2[i * 2 + 1];
                     auto hh0 = H2[i * 2 + 0];
-                    sampleMod3(mKeyOTs[i], hh1, hh0);
-#else
-                    sampleMod3(mKeyOTs[i], hh);
-
-#endif
+                    sampleMod3(mKeyOTs[i], hh1, hh0, buffer);
                 }
             }
         }
+        buffer = {};
 
-        //{
-        //    u0.resize(mH.rows(), oc::divCeil(mH.cols(), 128));
-        //    u1.resize(mH.rows(), oc::divCeil(mH.cols(), 128));
-        //    mod3BitDecompostion(mH, u0, u1);
-
-        //    for (u64 i = 0; i < 128; ++i)
-        //    {
-        //        u8 ki = *oc::BitIterator((u8*)&mPrf.mKey, i);
-        //       
-        //        compare(u1[i], u0[i], H2[i * 2 + 1], H2[i * 2 + 0]);
-        //    }
-        //}
-#ifdef DLPN_NEW
         u0.resize(m, oc::divCeil(y.size(), 128), oc::AllocType::Uninitialized);
         u1.resize(m, oc::divCeil(y.size(), 128), oc::AllocType::Uninitialized);
         compressH2(std::move(H2), u1, u0);
-#else
-        mU.resize(m, y.size(), oc::AllocType::Uninitialized);
-        if (mDebug)
-        {
-            compressH2<DLpnPrf::KeySize>(coproto::copy(mH), mU);
-        }
-        else
-        {
-            compressH2<DLpnPrf::KeySize>(std::move(mH), mU);
-        }
 
-        u0.resize(mU.rows(), oc::divCeil(mU.cols(), 128));
-        u1.resize(mU.rows(), oc::divCeil(mU.cols(), 128));
-        mod3BitDecompostion(mU, u0, u1);
-
-        if (!mDebug)
-            mU = {};
-#endif
 
         v.resize(m, u0.cols());
         MC_AWAIT(mod2(u0, u1, v, sock, ole));
 
-        if (mDebug)
-            mV = v;
 
         compressB(v, y);
 
@@ -946,6 +1042,9 @@ namespace secJoin
         if (!mIsKeyOTsSet)
             MC_AWAIT(genKeyOts(gen));
 
+        if (x.size() != y.size())
+            throw RTE_LOC;
+
         if (mDebug)
         {
             baseOts.resize(mKeyOTs.size());
@@ -959,48 +1058,47 @@ namespace secJoin
 
         setTimePoint("DarkMatter.recver.begin");
 
-        MC_AWAIT_SET(ole, gen.binOleRequest(y.size() * m * 2));
+        TODO("is the round up a good idea ? ");
+        MC_AWAIT_SET(ole, gen.binOleRequest(oc::roundUpTo(y.size(), 128) * m * 2));
 
-#ifdef DLPN_NEW
         xt.resize(128, oc::divCeil(y.size(), 128));
         for (u64 i = 0, k = 0; i < y.size(); ++k)
         {
             auto m = std::min<u64>(128, y.size() - i);
             oc::AlignedArray<oc::block, 128> t;
             for (u64 j = 0;j < m; ++j, ++i)
-                t[j] = x[i];
+            {
+                t[j] = x.data()[i];
+            }
 
             oc::transpose128(t.data());
 
+            auto xtk = &xt(0, k);
+            auto step = xt.cols();
             for (u64 j = 0;j < 128; ++j)
-                xt(j, k) = t[j];
+            {
+                assert(xtk == &xt(j, k));
+                *xtk = t[j];
+                xtk += step;
+            }
         }
 
         assert(mPrf.KeySize % StepSize == 0);
         H2.resize(2 * mPrf.KeySize, oc::divCeil(x.size(), 128));
-#else
-        gx.resize(y.size());
-        mH.resize(mPrf.KeySize, y.size(), oc::AllocType::Uninitialized);
-#endif
+
         compressedSizeAct = oc::divCeil(y.size(), 4);
         compressedSize = oc::roundUpTo(compressedSizeAct, sizeof(oc::block));
         for (i = 0; i < mPrf.KeySize;)
         {
-            static_assert(StepSize == sizeof(*xPtr) * 8, "failed static_assert: StepSize == sizeof(*xPtr) * 8");
             assert(mPrf.KeySize % StepSize == 0);
-#ifdef DLPN_NEW
             msg.resize(StepSize, H2.cols() * 2);
-#else
-            buffer.resize(compressedSize * StepSize);
-#endif
 
             for (u64 k = 0; k < StepSize; ++i, ++k)
             {
-#ifdef DLPN_NEW
                 // we store them in swapped order to negate the value.
                 auto hi1 = H2[i * 2];
                 auto hi0 = H2[i * 2 + 1];
-                sampleMod3(mKeyOTs[i][0], hi1, hi0);
+                sampleMod3(mKeyOTs[i][0], hi1, hi0, buffer);
 
                 // # hi = G(OT(i,0)) + x mod 3
                 mod3Add(
@@ -1011,76 +1109,19 @@ namespace secJoin
 
                 // ## msg = m ^ G(OT(i,1))
                 xorVector(msg[k], mKeyOTs[i][1]);
-
-#else
-                auto ui = buffer.subspan(compressedSize * k, compressedSizeAct);
-                auto hi = mH[i];
-                xPtr = (u32*)x.data() + i / StepSize;
-                // m = G(  OT(i,0)  )
-                sampleMod3(mKeyOTs[i][0], hi);
-                for (u64 j = 0; j < y.size(); ++j)
-                {
-
-                    auto xx = ((*xPtr >> k) & 1);
-                    assert(xx == *oc::BitIterator((u8*)&x[j], i));
-                    //assert(xx == *oc::BitIterator((u8*)&xt(i, 0), j));
-
-                    // gx = m          + x mod 3
-                    //    = G(OT(i,0)) + x mod 3
-                    gx.data()[j] = hi.data()[j] + xx;
-                    gx[j] %= 3;
-
-                    // mH[i] = -gx    mod 3
-                    auto hij = hi.data()[j];
-                    auto neg = ((hij << 1) | (hij >> 1)) & 3;
-                    assert(neg == ((3 - hij) % 3));
-                    hi.data()[j] = neg;
-
-                    xPtr += mPrf.KeySize / StepSize;
-                }
-
-                // ui = G(OT(i,0))  + x  mod 3
-                compressMod3(ui, gx);
-
-                // ui = [ G(OT(i,0))  + x  mod 3 ] ^ G(OT(i,1))
-                xorVector(ui, mKeyOTs[i][1]);
-#endif
-
             }
 
-#ifdef DLPN_NEW
             MC_AWAIT(sock.send(std::move(msg)));
-#else
-            MC_AWAIT(sock.send(std::move(buffer)));
-#endif
         }
+        buffer = {};
 
-#ifdef DLPN_NEW
         u0.resize(m, oc::divCeil(x.size(), 128));
         u1.resize(m, oc::divCeil(x.size(), 128));
         compressH2(std::move(H2), u1, u0);
-#else
-        mU.resize(m, x.size(), oc::AllocType::Uninitialized);
-
-        if (mDebug)
-            compressH2<DLpnPrf::KeySize>(coproto::copy(mH), mU);
-        else
-            compressH2<DLpnPrf::KeySize>(std::move(mH), mU);
-
-        u0.resize(mU.rows(), oc::divCeil(mU.cols(), 128));
-        u1.resize(mU.rows(), oc::divCeil(mU.cols(), 128));
-        mod3BitDecompostion(mU, u0, u1);
-
-        if (!mDebug)
-            mU = {};
-
-#endif
 
         v.resize(m, u0.cols());
         MC_AWAIT(mod2(u0, u1, v, sock, ole));
 
-        if (mDebug)
-            mV = v;
         compressB(v, y);
 
         MC_END();
@@ -1243,7 +1284,10 @@ namespace secJoin
             cols = u64{},
             step = u64{},
             end = u64{},
-            buff = oc::AlignedUnVector<oc::block>{}
+            buff = oc::AlignedUnVector<oc::block>{},
+            outIter = (oc::block*)nullptr,
+            u0Iter = (oc::block*)nullptr,
+            u1Iter = (oc::block*)nullptr
         );
 
         if (out.rows() != u0.rows())
@@ -1259,6 +1303,10 @@ namespace secJoin
         tSize = 0;
         rows = u0.rows();
         cols = u0.cols();
+
+        outIter = out.data();
+        u0Iter = u0.data();
+        u1Iter = u1.data();
         for (i = 0; i < rows; ++i)
         {
             for (j = 0; j < cols; )
@@ -1282,23 +1330,18 @@ namespace secJoin
                 // so the amount we can do this iteration is 
                 step = std::min<u64>(cols - j, (tSize - tIdx) / 2);
                 end = step + j;
-
                 for (; j < end; j += 1, tIdx += 2)
                 {
                     // we have x1, y1, s.t. x0 + x1 = y0 * y1
-                    auto x = &triple.mAdd[tIdx];
-                    auto y = &triple.mMult[tIdx];
-                    auto d = &buff[tIdx];
+                    auto x = &triple.mAdd.data()[tIdx];
+                    auto y = &triple.mMult.data()[tIdx];
+                    auto d = &buff.data()[tIdx];
 
                     // x1[0] = x1[0] ^ (y1[0] * d[0])
                     //       = x1[0] ^ (y1[0] * (u0[0] ^ y0[0]))
                     //       = x1[0] ^ (y[0] * u0[0])
                     for (u64 k = 0; k < 2; ++k)
                     {
-                        //HERE...
-                        //x[k] = oc::ZeroBlock;
-                        //y[k] = oc::ZeroBlock;
-
                         x[k] = x[k] ^ (y[k] & d[k]);
                     }
 
@@ -1307,7 +1350,6 @@ namespace secJoin
                     m1 = m0 ^ y[0];
                     m2 = m0 ^ y[1];
 
-                    // 
                     //           u1
                     //          0 1 2
                     //         ________
@@ -1317,11 +1359,16 @@ namespace secJoin
                     //t0 = hi0 + T[u0,0] 
                     //   = hi0 + u0(i,j)  
 
+                    assert(u0Iter == &u0(i, j));
+                    assert(u1Iter == &u1(i, j));
                     assert((u0(i, j) & u1(i, j)) == oc::ZeroBlock);
 
-                    t0 = m0 ^ u0(i, j);
-                    t1 = t0 ^ m1 ^ u0(i, j) ^ u1(i, j) ^ oc::AllOneBlock;
-                    t2 = t0 ^ m2 ^ u1(i, j);
+                    t0 = m0 ^ *u0Iter;
+                    t1 = t0 ^ m1 ^ *u0Iter ^ *u1Iter ^ oc::AllOneBlock;
+                    t2 = t0 ^ m2 ^ *u1Iter;
+
+                    ++u0Iter;
+                    ++u1Iter;
 
                     if (mDebug && i == mPrintI && (j == (mPrintJ / 128)))
                     {
@@ -1334,7 +1381,8 @@ namespace secJoin
                     }
 
                     // r
-                    out(i, j) = t0;
+                    assert(outIter == &out(i, j));
+                    *outIter++ = t0;
                     d[0] = t1;
                     d[1] = t2;
                 }
@@ -1377,17 +1425,23 @@ namespace secJoin
             mask0 = oc::block{},
             mask1 = oc::block{},
             add = span<oc::block>{},
-            mlt = span<oc::block>{}
+            mlt = span<oc::block>{},
+            outIter = (oc::block*)nullptr,
+            u0Iter = (oc::block*)nullptr,
+            u1Iter = (oc::block*)nullptr
         );
 
         memset(&mask0, 0b01010101, sizeof(mask0));
         memset(&mask1, 0b10101010, sizeof(mask1));
-
         triple.reserve(ole.mCorrelations.size());
         tIdx = 0;
         tSize = 0;
         rows = u0.rows();
         cols = u0.cols();
+        assert(ole.mSize == rows * cols * 128 * 2);
+
+        u0Iter = u0.data();
+        u1Iter = u1.data();
         for (i = 0; i < rows; ++i)
         {
             for (j = 0; j < cols;)
@@ -1409,10 +1463,15 @@ namespace secJoin
 
                 for (; j < end; ++j, tIdx += 2)
                 {
-                    auto y = &triple.back().mMult[tIdx];
-                    buff[tIdx + 0] = u0(i, j) ^ y[0];
-                    buff[tIdx + 1] = u1(i, j) ^ y[1];
+                    auto y = &triple.back().mMult.data()[tIdx];
+                    auto b = &buff.data()[tIdx];
+                    assert(u0Iter == &u0(i, j));
+                    assert(u1Iter == &u1(i, j));
+                    b[0] = *u0Iter ^ y[0];
+                    b[1] = *u1Iter ^ y[1];
 
+                    ++u0Iter;
+                    ++u1Iter;
                 }
 
                 if (tSize == tIdx)
@@ -1429,6 +1488,9 @@ namespace secJoin
         tIdx = 0;
         tSize = 0;
         tIter = triple.begin();
+        outIter = out.data();
+        u0Iter = u0.data();
+        u1Iter = u1.data();
         for (i = 0; i < rows; ++i)
         {
             for (j = 0; j < cols; )
@@ -1452,14 +1514,16 @@ namespace secJoin
                 {
 
                     assert((u0(i, j) & u1(i, j)) == oc::ZeroBlock);
+                    assert(u0Iter == &u0(i, j));
+                    assert(u1Iter == &u1(i, j));
 
                     // if u = 0, w = hi0
                     // if u = 1, w = hi1 + t1
                     // if u = 2, w = m2 + t2
                     oc::block w =
-                        (u0(i, j) & buff[tIdx + 0]) ^ // t1
-                        (u1(i, j) & buff[tIdx + 1]) ^ // t2
-                        add[tIdx + 0] ^ add[tIdx + 1];// m_u
+                        (*u0Iter++ & buff.data()[tIdx + 0]) ^ // t1
+                        (*u1Iter++ & buff.data()[tIdx + 1]) ^ // t2
+                        add.data()[tIdx + 0] ^ add.data()[tIdx + 1];// m_u
 
                     if (mDebug && i == mPrintI && (j == (mPrintJ / 128)))
                     {
@@ -1470,7 +1534,9 @@ namespace secJoin
                         std::cout << j << " w  " << bit(w, bitIdx) << std::endl;
                     }
 
-                    out(i, j) = w;
+                    assert(outIter == &out(i, j));
+                    *outIter++ = w;
+                    //out(i, j) = w;
                 }
             }
         }

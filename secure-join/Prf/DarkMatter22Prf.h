@@ -248,6 +248,7 @@ namespace secJoin
         }
     };
 
+
     inline void sampleMod3(oc::PRNG& prng, span<u16> mBuffer)
     {
         auto n = mBuffer.size();

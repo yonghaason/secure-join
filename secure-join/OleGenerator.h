@@ -23,6 +23,12 @@ namespace secJoin
 
     struct OtSend
     {
+        OtSend() = default;
+        OtSend(const OtSend&) = delete;
+        OtSend& operator=(const OtSend&) = delete;
+        OtSend(OtSend&&) = default;
+        OtSend& operator=(OtSend&&) = default;
+
         oc::AlignedUnVector<std::array<oc::block, 2>> mMsg;
         u64 size() const
         {
@@ -32,6 +38,13 @@ namespace secJoin
 
     struct OtRecv
     {
+
+        OtRecv() = default;
+        OtRecv(const OtRecv&) = delete;
+        OtRecv& operator=(const OtRecv&) = delete;
+        OtRecv(OtRecv&&) = default;
+        OtRecv& operator=(OtRecv&&) = default;
+
         oc::BitVector mChoice;
         oc::AlignedUnVector<oc::block> mMsg;
 
@@ -43,6 +56,13 @@ namespace secJoin
 
     struct BinOle
     {
+
+        BinOle() = default;
+        BinOle(const BinOle&) = delete;
+        BinOle& operator=(const BinOle&) = delete;
+        BinOle(BinOle&&) = default;
+        BinOle& operator=(BinOle&&) = default;
+
         oc::AlignedUnVector<oc::block> mMult, mAdd;
         u64 size() const
         {
@@ -52,7 +72,14 @@ namespace secJoin
 
     struct ArithTriple {
 
-        u64 mBitCount;
+
+        //ArithTriple() = default;
+        //ArithTriple(const ArithTriple&) = delete;
+        //ArithTriple& operator=(const ArithTriple&) = delete;
+        //ArithTriple(ArithTriple&&) = default;
+        //ArithTriple& operator=(ArithTriple&&) = default;
+
+        u64 mBitCount = 0;
         oc::AlignedUnVector<u32> mA, mB, mC;
 
         u64 size() { return mA.size(); }
@@ -75,6 +102,9 @@ namespace secJoin
         CorRequest()
             : mOp(BinOleReq{})
         {}
+        CorRequest(const CorRequest&) = delete;
+        CorRequest(CorRequest&&) = default;
+        CorRequest&operator=(CorRequest&&) =default;
 
         CorRequest(oc::block sid, u64 n, u64 idx, macoro::variant<BinOleReq, OtRecvReq, OtSendReq, ArithTripleReq> op)
             : mSessionID(sid)
@@ -178,7 +208,7 @@ namespace secJoin
         using value_type = T;
         oc::block mSessionID = oc::ZeroBlock;
         u64 mSize = 0, mIdx = 0;
-        std::vector<macoro::optional<T>> mCorrelations;
+        std::vector<std::unique_ptr<T>> mCorrelations;
         std::vector<CorRequest> mRemReq;
         OleGenerator* mGen = nullptr;
         std::shared_ptr<macoro::mpsc::channel<std::pair<u64, value_type>>> mChl;
@@ -414,15 +444,16 @@ namespace secJoin
         }
 
         template<typename Cor>
-        macoro::task<Request<Cor>> request(u64 numCorrelations, Cor cor, u64 reservoirSize = 0, oc::block sessionID = oc::ZeroBlock)
+        macoro::task<Request<Cor>> request(u64 numCorrelations, Cor&& cor, u64 reservoirSize = 0, oc::block sessionID = oc::ZeroBlock)
         {
 
-            MC_BEGIN(macoro::task<Request<Cor>>, this, numCorrelations, reservoirSize, sessionID, cor,
+            MC_BEGIN(macoro::task<Request<Cor>>, this, numCorrelations, reservoirSize, sessionID, cor = std::forward<Cor>(cor),
                 c = std::shared_ptr<macoro::mpsc::channel<std::pair<u64, Cor>>>{},
                 rem = std::vector<CorRequest>{},
                 req = CorRequest{},
-                ReqCor = Request<Cor>{},
-                n = u64{ 0 }, m = u64{}, i = u64{ 0 });
+                ReqCor = std::move(Request<Cor>{}),
+                n = u64{ 0 }, m = u64{}, i = u64{ 0 }
+            );
 
             if (reservoirSize == 0)
                 reservoirSize = numCorrelations;
@@ -444,7 +475,7 @@ namespace secJoin
                     m = 1ull << oc::log2ceil(m);
                     n += m;
 
-                    ReqCor.mCorrelations[i].emplace();
+                    ReqCor.mCorrelations[i] = std::make_unique<Cor>();
                     fakeFill(m, *ReqCor.mCorrelations[i], cor);
                 }
 
@@ -465,7 +496,7 @@ namespace secJoin
                         m,
                         i,
                         CorRequest::Req<Cor>{
-                            cor,
+                            std::move(cor),
                             c
                         }
                     };
@@ -485,7 +516,7 @@ namespace secJoin
 
                 std::reverse(rem.begin(), rem.end());
 
-                MC_RETURN((Request<Cor>{
+                MC_RETURN(std::move(Request<Cor>{
                     sessionID,
                         numCorrelations,
                         oc::divCeil(numCorrelations, mChunkSize),
@@ -541,7 +572,7 @@ namespace secJoin
         while (!mCorrelations[mIdx])
         {
             MC_AWAIT_SET(t, mChl->pop());
-            mCorrelations[t.first] = std::move(t.second);
+            mCorrelations[t.first] = std::make_unique<T>(std::move(t.second));
             if (mRemReq.size())
             {
                 MC_AWAIT(mGen->mControlQueue->push(OleGenerator::Command{ std::move(mRemReq.back()) }));

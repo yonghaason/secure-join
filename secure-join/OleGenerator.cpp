@@ -48,6 +48,7 @@ namespace secJoin
             if (mParent->mRole == Role::Sender)
             {
 
+
                 MC_AWAIT_SET(rec, mInQueue->pop());
                 LOG("pop chunk " + std::to_string(rec.mSequence) +" " + str(rec.mSessionID));
                 MC_AWAIT(macoro::transfer_to(*mParent->mThreadPool));
@@ -378,7 +379,7 @@ namespace secJoin
                 assert(curReq->mSequence != ~0ull);
                 if (mRole == Role::Sender)
                 {
-                    sessions.emplace(sid, *curReq);
+                    sessions.emplace(sid, std::move(*curReq));
 
                     if (idle.size())
                     {
