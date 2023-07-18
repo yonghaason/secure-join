@@ -1,0 +1,3 @@
+Rows;7
+PAN;INT;8
+Risk_Score;STRING;10

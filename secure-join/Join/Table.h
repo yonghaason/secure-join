@@ -1,10 +1,11 @@
 #pragma once
 
+#include "coproto/Common/span.h"
 #include <cryptoTools/Common/MatrixView.h>
-
 #include <fstream>
 #include "secure-join/Util/Matrix.h"
 #include "secure-join/Defines.h"
+#include "coproto/coproto.h"
 
 namespace secJoin
 {
@@ -92,6 +93,10 @@ namespace secJoin
         Table() = default;
         Table(const Table&) = default;
         Table(Table&&) = default;
+
+        Table&operator=(const Table&) = default;
+        Table&operator=(Table&&) = default;
+
         Table(u64 rows, std::vector<ColumnInfo> columns)
         {
             init(rows, columns);
@@ -172,13 +177,12 @@ namespace secJoin
 
     std::ostream& operator<<(std::ostream& o, const Table& t);
 
+    macoro::task<> revealLocal(const Table& share, coproto::Socket& sock, Table& out);
+    macoro::task<> revealRemote(const Table& share, coproto::Socket& sock);
     void populateTable(Table& tb, std::string& fileName, oc::u64 rowCount);
     void populateTable(Table& tb, std::istream& in, oc::u64 rowCount);
     void share(Table& table, std::array<Table, 2>& shares,
         oc::PRNG& prng);
-
-
-
     Table join(const ColRef& l, const ColRef& r, std::vector<ColRef> select);
     // class SharedTable
     // {

@@ -2,6 +2,7 @@
 #include "secure-join/Util/Util.h"
 #include "secure-join/Sort/RadixSort.h"
 
+
 namespace secJoin
 {
     // SelectBundle SelectQuery::addInput(SharedTable::ColRef column)
@@ -269,6 +270,50 @@ namespace secJoin
     //         mSelect,
     //         mSelect.addOp(selectDetails::Add, mMemIdx, r.mMemIdx) };
     // }
+
+
+    macoro::task<> revealLocal(const Table& share, coproto::Socket& sock, Table& out)
+    {
+        MC_BEGIN(macoro::task<>, &share, &sock, &out,
+        remoteShare = Table(),
+        i = u64()
+        );
+
+        remoteShare.init(share.rows(), share.getColumnInfo());
+        for(i = 0; i < remoteShare.mColumns.size(); i++)
+        {
+            MC_AWAIT(sock.recv(remoteShare.mColumns[i].mData.mData));
+        }
+        
+        if(share.mIsActive.size() > 0) 
+        {
+            remoteShare.mIsActive.resize(share.mIsActive.size());
+            MC_AWAIT(sock.recv(remoteShare.mIsActive)); 
+        }
+        out = reveal(share, remoteShare);
+
+        MC_END();
+    }
+
+
+    macoro::task<> revealRemote(const Table& share, coproto::Socket& sock)
+    {
+        MC_BEGIN(macoro::task<>, &share, &sock, i = u64());
+
+        for(i = 0; i < share.mColumns.size(); i++)
+        {
+            MC_AWAIT(sock.send(share.mColumns[i].mData.mData));
+        }
+            
+            
+        // std::move() will the delete the local share
+        if(share.mIsActive.size() > 0) 
+        {
+            MC_AWAIT(sock.send(share.mIsActive));
+        }
+        MC_END();
+    }
+
 
     void populateTable(Table& tb, std::istream& in, oc::u64 rowCount)
     {

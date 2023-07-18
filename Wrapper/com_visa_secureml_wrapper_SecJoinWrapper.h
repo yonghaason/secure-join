@@ -7,13 +7,12 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-/*
- * Class:     SecJoinWrapper
- * Method:    join
- * Signature: (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
- */
-JNIEXPORT jlong JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_init
-  (JNIEnv *, jobject, jstring, jstring, jstring, jstring, jint);
+
+JNIEXPORT void JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_testApi
+  (JNIEnv *, jobject);
+
+JNIEXPORT jlong JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_initState
+  (JNIEnv *, jobject, jstring, jstring, jstring, jstring, jstring, jstring, jstring, jboolean);
 
 JNIEXPORT jbyteArray JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_runJoin
   (JNIEnv *, jobject, jlong, jbyteArray, jlong);
@@ -24,8 +23,11 @@ JNIEXPORT void JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_releaseStat
 JNIEXPORT jboolean JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_isProtocolReady
   (JNIEnv *, jobject, jlong);
 
-JNIEXPORT void JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_getIntersection
-(JNIEnv *, jobject, jlong, jstring, jstring);
+JNIEXPORT void JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_getOtherShare
+  (JNIEnv *, jobject, jlong, jboolean);
+
+JNIEXPORT void JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_getJoinTable
+  (JNIEnv *, jobject, jlong, jstring, jstring, jboolean);
 
 #ifdef __cplusplus
 }

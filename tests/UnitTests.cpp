@@ -18,6 +18,7 @@
 
 #include "AggTree_Tests.h"
 #include "OmJoin_Test.h"
+#include "CWrapper_Test.h"
 
 namespace secJoin_Tests
 {
@@ -49,6 +50,9 @@ namespace secJoin_Tests
             t.add("ComposedPerm_replicated_secure_perm_test      ", ComposedPerm_replicated_secure_perm_test);
             t.add("AdditivePerm_xor_test                         ", AdditivePerm_xor_test);
             t.add("AdditivePerm_add_test                         ", AdditivePerm_add_test);
+            #if SECUREJOIN_ENABLE_WRAPPER
+            t.add("wrapper_test                                  ", wrapper_test);
+            #endif
 
             // t.add("DarkMatter22Prf_plain_test                    ", DarkMatter22Prf_plain_test);
             // t.add("DarkMatter32Prf_plain_test                    ", DarkMatter32Prf_plain_test);
@@ -74,6 +78,7 @@ namespace secJoin_Tests
 
             t.add("secret_share_table_test                       ", secret_share_table_test);
             t.add("table_write_csv_test                          ", table_write_csv_test);
+            
 
             t.add("AggTree_plain_Test                            ", AggTree_plain_Test);
             t.add("AggTree_levelReveal_Test                      ", AggTree_levelReveal_Test);
@@ -94,6 +99,7 @@ namespace secJoin_Tests
             t.add("OmJoin_concatColumns_Test                     ", OmJoin_concatColumns_Test);
             t.add("OmJoin_getOutput_Test                         ", OmJoin_getOutput_Test);
             t.add("OmJoin_join_Test                              ", OmJoin_join_Test);
+            t.add("OmJoin_join_Test1                             ", OmJoin_join_Test1);
 
         });
 }

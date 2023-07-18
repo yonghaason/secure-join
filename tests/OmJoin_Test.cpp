@@ -329,3 +329,107 @@ void OmJoin_join_Test(const oc::CLP& cmd)
     if (cmd.isSet("timing"))
         std::cout << timer << std::endl;
 }
+
+
+void OmJoin_join_Test1(const oc::CLP& cmd)
+{
+
+    u64 nL = 20,
+        nR = 9;
+    bool printSteps = cmd.isSet("print");
+    bool mock = !cmd.isSet("noMock");
+
+    Table L, R, LP, RP;
+
+    L.init(nL, { {
+        {"L1", TypeID::IntID, 12},
+        {"L2", TypeID::IntID, 16}
+    } });
+    R.init(nR, { {
+        {"R1", TypeID::IntID, 12},
+        {"R2", TypeID::IntID, 7}
+    } });
+
+    LP.init(nL, { {
+        {"L1", TypeID::IntID, 12},
+        {"L2", TypeID::IntID, 16}
+    } });
+    RP.init(nR, { {
+        {"R1", TypeID::IntID, 12},
+        {"R2", TypeID::IntID, 7}
+    } });
+
+    for (u64 i = 0; i < nL; ++i)
+    {
+        L.mColumns[0].mData.mData(i, 0) = i;
+        L.mColumns[1].mData.mData(i, 0) = i % 4;
+        L.mColumns[1].mData.mData(i, 1) = i % 3;
+    }
+
+    for (u64 i = 0; i < nR; ++i)
+    {
+        R.mColumns[0].mData.mData(i, 0) = i * 2;
+        R.mColumns[1].mData.mData(i) = i % 3;
+    }
+
+    PRNG prng(oc::ZeroBlock);
+    // std::array<Table, 2> Ls, Rs;
+    // share(L, Ls, prng);
+    // share(R, Rs, prng);
+
+    OmJoin join0, join1;
+    
+    join0.mInsecurePrint = printSteps;
+    join1.mInsecurePrint = printSteps;
+
+    join0.mInsecureMockSubroutines = mock;
+    join1.mInsecureMockSubroutines = mock;
+
+    OleGenerator ole0, ole1;
+    ole0.fakeInit(OleGenerator::Role::Sender);
+    ole1.fakeInit(OleGenerator::Role::Receiver);
+
+    PRNG prng0(oc::ZeroBlock);
+    PRNG prng1(oc::OneBlock);
+    auto sock = coproto::LocalAsyncSocket::makePair();
+
+    Table out[2];
+
+    auto exp = join(L[0], R[0], { L[0], R[1], L[1] });
+    oc::Timer timer;
+    join0.setTimer(timer);
+    // join1.setTimer(timer);
+
+
+    auto r = macoro::sync_wait(macoro::when_all_ready(
+        join0.join(L[0], RP[0], { L[0], RP[1], L[1] }, out[0], prng0, ole0, sock[0]),
+        join1.join(LP[0], R[0], { LP[0], R[1], LP[1] }, out[1], prng1, ole1, sock[1])
+    ));
+    std::get<0>(r).result();
+    std::get<1>(r).result();
+    // auto res = reveal(out[0], out[1]);
+
+    Table outTable;
+
+    auto proto1 = revealLocal(out[0], sock[0], outTable);
+    auto proto2 = revealRemote(out[1], sock[1]);
+
+    auto res = macoro::sync_wait(macoro::when_all_ready(
+        std::move(proto2), 
+        std::move(proto1)));
+
+    std::get<1>(res).result();
+    std::get<0>(res).result();
+    
+
+
+    if (outTable != exp)
+    {
+        std::cout << "exp \n" << exp << std::endl;
+        std::cout << "act \n" << outTable << std::endl;
+        throw RTE_LOC;
+    }
+
+    if (cmd.isSet("timing"))
+        std::cout << timer << std::endl;
+}

@@ -83,8 +83,10 @@ void table_write_csv_test()
     std::istream in1(visa_csv.rdbuf());
     populateTable(table, in1, rowCount);
 
-    std::string csvMetaFileNm = "/Users/harshah/Documents/Core/testing/secret_sharing/output/joindata_meta.txt";
-    std::string csvFileNm = "/Users/harshah/Documents/Core/testing/secret_sharing/output/joindata.csv";
+    // std::string csvMetaFileNm = "/Users/harshah/Documents/Core/testing/secret_sharing/output/joindata_meta.txt";
+    // std::string csvFileNm = "/Users/harshah/Documents/Core/testing/secret_sharing/output/joindata.csv";
+    std::string csvMetaFileNm = "INSERT PATH TO META DATA FILE";
+    std::string csvFileNm = "INSERT PATH TO THE CSV DATA";
 
     writeFileInfo(csvMetaFileNm, table);
     writeFileData(csvFileNm, table);
