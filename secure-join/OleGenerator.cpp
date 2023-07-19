@@ -48,6 +48,7 @@ namespace secJoin
             if (mParent->mRole == Role::Sender)
             {
 
+
                 MC_AWAIT_SET(rec, mInQueue->pop());
                 LOG("pop chunk " + std::to_string(rec.mSequence) +" " + str(rec.mSessionID));
                 MC_AWAIT(macoro::transfer_to(*mParent->mThreadPool));
@@ -378,7 +379,7 @@ namespace secJoin
                 assert(curReq->mSequence != ~0ull);
                 if (mRole == Role::Sender)
                 {
-                    sessions.emplace(sid, *curReq);
+                    sessions.emplace(sid, std::move(*curReq));
 
                     if (idle.size())
                     {
@@ -496,6 +497,97 @@ namespace secJoin
         {
             throw std::runtime_error("known issue with OleGenerator, use fakeInit for now. " LOCATION);
             mCtrl = control() | macoro::make_eager();
+        }
+    }
+
+    void OleGenerator::fakeFill(u64 m, BinOle& ole, const BinOle&)
+    {
+        mNumBinOle += m;
+        assert(m % 128 == 0);
+        m = m / 128;
+
+        //oc::PRNG prng(oc::block(mCurSize++));
+        ole.mAdd.resize(m);
+        ole.mMult.resize(m);
+        auto add = ole.mAdd.data();
+        auto mult = ole.mMult.data();
+
+        auto m8 = m / 8 * 8;
+        oc::block mm8(4532453452, 43254534);
+        oc::block mm(2342314, 213423);
+
+        if (mRole == Role::Sender)
+        {
+            oc::block aa8(0, 43254534);
+            oc::block aa(0, 213423);
+            u64 i = 0;
+            while (i < m8)
+            {
+                mult[i + 0] = mm;
+                mult[i + 1] = mm;
+                mult[i + 2] = mm;
+                mult[i + 3] = mm;
+                mult[i + 4] = mm;
+                mult[i + 5] = mm;
+                mult[i + 6] = mm;
+                mult[i + 7] = mm;
+                add[i + 0] = aa;
+                add[i + 1] = aa;
+                add[i + 2] = aa;
+                add[i + 3] = aa;
+                add[i + 4] = aa;
+                add[i + 5] = aa;
+                add[i + 6] = aa;
+                add[i + 7] = aa;
+                mm += mm8;
+                aa += aa8;
+                i += 8;
+            }
+            for (; i < m; ++i)
+            {
+                //oc::block m0 = std::array<u32, 4>{i, i, i, i};// prng.get();
+                //oc::block m1 = std::array<u32, 4>{i, i, i, i};//prng.get();
+                //oc::block a0 = std::array<u32, 4>{0, i, 0, i};//prng.get();
+                //auto a1 = std::array<u32, 4>{i, 0, i, 0};;// m0& m1^ a0;
+                mult[i] = oc::block(i, i);
+                add[i] = oc::block(0, i);
+            }
+        }
+        else
+        {
+
+            oc::block aa8(4532453452, 0);
+            oc::block aa(2342314, 0);
+            u64 i = 0;
+            while (i < m8)
+            {
+                //oc::block mm(i, i);
+                //oc::block aa(i, 0);
+                mult[i + 0] = mm;
+                mult[i + 1] = mm;
+                mult[i + 2] = mm;
+                mult[i + 3] = mm;
+                mult[i + 4] = mm;
+                mult[i + 5] = mm;
+                mult[i + 6] = mm;
+                mult[i + 7] = mm;
+                add[i + 0] = aa;
+                add[i + 1] = aa;
+                add[i + 2] = aa;
+                add[i + 3] = aa;
+                add[i + 4] = aa;
+                add[i + 5] = aa;
+                add[i + 6] = aa;
+                add[i + 7] = aa;
+                mm += mm8;
+                aa += aa8;
+                i += 8;
+            }
+            for (; i < m; ++i)
+            {
+                mult[i] = oc::block(i, i);
+                add[i] = oc::block(i, 0);
+            }
         }
     }
 

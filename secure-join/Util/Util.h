@@ -11,6 +11,31 @@ namespace secJoin
 
     using oc::Matrix;
     using oc::PRNG;
+    inline oc::Matrix<oc::block> reveal(std::array<oc::Matrix<oc::block>, 2>& x)
+    {
+        oc::Matrix<oc::block>ret(x[0].rows(), x[0].cols());
+        for (u64 i = 0; i < ret.size(); ++i)
+            ret(i) = x[0](i) ^ x[1](i);
+        return ret;
+    }
+
+    template<typename T>
+    inline std::array<oc::Matrix<T>, 2> xorShare(oc::MatrixView<T> d, oc::PRNG& prng)
+    {
+        std::array<oc::Matrix<T>, 2> ret;
+
+        ret[0].resize(d.rows(), d.cols());
+        ret[1].resize(d.rows(), d.cols());
+        prng.get(ret[0].data(), ret[0].size());
+        for (u64 i = 0; i < d.rows(); ++i)
+        {
+            for (u64 j = 0; j < d.cols(); ++j)
+            {
+                ret[1](i, j) = d(i, j) ^ ret[0](i, j);
+            }
+        }
+        return ret;
+    }
 
     inline void share(const Matrix<u32>& x, Matrix<u32>& x0, Matrix<u32>& x1, PRNG& prng)
     {

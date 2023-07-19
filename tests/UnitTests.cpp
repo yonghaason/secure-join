@@ -42,6 +42,19 @@ namespace secJoin_Tests
             t.add("Gmw_noLevelize_test                           ", Gmw_noLevelize_test);
 
             // t.add("PaillierPerm_basic_test                       ", PaillierPerm_basic_test);
+            t.add("DLpnPrf_mod3BitDecompostion_test              ", DLpnPrf_mod3BitDecompostion_test);
+
+
+            t.add("DLpnPrf_BMult_test                            ", DLpnPrf_BMult_test);
+            t.add("DLpnPrf_mod3_test                             ", DLpnPrf_mod3_test);
+            t.add("DLpnPrf_mod2_test                             ", DLpnPrf_mod2_test);
+            t.add("DLpnPrf_plain_test                            ", DLpnPrf_plain_test);
+            t.add("DLpnPrf_proto_test                            ", DLpnPrf_proto_test);
+
+            t.add("DlpnPerm_setup_test                           ", DlpnPerm_setup_test);
+            t.add("DlpnPerm_apply_test                           ", DlpnPerm_apply_test);
+            t.add("DlpnPerm_sharedApply_test                     ", DlpnPerm_sharedApply_test);
+
             t.add("LocMC_eval_test                               ", LocMC_eval_test);
 
             t.add("LowMCPerm_perm_test                           ", LowMCPerm_perm_test);
@@ -52,18 +65,6 @@ namespace secJoin_Tests
             t.add("AdditivePerm_add_test                         ", AdditivePerm_add_test);
 
             t.add("wrapper_test                                  ", wrapper_test);
-
-            // t.add("DarkMatter22Prf_plain_test                    ", DarkMatter22Prf_plain_test);
-            // t.add("DarkMatter32Prf_plain_test                    ", DarkMatter32Prf_plain_test);
-            // t.add("DarkMatter22Prf_util_test                     ", DarkMatter22Prf_util_test);
-            // t.add("DarkMatter22Prf_proto_test                    ", DarkMatter22Prf_proto_test);
-            // t.add("DarkMatter32Prf_proto_test                    ", DarkMatter32Prf_proto_test);
-
-            t.add("DLpnPrf_plain_test                            ", DLpnPrf_plain_test);
-            t.add("DLpnPrf_proto_test                            ", DLpnPrf_proto_test);
-            t.add("DlpnPerm_setup_test                           ", DlpnPerm_setup_test);
-            t.add("DlpnPerm_apply_test                           ", DlpnPerm_apply_test);
-            t.add("DlpnPerm_sharedApply_test                     ", DlpnPerm_sharedApply_test);
 
             t.add("RadixSort_aggregateSum_test                   ", RadixSort_aggregateSum_test);
             t.add("RadixSort_oneHot_test                         ", RadixSort_oneHot_test);
@@ -99,6 +100,7 @@ namespace secJoin_Tests
             t.add("OmJoin_getOutput_Test                         ", OmJoin_getOutput_Test);
             t.add("OmJoin_join_Test                              ", OmJoin_join_Test);
             t.add("OmJoin_join_Test1                             ", OmJoin_join_Test1);
+            t.add("OmJoin_join_round_Test                        ", OmJoin_join_round_Test);
 
         });
 }

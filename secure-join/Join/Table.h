@@ -6,6 +6,7 @@
 #include "secure-join/Util/Matrix.h"
 #include "secure-join/Defines.h"
 #include "coproto/coproto.h"
+#include <vector>
 
 namespace secJoin
 {
@@ -94,8 +95,8 @@ namespace secJoin
         Table(const Table&) = default;
         Table(Table&&) = default;
 
-        Table&operator=(const Table&) = default;
-        Table&operator=(Table&&) = default;
+        Table& operator=(const Table&) = default;
+        Table& operator=(Table&&) = default;
 
         Table(u64 rows, std::vector<ColumnInfo> columns)
         {

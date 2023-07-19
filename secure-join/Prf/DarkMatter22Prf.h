@@ -248,6 +248,7 @@ namespace secJoin
         }
     };
 
+
     inline void sampleMod3(oc::PRNG& prng, span<u16> mBuffer)
     {
         auto n = mBuffer.size();
@@ -368,6 +369,7 @@ namespace secJoin
         //std::cout << std::endl;
 
     }
+
 
     inline oc::AlignedUnVector<u16> sampleMod3(oc::PRNG& prng, u64 n)
     {

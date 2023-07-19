@@ -54,8 +54,8 @@ void Generator_BinOle_Test(const oc::CLP& cmd)
                 r1.get()
             ));
 
-            t0 = std::get<0>(r).result();
-            t1 = std::get<1>(r).result();
+            t0 = std::move(std::get<0>(r).result());
+            t1 = std::move(std::get<1>(r).result());
 
             if (cmd.isSet("nc") == false)
             {
@@ -124,8 +124,8 @@ void Generator_Ot_Test(const oc::CLP&cmd)
                 r1.get()
             ));
 
-            t0 = std::get<0>(r).result();
-            t1 = std::get<1>(r).result();
+            t0 = std::move(std::get<0>(r).result());
+            t1 = std::move(std::get<1>(r).result());
 
             if (cmd.isSet("nc") == false)
             {

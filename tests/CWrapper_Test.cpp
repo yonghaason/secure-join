@@ -55,6 +55,7 @@ void wrapper_test(const oc::CLP& cmd)
         bankState->mJoin.mInsecureMockSubroutines = true;
     }
 
+
     runProtocol(visaState, bankState);
 
     std::cout << "Join Protocol Completed" << std::endl;

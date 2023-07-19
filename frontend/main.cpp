@@ -1,5 +1,7 @@
 #include "tests/UnitTests.h"
 #include "cryptoTools/Common/CLP.h"
+#include "benchmark.h"
+using namespace secJoin;
 
 int main(int argc, char** argv)
 {
@@ -7,6 +9,20 @@ int main(int argc, char** argv)
 
     clp.setDefault("u", "");
 
+    if (clp.isSet("bench"))
+    {
+        if (clp.isSet("Dlpn"))
+        {
+            Dlpn_benchmark(clp);
+            return 0;
+        }
+        if (clp.isSet("CompressB"))
+        {
+            Dlpn_compressB_benchmark(clp);
+            return 0;
+        }
+    }
+    //clp.set("u");
     secJoin_Tests::Tests.runIf(clp);
     // secJoin_Tests::Tests.runAll();
     return 0;
