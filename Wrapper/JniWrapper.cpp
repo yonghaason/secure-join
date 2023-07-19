@@ -48,7 +48,18 @@ JNIEXPORT jbyteArray JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_runJo
   jbyteArray byteArray = (*env).NewByteArray(b.size());
   (*env).SetByteArrayRegion(byteArray, 0, b.size(), reinterpret_cast<const signed char*>(b.data()));
 
-  return byteArray;
+  std::cout << "In the C code, the has value flag " << b.has_value() << std::endl;
+  if (b.has_value())
+  {
+
+    std::cout << "In the C code, the size of byte array is " << b->size() << std::endl;
+    jbyteArray byteArray = (*env).NewByteArray(b->size());
+    (*env).SetByteArrayRegion(byteArray, 0, b->size(),
+      reinterpret_cast<const signed char*>(b->data()));
+    return byteArray;
+  }
+
+  return (*env).NewByteArray(0);
 
 }
 

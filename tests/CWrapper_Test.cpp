@@ -65,6 +65,34 @@ void wrapper_test(const oc::CLP& cmd)
 
     runProtocol(visaState, bankState);
 
+
+    // void *state = (void *) visaState;
+    // secJoin::State* vWrapperState = (secJoin::State*)state;
+
+    // void *state1 = (void *) bankState;
+    // secJoin::State* bWrapperState = (secJoin::State*)state1;
+
+    // std::vector<secJoin::ColRef> selectCols;
+
+    // std::string word;
+    // std::stringstream visaStr(std::move(selectVisaCols));
+    // while(getline(visaStr, word, ','))
+    // {
+    //     selectCols.emplace_back(vWrapperState->mLTable[word]);
+    // }
+
+    // std::stringstream clientStr(std::move(selectClientCols));
+    // while(getline(clientStr, word, ','))
+    // {
+    //     selectCols.emplace_back(bWrapperState->mRTable[word]);
+    // }                             
+
+    // auto exp = secJoin::join(vWrapperState->mLTable[joinVisaCols], 
+    //                         bWrapperState->mRTable[joinClientCols],
+    //                         selectCols);
+
+    // if (vWrapperState->mOutTable != exp)
+
     if (visaState->mOutTable != exp)
     {
 

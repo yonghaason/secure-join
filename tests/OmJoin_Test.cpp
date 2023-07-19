@@ -573,6 +573,7 @@ void OmJoin_join_round_Test(const oc::CLP& cmd)
         nR = 999;
     bool printSteps = cmd.isSet("print");
     bool mock = !cmd.isSet("noMock");
+    auto verbose = cmd.isSet("v");
 
     Table L, R;
 
@@ -638,7 +639,7 @@ void OmJoin_join_round_Test(const oc::CLP& cmd)
 
 
 
-    auto f = std::async([&] { communicate(proto0, true, sock[0], true); });
+    auto f = std::async([&] { communicate(proto0, true, sock[0], verbose); });
     communicate(proto1, false, sock[1], false);
 
     f.get();
