@@ -33,24 +33,24 @@ namespace secJoin
         auto rJoinCol = cState->mRTable[clientJoinCols];
 
         // Constructing Select Cols
-        // std::vector<secJoin::ColRef> selectCols;
+        std::vector<secJoin::ColRef> selectCols;
         std::string word;
         std::stringstream visaStr(std::move(selectVisaCols));
         while(getline(visaStr, word, ','))
         {
-            cState->selectCols.emplace_back(cState->mLTable[word]);
+            selectCols.emplace_back(cState->mLTable[word]);
         }
 
         std::stringstream clientStr(std::move(selectClientCols));
         while(getline(clientStr, word, ','))
         {
-            cState->selectCols.emplace_back(cState->mRTable[word]);
+            selectCols.emplace_back(cState->mRTable[word]);
         }
         
         // Initializing the join protocol
         cState->mPrng.SetSeed(oc::ZeroBlock); // Make Change
         cState->mJoin.mInsecurePrint = false;
-        cState->mJoin.mInsecureMockSubroutines = false;
+        cState->mJoin.mInsecureMockSubroutines = true;
 
         // Current assumption are that Visa always provides table with unique keys 
         // Which means Visa always has to be left Table
@@ -61,7 +61,7 @@ namespace secJoin
 
 
         cState->mProtocol = 
-            cState->mJoin.join( lJoinCol, rJoinCol, cState->selectCols, 
+            cState->mJoin.join( lJoinCol, rJoinCol, selectCols, 
                     cState->mShareTable, cState->mPrng, cState->mOle, cState->mSock) | macoro::make_eager();
 
         return (long) cState;
@@ -69,7 +69,7 @@ namespace secJoin
     }
 
     
-    std::vector<oc::u8> runJoin(long stateAddress, std::vector<oc::u8>& buff)
+    macoro::optional<std::vector<oc::u8>> runJoin(long stateAddress, std::vector<oc::u8>& buff)
     {
 
         void *state = (void *) stateAddress;
@@ -80,9 +80,13 @@ namespace secJoin
 
         auto b = cState->mSock.getOutbound();
 
-        // std::cout << "In the C code, the size of byte array is " << b->size() << std::endl ;
+        if(!b.has_value())
+        {
+            macoro::sync_wait(cState->mProtocol);
+        }
 
-        return b.value();
+        return b;
+        // return b.value();
 
     }
 
@@ -98,6 +102,7 @@ namespace secJoin
         void *state = (void *) stateAddress;
         State* cState = (State*)state;
         return cState->mProtocol.is_ready();
+        
     }
 
     void getOtherShare(long stateAddress, bool isUnique)

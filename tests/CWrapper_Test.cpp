@@ -45,9 +45,24 @@ void wrapper_test()
     void *state1 = (void *) bankState;
     secJoin::State* bWrapperState = (secJoin::State*)state1;
 
+    std::vector<secJoin::ColRef> selectCols;
+
+    std::string word;
+    std::stringstream visaStr(std::move(selectVisaCols));
+    while(getline(visaStr, word, ','))
+    {
+        selectCols.emplace_back(vWrapperState->mLTable[word]);
+    }
+
+    std::stringstream clientStr(std::move(selectClientCols));
+    while(getline(clientStr, word, ','))
+    {
+        selectCols.emplace_back(bWrapperState->mRTable[word]);
+    }                             
+
     auto exp = secJoin::join(vWrapperState->mLTable[joinVisaCols], 
-                             bWrapperState->mRTable[joinClientCols],
-                             vWrapperState->selectCols);
+                            bWrapperState->mRTable[joinClientCols],
+                            selectCols);
 
     if (vWrapperState->mOutTable != exp)
     {
@@ -68,9 +83,11 @@ void runProtocol(long visaState, long bankState)
 
     while (!secJoin::isProtocolReady(visaState))
     {
-        buff = secJoin::runJoin(visaState, buff);
+        auto b = secJoin::runJoin(visaState, buff);
+        buff = b.value();
         // std::cout << "Visa is sending " << buff.size() << " bytes" << std::endl;
-        buff = secJoin::runJoin(bankState, buff);
+        auto c = secJoin::runJoin(bankState, buff);
+        buff = c.value();
         // std::cout << "Bank is sending " << buff.size() << " bytes" << std::endl;
     }
     
