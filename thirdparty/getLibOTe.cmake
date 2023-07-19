@@ -59,8 +59,8 @@ if(NOT ${DEP_NAME}_FOUND OR LIBOTE_DEV)
     endif()
 
 
-    #run(NAME "libOTe Checkout ${GIT_TAG} " CMD ${CHECKOUT_CMD}  WD ${CLONE_DIR})
-    #run(NAME "libOTe submodule"       CMD ${SUBMODULE_CMD} WD ${CLONE_DIR})
+    run(NAME "libOTe Checkout ${GIT_TAG} " CMD ${CHECKOUT_CMD}  WD ${CLONE_DIR})
+    run(NAME "libOTe submodule"       CMD ${SUBMODULE_CMD} WD ${CLONE_DIR})
     run(NAME "libOTe Configure"       CMD ${CONFIGURE_CMD} WD ${CLONE_DIR})
     run(NAME "libOTe Build"           CMD ${BUILD_CMD}     WD ${CLONE_DIR})
     run(NAME "libOTe Install"         CMD ${INSTALL_CMD}   WD ${CLONE_DIR})
