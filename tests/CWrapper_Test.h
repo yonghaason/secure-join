@@ -1,7 +1,6 @@
 #pragma once
 #include "Wrapper/CppWrapper.h"
+#include "cryptoTools/Common/CLP.h"
 
-#if SECUREJOIN_ENABLE_WRAPPER
-void wrapper_test();
-void runProtocol(long visaState, long bankState);
-#endif
+void wrapper_test(const oc::CLP& cmd);
+void runProtocol(secJoin::State* visaState, secJoin::State* bankState);

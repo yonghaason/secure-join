@@ -56,4 +56,8 @@ namespace secJoin
 		oc::MatrixView<u8> aa((u8*)a.data(), a.rows(), a.cols() * sizeof(T));
 		trimImpl(aa, bits);
 	}
+	inline void trimSpan(oc::span<u8> a, u64 bits)
+	{
+		trim<u8>(oc::MatrixView<u8>(a.data(), 1, a.size()), bits);
+	}
 }

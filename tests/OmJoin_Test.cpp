@@ -3,6 +3,7 @@
 #include "OmJoin_Test.h"
 #include "secure-join/Join/OmJoin.h"
 #include "secure-join/Util/Util.h" 
+#include "cryptoTools/Common/TestCollection.h"
 using namespace secJoin;
 
 void OmJoin_loadKeys_Test()
@@ -132,7 +133,8 @@ void OmJoin_concatColumns_Test()
 
     BinMatrix y;
     u64 offset;
-    OmJoin::concatColumns(t0[0], select, n1, keys, offset, y);
+    std::vector<OmJoin::Offset> offsets;
+    OmJoin::concatColumns(t0[0], select, n1, keys, offset, y, 1, offsets);
 
     for (u64 i = 0; i < n0; ++i)
     {
@@ -211,16 +213,23 @@ void OmJoin_getOutput_Test()
     isActive.trim();
 
     std::vector<BinMatrix*> cat{ &L.mColumns[0].mData,&L.mColumns[1].mData,&L.mColumns[2].mData, &isActive };
+    std::vector<OmJoin::Offset> offsets;
     OmJoin::concatColumns(data, cat);
 
+    for (u64 i = 0, p = 0; i < cat.size(); ++i)
+    {
+        offsets.emplace_back(OmJoin::Offset{ p,cat[i]->bitsPerEntry(), "L" + std::to_string(i) });
+        p += oc::roundUpTo(offsets.back().mSize, 8);
+    }
     Table LL = L;
     for (u64 i = 0; i < LL.mColumns.size(); ++i)
         LL.mColumns[i].mData.resize(nL, LL.mColumns[i].mBitCount);
 
     std::vector<ColRef> select{ LL[0], LL[1], LL[2], R[0] };
 
+
     Table out;
-    OmJoin::getOutput(data, select, select[0], out);
+    OmJoin::getOutput(data, select, select[0], out, offsets);
 
 
     for (u64 i = 0; i < mR; ++i)
@@ -249,8 +258,9 @@ void OmJoin_getOutput_Test()
 
 void OmJoin_join_Test(const oc::CLP& cmd)
 {
-    u64 nL = 2000,
-        nR = 999;
+    u64 nL = cmd.getOr("L", 5),
+        nR = cmd.getOr("R", 8);
+
     bool printSteps = cmd.isSet("print");
     bool mock = !cmd.isSet("noMock");
 
@@ -268,17 +278,24 @@ void OmJoin_join_Test(const oc::CLP& cmd)
     for (u64 i = 0; i < nL; ++i)
     {
         // u64 k 
-        memcpy(&L.mColumns[0].mData.mData(i, 0), &i, L.mColumns[0].mData.bytesPerEntry());
+        auto ii = i * 3;
+        memcpy(&L.mColumns[0].mData.mData(i, 0), &ii, L.mColumns[0].mData.bytesPerEntry());
         L.mColumns[1].mData.mData(i, 0) = i % 4;
         L.mColumns[1].mData.mData(i, 1) = i % 3;
     }
 
     for (u64 i = 0; i < nR; ++i)
     {
-        auto ii = i * 2;
+        auto ii = i / 2 * 4;
         memcpy(&R.mColumns[0].mData.mData(i, 0), &ii, R.mColumns[0].mData.bytesPerEntry());
         // R.mColumns[0].mData.mData(i, 0) = i * 2;
         R.mColumns[1].mData.mData(i) = i % 3;
+    }
+
+    if (printSteps)
+    {
+        std::cout << "L\n" << L << std::endl;
+        std::cout << "R\n" << R << std::endl;
     }
 
     PRNG prng(oc::ZeroBlock);
@@ -317,12 +334,18 @@ void OmJoin_join_Test(const oc::CLP& cmd)
     ));
     std::get<0>(r).result();
     std::get<1>(r).result();
+    // std::cout << "out0" << std::endl;
+    // std::cout << out[0] << std::endl;
+    // std::cout << "out1" << std::endl;
+    // std::cout << out[1] << std::endl;
+
     auto res = reveal(out[0], out[1]);
 
     if (res != exp)
     {
         std::cout << "exp \n" << exp << std::endl;
         std::cout << "act \n" << res << std::endl;
+        std::cout << "ful \n" << reveal(out[0], out[1], false) << std::endl;
         throw RTE_LOC;
     }
 
@@ -378,7 +401,7 @@ void OmJoin_join_Test1(const oc::CLP& cmd)
     // share(R, Rs, prng);
 
     OmJoin join0, join1;
-    
+
     join0.mInsecurePrint = printSteps;
     join1.mInsecurePrint = printSteps;
 
@@ -415,12 +438,12 @@ void OmJoin_join_Test1(const oc::CLP& cmd)
     auto proto2 = revealRemote(out[1], sock[1]);
 
     auto res = macoro::sync_wait(macoro::when_all_ready(
-        std::move(proto2), 
+        std::move(proto2),
         std::move(proto1)));
 
     std::get<1>(res).result();
     std::get<0>(res).result();
-    
+
 
 
     if (outTable != exp)

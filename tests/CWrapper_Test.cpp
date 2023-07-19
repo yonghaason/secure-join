@@ -1,15 +1,15 @@
 
 #include "CWrapper_Test.h"
-#if SECUREJOIN_ENABLE_WRAPPER
-
-void wrapper_test()
+#include "secure-join/config.h"
+#include "Wrapper/state.h"
+void wrapper_test(const oc::CLP& cmd)
 {
     // std::string str("Hello World!");
     // testApi(str);
 
     std::string rootPath(SEC_JOIN_ROOT_DIRECTORY);
     std::string visaCsvPath = rootPath + "/tests/tables/visa.csv";
-    std::string bankCsvPath  = rootPath + "/tests/tables/bank.csv";
+    std::string bankCsvPath = rootPath + "/tests/tables/bank.csv";
     std::string visaMetaDataPath = rootPath + "/tests/tables/visa_meta.txt";
     std::string clientMetaDataPath = rootPath + "/tests/tables/bank_meta.txt";
     std::string joinVisaCols("PAN");
@@ -17,16 +17,43 @@ void wrapper_test()
     std::string selectVisaCols("Risk_Score,PAN");
     std::string selectClientCols("Balance");
     std::string joinCsvPath = rootPath + "/tests/tables/joindata.csv";
-    std::string joinMetaPath= rootPath + "/tests/tables/joindata_meta.txt";
+    std::string joinMetaPath = rootPath + "/tests/tables/joindata_meta.txt";
     bool isUnique = true;
 
-    long visaState = secJoin::initState(visaCsvPath, visaMetaDataPath, clientMetaDataPath, joinVisaCols,
-                joinClientCols,  selectVisaCols, selectClientCols, isUnique);
+    secJoin::State* visaState = secJoin::initState(visaCsvPath, visaMetaDataPath, clientMetaDataPath, joinVisaCols,
+        joinClientCols, selectVisaCols, selectClientCols, isUnique);
 
 
-    long bankState = secJoin::initState(bankCsvPath, visaMetaDataPath, clientMetaDataPath, joinVisaCols,
-            joinClientCols,  selectVisaCols, selectClientCols, !isUnique);
+    secJoin::State* bankState = secJoin::initState(bankCsvPath, visaMetaDataPath, clientMetaDataPath, joinVisaCols,
+        joinClientCols, selectVisaCols, selectClientCols, !isUnique);
 
+    // auto select = visaState->selectCols;
+    std::vector<secJoin::ColRef> select;
+    for (secJoin::u64 i = 0; i < visaState->selectCols.size(); ++i)
+        if (&visaState->selectCols[i].mTable == &visaState->mLTable)
+            select.emplace_back(visaState->mLTable[visaState->selectCols[i].mCol.mName]);
+        else
+            select.emplace_back(bankState->mRTable[visaState->selectCols[i].mCol.mName]);
+
+    auto exp = secJoin::join(
+        visaState->mLTable[joinVisaCols],
+        bankState->mRTable[joinClientCols],
+        select);
+
+    if (cmd.isSet("v"))
+    {
+        std::cout << "visa L table:\n" << visaState->mLTable << std::endl;
+        std::cout << "bank R table:\n" << bankState->mRTable << std::endl;
+
+        visaState->mJoin.mInsecurePrint = true;
+        bankState->mJoin.mInsecurePrint = true;
+    }
+
+    if (cmd.isSet("mock"))
+    {
+        visaState->mJoin.mInsecureMockSubroutines = true;
+        bankState->mJoin.mInsecureMockSubroutines = true;
+    }
 
     runProtocol(visaState, bankState);
 
@@ -37,32 +64,22 @@ void wrapper_test()
 
     runProtocol(visaState, bankState);
 
-    // secJoin::getJoinTable(visaState, joinCsvPath, joinMetaPath, isUnique);
-
-    void *state = (void *) visaState;
-    secJoin::State* vWrapperState = (secJoin::State*)state;
-
-    void *state1 = (void *) bankState;
-    secJoin::State* bWrapperState = (secJoin::State*)state1;
-
-    auto exp = secJoin::join(vWrapperState->mLTable[joinVisaCols], 
-                             bWrapperState->mRTable[joinClientCols],
-                             vWrapperState->selectCols);
-
-    if (vWrapperState->mOutTable != exp)
+    if (visaState->mOutTable != exp)
     {
+
+        std::cout << "L \n" << visaState->mLTable << std::endl;
+        std::cout << "R \n" << bankState->mRTable << std::endl;
         std::cout << "exp \n" << exp << std::endl;
-        std::cout << "act \n" << vWrapperState->mOutTable << std::endl;
+        std::cout << "act \n" << visaState->mOutTable << std::endl;
         throw RTE_LOC;
     }
 
     secJoin::releaseState(visaState);
     secJoin::releaseState(bankState);
-
 }
 
 
-void runProtocol(long visaState, long bankState)
+void runProtocol(secJoin::State* visaState, secJoin::State* bankState)
 {
     std::vector<oc::u8> buff;
 
@@ -73,7 +90,6 @@ void runProtocol(long visaState, long bankState)
         buff = secJoin::runJoin(bankState, buff);
         // std::cout << "Bank is sending " << buff.size() << " bytes" << std::endl;
     }
-    
+    assert(secJoin::isProtocolReady(visaState));
+    assert(secJoin::isProtocolReady(bankState));
 }
-
-#endif

@@ -1,4 +1,6 @@
 #include "CppWrapper.h"
+#include "state.h"
+#include "secure-join/Util/CSVParser.h"
 
 namespace secJoin
 {
@@ -8,11 +10,11 @@ namespace secJoin
         std::cout << str << std::endl;
     }
 
-    long initState(std::string& csvPath, std::string& visaMetaDataPath, std::string& clientMetaDataPath, 
-                std::string& visaJoinCols, std::string& clientJoinCols, std::string& selectVisaCols,
-                std::string& selectClientCols, bool isUnique)
+    State* initState(std::string& csvPath, std::string& visaMetaDataPath, std::string& clientMetaDataPath,
+        std::string& visaJoinCols, std::string& clientJoinCols, std::string& selectVisaCols,
+        std::string& selectClientCols, bool isUnique)
     {
-        State *cState = new State;
+        State* cState = new State;
         oc::u64 lRowCount = 0, rRowCount = 0;
 
 
@@ -22,31 +24,31 @@ namespace secJoin
         getFileInfo(clientMetaDataPath, cState->mRColInfo, rRowCount);
         cState->mLTable.init(lRowCount, cState->mLColInfo);
         cState->mRTable.init(rRowCount, cState->mRColInfo);
-        if(isUnique)
+        if (isUnique)
             populateTable(cState->mLTable, csvPath, lRowCount);
         else
             populateTable(cState->mRTable, csvPath, rRowCount);
-        
-        
+
+
         // Current Assumptions is that there is only one Join Columns
         auto lJoinCol = cState->mLTable[visaJoinCols];
         auto rJoinCol = cState->mRTable[clientJoinCols];
 
         // Constructing Select Cols
-        // std::vector<secJoin::ColRef> selectCols;
+        // std::vector<ColRef> selectCols;
         std::string word;
         std::stringstream visaStr(std::move(selectVisaCols));
-        while(getline(visaStr, word, ','))
+        while (getline(visaStr, word, ','))
         {
             cState->selectCols.emplace_back(cState->mLTable[word]);
         }
 
         std::stringstream clientStr(std::move(selectClientCols));
-        while(getline(clientStr, word, ','))
+        while (getline(clientStr, word, ','))
         {
             cState->selectCols.emplace_back(cState->mRTable[word]);
         }
-        
+
         // Initializing the join protocol
         cState->mPrng.SetSeed(oc::ZeroBlock); // Make Change
         cState->mJoin.mInsecurePrint = false;
@@ -54,28 +56,23 @@ namespace secJoin
 
         // Current assumption are that Visa always provides table with unique keys 
         // Which means Visa always has to be left Table
-        if(isUnique)
-        cState->mOle.fakeInit(secJoin::OleGenerator::Role::Sender);
+        if (isUnique)
+            cState->mOle.fakeInit(OleGenerator::Role::Sender);
         else
-        cState->mOle.fakeInit(secJoin::OleGenerator::Role::Receiver);
+            cState->mOle.fakeInit(OleGenerator::Role::Receiver);
 
 
-        cState->mProtocol = 
-            cState->mJoin.join( lJoinCol, rJoinCol, cState->selectCols, 
-                    cState->mShareTable, cState->mPrng, cState->mOle, cState->mSock) | macoro::make_eager();
+        cState->mProtocol =
+            cState->mJoin.join(lJoinCol, rJoinCol, cState->selectCols,
+                cState->mShareTable, cState->mPrng, cState->mOle, cState->mSock) | macoro::make_eager();
 
-        return (long) cState;
+        return cState;
 
     }
 
-    
-    std::vector<oc::u8> runJoin(long stateAddress, std::vector<oc::u8>& buff)
+
+    std::vector<oc::u8> runJoin(State* cState, std::vector<oc::u8>& buff)
     {
-
-        void *state = (void *) stateAddress;
-        
-        State* cState = (State*)state;
-
         cState->mSock.processInbound(buff);
 
         auto b = cState->mSock.getOutbound();
@@ -86,43 +83,33 @@ namespace secJoin
 
     }
 
-    void releaseState(long memoryAddress)
+    void releaseState(State* state)
     {
-        // std::cout << "Releasing Memory" << std::endl;
-        void *state = (void *) memoryAddress;
-        delete (State*) state;
+        delete state;
     }
 
-    bool isProtocolReady(long stateAddress)
+    bool isProtocolReady(State* cState)
     {
-        void *state = (void *) stateAddress;
-        State* cState = (State*)state;
         return cState->mProtocol.is_ready();
     }
 
-    void getOtherShare(long stateAddress, bool isUnique)
+    void getOtherShare(State* cState, bool isUnique)
     {
-        void *state = (void *) stateAddress;
-        State* cState = (State*)state;
-        
         // Assuming Visa always receives the client's share
-        if(isUnique)
+        if (isUnique)
         {
-        cState->mProtocol = revealLocal(cState->mShareTable, cState->mSock, cState->mOutTable)
-                            | macoro::make_eager();
+            cState->mProtocol = revealLocal(cState->mShareTable, cState->mSock, cState->mOutTable)
+                | macoro::make_eager();
         }
         else
         {
-        cState->mProtocol =  revealRemote(cState->mShareTable, cState->mSock)
-                            | macoro::make_eager();
+            cState->mProtocol = revealRemote(cState->mShareTable, cState->mSock)
+                | macoro::make_eager();
         }
     }
 
-    void getJoinTable(long stateAddress, std::string csvPath, std::string metaDataPath, bool isUnique)
+    void getJoinTable(State* cState, std::string csvPath, std::string metaDataPath, bool isUnique)
     {
-        void *state = (void *) stateAddress;
-        State* cState = (State*)state;
-
         writeFileInfo(metaDataPath, cState->mOutTable);
         writeFileData(csvPath, cState->mOutTable);
     }

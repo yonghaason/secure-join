@@ -50,9 +50,8 @@ namespace secJoin_Tests
             t.add("ComposedPerm_replicated_secure_perm_test      ", ComposedPerm_replicated_secure_perm_test);
             t.add("AdditivePerm_xor_test                         ", AdditivePerm_xor_test);
             t.add("AdditivePerm_add_test                         ", AdditivePerm_add_test);
-            #if SECUREJOIN_ENABLE_WRAPPER
+
             t.add("wrapper_test                                  ", wrapper_test);
-            #endif
 
             // t.add("DarkMatter22Prf_plain_test                    ", DarkMatter22Prf_plain_test);
             // t.add("DarkMatter32Prf_plain_test                    ", DarkMatter32Prf_plain_test);
@@ -78,7 +77,7 @@ namespace secJoin_Tests
 
             t.add("secret_share_table_test                       ", secret_share_table_test);
             t.add("table_write_csv_test                          ", table_write_csv_test);
-            
+
 
             t.add("AggTree_plain_Test                            ", AggTree_plain_Test);
             t.add("AggTree_levelReveal_Test                      ", AggTree_levelReveal_Test);

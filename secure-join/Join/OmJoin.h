@@ -14,6 +14,20 @@ namespace secJoin
 	{
 		bool mInsecurePrint = true, mInsecureMockSubroutines = false;
 
+		struct Offset
+		{
+			u64 mStart = 0, mSize = 0;
+			std::string mName;
+		};
+
+		static macoro::task<> updateActiveFlag(
+			BinMatrix& data,
+			BinMatrix& choice,
+			BinMatrix& out,
+			OleGenerator& ole,
+			coproto::Socket& sock);
+
+
 		// output a combined table that has the leftColumn
 		// concatenated with the rightColumn (doubling the
 		// number of rows). THe left column will have a
@@ -55,7 +69,9 @@ namespace secJoin
 			u64 numDummies,
 			BinMatrix& keys,
 			u64& keyOffset,
-			BinMatrix& out);
+			BinMatrix& out,
+			u8 role,
+			std::vector<Offset>& offsets);
 
 		// static void appendControlBits(const BinMatrix &controlBits, const BinMatrix &data, BinMatrix &out);
 
@@ -64,7 +80,8 @@ namespace secJoin
 			// oc::MatrixView<i64> revealBits,
 			span<ColRef> selects,
 			ColRef& left,
-			SharedTable& out);
+			SharedTable& out,
+			std::vector<Offset>& offsets);
 
 		static AggTree::Operator getDupCircuit();
 

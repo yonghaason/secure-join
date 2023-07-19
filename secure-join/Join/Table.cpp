@@ -275,20 +275,20 @@ namespace secJoin
     macoro::task<> revealLocal(const Table& share, coproto::Socket& sock, Table& out)
     {
         MC_BEGIN(macoro::task<>, &share, &sock, &out,
-        remoteShare = Table(),
-        i = u64()
+            remoteShare = Table(),
+            i = u64()
         );
 
         remoteShare.init(share.rows(), share.getColumnInfo());
-        for(i = 0; i < remoteShare.mColumns.size(); i++)
+        for (i = 0; i < remoteShare.mColumns.size(); i++)
         {
             MC_AWAIT(sock.recv(remoteShare.mColumns[i].mData.mData));
         }
-        
-        if(share.mIsActive.size() > 0) 
+
+        if (share.mIsActive.size() > 0)
         {
             remoteShare.mIsActive.resize(share.mIsActive.size());
-            MC_AWAIT(sock.recv(remoteShare.mIsActive)); 
+            MC_AWAIT(sock.recv(remoteShare.mIsActive));
         }
         out = reveal(share, remoteShare);
 
@@ -300,14 +300,14 @@ namespace secJoin
     {
         MC_BEGIN(macoro::task<>, &share, &sock, i = u64());
 
-        for(i = 0; i < share.mColumns.size(); i++)
+        for (i = 0; i < share.mColumns.size(); i++)
         {
             MC_AWAIT(sock.send(share.mColumns[i].mData.mData));
         }
-            
-            
+
+
         // std::move() will the delete the local share
-        if(share.mIsActive.size() > 0) 
+        if (share.mIsActive.size() > 0)
         {
             MC_AWAIT(sock.send(share.mIsActive));
         }
@@ -454,6 +454,7 @@ namespace secJoin
         // }
 
         std::vector<std::array<u64, 2>> I;
+        std::vector<u64> rIdx(r.mCol.rows());
         I.reserve(r.mCol.rows());
 
         u64 lIdx = 0;
@@ -476,24 +477,38 @@ namespace secJoin
                 if (eq(l.mCol.mData[LPerm[lIdx]], r.mCol.mData[RPerm[i]]))
                 {
                     I.push_back({ LPerm[lIdx], RPerm[i] });
+                    rIdx[RPerm[i]] = 1;
                 }
             }
         }
 
+        for (u64 i = 1; i < rIdx.size(); ++i)
+        {
+            rIdx[i] += rIdx[i - 1];
+        }
+        if (rIdx.back() != I.size())
+            throw RTE_LOC;
+
         std::vector<ColumnInfo> colInfo(select.size());
         for (u64 i = 0; i < colInfo.size(); ++i)
         {
+            if (&select[i].mTable != &l.mTable &&
+                &select[i].mTable != &r.mTable)
+                throw std::runtime_error("select statement doesnt match Left and Right table.");
+
             colInfo[i] = select[i].mCol.getColumnInfo();
         }
         Table ret(I.size(), colInfo);
 
         for (u64 i = 0; i < I.size(); ++i)
         {
+
             for (u64 j = 0; j < colInfo.size(); ++j)
             {
+                auto d = rIdx[I[i][1]] - 1;
                 auto lr = (&select[j].mTable == &r.mTable) ? 1 : 0;
                 auto src = select[j].mCol.mData.data(I[i][lr]);
-                auto dst = ret.mColumns[j].mData.data(i);
+                auto dst = ret.mColumns[j].mData.data(d);
                 auto size = ret.mColumns[j].mData.cols();
 
                 memcpy(dst, src, size);
@@ -509,7 +524,7 @@ namespace secJoin
         auto separator = ' ';
         auto printElem = [&](auto&& t)
             {
-                o << std::left << std::setw(width) << std::setfill(separator) << t;
+                o << std::left << std::setw(width) << std::setfill(separator) << t << " ";
             };
 
         o << "      ";
@@ -521,7 +536,7 @@ namespace secJoin
         {
             o << std::setw(2) << std::setfill(' ') << i << " ";
             if (t.mIsActive.size())
-                printElem((int)t.mIsActive[i]);
+                o << (int)t.mIsActive[i];
             else
                 o << 1;
 

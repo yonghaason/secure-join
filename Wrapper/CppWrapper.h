@@ -1,32 +1,21 @@
 #pragma once
-#include "secure-join/Util/CSVParser.h"
-#include "coproto/Socket/BufferingSocket.h"
-#include "secure-join/Join/Table.h"
-#include "secure-join/Join/OmJoin.h"
+#include <string>
+#include <vector>
+#include "secure-join/Defines.h"
 
 namespace secJoin
 {
-        struct State
-        {
-        std::vector<secJoin::ColumnInfo> mLColInfo, mRColInfo;
-        std::vector<secJoin::ColRef> selectCols; // Remove this later
-        secJoin::Table mLTable, mRTable, mShareTable, mOutTable;
-        oc::PRNG mPrng;
-        secJoin::OmJoin mJoin;
-        secJoin::OleGenerator mOle;
-        coproto::BufferingSocket mSock;
-        macoro::eager_task<void> mProtocol;
-        };
-        
+        struct State;
+
         void testApi(std::string& str);
-        long initState(std::string& csvPath, std::string& visaMetaDataPath, std::string& clientMetaDataPath, 
+        State* initState(std::string& csvPath, std::string& visaMetaDataPath, std::string& clientMetaDataPath,
                 std::string& visaJoinCols, std::string& clientJoinCols, std::string& selectVisaCols,
                 std::string& selectClientCols, bool isUnique);
-        std::vector<oc::u8> runJoin(long stateAddress, std::vector<oc::u8>& buff);
-        void releaseState(long memoryAddress);
-        bool isProtocolReady(long stateAddress);
-        void getOtherShare(long stateAddress, bool isUnique);
-        void getJoinTable(long stateAddress, std::string csvPath, std::string metaDataPath, bool isUnique);
+        std::vector<u8> runJoin(State* stateAddress, std::vector<u8>& buff);
+        void releaseState(State* memoryAddress);
+        bool isProtocolReady(State* stateAddress);
+        void getOtherShare(State* stateAddress, bool isUnique);
+        void getJoinTable(State* stateAddress, std::string csvPath, std::string metaDataPath, bool isUnique);
 
 }
 

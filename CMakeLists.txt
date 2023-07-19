@@ -20,10 +20,7 @@ endif()
 # build secureJoin
 add_subdirectory(secure-join)
 
-if(SECUREJOIN_ENABLE_WRAPPER)
-	# build wrapper
-	add_subdirectory(Wrapper)
-endif()
+add_subdirectory(Wrapper)
 
 # build the tests.
 add_subdirectory(tests)

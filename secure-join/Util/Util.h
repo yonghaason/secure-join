@@ -232,14 +232,14 @@ namespace secJoin
     }
 
 
-    inline Table reveal(const Table& t0, const Table& t1)
+    inline Table reveal(const Table& t0, const Table& t1, bool removeNulls = true)
     {
         u64 size = 0;
         if (t0.getColumnInfo() != t1.getColumnInfo() || t0.rows() != t1.rows())
         {
             throw RTE_LOC;
         }
-        if (t0.mIsActive.size())
+        if (t0.mIsActive.size() && removeNulls)
         {
             for (u64 i = 0; i < t0.rows(); ++i)
             {
@@ -253,17 +253,25 @@ namespace secJoin
 
         Table ret;
         ret.init(size, t0.getColumnInfo());
+        if (removeNulls == false)
+            ret.mIsActive.resize(size);
         for (u64 i = 0, j = 0; i < t0.rows(); ++i)
         {
-            if (t0.mIsActive[i] ^ t1.mIsActive[i])
+            bool isActive = t0.mIsActive[i] ^ t1.mIsActive[i];
+            if (removeNulls == false)
+            {
+                ret.mIsActive[j] = isActive;
+            }
+
+            if (isActive)
             {
                 for (u64 k = 0; k < t0.mColumns.size(); ++k)
                 {
                     for (u64 l = 0;l < ret.mColumns[k].mData.cols(); ++l)
                     {
                         ret.mColumns[k].mData(j, l) =
-                            t0.mColumns[k].mData(j, l) ^
-                            t1.mColumns[k].mData(j, l);
+                            t0.mColumns[k].mData(i, l) ^
+                            t1.mColumns[k].mData(i, l);
                     }
                 }
                 ++j;
