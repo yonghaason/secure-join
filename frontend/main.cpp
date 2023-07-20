@@ -7,7 +7,8 @@ int main(int argc, char** argv)
 {
     oc::CLP clp(argc, argv);
 
-    clp.setDefault("u", "");
+    if (!clp.isSet("u"))
+        clp.set("u");
 
     if (clp.isSet("bench"))
     {

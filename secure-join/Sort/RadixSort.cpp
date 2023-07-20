@@ -984,6 +984,8 @@ namespace secJoin
 
         for (i = 1; i < ll; ++i)
         {
+            //std::cout << "genPerm i=" << i << std::endl;
+            
             // get the next L bits of the key.
             sk = extract(kIdx, mL, k); kIdx += mL;
             ssk.resize(sk.rows(), sk.cols());
@@ -1150,7 +1152,7 @@ namespace secJoin
             dst.mShare = perm.mPerm;
         }
         else {
-            MC_AWAIT(comm.send(k));
+            MC_AWAIT(comm.send(coproto::copy(k)));
             dst.init(k.numEntries());
         }
 

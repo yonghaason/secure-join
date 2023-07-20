@@ -302,14 +302,14 @@ namespace secJoin
 
         for (i = 0; i < share.mColumns.size(); i++)
         {
-            MC_AWAIT(sock.send(share.mColumns[i].mData.mData));
+            MC_AWAIT(sock.send(coproto::copy(share.mColumns[i].mData.mData)));
         }
 
 
         // std::move() will the delete the local share
         if (share.mIsActive.size() > 0)
         {
-            MC_AWAIT(sock.send(share.mIsActive));
+            MC_AWAIT(sock.send(coproto::copy(share.mIsActive)));
         }
         MC_END();
     }

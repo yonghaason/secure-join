@@ -12,7 +12,8 @@ namespace secJoin
 
     State* initState(std::string& csvPath, std::string& visaMetaDataPath, std::string& clientMetaDataPath,
         std::string& visaJoinCols, std::string& clientJoinCols, std::string& selectVisaCols,
-        std::string& selectClientCols, bool isUnique)
+        std::string& selectClientCols, bool isUnique,
+        bool verbose, bool mock)
     {
         State* cState = new State;
         oc::u64 lRowCount = 0, rRowCount = 0;
@@ -51,8 +52,8 @@ namespace secJoin
 
         // Initializing the join protocol
         cState->mPrng.SetSeed(oc::ZeroBlock); // Make Change
-        cState->mJoin.mInsecurePrint = false;
-        cState->mJoin.mInsecureMockSubroutines = true;
+        cState->mJoin.mInsecurePrint = verbose;
+        cState->mJoin.mInsecureMockSubroutines = mock;
 
         // Current assumption are that Visa always provides table with unique keys 
         // Which means Visa always has to be left Table

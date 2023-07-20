@@ -2,7 +2,7 @@
 #include "CWrapper_Test.h"
 #include "secure-join/config.h"
 #include "Wrapper/state.h"
-void wrapper_test(const oc::CLP& cmd)
+void OmJoin_wrapper_test(const oc::CLP& cmd)
 {
     // std::string str("Hello World!");
     // testApi(str);
@@ -19,13 +19,15 @@ void wrapper_test(const oc::CLP& cmd)
     std::string joinCsvPath = rootPath + "/tests/tables/joindata.csv";
     std::string joinMetaPath = rootPath + "/tests/tables/joindata_meta.txt";
     bool isUnique = true;
+    bool verbose = cmd.isSet("v");
+    bool mock = cmd.isSet("mock");
 
     secJoin::State* visaState = secJoin::initState(visaCsvPath, visaMetaDataPath, clientMetaDataPath, joinVisaCols,
-        joinClientCols, selectVisaCols, selectClientCols, isUnique);
+        joinClientCols, selectVisaCols, selectClientCols, isUnique, verbose, mock);
 
 
     secJoin::State* bankState = secJoin::initState(bankCsvPath, visaMetaDataPath, clientMetaDataPath, joinVisaCols,
-        joinClientCols, selectVisaCols, selectClientCols, !isUnique);
+        joinClientCols, selectVisaCols, selectClientCols, !isUnique, verbose, mock);
 
     // auto select = visaState->selectCols;
     std::vector<secJoin::ColRef> select;
@@ -40,30 +42,22 @@ void wrapper_test(const oc::CLP& cmd)
         bankState->mRTable[joinClientCols],
         select);
 
-    if (cmd.isSet("v"))
+    if (verbose)
     {
         std::cout << "visa L table:\n" << visaState->mLTable << std::endl;
         std::cout << "bank R table:\n" << bankState->mRTable << std::endl;
-
-        visaState->mJoin.mInsecurePrint = true;
-        bankState->mJoin.mInsecurePrint = true;
-    }
-
-    if (cmd.isSet("mock"))
-    {
-        visaState->mJoin.mInsecureMockSubroutines = true;
-        bankState->mJoin.mInsecureMockSubroutines = true;
     }
 
 
-    runProtocol(visaState, bankState);
+    runProtocol(visaState, bankState, verbose);
 
-    std::cout << "Join Protocol Completed" << std::endl;
+    if(verbose)
+        std::cout << "Join Protocol Completed" << std::endl;
 
     secJoin::getOtherShare(visaState, isUnique);
     secJoin::getOtherShare(bankState, !isUnique);
 
-    runProtocol(visaState, bankState);
+    runProtocol(visaState, bankState, verbose);
 
 
     // void *state = (void *) visaState;
@@ -108,17 +102,67 @@ void wrapper_test(const oc::CLP& cmd)
 }
 
 
-void runProtocol(secJoin::State* visaState, secJoin::State* bankState)
+void runProtocol(secJoin::State* visaState, secJoin::State* bankState,
+    bool verbose)
 {
     std::vector<oc::u8> buff;
 
-    while (!secJoin::isProtocolReady(visaState))
+    bool progress = true;
+    bool first = true;
+    while (
+        !secJoin::isProtocolReady(visaState) ||
+        !secJoin::isProtocolReady(bankState)
+        )
     {
-        buff = secJoin::runJoin(visaState, buff);
-        // std::cout << "Visa is sending " << buff.size() << " bytes" << std::endl;
-        buff = secJoin::runJoin(bankState, buff);
-        // std::cout << "Bank is sending " << buff.size() << " bytes" << std::endl;
+        if (first || !secJoin::isProtocolReady(visaState))
+        {
+            if (progress == false && buff.size() == 0)
+            {
+                std::cout << "visa not ready but has received 0 bytes" << std::endl;
+                throw RTE_LOC;
+            }
+
+            buff = secJoin::runJoin(visaState, buff);
+            progress = buff.size() || secJoin::isProtocolReady(visaState);
+
+            if (verbose)
+            {
+                std::cout << "Visa is sending " << buff.size() << " bytes" << std::endl;
+            }
+        }
+        else
+        {
+
+            if (buff.size())
+                std::cout << "warning, visa is done but bank sent a message" << std::endl;
+            buff = {};
+        }
+
+        if (first || !secJoin::isProtocolReady(bankState))
+        {
+            if (first == false && progress == false && buff.size() == 0)
+            {
+                std::cout << "bank not ready but has received 0 bytes" << std::endl;
+                throw RTE_LOC;
+            }
+
+            buff = secJoin::runJoin(bankState, buff);
+
+            progress = buff.size() || secJoin::isProtocolReady(bankState);
+            if (verbose)
+                std::cout << "Bank is sending " << buff.size() << " bytes" << std::endl;
+        }
+        else
+        {
+            if (buff.size())
+                std::cout << "warning, bank is done but visa sent a message" << std::endl;
+            buff = {};
+        }
+
+        first = false;
+        //progress = false;
     }
+
     assert(secJoin::isProtocolReady(visaState));
     assert(secJoin::isProtocolReady(bankState));
 }

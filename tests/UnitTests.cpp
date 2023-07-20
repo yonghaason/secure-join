@@ -64,8 +64,6 @@ namespace secJoin_Tests
             t.add("AdditivePerm_xor_test                         ", AdditivePerm_xor_test);
             t.add("AdditivePerm_add_test                         ", AdditivePerm_add_test);
 
-            t.add("wrapper_test                                  ", wrapper_test);
-
             t.add("RadixSort_aggregateSum_test                   ", RadixSort_aggregateSum_test);
             t.add("RadixSort_oneHot_test                         ", RadixSort_oneHot_test);
             t.add("RadixSort_bitInjection_test                   ", RadixSort_bitInjection_test);
@@ -101,6 +99,7 @@ namespace secJoin_Tests
             t.add("OmJoin_join_Test                              ", OmJoin_join_Test);
             t.add("OmJoin_join_Test1                             ", OmJoin_join_Test1);
             t.add("OmJoin_join_round_Test                        ", OmJoin_join_round_Test);
+            t.add("OmJoin_wrapper_test                           ", OmJoin_wrapper_test);
 
         });
 }

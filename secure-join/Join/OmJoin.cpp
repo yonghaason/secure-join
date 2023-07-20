@@ -34,29 +34,56 @@ namespace secJoin
     // the first bit is ignored.
     oc::BetaCircuit OmJoin::getControlBitsCircuit(u64 bitCount)
     {
-        oc::BetaLibrary lib;
-        return *lib.int_eq(bitCount);
+        //oc::BetaLibrary lib;
+        //return *lib.int_eq(bitCount);
 
         // oc::BetaLibrary lib;
-        // oc::BetaCircuit cir;
-        // oc::BetaBundle left(bitCount + 1);
-        // oc::BetaBundle right(bitCount + 1);
-        // oc::BetaBundle temp0(1);
-        // oc::BetaBundle temp1(1);
-        // oc::BetaBundle out(1);
-        // cir.addInputBundle(left);
-        // cir.addInputBundle(right);
-        // cir.addOutputBundle(out);
-        // cir.addTempWireBundle(temp0);
-        // cir.addTempWireBundle(temp1);
+        oc::BetaCircuit cd;
+        oc::BetaBundle a1(bitCount);
+        oc::BetaBundle a2(bitCount);
+        oc::BetaBundle out(1);
+        auto bits = a1.mWires.size();
+        BetaBundle temp(bits);
 
-        // oc::BetaBundle leftMain;leftMain.insert(leftMain.end(), leftMain.begin(), left.begin() + bitCount);
-        // oc::BetaBundle rightMain; rightMain.insert(rightMain.end(), rightMain.begin(), rightMain.begin() + bitCount);
-        // lib.eq_build(cir, leftMain, rightMain, temp0);
+        cd.addInputBundle(a1);
+        cd.addInputBundle(a2);
+        cd.addOutputBundle(out);
 
-        // cir.addGate(right.back(), left.back(), oc::GateType::na_And, temp1[0]);
-        // cir.addGate(right.back(), left.back(), oc::GateType::na_And, temp1[0]);
+        if (bits == 1)
+            temp[0] = out[0];
+        else
+            cd.addTempWireBundle(temp);
 
+        for (u64 i = 0; i < bits; ++i)
+        {
+            cd.addGate(a1.mWires[i], a2.mWires[i],
+                oc::GateType::Nxor, temp.mWires[i]);
+        }
+
+        auto levels = oc::log2ceil(bits);
+        for (u64 i = 0; i < levels; ++i)
+        {
+            auto step = 1ull << i;
+            auto size = bits / 2 / step;
+            BetaBundle temp2(size);
+            if (size == 1)
+                temp2[0] = out[0];
+            else
+                cd.addTempWireBundle(temp2);
+
+            for (u64 j = 0; j < size; ++j)
+            {
+                cd.addGate(
+                    temp[2 * j + 0],
+                    temp[2 * j + 1],
+                    oc::GateType::And,
+                    temp2[j]
+                );
+            }
+
+            temp = std::move(temp2);
+        }
+        return cd;
     }
 
     macoro::task<> OmJoin::getControlBits(
@@ -279,10 +306,10 @@ namespace secJoin
             const oc::BetaBundle& left,
             const oc::BetaBundle& right,
             oc::BetaBundle& out)
-            {
-                for (u64 i = 0; i < left.size(); ++i)
-                    c.addCopy(left[i], out[i]);
-            };
+        {
+            for (u64 i = 0; i < left.size(); ++i)
+                c.addCopy(left[i], out[i]);
+        };
     }
 
     macoro::task<> print(
@@ -447,6 +474,7 @@ namespace secJoin
         MC_AWAIT(sort.genPerm(keys, sPerm, ole, sock));
         setTimePoint("sort");
 
+        //std::cout << "genPerm done " << LOCATION << std::endl;
         // gather all of the columns from the left table and concatinate them
         // together. Append dummy rows after that. Then add the column of keys
         // to that. So it will look something like:
@@ -467,6 +495,7 @@ namespace secJoin
         MC_AWAIT(sPerm.apply(data, temp, prng, sock, ole, true));
         std::swap(data, temp);
         setTimePoint("applyInv-sort");
+        //std::cout << "Perm::apply done " << LOCATION << std::endl;
 
         if (mInsecurePrint)
             MC_AWAIT(print(data, controlBits, sock, (int)ole.mRole, "sort", offsets));
@@ -476,6 +505,7 @@ namespace secJoin
         // right table and has a matching key from the left table.
         MC_AWAIT(getControlBits(data, keyOffset, keys.bitsPerEntry(), sock, controlBits, ole));
         setTimePoint("control");
+        //std::cout << "controlBits done " << LOCATION << std::endl;
 
         // reshape data so that the key at then end of each row are discarded.
         offsets.pop_back();
@@ -495,6 +525,7 @@ namespace secJoin
         std::swap(data, temp);
         setTimePoint("duplicate");
 
+        //std::cout << "AggTree done " << LOCATION << std::endl;
 
         if (mInsecurePrint)
             MC_AWAIT(print(data, controlBits, sock, (int)ole.mRole, "agg", offsets));
@@ -502,6 +533,7 @@ namespace secJoin
 
         MC_AWAIT(updateActiveFlag(data, controlBits, temp, ole, sock));
         std::swap(data, temp);
+        //std::cout << "Active done " << LOCATION << std::endl;
 
         if (mInsecurePrint)
             MC_AWAIT(print(data, controlBits, sock, (int)ole.mRole, "isActive", offsets));
@@ -522,6 +554,9 @@ namespace secJoin
         MC_AWAIT(sPerm.apply(data, temp, prng, sock, ole, false));
         std::swap(data, temp);
         setTimePoint("apply-sort");
+
+
+        //std::cout << "Perm::Apply inv done " << LOCATION << std::endl;
 
 
         if (mInsecurePrint)
