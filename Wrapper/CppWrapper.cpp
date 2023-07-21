@@ -1,6 +1,5 @@
 #include "CppWrapper.h"
-#include "state.h"
-#include "secure-join/Util/CSVParser.h"
+
 
 namespace secJoin
 {
@@ -13,10 +12,17 @@ namespace secJoin
     State* initState(std::string& csvPath, std::string& visaMetaDataPath, std::string& clientMetaDataPath,
         std::string& visaJoinCols, std::string& clientJoinCols, std::string& selectVisaCols,
         std::string& selectClientCols, bool isUnique,
-        bool verbose, bool mock)
+        bool verbose, bool mock, bool debug)
     {
         State* cState = new State;
         oc::u64 lRowCount = 0, rRowCount = 0;
+
+        // if(debug)
+        // {
+        //     cState->mProtocol = 
+        //         validateCols(visaJoinCols, clientJoinCols, selectVisaCols, selectClientCols, 
+        //                     cState->mSock, isUnique) | macoro::make_eager();
+        // }
 
 
         // Current assumption are that Visa always provides table with unique keys 
@@ -51,7 +57,7 @@ namespace secJoin
         }
 
         // Initializing the join protocol
-        cState->mPrng.SetSeed(oc::ZeroBlock); // Make Change
+        cState->mPrng.SetSeed(oc::sysRandomSeed());
         cState->mJoin.mInsecurePrint = verbose;
         cState->mJoin.mInsecureMockSubroutines = mock;
 
@@ -68,6 +74,11 @@ namespace secJoin
                 cState->mShareTable, cState->mPrng, cState->mOle, cState->mSock) | macoro::make_eager();
 
         return cState;
+
+    }
+
+    void validateColumns()
+    {
 
     }
 

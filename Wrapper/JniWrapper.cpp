@@ -16,9 +16,8 @@ JNIEXPORT void JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_testApi
 JNIEXPORT jlong JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_initState
 (JNIEnv* env, jobject obj, jstring csvPath, jstring visaMetaDataPath, jstring clientMetaDataPath,
   jstring joinVisaCols, jstring joinClientCols, jstring selectVisaCols, jstring selectClientCols,
-  jboolean isUnique)
+  jboolean isUnique, jboolean verbose, jboolean mock, jboolean debug)
 {
-
   std::string cppCSVPath = env->GetStringUTFChars(csvPath, NULL);
   std::string cppVisaMetaDataPath = env->GetStringUTFChars(visaMetaDataPath, NULL);
   std::string cppClientMetaDataPath = env->GetStringUTFChars(clientMetaDataPath, NULL);
@@ -29,7 +28,7 @@ JNIEXPORT jlong JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_initState
 
   static_assert(sizeof(jlong) == sizeof(secJoin::State*), "jlong must be pointer size");
   return (jlong)secJoin::initState(cppCSVPath, cppVisaMetaDataPath, cppClientMetaDataPath, cppVisaJoinCols,
-    cppClientJoinCols, cppselectVisaCols, cppselectClientCols, isUnique);
+    cppClientJoinCols, cppselectVisaCols, cppselectClientCols, isUnique, verbose, mock, debug);
 
 }
 

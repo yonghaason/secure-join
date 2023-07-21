@@ -21,13 +21,14 @@ void OmJoin_wrapper_test(const oc::CLP& cmd)
     bool isUnique = true;
     bool verbose = cmd.isSet("v");
     bool mock = cmd.isSet("mock");
+    bool debug = cmd.isSet("debug");
 
     secJoin::State* visaState = secJoin::initState(visaCsvPath, visaMetaDataPath, clientMetaDataPath, joinVisaCols,
-        joinClientCols, selectVisaCols, selectClientCols, isUnique, verbose, mock);
+        joinClientCols, selectVisaCols, selectClientCols, isUnique, verbose, mock, debug);
 
 
     secJoin::State* bankState = secJoin::initState(bankCsvPath, visaMetaDataPath, clientMetaDataPath, joinVisaCols,
-        joinClientCols, selectVisaCols, selectClientCols, !isUnique, verbose, mock);
+        joinClientCols, selectVisaCols, selectClientCols, !isUnique, verbose, mock, debug);
 
     // auto select = visaState->selectCols;
     std::vector<secJoin::ColRef> select;
