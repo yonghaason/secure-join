@@ -54,6 +54,7 @@ set(SRCS
 	CSVParser_Test.cpp
 	OmJoin_Test.cpp
 	CWrapper_Test.cpp
+    Average_Test.cpp
 	)
 
 	

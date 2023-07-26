@@ -19,6 +19,7 @@
 #include "AggTree_Tests.h"
 #include "OmJoin_Test.h"
 #include "CWrapper_Test.h"
+#include "Average_Test.h"
 
 namespace secJoin_Tests
 {
@@ -100,6 +101,9 @@ namespace secJoin_Tests
             t.add("OmJoin_join_Test1                             ", OmJoin_join_Test1);
             t.add("OmJoin_join_round_Test                        ", OmJoin_join_round_Test);
             t.add("OmJoin_wrapper_test                           ", OmJoin_wrapper_test);
+
+            t.add("Average_concatColumns_Test                    ", Average_concatColumns_Test);
+            
 
         });
 }
