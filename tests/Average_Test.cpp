@@ -69,3 +69,51 @@ void Average_concatColumns_Test()
 
     
 }
+
+
+
+void Average_getControlBits_Test()
+{
+    u64 n = 342;
+    u64 keyBitCount = 21;
+
+    auto sock = coproto::LocalAsyncSocket::makePair();
+
+    BinMatrix keys(n, keyBitCount), kk[2], cc[2];
+    PRNG prng(oc::ZeroBlock);
+    prng.get(keys.data(), keys.size());
+
+    std::vector<u8> exp(n);
+    for (u64 i = 1; i < n; ++i)
+    {
+        exp[i] = prng.getBit();
+        if (exp[i])
+        {
+            memcpy(keys.data(i), keys.data(i - 1), keys.cols());
+        }
+    }
+
+    share(keys, kk[0], kk[1], prng);
+
+    OleGenerator ole0, ole1;
+    ole0.fakeInit(OleGenerator::Role::Sender);
+    ole1.fakeInit(OleGenerator::Role::Receiver);
+
+    auto r = macoro::sync_wait(macoro::when_all_ready(
+        Average::getControlBits( kk[0], sock[0] ,cc[0], ole0),
+        Average::getControlBits( kk[1], sock[1] ,cc[1], ole1)));
+
+    std::get<0>(r).result();
+    std::get<1>(r).result();
+
+    auto c = reveal(cc[0], cc[1]);
+
+    if (c.mData(0))
+        throw RTE_LOC;
+    for (u64 i = 1; i < n; ++i)
+    {
+        auto act = c(i);
+        if (exp[i] != act)
+            throw RTE_LOC;
+    }
+}

@@ -103,6 +103,7 @@ namespace secJoin_Tests
             t.add("OmJoin_wrapper_test                           ", OmJoin_wrapper_test);
 
             t.add("Average_concatColumns_Test                    ", Average_concatColumns_Test);
+            t.add("Average_getControlBits_Test                   ", Average_getControlBits_Test);
             
 
         });

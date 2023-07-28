@@ -15,8 +15,11 @@ namespace secJoin
         static void concatColumns(ColRef groupByCol, std::vector<ColRef> average, BinMatrix& ret,
             std::vector<OmJoin::Offset>& offsets);
 
-        // static macoro::task<> avg(ColRef groupByCol, ColRef avgCol, SharedTable& out,
-        //     oc::PRNG& prng, OleGenerator& ole, coproto::Socket& sock);
+        macoro::task<> avg(ColRef groupByCol, std::vector<ColRef> avgCol, SharedTable& out,
+            oc::PRNG& prng, OleGenerator& ole, coproto::Socket& sock);
+
+        static macoro::task<> getControlBits(BinMatrix& keys, coproto::Socket& sock, BinMatrix& out,
+        OleGenerator& ole);
 
     
     

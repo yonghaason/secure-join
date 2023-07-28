@@ -3,3 +3,4 @@
 #include "secure-join/Util/Util.h"
 
 void Average_concatColumns_Test();
+void Average_getControlBits_Test();
