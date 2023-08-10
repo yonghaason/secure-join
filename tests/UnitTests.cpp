@@ -104,6 +104,7 @@ namespace secJoin_Tests
 
             t.add("Average_concatColumns_Test                    ", Average_concatColumns_Test);
             t.add("Average_getControlBits_Test                   ", Average_getControlBits_Test);
+            t.add("Average_avg_Test                              ", Average_avg_Test);
             
 
         });

@@ -441,6 +441,50 @@ namespace secJoin
         // return res;
     }
 
+    // Table average(ColRef groupByCol,
+    //             std::vector<ColRef> avgCol)
+    // {
+    //     // Input Parameters:
+    //     // ColRef Table
+    //     // ColRef GroupBy
+    //     // std::vector<ColRef> average
+    
+    //     // Output
+    //     // Table out 
+
+    //     // auto LPerm = sort(l);
+
+
+    //     /* Sudo Code
+
+    //     Construct the out table
+
+    //     check if the groupby cols is zero
+    //     if it is zero then return
+
+    //     sort()
+
+    //     concat column: Add one more columns of 1's
+
+    //     prev = groupby[0]
+    //     for()
+    //     {
+    //         check with prev
+    //             count++ sum++
+
+    //         if(prev != cur)
+    //             dump everything
+
+    //         if(i == last - 1)
+    //             dump everything
+
+    //     }
+        
+        
+    //     */
+
+    // }
+
     Table join(const ColRef& l, const ColRef& r, std::vector<ColRef> select)
     {
         // std::unordered_map<oc::block, u64>

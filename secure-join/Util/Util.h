@@ -251,6 +251,7 @@ namespace secJoin
     {
         for (int i = 0; i < v1.rows(); i++)
         {
+            std::cout << i << ": ";
             std::cout << hex(v1[i]) << " ";
             std::cout << std::endl;
         }

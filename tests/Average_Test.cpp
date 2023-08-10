@@ -26,8 +26,12 @@ void Average_concatColumns_Test()
     averageCols.emplace_back(t0[0]);
     averageCols.emplace_back(t0[1]);
     averageCols.emplace_back(t0[2]);
+
+
+    OleGenerator ole;
+    ole.fakeInit(OleGenerator::Role::Receiver);
      
-    Average::concatColumns( t0[0], averageCols, y, offsets);
+    Average::concatColumns( t0[0], averageCols, y, offsets, ole);
     BinMatrix ones(n0, sizeof(oc::u64) * 8);
     for(oc::u64 i = 0; i < n0; i++)
             ones(i,0) = 1;
@@ -116,4 +120,61 @@ void Average_getControlBits_Test()
         if (exp[i] != act)
             throw RTE_LOC;
     }
+}
+
+void Average_avg_Test()
+{
+    u64 nTb = 20;
+    Table tb, tbShare;
+
+    tb.init(nTb, { {
+        {"L1", TypeID::IntID, 12},
+        {"L2", TypeID::IntID, 16}
+    } });
+
+    tbShare.init(nTb, { {
+        {"L1", TypeID::IntID, 12},
+        {"L2", TypeID::IntID, 16}
+    } });
+
+
+    for (u64 i = 0; i < nTb; ++i)
+    {
+        tb.mColumns[0].mData.mData(i, 0) = i % 5;
+        tb.mColumns[1].mData.mData(i, 0) = i % 4;  // i % 4
+        tb.mColumns[1].mData.mData(i, 1) = i % 4;
+    }
+
+
+    Average avg1, avg2;
+
+    OleGenerator ole0, ole1;
+    ole0.fakeInit(OleGenerator::Role::Sender);
+    ole1.fakeInit(OleGenerator::Role::Receiver);
+
+    PRNG prng0(oc::ZeroBlock);
+    PRNG prng1(oc::OneBlock);
+    auto sock = coproto::LocalAsyncSocket::makePair();
+
+    Table out[2];
+
+
+    // Call the average function
+
+    auto r = macoro::sync_wait(macoro::when_all_ready(
+        avg1.avg(tb[0], { tb[1] }, out[0], prng0, ole0, sock[0]),
+        avg2.avg(tbShare[0], { tbShare[1] }, out[1], prng1, ole1, sock[1])
+    ));
+    std::get<1>(r).result();
+    std::get<0>(r).result();
+
+    auto res = reveal(out[0], out[1]);
+
+
+    std::cout << "Printing out 0 column" << std::endl;
+    printMatrix(res.mColumns[0].mData.mData);
+    std::cout << "Printing out 1 column" << std::endl;
+    printMatrix(res.mColumns[1].mData.mData);
+    std::cout << "Printing out 2 column" << std::endl;
+    printMatrix(res.mColumns[2].mData.mData);
 }

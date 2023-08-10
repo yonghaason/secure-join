@@ -4,3 +4,4 @@
 
 void Average_concatColumns_Test();
 void Average_getControlBits_Test();
+void Average_avg_Test();
