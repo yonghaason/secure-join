@@ -353,6 +353,7 @@ void OmJoin_join_Test(const oc::CLP& cmd)
 
     if (cmd.isSet("timing"))
         std::cout << timer << std::endl;
+
 }
 
 
@@ -457,6 +458,7 @@ void OmJoin_join_Test1(const oc::CLP& cmd)
 
     if (cmd.isSet("timing"))
         std::cout << timer << std::endl;
+
 }
 
 

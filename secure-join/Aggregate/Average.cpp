@@ -282,7 +282,7 @@ namespace secJoin{
                 nOutRows++;
         }
 
-
+        // populateOutTable() can be used here
         u64 nAvg = avgCol.size();
         out.mColumns.resize(nAvg + 2); // Average Cols + Group By Cols + Count Col
 

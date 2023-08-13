@@ -1,5 +1,6 @@
 #include "Average_Test.h"
 
+
 using namespace secJoin;
 
 void Average_concatColumns_Test()
@@ -122,31 +123,43 @@ void Average_getControlBits_Test()
     }
 }
 
-void Average_avg_Test()
+void Average_avg_Test(const oc::CLP& cmd)
 {
-    u64 nTb = 20;
+    u64 nTb = 333;
     Table tb, tbShare;
+
+    bool printSteps = cmd.isSet("print");
+    // bool mock = !cmd.isSet("noMock");
+    bool mock = true;
 
     tb.init(nTb, { {
         {"L1", TypeID::IntID, 12},
-        {"L2", TypeID::IntID, 16}
+        {"L2", TypeID::IntID, 16},
+        {"L3", TypeID::IntID, 16}
     } });
 
     tbShare.init(nTb, { {
         {"L1", TypeID::IntID, 12},
-        {"L2", TypeID::IntID, 16}
+        {"L2", TypeID::IntID, 16},
+        {"L3", TypeID::IntID, 16}
     } });
-
 
     for (u64 i = 0; i < nTb; ++i)
     {
-        tb.mColumns[0].mData.mData(i, 0) = i % 5;
-        tb.mColumns[1].mData.mData(i, 0) = i % 4;  // i % 4
+        tb.mColumns[0].mData.mData(i, 0) = i % 5 ;
+        tb.mColumns[1].mData.mData(i, 0) = i % 4;
         tb.mColumns[1].mData.mData(i, 1) = i % 4;
+        tb.mColumns[2].mData.mData(i, 0) = i % 4;
+        tb.mColumns[2].mData.mData(i, 1) = i % 4;
     }
 
-
     Average avg1, avg2;
+
+    avg1.mInsecurePrint = printSteps;
+    avg2.mInsecurePrint = printSteps;
+
+    avg1.mInsecureMockSubroutines = mock;
+    avg2.mInsecureMockSubroutines = mock;
 
     OleGenerator ole0, ole1;
     ole0.fakeInit(OleGenerator::Role::Sender);
@@ -158,23 +171,22 @@ void Average_avg_Test()
 
     Table out[2];
 
-
-    // Call the average function
-
     auto r = macoro::sync_wait(macoro::when_all_ready(
-        avg1.avg(tb[0], { tb[1] }, out[0], prng0, ole0, sock[0]),
-        avg2.avg(tbShare[0], { tbShare[1] }, out[1], prng1, ole1, sock[1])
+        avg1.avg(tb[0], { tb[1], tb[2] }, out[0], prng0, ole0, sock[0]),
+        avg2.avg(tbShare[0], { tbShare[1], tbShare[2] }, out[1], prng1, ole1, sock[1])
     ));
     std::get<1>(r).result();
     std::get<0>(r).result();
 
     auto res = reveal(out[0], out[1]);
+    
+    auto exp = average(tb[0], { tb[1], tb[2] });
 
-
-    std::cout << "Printing out 0 column" << std::endl;
-    printMatrix(res.mColumns[0].mData.mData);
-    std::cout << "Printing out 1 column" << std::endl;
-    printMatrix(res.mColumns[1].mData.mData);
-    std::cout << "Printing out 2 column" << std::endl;
-    printMatrix(res.mColumns[2].mData.mData);
+    if (res != exp)
+    {
+        std::cout << "exp \n" << exp << std::endl;
+        std::cout << "act \n" << res << std::endl;
+        std::cout << "ful \n" << reveal(out[0], out[1], false) << std::endl;
+        throw RTE_LOC;
+    }
 }
