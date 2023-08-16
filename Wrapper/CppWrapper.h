@@ -5,6 +5,8 @@
 #include "Debug.h"
 #include "state.h"
 #include "secure-join/Util/CSVParser.h"
+#include "nlohmann/json.hpp"
+#include "Defines.h"
 
 namespace secJoin
 {
@@ -16,11 +18,12 @@ namespace secJoin
         std::string& selectClientCols, bool isUnique,
         bool verbose, bool mock, bool debug);
 
-    std::vector<u8> runJoin(State* stateAddress, std::vector<u8>& buff);
+    std::vector<u8> runProtocol(State* stateAddress, std::vector<u8>& buff);
     void releaseState(State* memoryAddress);
     bool isProtocolReady(State* stateAddress);
-    void getOtherShare(State* stateAddress, bool isUnique);
+    void getOtherShare(State* stateAddress, bool isUnique, bool isAgg);
     void getJoinTable(State* stateAddress, std::string csvPath, std::string metaDataPath, bool isUnique);
+    void aggFunc(State* cState, std::string jsonString);
 
 }
 

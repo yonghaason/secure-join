@@ -1,9 +1,8 @@
 #include "CppWrapper.h"
 
-
 namespace secJoin
 {
-
+    using json = nlohmann::json;
     void testApi(std::string& str)
     {
         std::cout << str << std::endl;
@@ -71,7 +70,7 @@ namespace secJoin
 
         cState->mProtocol =
             cState->mJoin.join(lJoinCol, rJoinCol, selectCols,
-                cState->mShareTable, cState->mPrng, cState->mOle, cState->mSock) | macoro::make_eager();
+                cState->mJoinTable, cState->mPrng, cState->mOle, cState->mSock) | macoro::make_eager();
 
         return cState;
 
@@ -83,7 +82,7 @@ namespace secJoin
     }
 
 
-    std::vector<oc::u8> runJoin(State* cState, std::vector<oc::u8>& buff)
+    std::vector<oc::u8> runProtocol(State* cState, std::vector<oc::u8>& buff)
     {
         cState->mSock.processInbound(buff);
 
@@ -111,17 +110,22 @@ namespace secJoin
 
     }
 
-    void getOtherShare(State* cState, bool isUnique)
+    void getOtherShare(State* cState, bool isUnique, bool isAgg)
     {
+
+        Table& table = cState->mJoinTable;
+        if(isAgg)
+            table = cState->mAggTable;
+
         // Assuming Visa always receives the client's share
         if (isUnique)
         {
-            cState->mProtocol = revealLocal(cState->mShareTable, cState->mSock, cState->mOutTable)
+            cState->mProtocol = revealLocal(cState->mJoinTable, cState->mSock, cState->mOutTable)
                 | macoro::make_eager();
         }
         else
         {
-            cState->mProtocol = revealRemote(cState->mShareTable, cState->mSock)
+            cState->mProtocol = revealRemote(cState->mJoinTable, cState->mSock)
                 | macoro::make_eager();
         }
     }
@@ -130,6 +134,39 @@ namespace secJoin
     {
         writeFileInfo(metaDataPath, cState->mOutTable);
         writeFileData(csvPath, cState->mOutTable);
+    }
+
+
+    void aggFunc(State* cState, std::string jsonString)
+    {
+        nlohmann::json j = json::parse(jsonString);
+        
+        if(!j[AVERAGE_JSON_LITERAL].empty())
+        {
+            if(j[GROUP_BY_JSON_LITERAL].empty())
+            {
+                std::string temp("Group By Table not present in json for Average operation\n");
+                throw std::runtime_error(temp + LOCATION);
+            }
+
+            std::vector<secJoin::ColRef> avgCols;
+            std::string avgColNm;
+            std::string temp = j[AVERAGE_JSON_LITERAL];
+            std::stringstream avgColNmList(temp);
+            while (getline(avgColNmList, avgColNm, ','))
+                avgCols.emplace_back(cState->mJoinTable[avgColNm]);
+
+            
+            std::string grpByColNm = j[GROUP_BY_JSON_LITERAL];
+            secJoin::ColRef grpByCol = cState->mJoinTable[grpByColNm];
+
+
+            cState->mProtocol =
+            cState->mAvg.avg( grpByCol, avgCols, cState->mAggTable,
+                cState->mPrng, cState->mOle, cState->mSock) | macoro::make_eager();
+    
+        }
+
     }
 
 }

@@ -285,7 +285,6 @@ namespace secJoin
         {
             MC_AWAIT(sock.recv(remoteShare.mColumns[i].mData.mData));
         }
-
         if (share.mIsActive.size() > 0)
         {
             remoteShare.mIsActive.resize(share.mIsActive.size());
@@ -305,7 +304,6 @@ namespace secJoin
         {
             MC_AWAIT(sock.send(coproto::copy(share.mColumns[i].mData.mData)));
         }
-
 
         // std::move() will the delete the local share
         if (share.mIsActive.size() > 0)

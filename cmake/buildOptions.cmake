@@ -21,11 +21,16 @@ EVAL(FETCH_LIBOTE_AUTO
 	(DEFINED FETCH_LIBOTE AND FETCH_LIBOTE) OR
 	((NOT DEFINED FETCH_LIBOTE) AND (FETCH_AUTO)))
 
+EVAL(FETCH_JSON_AUTO 
+	(DEFINED FETCH_JSON AND FETCH_JSON) OR
+	((NOT DEFINED FETCH_JSON) AND (FETCH_AUTO)))
+
 
 message(STATUS "secure-join options\n=======================================================")
 
 message(STATUS "Option: FETCH_AUTO                   = ${FETCH_AUTO}")
 message(STATUS "Option: FETCH_LIBOTE                 = ${FETCH_LIBOTE}\n")
+message(STATUS "Option: FETCH_JSON                   = ${FETCH_JSON}\n")
 message(STATUS "Option: NO_CMAKE_SYSTEM_PATH         = ${NO_CMAKE_SYSTEM_PATH}\n")
 
 message(STATUS "Option: SECUREJOIN_ENABLE_JNI        = ${SECUREJOIN_ENABLE_JNI}")

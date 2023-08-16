@@ -32,7 +32,7 @@ JNIEXPORT jlong JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_initState
 
 }
 
-JNIEXPORT jbyteArray JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_runJoin
+JNIEXPORT jbyteArray JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_runProtocol
 (JNIEnv* env, jobject obj, jlong stateAddress, jbyteArray data, jlong dataSize)
 {
 
@@ -42,11 +42,11 @@ JNIEXPORT jbyteArray JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_runJo
   std::vector<oc::u8> buff(dataSize);
   memcpy(buff.data(), elements, dataSize);
 
-  auto b = secJoin::runJoin((secJoin::State*)stateAddress, buff);
+  auto b = secJoin::runProtocol((secJoin::State*)stateAddress, buff);
 
   jbyteArray byteArray = (*env).NewByteArray(b.size());
   (*env).SetByteArrayRegion(byteArray, 0, b.size(), reinterpret_cast<const signed char*>(b.data()));
-  std::cout << "In the C code, the size of byte array is " << b.size() << std::endl;
+  // std::cout << "In the C code, the size of byte array is " << b.size() << std::endl;
   return byteArray;
 }
 
@@ -67,13 +67,13 @@ JNIEXPORT jboolean JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_isProto
 }
 
 JNIEXPORT void JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_getOtherShare
-(JNIEnv* env, jobject obj, jlong stateAddress, jboolean isUnique)
+(JNIEnv* env, jobject obj, jlong stateAddress, jboolean isUnique, jboolean isAgg)
 {
-  secJoin::getOtherShare((secJoin::State*)stateAddress, isUnique);
+  secJoin::getOtherShare((secJoin::State*)stateAddress, isUnique, isAgg);
 }
 
 
-// Need a method to print the share into a file 
+
 JNIEXPORT void JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_getJoinTable
 (JNIEnv* env, jobject obj, jlong stateAddress, jstring csvPath,
   jstring metaDataPath, jboolean isUnique)
@@ -83,4 +83,14 @@ JNIEXPORT void JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_getJoinTabl
   std::string cppMetaPath = env->GetStringUTFChars(metaDataPath, NULL);
 
   secJoin::getJoinTable((secJoin::State*)stateAddress, cppCSVPath, cppMetaPath, isUnique);
+}
+
+
+JNIEXPORT void JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_aggFunc
+(JNIEnv* env, jobject obj, jlong stateAddress, jstring jsonString)
+{
+
+  std::string cppJsonString = env->GetStringUTFChars(jsonString, NULL);
+
+  secJoin::aggFunc((secJoin::State*)stateAddress, cppJsonString);
 }
