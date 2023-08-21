@@ -29,7 +29,7 @@ set(SRCS
     "Util/Trim.cpp"
     "Util/CSVParser.cpp"
     
-    "join/Table.cpp"
+    "Join/Table.cpp"
     "Join/OmJoin.cpp"
     )
 
