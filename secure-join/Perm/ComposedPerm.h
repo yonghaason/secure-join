@@ -17,10 +17,20 @@ namespace secJoin
         bool mIsSecure = true;
 
         ComposedPerm() = default;
-        ComposedPerm(const ComposedPerm&) = default;
-        ComposedPerm(ComposedPerm&&) noexcept = default;
-        ComposedPerm& operator=(const ComposedPerm&) = default;
-        ComposedPerm& operator=(ComposedPerm&&) noexcept = default;
+        ComposedPerm(const ComposedPerm&) = delete;
+        ComposedPerm(ComposedPerm&& o) noexcept
+        {
+            *this = std::move(o);
+        }
+        ComposedPerm& operator=(const ComposedPerm&) = delete;
+        ComposedPerm& operator=(ComposedPerm&& o) noexcept
+        {
+            mPartyIdx = std::exchange(o.mPartyIdx, -1);
+            mPerm = std::move(o.mPerm);
+            mDlpnPerm = std::move(o.mDlpnPerm);
+            mIsSecure = std::exchange(o.mIsSecure, true);
+            return *this;
+        }
 
         //initializing the permutation
         ComposedPerm(Perm perm, u8 partyIdx)
@@ -131,5 +141,8 @@ namespace secJoin
             throw RTE_LOC;
         }
     };
+
+    static_assert(std::is_move_constructible<ComposedPerm>::value, "ComposedPerm is missing its move ctor");
+    static_assert(std::is_move_assignable<ComposedPerm>::value, "ComposedPerm is missing its move ctor");
 
 }

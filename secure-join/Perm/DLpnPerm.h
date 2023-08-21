@@ -17,10 +17,22 @@ namespace secJoin
         oc::Matrix<u8> mA, mDelta, mB;
 
         DLpnPerm() = default;
-        DLpnPerm(const DLpnPerm&) = default;
-        DLpnPerm(DLpnPerm&&) noexcept = default;
-        DLpnPerm& operator=(const DLpnPerm&) = default;
-        DLpnPerm& operator=(DLpnPerm&&) noexcept = default;
+        DLpnPerm(const DLpnPerm&) = delete;
+        DLpnPerm& operator=(const DLpnPerm&) = delete;
+
+        DLpnPerm(DLpnPerm&& o) noexcept
+        {
+            *this = std::move(o);
+        }
+        DLpnPerm& operator=(DLpnPerm&& o) noexcept
+        {
+            mRecver = std::move(o.mRecver);
+            mSender = std::move(o.mSender);
+            mA = std::move(o.mA);
+            mDelta = std::move(o.mDelta);
+            mB = std::move(o.mB);
+            return *this;
+        }
 
         // Sender apply: permute a remote x by our pi and get shares as output.
         template <typename T>
