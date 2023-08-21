@@ -20,10 +20,23 @@ namespace secJoin
         bool isSetup() const { return mIsSetup; }
 
         AdditivePerm() = default;
-        AdditivePerm(const AdditivePerm&) = default;
-        AdditivePerm(AdditivePerm&&) noexcept = default;
-        AdditivePerm& operator=(const AdditivePerm&) = default;
-        AdditivePerm& operator=(AdditivePerm&&) noexcept = default;
+        AdditivePerm(const AdditivePerm&) = delete;
+        AdditivePerm(AdditivePerm&& o) noexcept 
+        {
+            *this = std::move(o);
+        }
+
+
+        AdditivePerm& operator=(const AdditivePerm& o) = delete;
+        AdditivePerm& operator=(AdditivePerm&& o) noexcept
+        {
+            mShare = std::move(o.mShare);
+            mPi = std::move(o.mPi);
+            mRho = std::move(o.mRho);
+            mIsSetup = std::exchange(o.mIsSetup, 0);
+            mInsecureMock = std::exchange(o.mInsecureMock, 0);
+            return *this;
+        }
 
         AdditivePerm(span<u32> shares, PRNG& prng, u8 partyIdx);
         void init(u64 size);
@@ -106,7 +119,8 @@ namespace secJoin
             bool inv);
     };
 
-
+    static_assert(std::is_move_constructible<AdditivePerm>::value, "AdditivePerm is missing its move ctor");
+    static_assert(std::is_move_assignable<AdditivePerm>::value, "AdditivePerm is missing its move ctor");
 
     template <typename T>
     macoro::task<> AdditivePerm::apply(

@@ -132,7 +132,7 @@ namespace secJoin
             memcpy(&bytes[0], &mN, sizeof(u64)); bytes = bytes.subspan(sizeof(u64));
             memcpy(&bytes[0], &mSequence, sizeof(u64)); bytes = bytes.subspan(sizeof(u64));
             if (mOp.index() == 3)
-                bytes[0] = mOp.get<3>().mBitCount;
+                bytes[0] = std::get<3>(mOp).mBitCount;
             else
                 bytes[0] = 0;
         }
@@ -161,7 +161,7 @@ namespace secJoin
                 break;
             case 3:
                 mOp.emplace<3>();
-                mOp.get<3>().mBitCount = bytes[0];
+                std::get<3>(mOp).mBitCount = bytes[0];
                 break;
             default:
                 throw RTE_LOC;

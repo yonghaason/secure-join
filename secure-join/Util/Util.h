@@ -249,7 +249,7 @@ namespace secJoin
 
     inline void printMatrix(const oc::Matrix<oc::u8>& v1)
     {
-        for (int i = 0; i < v1.rows(); i++)
+        for (auto i = 0ull; i < v1.rows(); i++)
         {
             std::cout << i << ": ";
             std::cout << hex(v1[i]) << " ";

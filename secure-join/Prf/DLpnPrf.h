@@ -92,10 +92,23 @@ namespace secJoin
 
 
         DLpnPrfSender() = default;
-        DLpnPrfSender(const DLpnPrfSender&) = default;
-        DLpnPrfSender(DLpnPrfSender&&) noexcept = default;
-        DLpnPrfSender& operator=(const DLpnPrfSender&) = default;
-        DLpnPrfSender& operator=(DLpnPrfSender&&) noexcept = default;
+        DLpnPrfSender(const DLpnPrfSender&) = delete;
+        DLpnPrfSender& operator=(const DLpnPrfSender&) = delete;
+        DLpnPrfSender(DLpnPrfSender&& o) noexcept
+        {
+            *this = std::move(o);
+        }
+        DLpnPrfSender& operator=(DLpnPrfSender&& o) noexcept
+        {
+
+            mKeyOTs = std::move(o.mKeyOTs);
+            mPrf = std::move(o.mPrf);
+            mU= std::move(o.mU);
+            mH = std::move(o.mH);
+            mIsKeyOTsSet = std::exchange(o.mIsKeyOTsSet, false);
+            mIsKeySet = std::exchange(o.mIsKeySet, false);
+            return *this;
+        }
 
         bool hasKeyOts() const {return mIsKeyOTsSet;}
 
@@ -144,10 +157,21 @@ namespace secJoin
         u64 mPrintJ = -1;
 
         DLpnPrfReceiver() = default;
-        DLpnPrfReceiver(const DLpnPrfReceiver&) = default;
-        DLpnPrfReceiver(DLpnPrfReceiver&&)  = default;
-        DLpnPrfReceiver& operator=(const DLpnPrfReceiver&) = default;
-        DLpnPrfReceiver& operator=(DLpnPrfReceiver&&) noexcept = default;
+        DLpnPrfReceiver(const DLpnPrfReceiver&) = delete;
+        DLpnPrfReceiver(DLpnPrfReceiver&& o)
+        {
+            *this = std::move(o);
+        }
+        DLpnPrfReceiver& operator=(const DLpnPrfReceiver&) = delete;
+        DLpnPrfReceiver& operator=(DLpnPrfReceiver&& o) noexcept
+        {
+            mKeyOTs = std::move(o.mKeyOTs);
+            mU = std::move(o.mU);
+            mH = std::move(o.mH);
+            mIsKeyOTsSet = std::exchange(o.mIsKeyOTsSet, 0);
+            mPrf = std::move(o.mPrf);
+            return *this;
+        }
 
         bool hasKeyOts() const {return mIsKeyOTsSet;}
 
