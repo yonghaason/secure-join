@@ -103,8 +103,8 @@ namespace secJoin
 
             mKeyOTs = std::move(o.mKeyOTs);
             mPrf = std::move(o.mPrf);
-            mU= std::move(o.mU);
-            mH = std::move(o.mH);
+            // mU= std::move(o.mU);
+            // mH = std::move(o.mH);
             mIsKeyOTsSet = std::exchange(o.mIsKeyOTsSet, false);
             mIsKeySet = std::exchange(o.mIsKeySet, false);
             return *this;
@@ -166,8 +166,8 @@ namespace secJoin
         DLpnPrfReceiver& operator=(DLpnPrfReceiver&& o) noexcept
         {
             mKeyOTs = std::move(o.mKeyOTs);
-            mU = std::move(o.mU);
-            mH = std::move(o.mH);
+            // mU = std::move(o.mU);
+            // mH = std::move(o.mH);
             mIsKeyOTsSet = std::exchange(o.mIsKeyOTsSet, 0);
             mPrf = std::move(o.mPrf);
             return *this;
