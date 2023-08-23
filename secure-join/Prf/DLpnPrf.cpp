@@ -304,6 +304,12 @@ namespace secJoin
                             auto e16 = (u16 * __restrict)eq;
                             for (u64 j = 0; j < 64; ++j)
                             {
+                                if(iters[j] > (u8*)(buffer[j].data() + buffer[j].size()))
+                                    throw RTE_LOC;
+                                
+                                if( e16[j] > 1)
+                                    throw RTE_LOC;
+
                                 iters[j][0] = t16[j];
                                 iters[j] += e16[j];
                             }
