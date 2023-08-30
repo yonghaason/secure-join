@@ -68,6 +68,8 @@ void OmJoin_wrapper_join_test(const oc::CLP& cmd)
         std::cout << "R \n" << bankState->mRTable << std::endl;
         std::cout << "exp \n" << exp << std::endl;
         std::cout << "act \n" << visaState->mOutTable << std::endl;
+        secJoin::releaseState(visaState);
+        secJoin::releaseState(bankState);
         throw RTE_LOC;
     }
 
@@ -248,6 +250,8 @@ void OmJoin_wrapper_avg_test(const oc::CLP& cmd)
         std::cout << "R \n" << bankState->mRTable << std::endl;
         std::cout << "exp \n" << exp << std::endl;
         std::cout << "act \n" << visaState->mOutTable << std::endl;
+        secJoin::releaseState(visaState);
+        secJoin::releaseState(bankState);
         throw RTE_LOC;
     }
 

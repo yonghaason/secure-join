@@ -238,7 +238,7 @@ namespace secJoin
 
                 static constexpr int batchSize = 16;
                 std::array<std::array<oc::block, 8>, 64> buffer;
-                std::array<u8* __restrict, 64> iters;
+                std::array<u8*, 64> iters;
 
                 for (u64 i = 0; i < n;)
                 {
@@ -300,18 +300,21 @@ namespace secJoin
                             eq[6] = eq[6] & block1;
                             eq[7] = eq[7] & block1;
 
-                            auto t16 = (u16 * __restrict)t;
-                            auto e16 = (u16 * __restrict)eq;
+                            auto t16 = (u16 *)t;
+                            auto e16 = (u16 *)eq;
                             for (u64 j = 0; j < 64; ++j)
                             {
-                                if(iters[j] > (u8*)(buffer[j].data() + buffer[j].size()))
-                                    throw RTE_LOC;
+                                u16 e16j, t16j;
+                                memcpy(&e16j, e16+j, 2);
+                                memcpy(&t16j, t16+j, 2);
+                                // if(iters[j] > (u8*)(buffer[j].data() + buffer[j].size()))
+                                //     throw RTE_LOC;
                                 
-                                if( e16[j] > 1)
-                                    throw RTE_LOC;
+                                // if( e16[j] > 1)
+                                //     throw RTE_LOC;
 
-                                iters[j][0] = t16[j];
-                                iters[j] += e16[j];
+                                iters[j][0] = t16j;
+                                iters[j] += e16j;
                             }
                         }
                     }
