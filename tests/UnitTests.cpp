@@ -100,6 +100,7 @@ namespace secJoin_Tests
             t.add("OmJoin_join_Test                              ", OmJoin_join_Test);
             t.add("OmJoin_join_Test1                             ", OmJoin_join_Test1);
             t.add("OmJoin_join_round_Test                        ", OmJoin_join_round_Test);
+            t.add("OmJoin_join_csv_Test                          ", OmJoin_join_csv_Test);
             t.add("OmJoin_wrapper_join_test                      ", OmJoin_wrapper_join_test);
             t.add("OmJoin_wrapper_avg_test                       ", OmJoin_wrapper_avg_test);
 

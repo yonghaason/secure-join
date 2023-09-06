@@ -11,7 +11,7 @@ namespace secJoin
 	using SharedColumn = Column;
     struct Average
     {
-        bool mInsecurePrint = false, mInsecureMockSubroutines = false;
+        bool mInsecurePrint = false, mInsecureMockSubroutines = false, mPermute = true;
         oc::BetaLibrary::Optimized op = oc::BetaLibrary::Optimized::Depth;
 
 

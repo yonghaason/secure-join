@@ -6,7 +6,6 @@ void OmJoin_wrapper_join_test(const oc::CLP& cmd)
 {
     // std::string str("Hello World!");
     // testApi(str);
-
     std::string rootPath(SEC_JOIN_ROOT_DIRECTORY);
     std::string visaCsvPath = rootPath + "/tests/tables/visa.csv";
     std::string bankCsvPath = rootPath + "/tests/tables/bank.csv";
@@ -167,6 +166,7 @@ void OmJoin_wrapper_avg_test(const oc::CLP& cmd)
     bool verbose = cmd.isSet("v");
     bool mock = cmd.isSet("mock");
     bool debug = cmd.isSet("debug");
+    bool mPermute = false;
 
     secJoin::State* visaState = secJoin::initState(visaCsvPath, visaMetaDataPath, clientMetaDataPath, joinVisaCols,
         joinClientCols, selectVisaCols, selectClientCols, isUnique, verbose, mock, debug);
@@ -202,6 +202,9 @@ void OmJoin_wrapper_avg_test(const oc::CLP& cmd)
 
     // visaState->mAvg.mInsecurePrint = true;
     // bankState->mAvg.mInsecurePrint = true;
+    
+    visaState->mAvg.mPermute = mPermute;
+    bankState->mAvg.mPermute = mPermute;
     secJoin::aggFunc(visaState, jsonString);
     secJoin::aggFunc(bankState, jsonString);
 
@@ -246,14 +249,17 @@ void OmJoin_wrapper_avg_test(const oc::CLP& cmd)
     if (visaState->mOutTable != exp)
     {
 
-        std::cout << "L \n" << visaState->mLTable << std::endl;
-        std::cout << "R \n" << bankState->mRTable << std::endl;
+        // std::cout << "L \n" << visaState->mLTable << std::endl;
+        // std::cout << "R \n" << bankState->mRTable << std::endl;
         std::cout << "exp \n" << exp << std::endl;
         std::cout << "act \n" << visaState->mOutTable << std::endl;
         secJoin::releaseState(visaState);
         secJoin::releaseState(bankState);
         throw RTE_LOC;
     }
+
+    std::cout << "exp \n" << exp << std::endl;
+    std::cout << "act \n" << visaState->mOutTable << std::endl;
 
     secJoin::releaseState(visaState);
     secJoin::releaseState(bankState);

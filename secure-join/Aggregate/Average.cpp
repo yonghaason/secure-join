@@ -212,7 +212,7 @@ namespace secJoin {
 
         // TODO, i dont think this is the right variable name.
         // Should this still be here? is there a better way, if(debug) copy state to members;
-        if (!mInsecureMockSubroutines)
+        if (mPermute)
         {
             perm.init(data.numEntries(), (int)ole.mRole, prng);
 

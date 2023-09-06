@@ -1,4 +1,4 @@
-Rows;70
+Rows;10100
 Date;STRING;10
 PAN;INT;8
 Balance;INT;4
