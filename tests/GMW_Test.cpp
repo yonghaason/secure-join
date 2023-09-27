@@ -188,22 +188,22 @@ namespace secJoin_Tests
         //cmp1.setTriples(a1, b1, c0, d0);
 
         std::vector<block> buff(n);
-        auto iter = buff.data();
-        iter = cmp0.multSendP1(input0.data(), oc::GateType::And, a0.data(), iter);
-        if (iter != buff.data() + buff.size())
+        span<oc::block> iter = buff;
+        iter = cmp0.multSendP1(input0, oc::GateType::And, a0, iter);
+        if (iter.size())
             throw RTE_LOC;
-        iter = buff.data();
-        iter = cmp1.multRecvP2(input1.data(), z1.data(), c0.data(), d0.data(), iter);
+        iter = buff;
+        iter = cmp1.multRecvP2(input1, z1, c0, d0, iter);
 
-        if (iter != buff.data() + buff.size())
+        if (iter.size())
             throw RTE_LOC;
-        iter = buff.data();
-        iter = cmp1.multSendP2(input1.data(), oc::GateType::And, c0.data(), iter);
-        if (iter != buff.data() + buff.size())
+        iter = buff;
+        iter = cmp1.multSendP2(input1, oc::GateType::And, c0, iter);
+        if (iter.size())
             throw RTE_LOC;
-        iter = buff.data();
-        iter = cmp0.multRecvP1(input0.data(), z0.data(), oc::GateType::And, b0.data(), iter);
-        if (iter != buff.data() + buff.size())
+        iter = buff;
+        iter = cmp0.multRecvP1(input0, z0, oc::GateType::And, b0, iter);
+        if (iter.size())
             throw RTE_LOC;
 
         for (u64 i = 0; i < n; i++)
@@ -263,25 +263,25 @@ namespace secJoin_Tests
         //cmp1.setTriples(a1, b1, c0, d0);
 
         std::vector<block> buff(n * 2);
-        auto iter = buff.data();
-        iter = cmp0.multSendP1(x[0].data(), y[0].data(), oc::GateType::And, a0.data(), c1.data(), iter);
+        span<oc::block> iter = buff;
+        iter = cmp0.multSendP1(x[0], y[0], oc::GateType::And, a0, c1, iter);
 
-        if (iter != buff.data() + buff.size())
+        if (iter.size())
             throw RTE_LOC;
-        iter = buff.data();
-        iter = cmp1.multRecvP2(x[1].data(), y[1].data(), z[1].data(), b1.data(), c0.data(), d0.data(), iter);
-        if (iter != buff.data() + buff.size())
+        iter = buff;
+        iter = cmp1.multRecvP2(x[1], y[1], z[1], b1, c0, d0, iter);
+        if (iter.size())
         {
-            std::cout << (iter - buff.data()) << std::endl;
+            std::cout << (iter.size()) << std::endl;
             throw RTE_LOC;
         }
-        iter = buff.data();
-        iter = cmp1.multSendP2(x[1].data(), y[1].data(), a1.data(), c0.data(), iter);
-        if (iter != buff.data() + buff.size())
+        iter = buff;
+        iter = cmp1.multSendP2(x[1], y[1], a1, c0, iter);
+        if (iter.size())
             throw RTE_LOC;
-        iter = buff.data();
-        iter = cmp0.multRecvP1(x[0].data(), y[0].data(), z[0].data(), oc::GateType::And, b0.data(), c1.data(), d1.data(), iter);
-        if (iter != buff.data() + buff.size())
+        iter = buff;
+        iter = cmp0.multRecvP1(x[0], y[0], z[0], oc::GateType::And, b0, c1, d1, iter);
+        if (iter.size())
             throw RTE_LOC;
 
         for (u64 i = 0; i < n; i++)

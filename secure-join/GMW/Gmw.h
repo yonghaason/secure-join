@@ -218,45 +218,45 @@ namespace secJoin
         }
 
 
-        block* multSendP1(block* x, oc::GateType gt,
-            block* a, block* sendIter);
-        block* multSendP2(block* x, oc::GateType gt,
-            block* c, block* sendIter);
+        span<block> multSendP1(span<block> x, oc::GateType gt,
+            span<block> a, span<block> sendIter);
+        span<block> multSendP2(span<block> x, oc::GateType gt,
+            span<block> c, span<block> sendIter);
 
 
-        block* multRecvP1(block* x, block* z, oc::GateType gt,
-            block* b, block* recvIter);
-        block* multRecvP2(block* x,  block* z,
-            block* c,
-            block* d, 
-            block* recvIter);
+        span<block> multRecvP1(span<block> x, span<block> z, oc::GateType gt,
+            span<block> b, span<block> recvIter);
+        span<block> multRecvP2(span<block> x,  span<block> z,
+            span<block> c,
+            span<block> d, 
+            span<block> recvIter);
 
 
-        block* multSend(block* x, block* y, oc::GateType gt,
-            block* a,
-            block* c,
-            block* sendIter)
+        span<block> multSend(span<block> x, span<block> y, oc::GateType gt,
+            span<block> a,
+            span<block> c,
+            span<block> sendIter)
         {
             if (mIdx == 0)
                 return multSendP1(x, y, gt, a, c, sendIter);
             else
                 return multSendP2(x, y, a, c, sendIter);
         }
-        block* multSendP1(block* x, block* y, oc::GateType gt,
-            block* a,
-            block* c,
-            block* sendIter);
-        block* multSendP2(block* x, block* y,
-            block* a,
-            block* c,
-            block* sendIter);
+        span<block> multSendP1(span<block> x, span<block> y, oc::GateType gt,
+            span<block> a,
+            span<block> c,
+            span<block> sendIter);
+        span<block> multSendP2(span<block> x, span<block> y,
+            span<block> a,
+            span<block> c,
+            span<block> sendIter);
 
 
-        block* multRecv(block* x, block* y, block* z, oc::GateType gt,
-            block* b,
-            block* c,
-            block* d,
-            block* recvIter)
+        span<block> multRecv(span<block> x, span<block> y, span<block> z, oc::GateType gt,
+            span<block> b,
+            span<block> c,
+            span<block> d,
+            span<block> recvIter)
         {
             if (mIdx == 0)
                 return multRecvP1(x, y, z, gt, b, c, d, recvIter);
@@ -264,15 +264,15 @@ namespace secJoin
                 return multRecvP2(x, y, z, b, c, d, recvIter);
         }
 
-        block* multRecvP1(block* x, block* y, block* z, oc::GateType gt,
-            block* b,
-            block* c,
-            block* d,
-            block* recvIter);
-        block* multRecvP2(block* x, block* y, block* z,
-            block* b,
-            block* c,
-            block* d,
-            block* recvIter);
+        span<block> multRecvP1(span<block> x, span<block> y, span<block> z, oc::GateType gt,
+            span<block> b,
+            span<block> c,
+            span<block> d,
+            span<block> recvIter);
+        span<block> multRecvP2(span<block> x, span<block> y, span<block> z,
+            span<block> b,
+            span<block> c,
+            span<block> d,
+            span<block> recvIter);
     };
 }

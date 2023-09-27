@@ -675,9 +675,9 @@ void OmJoin_join_csv_Test(const oc::CLP& cmd)
     std::string selectClientCols("Balance");
     std::string joinCsvPath = rootPath + "/tests/tables/joindata.csv";
     std::string joinMetaPath = rootPath + "/tests/tables/joindata_meta.txt";
-    bool isUnique = true;
-    bool isAgg = false;
-    bool verbose = cmd.isSet("v");
+    // bool isUnique = true;
+    // bool isAgg = false;
+    // bool verbose = cmd.isSet("v");
     bool printSteps = cmd.isSet("print");
     bool mock = !cmd.isSet("noMock");
 
@@ -695,11 +695,11 @@ void OmJoin_join_csv_Test(const oc::CLP& cmd)
     populateTable(L, visaCsvPath, lRowCount);
     populateTable(R, bankCsvPath, rRowCount);
 
-    if (printSteps)
-    {
-        std::cout << "L\n" << L << std::endl;
-        std::cout << "R\n" << R << std::endl;
-    }
+    // if (printSteps)
+    // {
+    //     std::cout << "L\n" << L << std::endl;
+    //     std::cout << "R\n" << R << std::endl;
+    // }
 
     PRNG prng(oc::ZeroBlock);
     std::array<Table, 2> Ls, Rs;

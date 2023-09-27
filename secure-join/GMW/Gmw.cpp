@@ -305,8 +305,8 @@ namespace secJoin
             gate = span<oc::BetaGate>::iterator{},
             dirtyBits = std::vector<u8>{},
             pinnedInputs = std::vector<u8>{},
-            in = std::array<block*, 2>{},
-            out = (block*)nullptr,
+            in = std::array<span<block>, 2>{},
+            out = span<block>{},
             ww = std::vector<block>{},
             print = std::move(coproto::unique_function<void(u64)>{}),
             a = oc::AlignedUnVector<block>{},
@@ -314,7 +314,7 @@ namespace secJoin
             c = oc::AlignedUnVector<block>{},
             d = oc::AlignedUnVector<block>{},
             buff = oc::AlignedUnVector<block>{},
-            buffIter = (block*)nullptr,
+            buffIter = span<block>{},
             triple = BinOle{},
             mult = span<oc::block>{},
             add = span<oc::block>{},
@@ -428,10 +428,12 @@ namespace secJoin
             j = 0;
             for (gate = gates.begin(); gate < gates.end(); ++gate)
             {
-
-                in[0] = mWords[gate->mInput[0]];
-                in[1] = mWords[gate->mInput[1]];
-                out = mWords[gate->mOutput];
+                assert(mWords[gate->mInput[0]]);
+                assert(mWords[gate->mInput[1]]);
+                assert(mWords[gate->mOutput]);
+                in[0] = span<oc::block>(mWords[gate->mInput[0]], mN128);
+                in[1] = span<oc::block>(mWords[gate->mInput[1]], mN128);
+                out = span<oc::block>(mWords[gate->mOutput], mN128);
 
 
                 if (mO.mDebug)
@@ -461,14 +463,14 @@ namespace secJoin
                 {
                     if (buff.size() == 0 && roundRem)
                     {
-                        auto min = oc::roundUpTo(std::min<u64>(batchSize, roundRem), mN128);
+                        auto min = oc::roundUpTo(std::min<u64>(batchSize, roundRem), mN128 * 2);
                         buff.resize(min);
                         roundRem -= min;
-                        buffIter = buff.data();
+                        buffIter = buff;
                     }
 
 
-                    buffIter = multSend(in[0], in[1], gate->mType, a.data() + j, c.data() + j, buffIter);
+                    buffIter = multSend(in[0], in[1], gate->mType, a.subspan(j, mN128), c.subspan(j, mN128), buffIter);
 
                     j += mN128;
 
@@ -479,7 +481,7 @@ namespace secJoin
                         dirtyBits[gate->mOutput] = 1;
                     }
 
-                    if (buffIter == buff.data() + buff.size())
+                    if (buffIter.size() == 0)
                         MC_AWAIT(chl.send(std::move(buff)));
                 }
                 else if (
@@ -514,23 +516,26 @@ namespace secJoin
                     gate->mType == oc::GateType::Nor)
                 {
 
-                    if ((roundRem && buff.size() == 0) || buffIter == (buff.data() + buff.size()))
+                    if ((roundRem && buff.size() == 0) || buffIter.size() == 0)
                     {
-                        buff.resize(oc::roundUpTo(std::min<u64>(batchSize, roundRem), mN128));
+                        buff.resize(oc::roundUpTo(std::min<u64>(batchSize, roundRem), mN128 * 2));
                         roundRem -= buff.size();
-                        buffIter = buff.data();
+                        buffIter = buff;
                         MC_AWAIT(chl.recv(buff));
                     }
 
 
-                    in[0] = mWords[gate->mInput[0]];
-                    in[1] = mWords[gate->mInput[1]];
-                    out = mWords[gate->mOutput];
+                    assert(mWords[gate->mInput[0]]);
+                    assert(mWords[gate->mInput[1]]);
+                    assert(mWords[gate->mOutput]);
+                    in[0] = span<oc::block>(mWords[gate->mInput[0]], mN128);
+                    in[1] = span<oc::block>(mWords[gate->mInput[1]], mN128);
+                    out = span<oc::block>(mWords[gate->mOutput], mN128);
 
                     buffIter = multRecv(in[0], in[1], out, gate->mType,
-                        b.data() + j,
-                        c.data() + j,
-                        d.data() + j, buffIter);
+                        b.subspan(j, mN128),
+                        c.subspan(j, mN128),
+                        d.subspan(j, mN128), buffIter);
                     j += mN128;
                 }
             }
@@ -742,7 +747,7 @@ namespace secJoin
     //                            = ac + xc + (ac + b)
     //                            = cx + b
     // Observer z1 + z2 = xy
-    block* Gmw::multSendP1(block* x, oc::GateType gt, block* a, block* u)
+    span<block> Gmw::multSendP1(span<block> x, oc::GateType gt, span<block> a, span<block> u)
     {
         auto width = mN128;
         if (invertA(gt) == false)
@@ -756,11 +761,11 @@ namespace secJoin
                 u[i] = (a[i] ^ x[i] ^ oc::AllOneBlock);
         }
 
-        return u += width;
+        return u.subspan(width);
     }
 
-    block* Gmw::multSendP2(block* y, oc::GateType gt,
-        block* c, block* w)
+    span<block> Gmw::multSendP2(span<block> y, oc::GateType gt,
+        span<block> c, span<block> w)
     {
         auto width = mN128;
         //c = mC.subspan(0, width);
@@ -777,11 +782,11 @@ namespace secJoin
             for (u64 i = 0; i < width; ++i)
                 w[i] = (c[i] ^ (y[i] ^ oc::AllOneBlock));
         }
-        return w + width;
+        return w.subspan(width);
     }
 
-    block* Gmw::multRecvP1(block* x, block* z, oc::GateType gt,
-        block* b, block* w)
+    span<block> Gmw::multRecvP1(span<block> x, span<block> z, oc::GateType gt,
+        span<block> b, span<block> w)
     {
         auto width = mN128;
 
@@ -799,15 +804,15 @@ namespace secJoin
                 z[i] = ((oc::AllOneBlock ^ x[i]) & w[i]) ^ b[i];
             }
         }
-        return w + width;
+        return w.subspan(width);
     }
 
-    block* Gmw::multRecvP2(
-        block* y,
-        block* z,
-        block* c,
-        block* d,
-        block* u
+    span<block> Gmw::multRecvP2(
+        span<block> y,
+        span<block> z,
+        span<block> c,
+        span<block> d,
+        span<block> u
     )
     {
         auto width = mN128;
@@ -817,23 +822,23 @@ namespace secJoin
             z[i] = (c[i] & u[i]) ^ d[i];
         }
 
-        return u + width;
+        return u.subspan(width);
     }
 
-    block* Gmw::multSendP1(block* x, block* y, oc::GateType gt,
-        block* a,
-        block* c,
-        block* buffIter)
+    span<block> Gmw::multSendP1(span<block> x, span<block> y, oc::GateType gt,
+        span<block> a,
+        span<block> c,
+        span<block> buffIter)
     {
         buffIter = multSendP1(x, gt, a, buffIter);
         buffIter = multSendP2(y, gt, c, buffIter);
         return buffIter;
     }
 
-    block* Gmw::multSendP2(block* x, block* y,
-        block* a,
-        block* c,
-        block* buffIter)
+    span<block> Gmw::multSendP2(span<block> x, span<block> y,
+        span<block> a,
+        span<block> c,
+        span<block> buffIter)
     {
         buffIter = multSendP2(y, oc::GateType::And, c, buffIter);
         buffIter = multSendP1(x, oc::GateType::And, a, buffIter);
@@ -841,17 +846,17 @@ namespace secJoin
     }
 
 
-    block* Gmw::multRecvP1(block* x, block* y, block* z, oc::GateType gt,
-        block* b,
-        block* c,
-        block* d,
-        block* buffIter)
+    span<block> Gmw::multRecvP1(span<block> x, span<block> y, span<block> z, oc::GateType gt,
+        span<block> b,
+        span<block> c,
+        span<block> d,
+        span<block> buffIter)
     {
         oc::AlignedUnVector<block> zz(mN128);
         oc::AlignedUnVector<block> zz2(mN128);
 
-        buffIter = multRecvP1(x, zz.data(), gt, b, buffIter);
-        buffIter = multRecvP2(y, zz2.data(), c, d, buffIter);
+        buffIter = multRecvP1(x, zz, gt, b, buffIter);
+        buffIter = multRecvP2(y, zz2, c, d, buffIter);
 
         auto xm = invertA(gt) ? oc::AllOneBlock : oc::ZeroBlock;
         auto ym = invertB(gt) ? oc::AllOneBlock : oc::ZeroBlock;
@@ -870,11 +875,11 @@ namespace secJoin
         return buffIter;
     }
 
-    block* Gmw::multRecvP2(block* x, block* y, block* z,
-        block* b,
-        block* c,
-        block* d,
-        block* buffIter)
+    span<block> Gmw::multRecvP2(span<block> x, span<block> y, span<block> z,
+        span<block> b,
+        span<block> c,
+        span<block> d,
+        span<block> buffIter)
     {
         //MC_BEGIN(coproto::task<>, this, x, y, z, &chl, b, c, d,
         //    zz = std::vector<block>{},
@@ -884,8 +889,8 @@ namespace secJoin
         oc::AlignedUnVector<block> zz(mN128);
         oc::AlignedUnVector<block> zz2(mN128);
 
-        buffIter = multRecvP2(y, zz.data(), c, d, buffIter);
-        buffIter = multRecvP1(x, zz2.data(), oc::GateType::And, b, buffIter);
+        buffIter = multRecvP2(y, zz, c, d, buffIter);
+        buffIter = multRecvP1(x, zz2, oc::GateType::And, b, buffIter);
 
         for (u64 i = 0; i < zz.size(); i++)
         {
