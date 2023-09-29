@@ -101,17 +101,6 @@ namespace secJoin
         //B.resize(f.rows(), f.cols());
 
         shares.resize(s.rows());
-        std::cout << " f rows= " << f.rows()
-            << " cols = " << f.cols()
-            << std::endl;
-
-        std::cout << " s rows= " << s.rows()
-            << " cols = " << s.cols()
-            << std::endl;
-
-        temp1.resize(temp.size());
-        MC_AWAIT(comm.send(std::move(temp)));
-        MC_AWAIT(comm.recv(temp1));
 
         if (gen.mRole == OleGenerator::Role::Sender)
         {
@@ -123,7 +112,7 @@ namespace secJoin
             MC_AWAIT_SET(otSendReq, gen.otSendRequest(s.size()));
             MC_AWAIT_SET(otRecvReq, gen.otRecvRequest(s.size()));
         }
-
+    
 
         bitCount = std::max<u64>(1, oc::log2ceil(shares.size()));
         if (mArith2BinCir.mGates.size() == 0 ||
@@ -137,6 +126,7 @@ namespace secJoin
 
         for (role = 0; role < 2; ++role)
         {
+            // std::cout << "For loop round = " << role << std::endl; 
             if (role ^ (gen.mRole == OleGenerator::Role::Sender))
             {
                 fIter = (block*)f.data();
@@ -155,19 +145,13 @@ namespace secJoin
                     }
 
                     otRecv.mChoice.resize(m);
-                    std::cout << "Role = " << (int) gen.mRole
-                        << " Send mChoice size = " << otRecv.mChoice.size()
-                        << std::endl;
                     MC_AWAIT(comm.send(std::move(otRecv.mChoice)));
                     
                 }
 
-                for (i = 0, r = 0; i < f.size();)
+                for (i = 0, r = 0; i < s.size();)
                 {
                     MC_AWAIT(comm.recvResize(tt));
-                    std::cout << "Role = " << (int) gen.mRole
-                        << " Rec tt size = " << tt.size()
-                        << std::endl;
                     m = std::min<u64>(s.size() - i, tt.size());
                     for (u64 j = 0; j < m; ++j, ++i)
                     {
@@ -181,15 +165,12 @@ namespace secJoin
             {
                 fIter = (block*)f.data();
                 // send
-                for (i = 0, r = 0; i < f.size();)
-                {
+                for (i = 0, r = 0; i < s.size();)
+                {    
+
                     MC_AWAIT_SET(otSend, otSendReq.get());
                     m = std::min<u64>(s.size() - i, otSend.size());
                     diff.resize(m);
-
-                    std::cout << "Role = " << (int) gen.mRole
-                        << " Recving diff size = " << diff.size()
-                        << std::endl;
                     MC_AWAIT(comm.recv(diff));
 
                     tt.resize(m);
@@ -209,10 +190,6 @@ namespace secJoin
 
                         shares[row] -= r;
                     }
-
-                    std::cout << "Role = " << (int) gen.mRole
-                        << " Send tt size = " << tt.size()
-                        << std::endl;
                     MC_AWAIT(comm.send(std::move(tt)));
                 }
             }
@@ -223,17 +200,9 @@ namespace secJoin
 
 
         gmw.setZeroInput((int)gen.mRole);
-        gmw.setInput((int)gen.mRole ^ 1, oc::MatrixView<u32>(shares.data(), shares.size(), 1));
+        gmw.setInput((int)gen.mRole ^ 1, oc::MatrixView<u32>(shares.data(), shares.size(), 1));     
 
-        temp.resize(3);
-        temp1.resize(temp.size());
-        
-        MC_AWAIT(comm.send(std::move(temp)));
-        MC_AWAIT(comm.recv(std::move(temp1)));        
-
-        std::cout << "RadixSort before gmw run " << std::endl;
         MC_AWAIT(gmw.run(comm));
-        std::cout << "RadixSort after gmw run " << std::endl;
         dst.mShare.resize(shares.size());
         gmw.getOutput(0, oc::MatrixView<u32>(dst.mShare.data(), dst.mShare.size(), 1));
 
@@ -985,12 +954,8 @@ namespace secJoin
             MC_RETURN_VOID();
         }
 
-        std::cout << "First Debug Statement " << std::endl;
         if (mDebug)
-            MC_AWAIT_SET(debugPerms, debugGenPerm(k, comm));
-
-        std::cout << "First Debug Statement Complete " << std::endl;
-        
+            MC_AWAIT_SET(debugPerms, debugGenPerm(k, comm));        
 
         ll = oc::divCeil(k.bitsPerEntry(), mL);
         kIdx = 0;
