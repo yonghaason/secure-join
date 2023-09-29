@@ -89,15 +89,29 @@ namespace secJoin
             tt = std::vector<u32>{},
             dd = std::vector<u32>{},
             fIter = (block*)nullptr,
-            bitCount = u64{}
+            bitCount = u64{},
+            temp = std::string("Harshal"),
+            temp1 = std::string()
         );
 
+        // gmw.mO.mDebug = true;
         // A = f + a
         // B = s + b
         //A.resize(f.rows(), f.cols());
         //B.resize(f.rows(), f.cols());
 
         shares.resize(s.rows());
+        std::cout << " f rows= " << f.rows()
+            << " cols = " << f.cols()
+            << std::endl;
+
+        std::cout << " s rows= " << s.rows()
+            << " cols = " << s.cols()
+            << std::endl;
+
+        temp1.resize(temp.size());
+        MC_AWAIT(comm.send(std::move(temp)));
+        MC_AWAIT(comm.recv(temp1));
 
         if (gen.mRole == OleGenerator::Role::Sender)
         {
@@ -141,12 +155,19 @@ namespace secJoin
                     }
 
                     otRecv.mChoice.resize(m);
+                    std::cout << "Role = " << (int) gen.mRole
+                        << " Send mChoice size = " << otRecv.mChoice.size()
+                        << std::endl;
                     MC_AWAIT(comm.send(std::move(otRecv.mChoice)));
+                    
                 }
 
                 for (i = 0, r = 0; i < f.size();)
                 {
                     MC_AWAIT(comm.recvResize(tt));
+                    std::cout << "Role = " << (int) gen.mRole
+                        << " Rec tt size = " << tt.size()
+                        << std::endl;
                     m = std::min<u64>(s.size() - i, tt.size());
                     for (u64 j = 0; j < m; ++j, ++i)
                     {
@@ -165,6 +186,10 @@ namespace secJoin
                     MC_AWAIT_SET(otSend, otSendReq.get());
                     m = std::min<u64>(s.size() - i, otSend.size());
                     diff.resize(m);
+
+                    std::cout << "Role = " << (int) gen.mRole
+                        << " Recving diff size = " << diff.size()
+                        << std::endl;
                     MC_AWAIT(comm.recv(diff));
 
                     tt.resize(m);
@@ -185,6 +210,9 @@ namespace secJoin
                         shares[row] -= r;
                     }
 
+                    std::cout << "Role = " << (int) gen.mRole
+                        << " Send tt size = " << tt.size()
+                        << std::endl;
                     MC_AWAIT(comm.send(std::move(tt)));
                 }
             }
@@ -197,8 +225,15 @@ namespace secJoin
         gmw.setZeroInput((int)gen.mRole);
         gmw.setInput((int)gen.mRole ^ 1, oc::MatrixView<u32>(shares.data(), shares.size(), 1));
 
-        MC_AWAIT(gmw.run(comm));
+        temp.resize(3);
+        temp1.resize(temp.size());
+        
+        MC_AWAIT(comm.send(std::move(temp)));
+        MC_AWAIT(comm.recv(std::move(temp1)));        
 
+        std::cout << "RadixSort before gmw run " << std::endl;
+        MC_AWAIT(gmw.run(comm));
+        std::cout << "RadixSort after gmw run " << std::endl;
         dst.mShare.resize(shares.size());
         gmw.getOutput(0, oc::MatrixView<u32>(dst.mShare.data(), dst.mShare.size(), 1));
 
@@ -854,7 +889,7 @@ namespace secJoin
             Perm dst = ret.back();
             {
                 auto kk2 = kk;
-                sk.resize(kk.rows(), kk.cols());
+                sk.resize(kk.rows(), kk.bitsPerEntry());
                 dst.apply<u8>(kk2, sk, true);
 
                 for (u64 j = 1; j < k.rows(); ++j)
@@ -897,7 +932,7 @@ namespace secJoin
                 dst = ret.back().compose(dst);
 
                 auto kk2 = kk;
-                sk.resize(kk2.rows(), kk2.cols());
+                sk.resize(kk2.rows(), kk2.bitsPerEntry());
                 dst.apply<u8>(kk2, sk, true);
 
                 for (u64 j = 1; j < k.rows(); ++j)
@@ -950,8 +985,12 @@ namespace secJoin
             MC_RETURN_VOID();
         }
 
+        std::cout << "First Debug Statement " << std::endl;
         if (mDebug)
             MC_AWAIT_SET(debugPerms, debugGenPerm(k, comm));
+
+        std::cout << "First Debug Statement Complete " << std::endl;
+        
 
         ll = oc::divCeil(k.bitsPerEntry(), mL);
         kIdx = 0;
