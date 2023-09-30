@@ -17,6 +17,12 @@ namespace secJoin
         mIsSetup = false;
     }
 
+    void AdditivePerm::mockSubRoutines(bool flag)
+    {
+        mInsecureMock = flag;
+        mPi.mInsecureMock = flag;
+    }
+
     void AdditivePerm::setupDlpnSender(oc::block& key, std::vector<oc::block>& rk)
     {
         mPi.setupDlpnSender(key, rk);

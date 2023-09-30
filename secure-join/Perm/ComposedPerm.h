@@ -14,7 +14,7 @@ namespace secJoin
         u64 mPartyIdx=-1;
         Perm mPerm;
         DLpnPerm mDlpnPerm;
-        bool mIsSecure = true;
+        bool mInsecureMock = false;
 
         ComposedPerm() = default;
         ComposedPerm(const ComposedPerm&) = delete;
@@ -28,7 +28,7 @@ namespace secJoin
             mPartyIdx = std::exchange(o.mPartyIdx, -1);
             mPerm = std::move(o.mPerm);
             mDlpnPerm = std::move(o.mDlpnPerm);
-            mIsSecure = std::exchange(o.mIsSecure, true);
+            mInsecureMock = std::exchange(o.mInsecureMock, 0);
             return *this;
         }
 
@@ -104,7 +104,7 @@ namespace secJoin
             soutperm.resize(in.rows(), in.cols());
             if ((inv ^ bool(mPartyIdx)) == true)
             {
-                if(mIsSecure)
+                if(!mInsecureMock)
                 {
                     MC_AWAIT(mDlpnPerm.apply<T>(in, soutperm, prng, chl, ole));
                     MC_AWAIT(mDlpnPerm.apply<T>(mPerm, soutperm, out, prng, chl, inv, ole));
@@ -117,7 +117,7 @@ namespace secJoin
             }
             else
             {
-                if(mIsSecure)
+                if(!mInsecureMock)
                 {
                     MC_AWAIT(mDlpnPerm.apply<T>(mPerm, in, soutperm, prng, chl, inv, ole));
                     MC_AWAIT(mDlpnPerm.apply<T>(soutperm, out, prng, chl, ole));

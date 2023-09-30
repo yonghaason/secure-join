@@ -46,6 +46,7 @@ namespace secJoin
 
         macoro::task<> setupDlpnSender(OleGenerator& ole);
         macoro::task<> setupDlpnReceiver(OleGenerator& ole);
+        void mockSubRoutines(bool flag);
 
         // generate the masking (replicated) permutation mPi
         // and then reveal mRhoPP = mPi(mShares).

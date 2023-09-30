@@ -34,8 +34,8 @@ void ComposedPerm_replicated_perm_test()
 
     ComposedPerm perm1(p0, 0); 
     ComposedPerm perm2(p1, 1);
-    perm1.mIsSecure = false;
-    perm2.mIsSecure = false;
+    perm1.mInsecureMock = true;
+    perm2.mInsecureMock = true;
 
     for(auto invPerm :  {false, true})
     {
