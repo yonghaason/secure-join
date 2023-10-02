@@ -41,7 +41,8 @@ namespace secJoin
     inline std::string hex(oc::span<const u8> d)
     {
         std::stringstream ss;
-        for (u64 i = d.size() - 1; i < d.size(); --i)
+        // for (u64 i = d.size() - 1; i < d.size(); --i)
+        for (u64 i = 0; i < d.size(); i++)
             ss << std::hex << std::setw(2) << std::setfill('0') << int(d[i]);
         return ss.str();
     }
