@@ -1,4 +1,4 @@
-
+#pragma once
 namespace secJoin
 {
     const std::string AVERAGE_JSON_LITERAL = "Average";

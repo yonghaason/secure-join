@@ -1,3 +1,3 @@
-Rows;1000
+Rows;1500000
 PAN;INT;8
 Risk_Score;INT;4
