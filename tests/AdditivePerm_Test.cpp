@@ -10,8 +10,8 @@ void AdditivePerm_setup_test()
 void AdditivePerm_xor_test()
 {
     // User input
-    u64 n = 500;    // total number of rows
-    u64 rowSize = 11;
+    u64 n = 50000;
+    u64 rowSize = 63;
 
     oc::Matrix<u8> x(n,rowSize),yExp(n,rowSize);
     oc::PRNG prng(oc::block(0,0));
@@ -65,40 +65,29 @@ void AdditivePerm_xor_test()
     Perm rhoExp = pi.apply(mPerm.mPerm);
     if(rhoExp != vecPerm1.mRho)
         throw RTE_LOC;
+
     // Secret Sharing x
     std::array<oc::Matrix<u8>, 2> xShares = share(x,prng);
     yShare[0].resize(x.rows(), x.cols());
     yShare[1].resize(x.rows(), x.cols());
 
-    proto0 = vecPerm1.apply<u8>(xShares[0], yShare[0], prng, chls[0], ole0);
-    proto1 = vecPerm2.apply<u8>(xShares[1], yShare[1], prng, chls[1], ole1);
+    for(auto invPerm :  {false, true})
+    {
+        proto0 = vecPerm1.apply<u8>(xShares[0], yShare[0], prng, chls[0], ole0, invPerm);
+        proto1 = vecPerm2.apply<u8>(xShares[1], yShare[1], prng, chls[1], ole1, invPerm);
 
-    auto res1 = macoro::sync_wait(macoro::when_all_ready(std::move(proto0), std::move(proto1)));
+        auto res = macoro::sync_wait(macoro::when_all_ready(std::move(proto0), std::move(proto1)));
 
-    std::get<0>(res1).result();
-    std::get<1>(res1).result();
+        std::get<0>(res).result();
+        std::get<1>(res).result();
 
-    auto yAct = reveal(yShare[0], yShare[1]);
-    mPerm.apply<u8>(x,yExp);
+        auto yAct = reveal(yShare[0], yShare[1]);
+        mPerm.apply<u8>(x,yExp, invPerm);
 
-    if(!eq(yAct, yExp))
-        throw RTE_LOC;
-    
+        if(!eq(yAct, yExp))
+            throw RTE_LOC;
+    }
 
-    auto res2 = macoro::sync_wait(macoro::when_all_ready(
-        vecPerm1.apply<u8>(xShares[0], yShare[0], prng, chls[0], ole0, true),
-        vecPerm2.apply<u8>(xShares[1], yShare[1], prng, chls[1], ole1, true)
-    ));
-    std::get<0>(res2).result();
-    std::get<1>(res2).result();
-
-
-
-    yAct = reveal(yShare[0], yShare[1]);
-    mPerm.apply<u8>(x, yExp, true);
-
-    if (!eq(yAct, yExp))
-        throw RTE_LOC;
 }
 
 
