@@ -48,7 +48,6 @@ namespace secJoin {
                 ones(i, 0) = 1;
         }
 
-
         offsets.emplace_back(OmJoin::Offset{ rowSize * 8, sizeof(oc::u64) * 8, "count*" });
         avg.emplace_back(&ones);
 
@@ -56,56 +55,6 @@ namespace secJoin {
         OmJoin::concatColumns(ret, avg);
 
     }
-
-
-    macoro::task<> print(
-        const BinMatrix& data,
-        coproto::Socket& sock,
-        int role,
-        std::string name,
-        std::vector<OmJoin::Offset>& offsets)
-    {
-        MC_BEGIN(macoro::task<>, &data, &sock, role, name, &offsets,
-            D = BinMatrix{},
-            C = BinMatrix{});
-        if (role)
-            MC_AWAIT(sock.send(data));
-        else
-        {
-            D.resize(data.numEntries(), data.bytesPerEntry() * 8);
-            MC_AWAIT(sock.recv(D));
-
-            for (u64 i = 0; i < D.size(); ++i)
-                D(i) ^= data(i);
-
-            std::cout << name << std::endl << "        ";
-            for (auto o : offsets)
-                std::cout << o.mName << "  ";
-            std::cout << std::endl;
-
-            oc::BitVector bv;
-
-            for (u64 i = 0; i < D.numEntries(); ++i)
-            {
-                std::cout << i << ": ";
-                for (auto o : offsets)
-                {
-                    assert(D.bitsPerEntry() >= o.mSize + o.mStart);
-                    bv.resize(0);
-                    bv.append(D[i].data(), o.mSize, o.mStart);
-                    trimSpan(bv.getSpan<u8>(), bv.size());
-                    std::cout << bv.hex() << " ";
-                }
-                std::cout << std::endl;
-            }
-
-        }
-
-        MC_END();
-
-
-    }
-
 
     macoro::task<> print(
         const BinMatrix& data,
@@ -160,13 +109,18 @@ namespace secJoin {
             offsets = std::vector<OmJoin::Offset>{},
             addCir = AggTree::Operator{},
             aggTree = AggTree{},
-            perm = ComposedPerm{}
+            perm = ComposedPerm{},
+            activeFlag = std::vector<u8>{}
         );
 
         keys = groupByCol.mCol.mData;
+        activeFlag = groupByCol.mTable.mIsActive;
 
         if (mInsecurePrint)
-            MC_AWAIT(print(keys, sock, (int)ole.mRole, "preSort-keys"));
+        {
+            offsets = { OmJoin::Offset{0,keys.bitsPerEntry(), "key"} };
+            MC_AWAIT(OmJoin::print(keys, controlBits, sock, (int)ole.mRole, "keys", offsets));
+        }
 
 
         sort.mInsecureMock = mInsecureMockSubroutines;
@@ -174,9 +128,9 @@ namespace secJoin {
 
         MC_AWAIT(sort.genPerm(keys, sPerm, ole, sock));
         concatColumns(groupByCol, avgCol, data, offsets, ole);
-
+        
         if (mInsecurePrint)
-            MC_AWAIT(print(data, sock, (int)ole.mRole, "preSort-data", offsets));
+            MC_AWAIT(OmJoin::print(data, controlBits, sock, (int)ole.mRole, "preSort", offsets));
 
         temp.resize(data.numEntries(), data.bytesPerEntry() * 8);
         // temp1.resize(keys.numEntries(), keys.bitsPerEntry());
@@ -185,12 +139,16 @@ namespace secJoin {
         std::swap(data, temp);
 
         if (mInsecurePrint)
-            MC_AWAIT(print(data, sock, (int)ole.mRole, "sort-data", offsets));
+            MC_AWAIT(OmJoin::print(data, controlBits, sock, (int)ole.mRole, "sort-data", offsets));
 
         temp.resize(keys.numEntries(), keys.bytesPerEntry() * 8);
         MC_AWAIT(sPerm.apply(keys, temp, prng, sock, ole, true));
         std::swap(keys, temp);
 
+        
+        if (mInsecurePrint)
+            MC_AWAIT(OmJoin::print(data, controlBits, sock, (int)ole.mRole, "sort-data", offsets));
+        
         if (mInsecurePrint)
             MC_AWAIT(print(keys, sock, (int)ole.mRole, "sort-keys"));
 
@@ -208,16 +166,13 @@ namespace secJoin {
         std::swap(data, temp);
 
         if (mInsecurePrint)
-            MC_AWAIT(print(data, sock, (int)ole.mRole, "agg-data", offsets));
+            MC_AWAIT(OmJoin::print(data, controlBits, sock, (int)ole.mRole, "agg-data", offsets));
 
-        // TODO, i dont think this is the right variable name.
-        // Should this still be here? is there a better way, if(debug) copy state to members;
         if (mPermute)
         {
             perm.init(data.numEntries(), (int)ole.mRole, prng);
 
             //TODO: add perm prococessing once peter merges the new code.
-
             temp.resize(data.numEntries(), data.bytesPerEntry() * 8);
             MC_AWAIT(perm.apply<u8>(data.mData, temp.mData, sock, ole, true));
             std::swap(data, temp);
@@ -281,8 +236,9 @@ namespace secJoin {
         assert(data.numEntries() == keys.numEntries());
         for (u64 i = 0; i < data.numEntries(); i++)
         {
-            // Only where Control Bit is zero, we have our desire value
-            if (controlBits.mData(i, 0) == 0)
+            // Our desire value is where (control bit)^-1 and mIsActive=1
+            // if ((controlBits.mData(i, 0) ^ 1) &&   == 0)
+            if (controlBits.mData(i, 0)  == 0)
                 nOutRows++;
         }
 

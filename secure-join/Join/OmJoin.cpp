@@ -312,7 +312,7 @@ namespace secJoin
         };
     }
 
-    macoro::task<> print(
+    macoro::task<> OmJoin::print(
         const BinMatrix& data,
         const BinMatrix& control,
         coproto::Socket& sock,
