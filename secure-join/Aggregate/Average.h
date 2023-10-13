@@ -11,7 +11,7 @@ namespace secJoin
 	using SharedColumn = Column;
     struct Average
     {
-        bool mInsecurePrint = false, mInsecureMockSubroutines = false, mPermute = true;
+        bool mInsecurePrint = false, mInsecureMockSubroutines = false;
         oc::BetaLibrary::Optimized op = oc::BetaLibrary::Optimized::Depth;
 
 
@@ -28,7 +28,11 @@ namespace secJoin
             oc::BetaLibrary::Optimized op);
 
         static void getOutput(SharedTable& out, std::vector<ColRef> avgCol, ColRef groupByCol,
-            BinMatrix& keys, BinMatrix& data, BinMatrix& controlBits, std::vector<OmJoin::Offset>& offsets);
+            BinMatrix& keys, BinMatrix& data, BinMatrix& controlBits, 
+            std::vector<OmJoin::Offset>& offsets, std::vector<OmJoin::Offset>& keyOffsets);
+
+        static  macoro::task<> updateActiveFlag(BinMatrix& data, BinMatrix& choice, 
+            BinMatrix& out, OleGenerator& ole, coproto::Socket& sock);
     
     
 

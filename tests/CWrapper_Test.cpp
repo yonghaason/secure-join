@@ -166,7 +166,6 @@ void OmJoin_wrapper_avg_test(const oc::CLP& cmd)
     bool verbose = cmd.isSet("v");
     bool mock = cmd.isSet("mock");
     bool debug = cmd.isSet("debug");
-    bool mPermute = false;
 
     secJoin::State* visaState = secJoin::initState(visaCsvPath, visaMetaDataPath, clientMetaDataPath, joinVisaCols,
         joinClientCols, selectVisaCols, selectClientCols, isUnique, verbose, mock, debug);
@@ -203,8 +202,6 @@ void OmJoin_wrapper_avg_test(const oc::CLP& cmd)
     // visaState->mAvg.mInsecurePrint = true;
     // bankState->mAvg.mInsecurePrint = true;
     
-    visaState->mAvg.mPermute = mPermute;
-    bankState->mAvg.mPermute = mPermute;
     secJoin::aggFunc(visaState, jsonString);
     secJoin::aggFunc(bankState, jsonString);
 

@@ -129,9 +129,7 @@ void Average_avg_Test(const oc::CLP& cmd)
     Table tb, tbShare;
 
     bool printSteps = cmd.isSet("print");
-    bool mPermute = false;
-    // bool mock = !cmd.isSet("noMock");
-    bool mock = false;
+    bool mock = !cmd.isSet("noMock");
 
     tb.init(nTb, { {
         {"L1", TypeID::IntID, 12},
@@ -155,9 +153,6 @@ void Average_avg_Test(const oc::CLP& cmd)
     }
 
     Average avg1, avg2;
-
-    avg1.mPermute = mPermute;
-    avg2.mPermute = mPermute;
 
     avg1.mInsecurePrint = printSteps;
     avg2.mInsecurePrint = printSteps;
@@ -214,7 +209,6 @@ void Average_avg_csv_Test(const oc::CLP& cmd)
     // bool verbose = cmd.isSet("v");
     bool printSteps = cmd.isSet("print");
     bool mock = !cmd.isSet("noMock");
-    bool mPermute = false;
 
 
     oc::u64 lRowCount = 0, rRowCount = 0;
@@ -285,9 +279,6 @@ void Average_avg_csv_Test(const oc::CLP& cmd)
 
     Average avg1, avg2;
 
-    avg1.mPermute = mPermute;
-    avg2.mPermute = mPermute;
-
     avg1.mInsecurePrint = printSteps;
     avg2.mInsecurePrint = printSteps;
 
@@ -329,10 +320,6 @@ void Average_avg_csv_Test(const oc::CLP& cmd)
         throw RTE_LOC;
     }
     
-
-
-
-
     // if (cmd.isSet("timing"))
     //     std::cout << timer << std::endl;
 

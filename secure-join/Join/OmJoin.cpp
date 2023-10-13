@@ -370,7 +370,7 @@ namespace secJoin
         MC_END();
     }
 
-
+    // Active Flag = LFlag & Controlbits
     macoro::task<> OmJoin::updateActiveFlag(
         BinMatrix& data,
         BinMatrix& choice,
