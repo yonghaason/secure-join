@@ -15,6 +15,7 @@ namespace secJoin
     const char CSV_COL_DELIM = ';';
     const std::string STRING_META_TYPE = "STRING";
     const std::string ROWS_META_TYPE = "Rows";
+    const std::string COLS_META_TYPE = "Cols";
 
     using ::memcpy;
 

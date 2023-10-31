@@ -14,7 +14,8 @@ namespace secJoin
         bool verbose, bool mock, bool debug)
     {
         State* cState = new State;
-        oc::u64 lRowCount = 0, rRowCount = 0;
+        oc::u64 lRowCount = 0, rRowCount = 0, 
+            lColCount = 0, rColCount = 0;
 
         // if(debug)
         // {
@@ -26,8 +27,8 @@ namespace secJoin
 
         // Current assumption are that Visa always provides table with unique keys 
         // Which means Visa always has to be left Table
-        getFileInfo(visaMetaDataPath, cState->mLColInfo, lRowCount);
-        getFileInfo(clientMetaDataPath, cState->mRColInfo, rRowCount);
+        getFileInfo(visaMetaDataPath, cState->mLColInfo, lRowCount, lColCount);
+        getFileInfo(clientMetaDataPath, cState->mRColInfo, rRowCount, lColCount);
         cState->mLTable.init(lRowCount, cState->mLColInfo);
         cState->mRTable.init(rRowCount, cState->mRColInfo);
         if (isUnique)
@@ -46,13 +47,15 @@ namespace secJoin
         std::stringstream visaStr(std::move(selectVisaCols));
         while (getline(visaStr, word, ','))
         {
-            selectCols.emplace_back(cState->mLTable[word]);
+            oc::u32 number = stoi(word);
+            selectCols.emplace_back(cState->mLTable[number]);
         }
 
         std::stringstream clientStr(std::move(selectClientCols));
         while (getline(clientStr, word, ','))
         {
-            selectCols.emplace_back(cState->mRTable[word]);
+            oc::u32 number = stoi(word) - lColCount;
+            selectCols.emplace_back(cState->mRTable[number]);
         }
 
         // Initializing the join protocol

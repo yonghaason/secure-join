@@ -13,8 +13,8 @@ void OmJoin_wrapper_join_test(const oc::CLP& cmd)
     std::string clientMetaDataPath = rootPath + "/tests/tables/bank_meta.txt";
     std::string joinVisaCols("PAN");
     std::string joinClientCols("PAN");
-    std::string selectVisaCols("Risk_Score,PAN");
-    std::string selectClientCols("Balance");
+    std::string selectVisaCols("0,1");
+    std::string selectClientCols("2");
     std::string joinCsvPath = rootPath + "/tests/tables/joindata.csv";
     std::string joinMetaPath = rootPath + "/tests/tables/joindata_meta.txt";
     bool isUnique = true;

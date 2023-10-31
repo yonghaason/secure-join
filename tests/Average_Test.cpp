@@ -211,11 +211,12 @@ void Average_avg_csv_Test(const oc::CLP& cmd)
     bool mock = !cmd.isSet("noMock");
 
 
-    oc::u64 lRowCount = 0, rRowCount = 0;
+    oc::u64 lRowCount = 0, rRowCount = 0, 
+        lColCount = 0, rColCount = 0;
 
     std::vector<ColumnInfo> lColInfo, rColInfo;
-    getFileInfo(visaMetaDataPath, lColInfo, lRowCount);
-    getFileInfo(clientMetaDataPath, rColInfo, rRowCount);
+    getFileInfo(visaMetaDataPath, lColInfo, lRowCount, lColCount);
+    getFileInfo(clientMetaDataPath, rColInfo, rRowCount, rColCount);
 
     Table L, R;
 
