@@ -8,27 +8,36 @@ namespace secJoin
         std::cout << str << std::endl;
     }
 
+    oc::u64 getRColIndex(oc::u64 relativeIndex, oc::u64 lColCount, oc::u64 rColCount)
+    {
+        oc::u64 index = relativeIndex - lColCount;
+
+        if( index < 0 || index >= rColCount)
+        {
+            std::string temp = "Right Column relative index = "+ std::to_string(relativeIndex) 
+                + " is not present in the right table" + "\n" + LOCATION;
+            throw std::runtime_error(temp);
+        }
+
+        return index;
+    }
+
     State* initState(std::string& csvPath, std::string& visaMetaDataPath, std::string& clientMetaDataPath,
-        std::string& visaJoinCols, std::string& clientJoinCols, std::string& selectVisaCols,
-        std::string& selectClientCols, bool isUnique,
+        std::vector<std::string>& literals, std::vector<oc::i64>& opInfo, bool isUnique,
         bool verbose, bool mock, bool debug)
     {
         State* cState = new State;
+        cState->mLiterals = literals; //  This will fail, need to make a copy of literals
         oc::u64 lRowCount = 0, rRowCount = 0, 
             lColCount = 0, rColCount = 0;
 
-        // if(debug)
-        // {
-        //     cState->mProtocol = 
-        //         validateCols(visaJoinCols, clientJoinCols, selectVisaCols, selectClientCols, 
-        //                     cState->mSock, isUnique) | macoro::make_eager();
-        // }
-
-
+        parseColsArray(cState, opInfo, verbose);
+        updateSelectCols(cState, verbose);
+        
         // Current assumption are that Visa always provides table with unique keys 
         // Which means Visa always has to be left Table
         getFileInfo(visaMetaDataPath, cState->mLColInfo, lRowCount, lColCount);
-        getFileInfo(clientMetaDataPath, cState->mRColInfo, rRowCount, lColCount);
+        getFileInfo(clientMetaDataPath, cState->mRColInfo, rRowCount, rColCount);
         cState->mLTable.init(lRowCount, cState->mLColInfo);
         cState->mRTable.init(rRowCount, cState->mRColInfo);
         if (isUnique)
@@ -36,27 +45,36 @@ namespace secJoin
         else
             populateTable(cState->mRTable, csvPath, rRowCount);
 
-
         // Current Assumptions is that there is only one Join Columns
-        auto lJoinCol = cState->mLTable[visaJoinCols];
-        auto rJoinCol = cState->mRTable[clientJoinCols];
+        auto lJoinCol = cState->mLTable[cState->mJoinCols[0]];
+        oc::u64 index = getRColIndex(cState->mJoinCols[1], lColCount, rColCount);
+        auto rJoinCol = cState->mRTable[index];
 
         // Constructing Select Cols
-        std::vector<secJoin::ColRef>& selectCols = cState->selectCols;
-        std::string word;
-        std::stringstream visaStr(std::move(selectVisaCols));
-        while (getline(visaStr, word, ','))
-        {
-            oc::u32 number = stoi(word);
-            selectCols.emplace_back(cState->mLTable[number]);
-        }
+        std::vector<secJoin::ColRef> selectCols;
+        selectCols.reserve(cState->mSelectCols.size());
 
-        std::stringstream clientStr(std::move(selectClientCols));
-        while (getline(clientStr, word, ','))
+        for(u64 i=0; i < cState->mSelectCols.size(); i++)
         {
-            oc::u32 number = stoi(word) - lColCount;
-            selectCols.emplace_back(cState->mRTable[number]);
+            u64 colNum = cState->mSelectCols[i];
+            if(colNum < lColCount)            
+                selectCols.emplace_back(cState->mLTable[colNum]);
+            else if(colNum < (lColCount + rColCount) ) 
+            {
+                oc::u64 index = getRColIndex(colNum, lColCount, rColCount);
+                selectCols.emplace_back(cState->mRTable[index]);
+            }       
+            else
+            {
+                std::string temp = "Select Col Num = "+ std::to_string(colNum) 
+                    + " is not present in any table" + "\n" + LOCATION;
+                throw std::runtime_error(temp);
+            }
+
         }
+        // Create a new mapping and store the new mapping in the cState
+        createNewMapping(cState->mMap, cState->mSelectCols);
+
 
         // Initializing the join protocol
         cState->mPrng.SetSeed(oc::sysRandomSeed());
@@ -70,18 +88,12 @@ namespace secJoin
         else
             cState->mOle.fakeInit(OleGenerator::Role::Receiver);
 
-
         cState->mProtocol =
             cState->mJoin.join(lJoinCol, rJoinCol, selectCols,
                 cState->mJoinTable, cState->mPrng, cState->mOle, cState->mSock) | macoro::make_eager();
 
+        
         return cState;
-
-    }
-
-    void validateColumns()
-    {
-
     }
 
 
@@ -140,33 +152,33 @@ namespace secJoin
     }
 
 
-    void aggFunc(State* cState, std::string jsonString)
+    void aggFunc(State* cState)
     {
-        nlohmann::json j = json::parse(jsonString);
-        
-        if(!j[AVERAGE_JSON_LITERAL].empty())
+        if(cState->mAvgCols.size() > 0)
         {
-            if(j[GROUP_BY_JSON_LITERAL].empty())
+            if(cState->mGroupByCols.size() == 0)
             {
                 std::string temp("Group By Table not present in json for Average operation\n");
                 throw std::runtime_error(temp + LOCATION);
             }
 
             std::vector<secJoin::ColRef> avgCols;
-            std::string avgColNm;
-            std::string temp = j[AVERAGE_JSON_LITERAL];
-            std::stringstream avgColNmList(temp);
-            while (getline(avgColNmList, avgColNm, ','))
-                avgCols.emplace_back(cState->mJoinTable[avgColNm]);
-
+            std::vector<oc::u64> colList = cState->mAvgCols;
             
-            std::string grpByColNm = j[GROUP_BY_JSON_LITERAL];
-            secJoin::ColRef grpByCol = cState->mJoinTable[grpByColNm];
+            for(oc::u64 i =0; i< colList.size(); i++)
+            {
+                oc::u64 avgColIndex = cState->mMap[cState->mAvgCols[i]];
+                avgCols.emplace_back(cState->mJoinTable[avgColIndex]);
+            }
+
+            // Current Assumption we only have 
+            oc::u64 groupByColIndex = cState->mMap[cState->mGroupByCols[0]];
+            secJoin::ColRef grpByCol = cState->mJoinTable[groupByColIndex];
 
 
             cState->mProtocol =
-            cState->mAvg.avg( grpByCol, avgCols, cState->mAggTable,
-                cState->mPrng, cState->mOle, cState->mSock) | macoro::make_eager();
+                cState->mAvg.avg( grpByCol, avgCols, cState->mAggTable,
+                    cState->mPrng, cState->mOle, cState->mSock) | macoro::make_eager();
     
         }
 
