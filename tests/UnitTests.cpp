@@ -3,14 +3,13 @@
 #include "LowMCPerm_Test.h"
 #include "PaillierPerm_Test.h"
 #include "ComposedPerm_Test.h"
-#include "DarkMatterPrf_Test.h"
-#include "OleGenerator_Test.h"
+#include "AltModPrf_Test.h"
 #include "GMW_Test.h"
 #include "RadixSort_Test.h"
 
 #include <functional>
 
-#include "DlpnPerm_Test.h"
+#include "AltModPerm_Test.h"
 #include "PaillierPerm_Test.h"
 #include "ComposedPerm_Test.h"
 #include "AdditivePerm_Test.h"
@@ -19,6 +18,7 @@
 #include "AggTree_Tests.h"
 #include "OmJoin_Test.h"
 #include "CWrapper_Test.h"
+#include "CorGenerator_Test.h"
 #include "Average_Test.h"
 
 namespace secJoin_Tests
@@ -26,9 +26,15 @@ namespace secJoin_Tests
     oc::TestCollection Tests(
         [](oc::TestCollection& t)
         {
-            t.add("Generator_BinOle_Test                         ", Generator_BinOle_Test);
-            t.add("Generator_Ot_Test                             ", Generator_Ot_Test);
-            t.add("Generator_ArithTriple_Test                    ", Generator_ArithTriple_Test);
+
+
+            t.add("CorGenerator_Ot_Test                          ", CorGenerator_Ot_Test);
+            t.add("CorGenerator_BinOle_Test                      ", CorGenerator_BinOle_Test);
+            t.add("CorGenerator_mixed_Test                       ", CorGenerator_mixed_Test);
+            
+            //t.add("Generator_BinOle_Test                         ", Generator_BinOle_Test);
+            //t.add("Generator_Ot_Test                             ", Generator_Ot_Test);
+            //t.add("Generator_ArithTriple_Test                    ", Generator_ArithTriple_Test);
 
             t.add("Gmw_half_test                                 ", Gmw_half_test);
             t.add("Gmw_basic_test                                ", Gmw_basic_test);
@@ -43,27 +49,33 @@ namespace secJoin_Tests
             t.add("Gmw_noLevelize_test                           ", Gmw_noLevelize_test);
 
             // t.add("PaillierPerm_basic_test                       ", PaillierPerm_basic_test);
-            t.add("DLpnPrf_mod3BitDecompostion_test              ", DLpnPrf_mod3BitDecompostion_test);
+            t.add("AltModPrf_mod3BitDecompostion_test              ", AltModPrf_mod3BitDecompostion_test);
 
 
-            t.add("DLpnPrf_BMult_test                            ", DLpnPrf_BMult_test);
-            t.add("DLpnPrf_mod3_test                             ", DLpnPrf_mod3_test);
-            t.add("DLpnPrf_mod2_test                             ", DLpnPrf_mod2_test);
-            t.add("DLpnPrf_plain_test                            ", DLpnPrf_plain_test);
-            t.add("DLpnPrf_proto_test                            ", DLpnPrf_proto_test);
+            t.add("AltModPrf_AMult_test                            ", AltModPrf_AMult_test);
+            t.add("AltModPrf_BMult_test                            ", AltModPrf_BMult_test);
+            
+            t.add("AltModPrf_sampleMod3_test                       ", AltModPrf_sampleMod3_test);
+            t.add("AltModPrf_mod3_test                             ", AltModPrf_mod3_test);
+            t.add("AltModPrf_mod2_test                             ", AltModPrf_mod2_test);
+            t.add("AltModPrf_plain_test                            ", AltModPrf_plain_test);
+            t.add("AltModPrf_proto_test                            ", AltModPrf_proto_test);
 
-            t.add("DlpnPerm_setup_test                           ", DlpnPerm_setup_test);
-            t.add("DlpnPerm_apply_test                           ", DlpnPerm_apply_test);
-            t.add("DlpnPerm_sharedApply_test                     ", DlpnPerm_sharedApply_test);
+            t.add("AltModPerm_setup_test                           ", AltModPerm_setup_test);
+            t.add("AltModPerm_apply_test                           ", AltModPerm_apply_test);
+            t.add("AltModPerm_sharedApply_test                     ", AltModPerm_sharedApply_test);
+            t.add("AltModPerm_prepro_test                          ", AltModPerm_prepro_test);
 
             t.add("LocMC_eval_test                               ", LocMC_eval_test);
 
+            t.add("plaintext_perm_test                           ", plaintext_perm_test);
             t.add("LowMCPerm_perm_test                           ", LowMCPerm_perm_test);
             t.add("LowMCPerm_secret_shared_input_perm_test       ", LowMCPerm_secret_shared_input_perm_test);
-            t.add("ComposedPerm_replicated_perm_test             ", ComposedPerm_replicated_perm_test);
-            t.add("ComposedPerm_replicated_secure_perm_test      ", ComposedPerm_replicated_secure_perm_test);
+            t.add("ComposedPerm_basic_test                       ", ComposedPerm_basic_test);
+            t.add("ComposedPerm_shared_test                      ", ComposedPerm_shared_test);
+            t.add("ComposedPerm_prepro_test                      ", ComposedPerm_prepro_test);
             t.add("AdditivePerm_xor_test                         ", AdditivePerm_xor_test);
-            t.add("AdditivePerm_add_test                         ", AdditivePerm_add_test);
+            t.add("AdditivePerm_prepro_test                      ", AdditivePerm_prepro_test);
 
             t.add("RadixSort_aggregateSum_test                   ", RadixSort_aggregateSum_test);
             t.add("RadixSort_oneHot_test                         ", RadixSort_oneHot_test);
@@ -98,7 +110,8 @@ namespace secJoin_Tests
             t.add("OmJoin_concatColumns_Test                     ", OmJoin_concatColumns_Test);
             t.add("OmJoin_getOutput_Test                         ", OmJoin_getOutput_Test);
             t.add("OmJoin_join_Test                              ", OmJoin_join_Test);
-            t.add("OmJoin_join_Test1                             ", OmJoin_join_Test1);
+            t.add("OmJoin_join_BigKey_Test                       ", OmJoin_join_BigKey_Test);
+            t.add("OmJoin_join_Reveal_Test                       ", OmJoin_join_Reveal_Test);
             t.add("OmJoin_join_round_Test                        ", OmJoin_join_round_Test);
             t.add("OmJoin_join_csv_Test                          ", OmJoin_join_csv_Test);
             t.add("OmJoin_wrapper_join_test                      ", OmJoin_wrapper_join_test);

@@ -1,5 +1,7 @@
 #pragma once
 #include "cryptoTools/Common/Defines.h"
+#include "cryptoTools/Common/Block.h"
+#include "cryptoTools/Crypto/PRNG.h"
 #include <iostream>
 #include <sstream>
 #include <iomanip>
@@ -16,6 +18,8 @@ namespace secJoin
     const std::string STRING_META_TYPE = "STRING";
     const std::string ROWS_META_TYPE = "Rows";
     const std::string COLS_META_TYPE = "Cols";
+    using block = oc::block;
+    using PRNG = oc::PRNG;
 
     using ::memcpy;
 

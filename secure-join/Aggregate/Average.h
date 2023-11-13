@@ -16,13 +16,13 @@ namespace secJoin
 
 
         static void concatColumns(ColRef groupByCol, std::vector<ColRef> average, BinMatrix& ret,
-            std::vector<OmJoin::Offset>& offsets, OleGenerator& ole);
+            std::vector<OmJoin::Offset>& offsets, CorGenerator& ole);
 
         macoro::task<> avg(ColRef groupByCol, std::vector<ColRef> avgCol, SharedTable& out,
-            oc::PRNG& prng, OleGenerator& ole, coproto::Socket& sock);
+            oc::PRNG& prng, CorGenerator& ole, coproto::Socket& sock);
 
         static macoro::task<> getControlBits(BinMatrix& keys, coproto::Socket& sock, BinMatrix& out,
-        OleGenerator& ole);
+        CorGenerator& ole);
 
         static AggTree::Operator getAddCircuit(std::vector<OmJoin::Offset>& offsets, 
             oc::BetaLibrary::Optimized op);
@@ -32,7 +32,7 @@ namespace secJoin
             std::vector<OmJoin::Offset>& offsets, std::vector<OmJoin::Offset>& keyOffsets);
 
         static  macoro::task<> updateActiveFlag(BinMatrix& data, BinMatrix& choice, 
-            BinMatrix& out, OleGenerator& ole, coproto::Socket& sock);
+            BinMatrix& out, CorGenerator& ole, coproto::Socket& sock);
     
     
 

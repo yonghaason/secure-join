@@ -12,7 +12,37 @@ namespace secJoin
 
 	struct OmJoin : public oc::TimerAdapter
 	{
-		bool mInsecurePrint = true, mInsecureMockSubroutines = false;
+		bool mInsecurePrint = false, mInsecureMockSubroutines = false;
+
+		// statical security parameter.
+		u64 mStatSecParam = 40;
+
+		//RadixSort mSorter;
+
+		//AggTree mAggTree;
+
+		//AdditivePerm mSortingPerm;
+
+		//void init(
+		//	ColRef leftJoinCol,
+		//	ColRef rightJoinCol,
+		//	std::vector<ColRef> selects)
+		//{
+		//	std::vector<u64> leftSizes, rightSizes;
+		//	for (auto s : selects)
+		//	{
+		//		if (&s.mTable == &leftJoinCol.mTable)
+		//			leftSizes.emplace_back(s.mCol.getBitCount());
+		//		else if (&s.mTable == &rightJoinCol.mTable)
+		//			rightSizes.emplace_back(s.mCol.getBitCount());
+		//		else
+		//			throw std::runtime_error("select statement does not match left right join cols. "LOCATION);
+		//	}
+
+		//	init(leftJoinCol.mTable.rows(), rightJoinCol.mTable.rows(), leftSizes, rightSizes);
+		//}
+
+		//void init(u64 leftSize, u64 rightSize, std::vector<u64> leftSelSizes, std::vector<u64> rightSelSize);
 
 		struct Offset
 		{
@@ -24,7 +54,8 @@ namespace secJoin
 			BinMatrix& data,
 			BinMatrix& choice,
 			BinMatrix& out,
-			OleGenerator& ole,
+			CorGenerator& ole,
+			PRNG&prng,
 			coproto::Socket& sock);
 
 
@@ -33,7 +64,7 @@ namespace secJoin
 		// number of rows). THe left column will have a
 		// zero appended as its LSB while the right gets
 		// a one appended.
-		static BinMatrix loadKeys(
+		BinMatrix loadKeys(
 			ColRef leftJoinCol,
 			ColRef rightJoinCol);
 
@@ -50,7 +81,8 @@ namespace secJoin
 			u64 keyBitCount,
 			coproto::Socket& sock,
 			BinMatrix& out,
-			OleGenerator& ole);
+			CorGenerator& ole,
+			PRNG& prng);
 
 		// concatinate all the columns
 		// Then append `numDummies` empty rows to the end.
@@ -99,8 +131,8 @@ namespace secJoin
 			ColRef rightJoinCol,
 			std::vector<ColRef> selects,
 			SharedTable& out,
-			oc::PRNG& prng,
-			OleGenerator& ole,
+			PRNG& prng,
+			CorGenerator& ole,
 			coproto::Socket& sock);
 	};
 

@@ -75,7 +75,7 @@ namespace secJoin{
     14) .
     15) -1
     */
-    inline void parseColsArray(State* cState, std::vector<oc::i64>& opInfo, bool print)
+    inline void parseColsArray(WrapperState* cState, std::vector<oc::i64>& opInfo, bool print)
     {
         oc::u64 startIndex = 0;
         
@@ -144,7 +144,7 @@ namespace secJoin{
     This method method updates the Select Cols if any of the where, 
     groupby & Average Columns don't exists in the Select Cols.
     */
-    inline void updateSelectCols(State* cState, bool print)
+    inline void updateSelectCols(WrapperState* cState, bool print)
     {  
 
         // Checking GroupBy Cols

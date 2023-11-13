@@ -13,7 +13,7 @@
 using coproto::LocalAsyncSocket;
 using namespace secJoin;
 
-using PRNG = oc::PRNG;
+using PRNG = PRNG;
 namespace secJoin_Tests
 {
     //void generateBase_test()
@@ -26,7 +26,7 @@ namespace secJoin_Tests
     //    b0.mRecvChoiceBits.resize(b1.mNumSend);
     //    b1.mRecvChoiceBits.resize(b0.mNumSend);
 
-    //    oc::PRNG prng(oc::ZeroBlock);
+    //    PRNG prng(oc::ZeroBlock);
     //    b0.mRecvChoiceBits.randomize(prng);
     //    b1.mRecvChoiceBits.randomize(prng);
 
@@ -97,7 +97,7 @@ namespace secJoin_Tests
     //        std::vector<block> m0(b0.mRecvChoiceBits.size()), m1(b1.mRecvChoiceBits.size());
     //        std::vector<std::array<block, 2>> mm0(b0.mNumSend), mm1(b1.mNumSend);
 
-    //        oc::PRNG prng(oc::CCBlock);
+    //        PRNG prng(oc::CCBlock);
     //        prng.get(mm0.data(), mm0.size());
     //        prng.get(mm1.data(), mm1.size());
     //        for (u64 i = 0; i < mm0.size(); ++i)
@@ -139,7 +139,7 @@ namespace secJoin_Tests
     //}
 
 
-    void makeTriple(span<block> a, span<block> b, span<block> c, span<block> d, oc::PRNG& prng)
+    void makeTriple(span<block> a, span<block> b, span<block> c, span<block> d, PRNG& prng)
     {
         prng.get(a.data(), a.size());
         prng.get(b.data(), b.size());
@@ -160,7 +160,7 @@ namespace secJoin_Tests
 
         Gmw cmp0, cmp1;
         block seed = oc::toBlock(cmd.getOr<u64>("s", 0));
-        oc::PRNG prng(seed);
+        PRNG prng(seed);
 
         u64 n = cmd.getOr("n", 100ull);
         u64 bc = cmd.getOr("bc", 16);
@@ -172,38 +172,30 @@ namespace secJoin_Tests
         prng.get(input0.data(), input0.size());
         prng.get(input1.data(), input1.size());
 
-        OleGenerator ole0, ole1;
-        ole0.fakeInit(OleGenerator::Role::Sender);
-        ole1.fakeInit(OleGenerator::Role::Receiver);
-
         auto cir = isZeroCircuit(bc);
-        cmp0.init(n * 128, cir, ole0);
-        cmp1.init(n * 128, cir, ole1);
+        cmp0.init(n * 128, cir);
+        cmp1.init(n * 128, cir);
 
         std::vector<block> a0(n), b0(n), c0(n), d0(n);
-        //std::vector<block> a1(n), b1(n), c1(n), d1(n);
         makeTriple(a0, b0, c0, d0, prng);
-        //makeTriple(a1, b1, c1, d1, prng);
-        //cmp0.setTriples(a0, b0, c1, d1);
-        //cmp1.setTriples(a1, b1, c0, d0);
 
         std::vector<block> buff(n);
-        span<oc::block> iter = buff;
-        iter = cmp0.multSendP1(input0, oc::GateType::And, a0, iter);
-        if (iter.size())
+        auto iter = buff.data();
+        iter = cmp0.multSendP1(input0.data(), oc::GateType::And, a0.data(), iter);
+        if (iter != buff.data() + buff.size())
             throw RTE_LOC;
-        iter = buff;
-        iter = cmp1.multRecvP2(input1, z1, c0, d0, iter);
+        iter = buff.data();
+        iter = cmp1.multRecvP2(input1.data(), z1.data(), c0.data(), d0.data(), iter);
 
-        if (iter.size())
+        if (iter != buff.data() + buff.size())
             throw RTE_LOC;
-        iter = buff;
-        iter = cmp1.multSendP2(input1, oc::GateType::And, c0, iter);
-        if (iter.size())
+        iter = buff.data();
+        iter = cmp1.multSendP2(input1.data(), oc::GateType::And, c0.data(), iter);
+        if (iter != buff.data() + buff.size())
             throw RTE_LOC;
-        iter = buff;
-        iter = cmp0.multRecvP1(input0, z0, oc::GateType::And, b0, iter);
-        if (iter.size())
+        iter = buff.data();
+        iter = cmp0.multRecvP1(input0.data(), z0.data(), oc::GateType::And, b0.data(), iter);
+        if (iter != buff.data() + buff.size())
             throw RTE_LOC;
 
         for (u64 i = 0; i < n; i++)
@@ -224,7 +216,7 @@ namespace secJoin_Tests
     {
         Gmw cmp0, cmp1;
         block seed = oc::toBlock(cmd.getOr<u64>("s", 0));
-        oc::PRNG prng(seed);
+        PRNG prng(seed);
 
         u64 n = cmd.getOr("n", 100ull);
         u64 bc = cmd.getOr("bc", 16);
@@ -245,13 +237,9 @@ namespace secJoin_Tests
             prng.get(y[i].data(), n);
         }
 
-        OleGenerator ole0, ole1;
-        ole0.fakeInit(OleGenerator::Role::Sender);
-        ole1.fakeInit(OleGenerator::Role::Receiver);
-
         auto cir = isZeroCircuit(bc);
-        cmp0.init(n * 128, cir, ole0);
-        cmp1.init(n * 128, cir, ole1);
+        cmp0.init(n * 128, cir);
+        cmp1.init(n * 128, cir);
 
         std::vector<block> a0(n), b0(n), c0(n), d0(n);
         std::vector<block> a1(n), b1(n), c1(n), d1(n);
@@ -263,25 +251,25 @@ namespace secJoin_Tests
         //cmp1.setTriples(a1, b1, c0, d0);
 
         std::vector<block> buff(n * 2);
-        span<oc::block> iter = buff;
-        iter = cmp0.multSendP1(x[0], y[0], oc::GateType::And, a0, c1, iter);
+        auto iter = buff.data();
+        iter = cmp0.multSendP1(x[0].data(), y[0].data(), oc::GateType::And, a0.data(), c1.data(), iter);
 
-        if (iter.size())
+        if (iter != buff.data() + buff.size())
             throw RTE_LOC;
-        iter = buff;
-        iter = cmp1.multRecvP2(x[1], y[1], z[1], b1, c0, d0, iter);
-        if (iter.size())
+        iter = buff.data();
+        iter = cmp1.multRecvP2(x[1].data(), y[1].data(), z[1].data(), b1.data(), c0.data(), d0.data(), iter);
+        if (iter != buff.data() + buff.size())
         {
-            std::cout << (iter.size()) << std::endl;
+            std::cout << (iter - buff.data()) << std::endl;
             throw RTE_LOC;
         }
-        iter = buff;
-        iter = cmp1.multSendP2(x[1], y[1], a1, c0, iter);
-        if (iter.size())
+        iter = buff.data();
+        iter = cmp1.multSendP2(x[1].data(), y[1].data(), a1.data(), c0.data(), iter);
+        if (iter != buff.data() + buff.size())
             throw RTE_LOC;
-        iter = buff;
-        iter = cmp0.multRecvP1(x[0], y[0], z[0], oc::GateType::And, b0, c1, d1, iter);
-        if (iter.size())
+        iter = buff.data();
+        iter = cmp0.multRecvP1(x[0].data(), y[0].data(), z[0].data(), oc::GateType::And, b0.data(), c1.data(), d1.data(), iter);
+        if (iter != buff.data() + buff.size())
             throw RTE_LOC;
 
         for (u64 i = 0; i < n; i++)
@@ -317,7 +305,7 @@ namespace secJoin_Tests
         }
     }
 
-    std::vector<u64> randomSubset(u64 n, u64 m, oc::PRNG& prng)
+    std::vector<u64> randomSubset(u64 n, u64 m, PRNG& prng)
     {
         std::vector<u64> set(n), ret(m);
         std::iota(set.begin(), set.end(), 0);
@@ -402,15 +390,17 @@ namespace secJoin_Tests
         cir.mOutputs.push_back(io);
 
 
-        OleGenerator ole;
-        ole.fakeInit(OleGenerator::Role::Sender);
+        PRNG prng(block(0, 0));
+        CorGenerator ole;
+        ole.init(oc::Socket{}, prng, 0, 1<<18, cmd.getOr("mock", 1));
+
+
         Gmw gmw;
-        gmw.init(n, cir, ole);
+        gmw.init(n, cir);
 
         Matrix<u8> in(n, oc::divCeil(w, 8));
         Matrix<u8> out(n, oc::divCeil(w, 8));
 
-        PRNG prng(block(0, 0));
         prng.get(in.data(), in.size());
         gmw.setInput(0, in);
         gmw.getOutput(0, out);
@@ -427,23 +417,24 @@ namespace secJoin_Tests
 
         BetaCircuit cir = *oc::BetaLibrary().int_int_bitwiseXor(w, w, w);
 
-        OleGenerator ole;
-        ole.fakeInit(OleGenerator::Role::Sender);
+        CorGenerator ole;
+        auto socks = coproto::LocalAsyncSocket::makePair();
+        PRNG prng(block(0, 0));
+        ole.init(std::move(socks[0]), prng, 0);
         Gmw gmw;
-        gmw.init(n, cir, ole);
+        gmw.init(n, cir);
 
         Matrix<u8> in0(n, oc::divCeil(w, 8));
         Matrix<u8> in1(n, oc::divCeil(w, 8));
         Matrix<u8> out(n, oc::divCeil(w, 8));
 
-        PRNG prng(block(0, 0));
         prng.get(in0.data(), in0.size());
         prng.get(in1.data(), in1.size());
 
         gmw.setInput(0, in0);
         gmw.setInput(1, in1);
         coproto::Socket chl;
-        macoro::sync_wait(gmw.run(chl));
+        macoro::sync_wait(gmw.run(ole, chl, prng));
         gmw.getOutput(0, out);
 
         for (u64 i = 0; i < out.size(); ++i)
@@ -464,19 +455,20 @@ namespace secJoin_Tests
         BetaCircuit cir = *oc::BetaLibrary().int_int_bitwiseAnd(w, w, w);
         PRNG prng(block(0, 0));
 
-        OleGenerator ole0, ole1;
-        ole0.fakeInit(OleGenerator::Role::Sender);
-        ole1.fakeInit(OleGenerator::Role::Receiver);
+        CorGenerator ole0, ole1;
+        ole0.init(chls[0].fork(), prng, 0, 1<<18, cmd.getOr("mock", 1));
+        ole1.init(chls[1].fork(), prng, 1, 1<<18, cmd.getOr("mock", 1));
+
 
         //macoro::thread_pool tp;
         //auto ww = tp.make_work();
         //tp.create_thread();
-        //ole0.init(OleGenerator::Role::Sender, tp, chls[0], prng, 1<<20, 1<<20, 4);
-        //ole1.init(OleGenerator::Role::Receiver, tp, chls[1], prng, 1 << 20, 1 << 20, 4);
+        //ole0.init(CorGenerator::Role::Sender, tp, chls[0], prng, 1<<20, 1<<20, 4);
+        //ole1.init(CorGenerator::Role::Receiver, tp, chls[1], prng, 1 << 20, 1 << 20, 4);
 
         Gmw gmw0, gmw1;
-        gmw0.init(n, cir, ole0);
-        gmw1.init(n, cir, ole1);
+        gmw0.init(n, cir);
+        gmw1.init(n, cir);
 
         gmw0.mO.mDebug = true;
         gmw1.mO.mDebug = true;
@@ -497,8 +489,8 @@ namespace secJoin_Tests
         gmw1.setInput(0, sin0[1]);
         gmw1.setInput(1, sin1[1]);
 
-        auto p0 = gmw0.run(chls[0]);
-        auto p1 = gmw1.run(chls[1]);
+        auto p0 = gmw0.run(ole0, chls[0], prng);
+        auto p1 = gmw1.run(ole1, chls[1], prng);
         eval(p0, p1);
 
         gmw0.getOutput(0, out0);
@@ -549,12 +541,13 @@ namespace secJoin_Tests
         }
 
         PRNG prng(block(0, 0));
-        OleGenerator ole0, ole1;
-        ole0.fakeInit(OleGenerator::Role::Sender);
-        ole1.fakeInit(OleGenerator::Role::Receiver);
+        CorGenerator ole0, ole1;
+        ole0.init(sockets[0].fork(), prng, 0, 1<<18, cmd.getOr("mock", 1));
+        ole1.init(sockets[1].fork(), prng, 1, 1<<18, cmd.getOr("mock", 1));
+
         Gmw gmw0, gmw1;
-        gmw0.init(n, cir, ole0);
-        gmw1.init(n, cir, ole1);
+        gmw0.init(n, cir);
+        gmw1.init(n, cir);
 
         gmw0.mO.mDebug = true;
         gmw1.mO.mDebug = true;
@@ -579,8 +572,8 @@ namespace secJoin_Tests
 
 
 
-        auto p0 = gmw0.run(sockets[0]);
-        auto p1 = gmw1.run(sockets[1]);
+        auto p0 = gmw0.run(ole0, sockets[0], prng);
+        auto p1 = gmw1.run(ole1, sockets[1], prng);
         eval(p0, p1);
 
         gmw0.getOutput(0, out0);
@@ -641,12 +634,12 @@ namespace secJoin_Tests
 
 
         PRNG prng(block(0, 0));
-        OleGenerator ole0, ole1;
-        ole0.fakeInit(OleGenerator::Role::Sender);
-        ole1.fakeInit(OleGenerator::Role::Receiver);
+        CorGenerator ole0, ole1;
+        ole0.init(sockets[0].fork(), prng, 0, 1<<18, cmd.getOr("mock", 1));
+        ole1.init(sockets[1].fork(), prng, 1, 1<<18, cmd.getOr("mock", 1));
         Gmw gmw0, gmw1;
-        gmw0.init(n, cir, ole0);
-        gmw1.init(n, cir, ole1);
+        gmw0.init(n, cir);
+        gmw1.init(n, cir);
 
         gmw0.mO.mDebug = true;
         gmw1.mO.mDebug = true;
@@ -667,8 +660,8 @@ namespace secJoin_Tests
         gmw1.setInput(0, sin0[1]);
         gmw1.setInput(1, sin1[1]);
 
-        auto p0 = gmw0.run(sockets[0]);
-        auto p1 = gmw1.run(sockets[1]);
+        auto p0 = gmw0.run(ole0, sockets[0], prng);
+        auto p1 = gmw1.run(ole1, sockets[1], prng);
         eval(p0, p1);
 
         gmw0.getOutput(0, out0);
@@ -721,11 +714,11 @@ namespace secJoin_Tests
         gmw1.mLevelize = BetaCircuit::LevelizeType::Reorder;
 
         PRNG prng(block(0, 0));
-        OleGenerator ole0, ole1;
-        ole0.fakeInit(OleGenerator::Role::Sender);
-        ole1.fakeInit(OleGenerator::Role::Receiver);
-        gmw0.init(n, cir, ole0);
-        gmw1.init(n, cir, ole1);
+        CorGenerator ole0, ole1;
+        ole0.init(sockets[0].fork(), prng, 0, 1<<18, cmd.getOr("mock", 1));
+        ole1.init(sockets[1].fork(), prng, 1, 1<<18, cmd.getOr("mock", 1));
+        gmw0.init(n, cir);
+        gmw1.init(n, cir);
         gmw0.mO.mDebug = true;
         gmw1.mO.mDebug = true;
 
@@ -755,8 +748,8 @@ namespace secJoin_Tests
 
 
 
-        auto p0 = gmw0.run(sockets[0]);
-        auto p1 = gmw1.run(sockets[1]);
+        auto p0 = gmw0.run(ole0, sockets[0], prng);
+        auto p1 = gmw1.run(ole1, sockets[1], prng);
         eval(p0, p1);
 
         gmw0.getOutput(0, out0);
@@ -808,11 +801,11 @@ namespace secJoin_Tests
         gmw1.mLevelize = BetaCircuit::LevelizeType::NoReorder;
 
         PRNG prng(block(0, 0));
-        OleGenerator ole0, ole1;
-        ole0.fakeInit(OleGenerator::Role::Sender);
-        ole1.fakeInit(OleGenerator::Role::Receiver);
-        gmw0.init(n, cir, ole0);
-        gmw1.init(n, cir, ole1);
+        CorGenerator ole0, ole1;
+        ole0.init(sockets[0].fork(), prng, 0, 1<<18, cmd.getOr("mock", 1));
+        ole1.init(sockets[1].fork(), prng, 1, 1<<18, cmd.getOr("mock", 1));
+        gmw0.init(n, cir);
+        gmw1.init(n, cir);
         gmw0.mO.mDebug = true;
         gmw1.mO.mDebug = true;
         gmw0.mO.mDebug = true;
@@ -846,8 +839,8 @@ namespace secJoin_Tests
         gmw1.setInput(0, sin0[1]);
         gmw1.setInput(1, sin1[1]);
 
-        auto p0 = gmw0.run(sockets[0]);
-        auto p1 = gmw1.run(sockets[1]);
+        auto p0 = gmw0.run(ole0, sockets[0], prng);
+        auto p1 = gmw1.run(ole1, sockets[1], prng);
         eval(p0, p1);
 
         gmw0.getOutput(0, out0);
@@ -885,7 +878,7 @@ namespace secJoin_Tests
 
         Gmw gmw0, gmw1;
         block seed = oc::toBlock(cmd.getOr<u64>("s", 0));
-        oc::PRNG prng(seed);
+        PRNG prng(seed);
 
         u64 n = 77;
 
@@ -907,12 +900,12 @@ namespace secJoin_Tests
             oc::MatrixView<u32>(sin1_[1].data(), sin1_[0].size(), 1)
         } };
 
-        OleGenerator ole0, ole1;
-        ole0.fakeInit(OleGenerator::Role::Sender);
-        ole1.fakeInit(OleGenerator::Role::Receiver);
+        CorGenerator ole0, ole1;
+        ole0.init(sockets[0].fork(), prng, 0, 1<<18, cmd.getOr("mock", 1));
+        ole1.init(sockets[1].fork(), prng, 1, 1<<18, cmd.getOr("mock", 1));
 
-        gmw0.init(n, cir, ole0);
-        gmw1.init(n, cir, ole1);
+        gmw0.init(n, cir);
+        gmw1.init(n, cir);
         gmw0.mO.mDebug = true;
         gmw1.mO.mDebug = true;
 
@@ -921,8 +914,8 @@ namespace secJoin_Tests
         gmw1.setInput(0, sin0[1]);
         gmw1.setInput(1, sin1[1]);
 
-        auto p0 = gmw0.run(sockets[0]);
-        auto p1 = gmw1.run(sockets[1]);
+        auto p0 = gmw0.run(ole0, sockets[0], prng);
+        auto p1 = gmw1.run(ole1, sockets[1], prng);
         eval(p0, p1);
 
         gmw0.getOutput(0, sout[0]);
@@ -956,7 +949,7 @@ namespace secJoin_Tests
 
         Gmw gmw0, gmw1;
         block seed = oc::toBlock(cmd.getOr<u64>("s", 0));
-        oc::PRNG prng(seed);
+        PRNG prng(seed);
 
         u64 n = 100;
 
@@ -974,12 +967,12 @@ namespace secJoin_Tests
         gmw1.mLevelize = BetaCircuit::LevelizeType::NoReorder;
 
 
-        OleGenerator ole0, ole1;
-        ole0.fakeInit(OleGenerator::Role::Sender);
-        ole1.fakeInit(OleGenerator::Role::Receiver);
+        CorGenerator ole0, ole1;
+        ole0.init(sockets[0].fork(), prng, 0, 1<<18, cmd.getOr("mock", 1));
+        ole1.init(sockets[1].fork(), prng, 1, 1<<18, cmd.getOr("mock", 1));
 
-        gmw0.init(n, cir, ole0);
-        gmw1.init(n, cir, ole1);
+        gmw0.init(n, cir);
+        gmw1.init(n, cir);
         gmw0.mO.mDebug = true;
         gmw1.mO.mDebug = true;
 
@@ -989,8 +982,8 @@ namespace secJoin_Tests
         gmw1.setInput(0, sin0[1]);
         gmw1.setInput(1, sin1[1]);
 
-        auto p0 = gmw0.run(sockets[0]);
-        auto p1 = gmw1.run(sockets[1]);
+        auto p0 = gmw0.run(ole0, sockets[0], prng);
+        auto p1 = gmw1.run(ole1, sockets[1], prng);
         eval(p0, p1);
 
         gmw0.getOutput(0, sout[0]);

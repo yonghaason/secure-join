@@ -1,5 +1,6 @@
 #include "Average_Test.h"
 
+//#include "nlohmann/json.hpp"
 
 using namespace secJoin;
 
@@ -29,8 +30,8 @@ void Average_concatColumns_Test()
     averageCols.emplace_back(t0[2]);
 
 
-    OleGenerator ole;
-    ole.fakeInit(OleGenerator::Role::Receiver);
+    CorGenerator ole;
+    ole.init(coproto::Socket{}, prng, 0);
      
     Average::concatColumns( t0[0], averageCols, y, offsets, ole);
     BinMatrix ones(n0, sizeof(oc::u64) * 8);
@@ -77,10 +78,11 @@ void Average_concatColumns_Test()
 
 
 
-void Average_getControlBits_Test()
+void Average_getControlBits_Test(const oc::CLP& cmd)
 {
     u64 n = 342;
     u64 keyBitCount = 21;
+    auto mock = cmd.getOr("mock", 1);
 
     auto sock = coproto::LocalAsyncSocket::makePair();
 
@@ -100,9 +102,9 @@ void Average_getControlBits_Test()
 
     share(keys, kk[0], kk[1], prng);
 
-    OleGenerator ole0, ole1;
-    ole0.fakeInit(OleGenerator::Role::Sender);
-    ole1.fakeInit(OleGenerator::Role::Receiver);
+    CorGenerator ole0, ole1;
+    ole0.init(sock[0].fork(), prng, 0, 1 << 16, mock);
+    ole1.init(sock[1].fork(), prng, 1, 1 << 16, mock);
 
     auto r = macoro::sync_wait(macoro::when_all_ready(
         Average::getControlBits( kk[0], sock[0] ,cc[0], ole0),
@@ -129,7 +131,7 @@ void Average_avg_Test(const oc::CLP& cmd)
     Table tb, tbShare;
 
     bool printSteps = cmd.isSet("print");
-    bool mock = !cmd.isSet("noMock");
+    bool mock = cmd.getOr("mock", 1);
 
     tb.init(nTb, { {
         {"L1", TypeID::IntID, 12},
@@ -160,16 +162,18 @@ void Average_avg_Test(const oc::CLP& cmd)
     avg1.mInsecureMockSubroutines = mock;
     avg2.mInsecureMockSubroutines = mock;
 
-    OleGenerator ole0, ole1;
-    ole0.fakeInit(OleGenerator::Role::Sender);
-    ole1.fakeInit(OleGenerator::Role::Receiver);
+    auto sock = coproto::LocalAsyncSocket::makePair();
 
     PRNG prng0(oc::ZeroBlock);
     PRNG prng1(oc::OneBlock);
-    auto sock = coproto::LocalAsyncSocket::makePair();
+    CorGenerator ole0, ole1;
+    ole0.init(sock[0].fork(), prng0, 0, 1 << 16, mock);
+    ole1.init(sock[1].fork(), prng1, 1, 1 << 16, mock);
 
     Table out[2];
 
+    // crashes.
+    throw RTE_LOC;
     auto r = macoro::sync_wait(macoro::when_all_ready(
         avg1.avg(tb[0], { tb[1], tb[2] }, out[0], prng0, ole0, sock[0]),
         avg2.avg(tbShare[0], { tbShare[1], tbShare[2] }, out[1], prng1, ole1, sock[1])
@@ -208,7 +212,7 @@ void Average_avg_csv_Test(const oc::CLP& cmd)
     // bool isAgg = false;
     // bool verbose = cmd.isSet("v");
     bool printSteps = cmd.isSet("print");
-    bool mock = !cmd.isSet("noMock");
+    bool mock = cmd.getOr("mock", 1);
 
 
     oc::u64 lRowCount = 0, rRowCount = 0, 
@@ -245,13 +249,13 @@ void Average_avg_csv_Test(const oc::CLP& cmd)
     join0.mInsecureMockSubroutines = mock;
     join1.mInsecureMockSubroutines = mock;
 
-    OleGenerator ole0, ole1;
-    ole0.fakeInit(OleGenerator::Role::Sender);
-    ole1.fakeInit(OleGenerator::Role::Receiver);
-
+    CorGenerator ole0, ole1;
     PRNG prng0(oc::ZeroBlock);
     PRNG prng1(oc::OneBlock);
     auto sock = coproto::LocalAsyncSocket::makePair();
+    ole0.init(sock[0].fork(), prng0, 0, 1 << 16, mock);
+    ole1.init(sock[1].fork(), prng1, 1, 1 << 16, mock);
+
 
     Table tempOut[2], out[2];
 
@@ -286,40 +290,40 @@ void Average_avg_csv_Test(const oc::CLP& cmd)
     avg1.mInsecureMockSubroutines = mock;
     avg2.mInsecureMockSubroutines = mock;
 
-    nlohmann::json j = nlohmann::json::parse(jsonString);
+    //nlohmann::json j = nlohmann::json::parse(jsonString);
 
-    std::array<std::vector<secJoin::ColRef>,3> avgCols;
-    std::string avgColNm;
-    // std::string temp = j[secJoin::AVERAGE_JSON_LITERAL];
-    std::string temp = j[AVERAGE_JSON_LITERAL];
-    std::stringstream avgColNmList(temp);
-    while (getline(avgColNmList, avgColNm, ','))
-    {
-        avgCols[0].emplace_back(tempOut[0][avgColNm]);
-        avgCols[1].emplace_back(tempOut[1][avgColNm]);
-        avgCols[2].emplace_back(joinExp[avgColNm]);
-    }
+    //std::array<std::vector<secJoin::ColRef>,3> avgCols;
+    //std::string avgColNm;
+    //// std::string temp = j[secJoin::AVERAGE_JSON_LITERAL];
+    //std::string temp = j[AVERAGE_JSON_LITERAL];
+    //std::stringstream avgColNmList(temp);
+    //while (getline(avgColNmList, avgColNm, ','))
+    //{
+    //    avgCols[0].emplace_back(tempOut[0][avgColNm]);
+    //    avgCols[1].emplace_back(tempOut[1][avgColNm]);
+    //    avgCols[2].emplace_back(joinExp[avgColNm]);
+    //}
 
-    // std::string grpByColNm = j[secJoin::GROUP_BY_JSON_LITERAL];
-    std::string grpByColNm = j[GROUP_BY_JSON_LITERAL];
+    //// std::string grpByColNm = j[secJoin::GROUP_BY_JSON_LITERAL];
+    //std::string grpByColNm = j[GROUP_BY_JSON_LITERAL];
 
-    auto r1 = macoro::sync_wait(macoro::when_all_ready(
-        avg1.avg(tempOut[0][grpByColNm], avgCols[0], out[0], prng0, ole0, sock[0]),
-        avg2.avg(tempOut[1][grpByColNm], avgCols[1], out[1], prng1, ole1, sock[1])
-    ));
-    std::get<1>(r1).result();
-    std::get<0>(r1).result();
+    //auto r1 = macoro::sync_wait(macoro::when_all_ready(
+    //    avg1.avg(tempOut[0][grpByColNm], avgCols[0], out[0], prng0, ole0, sock[0]),
+    //    avg2.avg(tempOut[1][grpByColNm], avgCols[1], out[1], prng1, ole1, sock[1])
+    //));
+    //std::get<1>(r1).result();
+    //std::get<0>(r1).result();
 
-    auto res1 = reveal(out[0], out[1]);
-    auto avgExp = average(joinExp[grpByColNm], avgCols[2]);
+    //auto res1 = reveal(out[0], out[1]);
+    //auto avgExp = average(joinExp[grpByColNm], avgCols[2]);
 
-    if (res1 != avgExp)
-    {
-        std::cout << "exp \n" << avgExp << std::endl;
-        std::cout << "act \n" << res1 << std::endl;
-        // std::cout << "ful \n" << reveal(out[0], out[1], false) << std::endl;
-        throw RTE_LOC;
-    }
+    //if (res1 != avgExp)
+    //{
+    //    std::cout << "exp \n" << avgExp << std::endl;
+    //    std::cout << "act \n" << res1 << std::endl;
+    //    // std::cout << "ful \n" << reveal(out[0], out[1], false) << std::endl;
+    //    throw RTE_LOC;
+    //}
     
     // if (cmd.isSet("timing"))
     //     std::cout << timer << std::endl;

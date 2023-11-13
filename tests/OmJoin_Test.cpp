@@ -34,7 +34,7 @@ void OmJoin_loadKeys_Test()
     ColRef left(leftTable, leftTable.mColumns[0]);
     ColRef right(rightTable, rightTable.mColumns[0]);
 
-    auto res = OmJoin::loadKeys(left, right);
+    auto res = OmJoin{}.loadKeys(left, right);
 
     for (u64 i = 0; i < n0; ++i)
     {
@@ -48,7 +48,7 @@ void OmJoin_loadKeys_Test()
     }
 }
 
-void OmJoin_getControlBits_Test()
+void OmJoin_getControlBits_Test(const oc::CLP& cmd)
 {
     u64 n = 342;
     // u64 m = 32;
@@ -75,13 +75,13 @@ void OmJoin_getControlBits_Test()
 
     share(k, kk[0], kk[1], prng);
 
-    OleGenerator ole0, ole1;
-    ole0.fakeInit(OleGenerator::Role::Sender);
-    ole1.fakeInit(OleGenerator::Role::Receiver);
+    CorGenerator ole0, ole1;
+    ole0.init(sock[0].fork(), prng, 0, 1 << 18, cmd.getOr("mock", 1));
+    ole1.init(sock[1].fork(), prng, 1, 1 << 18, cmd.getOr("mock", 1));
 
     auto r = macoro::sync_wait(macoro::when_all_ready(
-        OmJoin::getControlBits(kk[0], offset, keyBitCount, sock[0], cc[0], ole0),
-        OmJoin::getControlBits(kk[1], offset, keyBitCount, sock[1], cc[1], ole1)));
+        OmJoin::getControlBits(kk[0], offset, keyBitCount, sock[0], cc[0], ole0, prng),
+        OmJoin::getControlBits(kk[1], offset, keyBitCount, sock[1], cc[1], ole1, prng)));
 
     std::get<0>(r).result();
     std::get<1>(r).result();
@@ -259,29 +259,35 @@ void OmJoin_getOutput_Test()
     }
 }
 
+
 void OmJoin_join_Test(const oc::CLP& cmd)
 {
-    u64 nL = cmd.getOr("L", 5),
-        nR = cmd.getOr("R", 8);
+    u64 nL = cmd.getOr("L", 511),
+        nR = cmd.getOr("R", 81);
 
+    u64 keySize = cmd.getOr("keySize", 21);
     bool printSteps = cmd.isSet("print");
-    bool mock = !cmd.isSet("noMock");
+    bool mock = cmd.getOr("mock", 1);
 
+    auto mod = 1ull << keySize;
     Table L, R;
 
     L.init(nL, { {
-        {"L1", TypeID::IntID, 21},
+        {"L1", TypeID::IntID, keySize},
         {"L2", TypeID::IntID, 16}
     } });
     R.init(nR, { {
-        {"R1", TypeID::IntID, 21},
+        {"R1", TypeID::IntID, keySize},
         {"R2", TypeID::IntID, 7}
     } });
 
+    std::unordered_set<u64> keys;
     for (u64 i = 0; i < nL; ++i)
     {
         // u64 k 
-        auto ii = i * 3;
+        auto ii = (i * 3) % mod;
+        if (keys.insert(ii).second == false)
+            throw RTE_LOC;
         memcpy(&L.mColumns[0].mData.mData(i, 0), &ii, L.mColumns[0].mData.bytesPerEntry());
         L.mColumns[1].mData.mData(i, 0) = i % 4;
         L.mColumns[1].mData.mData(i, 1) = i % 3;
@@ -289,7 +295,7 @@ void OmJoin_join_Test(const oc::CLP& cmd)
 
     for (u64 i = 0; i < nR; ++i)
     {
-        auto ii = i / 2 * 4;
+        auto ii = i / 2 * 4 % mod;
         memcpy(&R.mColumns[0].mData.mData(i, 0), &ii, R.mColumns[0].mData.bytesPerEntry());
         // R.mColumns[0].mData.mData(i, 0) = i * 2;
         R.mColumns[1].mData.mData(i) = i % 3;
@@ -314,13 +320,121 @@ void OmJoin_join_Test(const oc::CLP& cmd)
     join0.mInsecureMockSubroutines = mock;
     join1.mInsecureMockSubroutines = mock;
 
-    OleGenerator ole0, ole1;
-    ole0.fakeInit(OleGenerator::Role::Sender);
-    ole1.fakeInit(OleGenerator::Role::Receiver);
+    auto sock = coproto::LocalAsyncSocket::makePair();
+    CorGenerator ole0, ole1;
+    ole0.init(sock[0].fork(), prng, 0, 1 << 18, mock);
+    ole1.init(sock[1].fork(), prng, 1, 1 << 18, mock);
 
     PRNG prng0(oc::ZeroBlock);
     PRNG prng1(oc::OneBlock);
+
+    Table out[2];
+
+    auto exp = join(L[0], R[0], { L[0], R[1], L[1] });
+    oc::Timer timer;
+    join0.setTimer(timer);
+    // join1.setTimer(timer);
+
+
+
+    auto r = macoro::sync_wait(macoro::when_all_ready(
+        join0.join(Ls[0][0], Rs[0][0], { Ls[0][0], Rs[0][1], Ls[0][1] }, out[0], prng0, ole0, sock[0]),
+        join1.join(Ls[1][0], Rs[1][0], { Ls[1][0], Rs[1][1], Ls[1][1] }, out[1], prng1, ole1, sock[1])
+    ));
+    std::get<0>(r).result();
+    std::get<1>(r).result();
+    // std::cout << "out0" << std::endl;
+    // std::cout << out[0] << std::endl;
+    // std::cout << "out1" << std::endl;
+    // std::cout << out[1] << std::endl;
+
+    auto res = reveal(out[0], out[1]);
+
+    if (res != exp)
+    {
+
+        if (printSteps)
+        {
+
+            std::cout << "exp \n" << exp << std::endl;
+            std::cout << "act \n" << res << std::endl;
+            std::cout << "ful \n" << reveal(out[0], out[1], false) << std::endl;
+        }
+        throw RTE_LOC;
+    }
+
+    if (cmd.isSet("timing"))
+        std::cout << timer << std::endl;
+}
+
+void OmJoin_join_BigKey_Test(const oc::CLP& cmd)
+{
+    u64 nL = cmd.getOr("L", 5),
+        nR = cmd.getOr("R", 8);
+
+    bool printSteps = cmd.isSet("print");
+    bool mock = cmd.getOr("mock", 1);
+
+    Table L, R;
+
+    L.init(nL, { {
+        {"L1", TypeID::IntID, 100},
+        {"L2", TypeID::IntID, 16}
+    } });
+    R.init(nR, { {
+        {"R1", TypeID::IntID, 100},
+        {"R2", TypeID::IntID, 7}
+    } });
+
+    std::vector<u8> buff(L[0].mCol.getByteCount());
+    for (u64 i = 0; i < nL; ++i)
+    {
+        // u64 k 
+        auto ii = i * 3;
+        assert(sizeof(ii) <= buff.size());
+        memcpy(buff.data(), &ii, sizeof(ii));
+        memcpy(&L.mColumns[0].mData.mData(i, 0), buff.data(), L.mColumns[0].mData.bytesPerEntry());
+        L.mColumns[1].mData.mData(i, 0) = i % 4;
+        L.mColumns[1].mData.mData(i, 1) = i % 3;
+    }
+
+    for (u64 i = 0; i < nR; ++i)
+    {
+        auto ii = i / 2 * 4;
+        assert(sizeof(ii) <= buff.size());
+        memcpy(buff.data(), &ii, sizeof(ii));
+        memcpy(&R.mColumns[0].mData.mData(i, 0), buff.data(), R.mColumns[0].mData.bytesPerEntry());
+        // R.mColumns[0].mData.mData(i, 0) = i * 2;
+        R.mColumns[1].mData.mData(i) = i % 3;
+    }
+
+    if (printSteps)
+    {
+        std::cout << "L\n" << L << std::endl;
+        std::cout << "R\n" << R << std::endl;
+    }
+
+    PRNG prng(oc::ZeroBlock);
+    std::array<Table, 2> Ls, Rs;
+    share(L, Ls, prng);
+    share(R, Rs, prng);
+
+    OmJoin join0, join1;
+
+    join0.mInsecurePrint = printSteps;
+    join1.mInsecurePrint = printSteps;
+
+    join0.mInsecureMockSubroutines = mock;
+    join1.mInsecureMockSubroutines = mock;
+
+    CorGenerator ole0, ole1;
     auto sock = coproto::LocalAsyncSocket::makePair();
+    ole0.init(sock[0].fork(), prng, 0, 1 << 18, mock);
+    ole1.init(sock[1].fork(), prng, 1, 1 << 18, mock);
+
+
+    PRNG prng0(oc::ZeroBlock);
+    PRNG prng1(oc::OneBlock);
 
     Table out[2];
 
@@ -358,13 +472,13 @@ void OmJoin_join_Test(const oc::CLP& cmd)
 }
 
 
-void OmJoin_join_Test1(const oc::CLP& cmd)
+void OmJoin_join_Reveal_Test(const oc::CLP& cmd)
 {
 
     u64 nL = 20,
         nR = 9;
     bool printSteps = cmd.isSet("print");
-    bool mock = !cmd.isSet("noMock");
+    bool mock = cmd.getOr("mock", 1);
 
     Table L, R, LP, RP;
 
@@ -412,13 +526,14 @@ void OmJoin_join_Test1(const oc::CLP& cmd)
     join0.mInsecureMockSubroutines = mock;
     join1.mInsecureMockSubroutines = mock;
 
-    OleGenerator ole0, ole1;
-    ole0.fakeInit(OleGenerator::Role::Sender);
-    ole1.fakeInit(OleGenerator::Role::Receiver);
+    CorGenerator ole0, ole1;
+    auto sock = coproto::LocalAsyncSocket::makePair();
+    ole0.init(sock[0].fork(), prng, 0, 1 << 18, mock);
+    ole1.init(sock[1].fork(), prng, 1, 1 << 18, mock);
+
 
     PRNG prng0(oc::ZeroBlock);
     PRNG prng1(oc::OneBlock);
-    auto sock = coproto::LocalAsyncSocket::makePair();
 
     Table out[2];
 
@@ -575,7 +690,7 @@ void OmJoin_join_round_Test(const oc::CLP& cmd)
     u64 nL = 2000,
         nR = 999;
     bool printSteps = cmd.isSet("print");
-    bool mock = !cmd.isSet("noMock");
+    bool mock = cmd.getOr("mock", 1);
     auto verbose = cmd.isSet("v");
 
     Table L, R;
@@ -618,13 +733,14 @@ void OmJoin_join_round_Test(const oc::CLP& cmd)
     join0.mInsecureMockSubroutines = mock;
     join1.mInsecureMockSubroutines = mock;
 
-    OleGenerator ole0, ole1;
-    ole0.fakeInit(OleGenerator::Role::Sender);
-    ole1.fakeInit(OleGenerator::Role::Receiver);
+    CorGenerator ole0, ole1;
+    std::array<coproto::BufferingSocket, 2> sock;
+    ole0.init(sock[0].fork(), prng, 0, 1 << 18, mock);
+    ole1.init(sock[1].fork(), prng, 1, 1 << 18, mock);
+
 
     PRNG prng0(oc::ZeroBlock);
     PRNG prng1(oc::OneBlock);
-    std::array<coproto::BufferingSocket, 2> sock;
 
     Table out[2];
 
@@ -690,8 +806,8 @@ void OmJoin_join_csv_Test(const oc::CLP& cmd)
 
     Table L, R;
 
-    L.init( lRowCount, lColInfo);
-    R.init( rRowCount, rColInfo);
+    L.init(lRowCount, lColInfo);
+    R.init(rRowCount, rColInfo);
 
     populateTable(L, visaCsvPath, lRowCount);
     populateTable(R, bankCsvPath, rRowCount);
@@ -715,13 +831,12 @@ void OmJoin_join_csv_Test(const oc::CLP& cmd)
     join0.mInsecureMockSubroutines = mock;
     join1.mInsecureMockSubroutines = mock;
 
-    OleGenerator ole0, ole1;
-    ole0.fakeInit(OleGenerator::Role::Sender);
-    ole1.fakeInit(OleGenerator::Role::Receiver);
-
     PRNG prng0(oc::ZeroBlock);
     PRNG prng1(oc::OneBlock);
     auto sock = coproto::LocalAsyncSocket::makePair();
+    CorGenerator ole0, ole1;
+    ole0.init(sock[0].fork(), prng0, 0, 1 << 16, mock);
+    ole1.init(sock[1].fork(), prng1, 1, 1 << 16, mock);
 
     Table out[2];
 

@@ -7,7 +7,7 @@ namespace secJoin
     //void validateShares(BinMatrix& shares, CommPkg& comm, oc::BitVector& mask, bool debug);
     //inline void randomize(TBinMatrix& d)
     //{
-    //	static oc::PRNG prng(oc::CCBlock);
+    //	static PRNG prng(oc::CCBlock);
     //	for (u64 j = 0; j < 2; ++j)
     //	{
     //		prng.get(
@@ -312,11 +312,12 @@ namespace secJoin
         const Operator& op,
         Type type,
         coproto::Socket& comm,
-        OleGenerator& gen,
+        CorGenerator& gen,
+        PRNG& prng,
         Level& root,
         span<SplitLevel> levels)
     {
-        MC_BEGIN(macoro::task<>, this, &src, &controlBits, &op, type, comm, &gen, &root, levels,
+        MC_BEGIN(macoro::task<>, this, &src, &controlBits, &op, type, comm, &gen, &root, levels,&prng,
             bin = Gmw{},
             cir = oc::BetaCircuit{},
             bitsPerEntry = u64{},
@@ -361,7 +362,7 @@ namespace secJoin
                     parent.mSufBit.resize(size, 1, 2 * sizeof(block));
                 }
 
-                bin.init(size, cir, gen);
+                bin.init(size, cir);
 
                 u64 inIdx = 0, outIdx = 0;
                 if (type & Type::Prefix)
@@ -385,7 +386,7 @@ namespace secJoin
             }
 
             // eval
-            MC_AWAIT(bin.run(comm));
+            MC_AWAIT(bin.run(gen, comm, prng));
 
 
             if (size != 1)
@@ -585,10 +586,11 @@ namespace secJoin
         SplitLevel& newVals,
         Type type,
         coproto::Socket& comm,
-        OleGenerator& gen,
+        CorGenerator& gen,
+        PRNG& prng,
         std::vector<SplitLevel>* debugLevels)
     {
-        MC_BEGIN(macoro::task<>, this, &src, &op, &root, levels, &newVals, type, &comm, &gen, debugLevels,
+        MC_BEGIN(macoro::task<>, this, &src, &op, &root, levels, &newVals, type, &comm, &gen, debugLevels, &prng,
             bitsPerEntry = u64{},
             nodeCir = oc::BetaCircuit{},
             bin = Gmw{},
@@ -627,7 +629,7 @@ namespace secJoin
                 auto& children = levels[cLvl];
 
 
-                bin.init(size, nodeCir, gen);
+                bin.init(size, nodeCir);
 
                 u64 inIdx = 0, outIdx = 0;
                 if (type & Type::Prefix)
@@ -664,7 +666,7 @@ namespace secJoin
             }
 
             // eval
-            MC_AWAIT(bin.run(comm));
+            MC_AWAIT(bin.run(gen, comm, prng));
 
             // for unit testing, we want to save these intermediate values.
             if (debugLevels)

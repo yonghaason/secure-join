@@ -3,7 +3,7 @@
 #include "secure-join/config.h"
 #include "Wrapper/state.h"
 
-std::vector<secJoin::ColRef> genSelectCols(secJoin::State* visaState, secJoin::State* bankState)
+std::vector<secJoin::ColRef> genSelectCols(secJoin::WrapperState* visaState, secJoin::WrapperState* bankState)
 {
     std::vector<secJoin::ColRef> select;
     auto lColCount = visaState->mLTable.cols();
@@ -49,7 +49,7 @@ void OmJoin_wrapper_join_test(const oc::CLP& cmd)
     bool isUnique = true;
     bool isAgg = false;
     bool verbose = cmd.isSet("v");
-    bool mock = cmd.isSet("mock");
+    bool mock = cmd.getOr("mock", 1);
     bool debug = cmd.isSet("debug");
 
     // Literals & opInfo are dynamically generated on java side
@@ -58,16 +58,16 @@ void OmJoin_wrapper_join_test(const oc::CLP& cmd)
     std::vector<oc::i64> opInfo{2, 0, 3, 4, 1, 0, 4, 5, 1, 0, 2, 1, 4, 4, 5,
          5, 1, 8, 7, 8, 6, 9, 6, 0, 7, 10, 3, 9, 10, 11, -1};
 
-    secJoin::State* visaState = secJoin::initState(visaCsvPath, visaMetaDataPath, clientMetaDataPath, 
-        literals, opInfo, isUnique, verbose, mock, debug);
+    std::unique_ptr<secJoin::WrapperState> visaState(secJoin::initState(visaCsvPath, visaMetaDataPath, clientMetaDataPath, 
+        literals, opInfo, isUnique, verbose, mock, debug));
 
-    secJoin::State* bankState = secJoin::initState(bankCsvPath, visaMetaDataPath, clientMetaDataPath,
-        literals, opInfo, !isUnique, verbose, mock, debug);
+    std::unique_ptr<secJoin::WrapperState> bankState(secJoin::initState(bankCsvPath, visaMetaDataPath, clientMetaDataPath,
+        literals, opInfo, !isUnique, verbose, mock, debug));
 
     auto lColCount = visaState->mLTable.cols();
     auto rColCount = visaState->mRTable.cols();
 
-    auto select = genSelectCols(visaState, bankState);
+    auto select = genSelectCols(visaState.get(), bankState.get());
 
     oc::u64 rJoinColIndex = secJoin::getRColIndex(bankState->mJoinCols[1], lColCount, rColCount);
     auto exp = secJoin::join(
@@ -82,15 +82,15 @@ void OmJoin_wrapper_join_test(const oc::CLP& cmd)
     }
 
 
-    runProtocol(visaState, bankState, verbose);
+    runProtocol(visaState.get(), bankState.get(), verbose);
 
     if(verbose)
         std::cout << "Join Protocol Completed" << std::endl;
 
-    secJoin::getOtherShare(visaState, isUnique, isAgg);
-    secJoin::getOtherShare(bankState, !isUnique, isAgg);
+    secJoin::getOtherShare(visaState.get(), isUnique, isAgg);
+    secJoin::getOtherShare(bankState.get(), !isUnique, isAgg);
 
-    runProtocol(visaState, bankState, verbose);
+    runProtocol(visaState.get(), bankState.get(), verbose);
 
     if (visaState->mOutTable != exp)
     {
@@ -99,17 +99,17 @@ void OmJoin_wrapper_join_test(const oc::CLP& cmd)
         std::cout << "R \n" << bankState->mRTable << std::endl;
         std::cout << "exp \n" << exp << std::endl;
         std::cout << "act \n" << visaState->mOutTable << std::endl;
-        secJoin::releaseState(visaState);
-        secJoin::releaseState(bankState);
+        secJoin::releaseState(visaState.release());
+        secJoin::releaseState(bankState.release());
         throw RTE_LOC;
     }
 
-    secJoin::releaseState(visaState);
-    secJoin::releaseState(bankState);
+    secJoin::releaseState(visaState.release());
+    secJoin::releaseState(bankState.release());
 }
 
 
-void runProtocol(secJoin::State* visaState, secJoin::State* bankState,
+void runProtocol(secJoin::WrapperState* visaState, secJoin::WrapperState* bankState,
     bool verbose)
 {
     std::vector<oc::u8> buff;
@@ -202,13 +202,13 @@ void OmJoin_wrapper_avg_test(const oc::CLP& cmd)
     std::vector<oc::i64> opInfo{2, 0, 3, 4, 1, 0, 4, 5, 1, 0, 2, 1, 4, 4, 5,
          5, 1, 8, 7, 8, 6, 9, 6, 0, 7, 10, 3, 9, 10, 11, -1};
 
-    secJoin::State* visaState = secJoin::initState(visaCsvPath, visaMetaDataPath, clientMetaDataPath, 
-        literals, opInfo, isUnique, verbose, mock, debug);
+    std::unique_ptr<secJoin::WrapperState> visaState(secJoin::initState(visaCsvPath, visaMetaDataPath, clientMetaDataPath,
+        literals, opInfo, isUnique, verbose, mock, debug));
 
-    secJoin::State* bankState = secJoin::initState(bankCsvPath, visaMetaDataPath, clientMetaDataPath,
-        literals, opInfo, !isUnique, verbose, mock, debug);
+    std::unique_ptr<secJoin::WrapperState> bankState(secJoin::initState(bankCsvPath, visaMetaDataPath, clientMetaDataPath,
+        literals, opInfo, !isUnique, verbose, mock, debug));
 
-    auto select = genSelectCols(visaState, bankState);
+    auto select = genSelectCols(visaState.get(), bankState.get());
     auto lColCount = visaState->mLTable.cols();
     auto rColCount = visaState->mRTable.cols();
 
@@ -225,23 +225,23 @@ void OmJoin_wrapper_avg_test(const oc::CLP& cmd)
         std::cout << "bank R table:\n" << bankState->mRTable << std::endl;
     }
 
-    runProtocol(visaState, bankState, verbose);
+    runProtocol(visaState.get(), bankState.get(), verbose);
 
     if(verbose)
         std::cout << "Join Protocol Completed" << std::endl;
     
-    secJoin::aggFunc(visaState);
-    secJoin::aggFunc(bankState);
+    secJoin::aggFunc(visaState.get());
+    secJoin::aggFunc(bankState.get());
 
-    runProtocol(visaState, bankState, verbose);
+    runProtocol(visaState.get(), bankState.get(), verbose);
 
     if(verbose)
         std::cout << "Average Protocol Completed" << std::endl;
 
-    secJoin::getOtherShare(visaState, isUnique, isAgg);
-    secJoin::getOtherShare(bankState, !isUnique, isAgg);
+    secJoin::getOtherShare(visaState.get(), isUnique, isAgg);
+    secJoin::getOtherShare(bankState.get(), !isUnique, isAgg);
 
-    runProtocol(visaState, bankState, verbose);
+    runProtocol(visaState.get(), bankState.get(), verbose);
     
     // Calculating average in plain text
     if(visaState->mAvgCols.size() == 0)
@@ -274,11 +274,11 @@ void OmJoin_wrapper_avg_test(const oc::CLP& cmd)
         // std::cout << "R \n" << bankState->mRTable << std::endl;
         std::cout << "exp \n" << exp << std::endl;
         std::cout << "act \n" << visaState->mOutTable << std::endl;
-        secJoin::releaseState(visaState);
-        secJoin::releaseState(bankState);
+        secJoin::releaseState(visaState.release());
+        secJoin::releaseState(bankState.release());
         throw RTE_LOC;
     }
 
-    secJoin::releaseState(visaState);
-    secJoin::releaseState(bankState);
+    secJoin::releaseState(visaState.release());
+    secJoin::releaseState(bankState.release());
 }

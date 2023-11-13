@@ -1,8 +1,8 @@
 #pragma once
 #include "Wrapper/CppWrapper.h"
 #include "cryptoTools/Common/CLP.h"
-#include "nlohmann/json.hpp"
+//#include "nlohmann/json.hpp"
 
 void OmJoin_wrapper_join_test(const oc::CLP& cmd);
 void OmJoin_wrapper_avg_test(const oc::CLP& cmd);
-void runProtocol(secJoin::State* visaState, secJoin::State* bankState, bool verbose);
+void runProtocol(secJoin::WrapperState* visaState, secJoin::WrapperState* bankState, bool verbose);

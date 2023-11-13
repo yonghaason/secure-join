@@ -1,4 +1,5 @@
 #include "OmJoin.h"
+#include "libOTe/Tools/LinearCode.h"
 
 namespace secJoin
 {
@@ -12,22 +13,50 @@ namespace secJoin
         ColRef leftJoinCol,
         ColRef rightJoinCol)
     {
+        auto rows0 = leftJoinCol.mCol.mData.rows();
+        auto rows1 = rightJoinCol.mCol.mData.rows();
+        auto compressesSize = mStatSecParam + log2(rows0) + log2(rows1);
+        auto bits = leftJoinCol.mCol.getBitCount();
+
         if (leftJoinCol.mCol.getBitCount() != rightJoinCol.mCol.getBitCount())
             throw RTE_LOC;
 
-        auto bits = leftJoinCol.mCol.getBitCount();
-        BinMatrix keys(leftJoinCol.mCol.mData.numEntries() + rightJoinCol.mCol.mData.numEntries(), bits);
-        auto size0 = leftJoinCol.mCol.mData.size();
-        auto size1 = rightJoinCol.mCol.mData.size();
+        if (leftJoinCol.mCol.getBitCount() <= compressesSize)
+        {
 
-        u8* d0 = keys.data();
-        u8* d1 = keys.data() + size0;
-        u8* s0 = leftJoinCol.mCol.mData.data();
-        u8* s1 = rightJoinCol.mCol.mData.data();
-        memcpy(d0, s0, size0);
-        memcpy(d1, s1, size1);
+            auto size0 = leftJoinCol.mCol.mData.size();
+            auto size1 = rightJoinCol.mCol.mData.size();
+            BinMatrix keys(rows0 + rows1, bits);
 
-        return keys;
+            u8* d0 = keys.data();
+            u8* d1 = keys.data() + size0;
+            u8* s0 = leftJoinCol.mCol.mData.data();
+            u8* s1 = rightJoinCol.mCol.mData.data();
+            memcpy(d0, s0, size0);
+            memcpy(d1, s1, size1);
+            return keys;
+
+        }
+        else
+        {
+            PRNG prng(oc::ZeroBlock);
+            oc::LinearCode code;
+            code.random(prng, bits, compressesSize);
+
+            BinMatrix keys(rows0 + rows1, bits);
+
+            for (u64 i = 0; i < rows0; ++i)
+                code.encode(
+                    leftJoinCol.mCol.mData.data(i),
+                    keys.data(i));
+
+            for (u64 i = 0, j = rows0; i < rows1; ++i, ++j)
+                code.encode(
+                    rightJoinCol.mCol.mData.data(i), 
+                    keys.data(j));
+
+            return keys;
+        }
     }
 
     // this circuit compares two inputs for equality with the exception that
@@ -92,9 +121,10 @@ namespace secJoin
         u64 keyBitCount,
         coproto::Socket& sock,
         BinMatrix& out,
-        OleGenerator& ole)
+        CorGenerator& ole,
+        PRNG&prng)
     {
-        MC_BEGIN(macoro::task<>, &data, &sock, &out, &ole, keyByteOffset, keyBitCount,
+        MC_BEGIN(macoro::task<>, &data, &sock, &out, &ole, keyByteOffset, keyBitCount, &prng,
             cir = oc::BetaCircuit{},
             sKeys = BinMatrix{},
             bin = Gmw{},
@@ -109,12 +139,12 @@ namespace secJoin
         {
             memcpy(sKeys.data(i + 1), data.data(i) + keyByteOffset, keyByteSize);
         }
-        bin.init(n, cir, ole);
+        bin.init(n, cir);
 
         bin.setInput(0, sKeys.subMatrix(0, n));
         bin.setInput(1, sKeys.subMatrix(1, n));
 
-        MC_AWAIT(bin.run(sock));
+        MC_AWAIT(bin.run(ole, sock, prng));
 
         out.resize(n, 1);
         bin.getOutput(0, out);
@@ -191,10 +221,12 @@ namespace secJoin
         offsets.reserve(m + 1);
         for (u64 i = 0; i < m; ++i)
         {
-            auto bytes = oc::divCeil(selects[i].mCol.getBitCount(), 8);
             if (&leftJoinCol.mTable == &selects[i].mTable)
             {
+                auto bytes = oc::divCeil(selects[i].mCol.getBitCount(), 8);
+                assert(bytes == selects[i].mCol.getByteCount());
                 assert(selects[i].mCol.rows() == n0);
+
                 left.emplace_back(&selects[i].mCol.mData);
                 offsets.emplace_back(Offset{ rowSize * 8, selects[i].mCol.mData.bitsPerEntry(), selects[i].mCol.mName });
                 rowSize += bytes;
@@ -375,10 +407,11 @@ namespace secJoin
         BinMatrix& data,
         BinMatrix& choice,
         BinMatrix& out,
-        OleGenerator& ole,
+        CorGenerator& ole,
+        PRNG& prng,
         coproto::Socket& sock)
     {
-        MC_BEGIN(macoro::task<>, &data, &choice, &out, &ole, &sock,
+        MC_BEGIN(macoro::task<>, &data, &choice, &out, &ole, &sock, &prng,
             gmw = Gmw{},
             cir = oc::BetaCircuit{},
             temp = BinMatrix{},
@@ -386,7 +419,7 @@ namespace secJoin
             offset = u64{});
 
         cir = *oc::BetaLibrary{}.int_int_bitwiseAnd(1, 1, 1);
-        gmw.init(data.rows(), cir, ole);
+        gmw.init(data.rows(), cir);
 
         if (data.bitsPerEntry() % 8 != 1)
         {
@@ -403,13 +436,13 @@ namespace secJoin
         gmw.setInput(1, temp);
 
         offsets.emplace_back(Offset{ 0,1 });
-        //MC_AWAIT(print(temp, choice, sock, (int)ole.mRole, "active", offsets));
+        //MC_AWAIT(print(temp, choice, sock, ole.partyIdx(), "active", offsets));
 
-        MC_AWAIT(gmw.run(sock));
+        MC_AWAIT(gmw.run(ole, sock, prng));
 
         gmw.getOutput(0, temp);
 
-        //MC_AWAIT(print(temp, choice, sock, (int)ole.mRole, "active out", offsets));
+        //MC_AWAIT(print(temp, choice, sock, ole.partyIdx(), "active out", offsets));
 
         out.resize(data.rows(), data.bitsPerEntry());
         for (u64 i = 0; i < data.rows(); ++i)
@@ -433,14 +466,16 @@ namespace secJoin
         }
     }
 
+
+
     // leftJoinCol should be unique
     macoro::task<> OmJoin::join(
         ColRef leftJoinCol,
         ColRef rightJoinCol,
         std::vector<ColRef> selects,
         SharedTable& out,
-        oc::PRNG& prng,
-        OleGenerator& ole,
+        PRNG& prng,
+        CorGenerator& ole,
         coproto::Socket& sock)
     {
         MC_BEGIN(macoro::task<>, this, leftJoinCol, rightJoinCol, selects, &out, &prng, &ole, &sock,
@@ -453,7 +488,10 @@ namespace secJoin
             sort = RadixSort{},
             keyOffset = u64{},
             dup = AggTree::Operator{},
-            offsets = std::vector<Offset>{});
+            offsets = std::vector<Offset>{},
+            bytesPermuted0 = u64{},
+            bytesPermuted1 = u64{}, 
+            prepro = macoro::eager_task<>{});
 
         setTimePoint("start");
 
@@ -464,46 +502,69 @@ namespace secJoin
         if (mInsecurePrint)
         {
             offsets = { Offset{0,keys.bitsPerEntry(), "key"} };
-            MC_AWAIT(print(keys, controlBits, sock, (int)ole.mRole, "keys", offsets));
+            MC_AWAIT(print(keys, controlBits, sock, ole.partyIdx(), "keys", offsets));
         }
 
         sort.mInsecureMock = mInsecureMockSubroutines;
         sPerm.mInsecureMock = mInsecureMockSubroutines;
 
+
+        // if the forward direction we will permute the keys, a flag, 
+        // and all of the select columns of the left table. In the 
+        // backwards direction, we will unpermute the left table select
+        // columns. Therefore, in total we will permute:
+        bytesPermuted0 = oc::divCeil(keys.bitsPerEntry() + 1, 8);
+        bytesPermuted1 = 1;
+        for (u64 i = 0; i < selects.size(); ++i)
+        {
+            auto isLeft = &selects[i].mTable == &leftJoinCol.mTable;
+            //auto notKey = &leftJoinCol.mCol != &selects[i].mCol;
+            if (isLeft)// && notKey)
+            {
+                bytesPermuted0 += selects[i].mCol.getByteCount();
+                bytesPermuted1 += selects[i].mCol.getByteCount();
+            }
+        }
+
+        sort.init(ole.partyIdx(), keys.rows(), keys.bitsPerEntry(), bytesPermuted0 + bytesPermuted1);
+        sort.request(ole);
+        prepro = sort.preprocess(sock, prng) |macoro::make_eager();
+
         // get the stable sorting permutation sPerm
-        MC_AWAIT(sort.genPerm(keys, sPerm, ole, sock));
+        MC_AWAIT(sort.genPerm(keys, sPerm, sock,prng));
         setTimePoint("sort");
 
-        //std::cout << "genPerm done " << LOCATION << std::endl;
+        if (mInsecurePrint)
+            MC_AWAIT(print(data, controlBits, sock, ole.partyIdx(), "preSort", offsets));
+
         // gather all of the columns from the left table and concatinate them
         // together. Append dummy rows after that. Then add the column of keys
         // to that. So it will look something like:
         //     L | kL | 1
         //     0 | kR | 0
-        concatColumns(leftJoinCol, selects, rightJoinCol.mTable.rows(), keys, keyOffset, data, (u8)ole.mRole, offsets);
+        concatColumns(leftJoinCol, selects, rightJoinCol.mTable.rows(), keys, keyOffset, data, ole.partyIdx(), offsets);
         setTimePoint("concat");
         keys.mData = {};
-
-        if (mInsecurePrint)
-            MC_AWAIT(print(data, controlBits, sock, (int)ole.mRole, "preSort", offsets));
 
         // Apply the sortin permutation. What you end up with are the keys
         // in sorted order and the rows of L also in sorted order.
         temp.resize(data.numEntries(), data.bitsPerEntry() + 8);
         temp.resize(data.numEntries(), data.bitsPerEntry());
-        // temp.reshape(data.bitsPerEntry());
-        MC_AWAIT(sPerm.apply(data, temp, prng, sock, ole, true));
+
+        assert(data.bytesPerEntry() == bytesPermuted0);
+
+        MC_AWAIT(sPerm.apply(PermOp::Inverse, data, temp, prng, sock));//, ole
         std::swap(data, temp);
         setTimePoint("applyInv-sort");
         //std::cout << "Perm::apply done " << LOCATION << std::endl;
 
         if (mInsecurePrint)
-            MC_AWAIT(print(data, controlBits, sock, (int)ole.mRole, "sort", offsets));
+            MC_AWAIT(print(data, controlBits, sock, ole.partyIdx(), "sort", offsets));
 
         // compare adjacent keys. controlBits[i] = 1 if k[i]==k[i-1].
         // put another way, controlBits[i] = 1 if keys[i] is from the
         // right table and has a matching key from the left table.
-        MC_AWAIT(getControlBits(data, keyOffset, keys.bitsPerEntry(), sock, controlBits, ole));
+        MC_AWAIT(getControlBits(data, keyOffset, keys.bitsPerEntry(), sock, controlBits, ole, prng));
         setTimePoint("control");
         //std::cout << "controlBits done " << LOCATION << std::endl;
 
@@ -516,27 +577,27 @@ namespace secJoin
             data(i, keyOffset) = *oc::BitIterator(data.data(i), keyOffset * 8 + keys.bitsPerEntry());
 
         if (mInsecurePrint)
-            MC_AWAIT(print(data, controlBits, sock, (int)ole.mRole, "control", offsets));
+            MC_AWAIT(print(data, controlBits, sock, ole.partyIdx(), "control", offsets));
 
         // duplicate the rows in data that are from L into any matching
         // rows that correspond to R.
         dup = getDupCircuit();
-        MC_AWAIT(aggTree.apply(data, controlBits, dup, AggTreeType::Prefix, sock, ole, temp));
+        MC_AWAIT(aggTree.apply(data, controlBits, dup, AggTreeType::Prefix, sock, ole, prng, temp));
         std::swap(data, temp);
         setTimePoint("duplicate");
 
         //std::cout << "AggTree done " << LOCATION << std::endl;
 
         if (mInsecurePrint)
-            MC_AWAIT(print(data, controlBits, sock, (int)ole.mRole, "agg", offsets));
+            MC_AWAIT(print(data, controlBits, sock, ole.partyIdx(), "agg", offsets));
 
 
-        MC_AWAIT(updateActiveFlag(data, controlBits, temp, ole, sock));
+        MC_AWAIT(updateActiveFlag(data, controlBits, temp, ole, prng, sock));
         std::swap(data, temp);
         //std::cout << "Active done " << LOCATION << std::endl;
 
         if (mInsecurePrint)
-            MC_AWAIT(print(data, controlBits, sock, (int)ole.mRole, "isActive", offsets));
+            MC_AWAIT(print(data, controlBits, sock, ole.partyIdx(), "isActive", offsets));
 
 
         // appendChoiceBit(data, controlBits, temp);
@@ -551,7 +612,8 @@ namespace secJoin
         temp.resize(data.numEntries(), data.bitsPerEntry());
         temp.reshape(data.bitsPerEntry());
         temp.setZero();
-        MC_AWAIT(sPerm.apply(data, temp, prng, sock, ole, false));
+        assert(data.bytesPerEntry() == bytesPermuted1);
+        MC_AWAIT(sPerm.apply(PermOp::Regular, data, temp, prng, sock));//, ole
         std::swap(data, temp);
         setTimePoint("apply-sort");
 
@@ -560,7 +622,7 @@ namespace secJoin
 
 
         if (mInsecurePrint)
-            MC_AWAIT(print(data, controlBits, sock, (int)ole.mRole, "unsort", offsets));
+            MC_AWAIT(print(data, controlBits, sock, ole.partyIdx(), "unsort", offsets));
 
 
 

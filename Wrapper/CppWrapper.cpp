@@ -2,11 +2,12 @@
 
 namespace secJoin
 {
-    using json = nlohmann::json;
+    //using json = nlohmann::json;
     void testApi(std::string& str)
     {
         std::cout << str << std::endl;
     }
+
 
     oc::u64 getRColIndex(oc::u64 relativeIndex, oc::u64 lColCount, oc::u64 rColCount)
     {
@@ -22,17 +23,17 @@ namespace secJoin
         return index;
     }
 
-    State* initState(std::string& csvPath, std::string& visaMetaDataPath, std::string& clientMetaDataPath,
+    WrapperState* initState(std::string& csvPath, std::string& visaMetaDataPath, std::string& clientMetaDataPath,
         std::vector<std::string>& literals, std::vector<oc::i64>& opInfo, bool isUnique,
         bool verbose, bool mock, bool debug)
     {
-        State* cState = new State;
+        auto cState = std::make_unique<WrapperState>();
         cState->mLiterals = literals; //  This will fail, need to make a copy of literals
         oc::u64 lRowCount = 0, rRowCount = 0, 
             lColCount = 0, rColCount = 0;
 
-        parseColsArray(cState, opInfo, verbose);
-        updateSelectCols(cState, verbose);
+        parseColsArray(cState.get(), opInfo, verbose);
+        updateSelectCols(cState.get(), verbose);
         
         // Current assumption are that Visa always provides table with unique keys 
         // Which means Visa always has to be left Table
@@ -84,20 +85,22 @@ namespace secJoin
         // Current assumption are that Visa always provides table with unique keys 
         // Which means Visa always has to be left Table
         if (isUnique)
-            cState->mOle.fakeInit(OleGenerator::Role::Sender);
+            cState->mOle.init(cState->mSock.fork(), cState->mPrng, 0, 1<<18, mock);
+            //cState->mOle.mock(CorGenerator::Role::Sender);
         else
-            cState->mOle.fakeInit(OleGenerator::Role::Receiver);
+            cState->mOle.init(cState->mSock.fork(), cState->mPrng, 1, 1<<18, mock);
+            //cState->mOle.mock(CorGenerator::Role::Receiver);
 
         cState->mProtocol =
             cState->mJoin.join(lJoinCol, rJoinCol, selectCols,
                 cState->mJoinTable, cState->mPrng, cState->mOle, cState->mSock) | macoro::make_eager();
 
         
-        return cState;
+        return cState.release();
     }
 
 
-    std::vector<oc::u8> runProtocol(State* cState, std::vector<oc::u8>& buff)
+    std::vector<oc::u8> runProtocol(WrapperState* cState, std::vector<oc::u8>& buff)
     {
         cState->mSock.processInbound(buff);
 
@@ -114,18 +117,18 @@ namespace secJoin
 
     }
 
-    void releaseState(State* state)
+    void releaseState(WrapperState* state)
     {
         delete state;
     }
 
-    bool isProtocolReady(State* cState)
+    bool isProtocolReady(WrapperState* cState)
     {
         return cState->mProtocol.is_ready();
 
     }
 
-    void getOtherShare(State* cState, bool isUnique, bool isAgg)
+    void getOtherShare(WrapperState* cState, bool isUnique, bool isAgg)
     {
 
         Table& table = cState->mJoinTable;
@@ -145,14 +148,14 @@ namespace secJoin
         }
     }
 
-    void getJoinTable(State* cState, std::string csvPath, std::string metaDataPath, bool isUnique)
+    void getJoinTable(WrapperState* cState, std::string csvPath, std::string metaDataPath, bool isUnique)
     {
         writeFileInfo(metaDataPath, cState->mOutTable);
         writeFileData(csvPath, cState->mOutTable);
     }
 
 
-    void aggFunc(State* cState)
+    void aggFunc(WrapperState* cState)
     {
         if(cState->mAvgCols.size() > 0)
         {

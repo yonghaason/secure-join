@@ -2,7 +2,7 @@
 #include "secure-join/Perm/LowMCPerm.h"
 #include "secure-join/Perm/InsecurePerm.h"
 #include "secure-join/GMW/Gmw.h"
-#include "secure-join/Perm/DLpnPerm.h"
+#include "secure-join/Perm/AltModPerm.h"
 
 namespace secJoin
 {
@@ -11,136 +11,135 @@ namespace secJoin
     class ComposedPerm
     {
     public:
-        u64 mPartyIdx=-1;
-        Perm mPerm;
-        DLpnPerm mDlpnPerm;
-        bool mInsecureMock = false;
+        // {0,1} to determine which party permutes first
+        u64 mPartyIdx = -1;
+
+        // The permutation protocol for mPi
+        AltModPermSender mSender;
+
+        // The permutation protocol for the other share.
+        AltModPermReceiver mReceiver;
+
+        // A flag that skips the actual protocol and insecurely permutes the data.
+        bool mIsSecure = true;
 
         ComposedPerm() = default;
-        ComposedPerm(const ComposedPerm&) = delete;
-        ComposedPerm(ComposedPerm&& o) noexcept
-        {
-            *this = std::move(o);
-        }
-        ComposedPerm& operator=(const ComposedPerm&) = delete;
-        ComposedPerm& operator=(ComposedPerm&& o) noexcept
-        {
-            mPartyIdx = std::exchange(o.mPartyIdx, -1);
-            mPerm = std::move(o.mPerm);
-            mDlpnPerm = std::move(o.mDlpnPerm);
-            mInsecureMock = std::exchange(o.mInsecureMock, 0);
-            return *this;
-        }
+        ComposedPerm(const ComposedPerm&) = default;
+        ComposedPerm(ComposedPerm&&) noexcept = default;
+        ComposedPerm& operator=(const ComposedPerm&) = default;
+        ComposedPerm& operator=(ComposedPerm&&) noexcept = default;
 
         //initializing the permutation
-        ComposedPerm(Perm perm, u8 partyIdx)
-            : mPartyIdx(partyIdx)
-            , mPerm(std::move(perm))
-        {}
-        ComposedPerm(u64 n, u8 partyIdx, PRNG& prng)
-            : mPartyIdx(partyIdx)
-            , mPerm(n, prng)
-        {}
-
-        void setupDlpnSender(oc::block& key, std::vector<oc::block>& rk)
+        ComposedPerm(Perm perm, u8 partyIdx, u64 rowSize = 0)
         {
-            mDlpnPerm.setupDlpnSender(key, rk);
+            init2(partyIdx, perm.size(), rowSize);
+            mSender.setPermutation(std::move(perm));
         }
 
-        void setupDlpnReceiver(std::vector<std::array<oc::block, 2>>& sk)
+        // initializing with a random permutation.
+        ComposedPerm(u64 n, u8 partyIdx, PRNG& prng, u64 rowSize = 0)
         {
-            mDlpnPerm.setupDlpnReceiver(sk);
+            init2(partyIdx, n, rowSize);
+            samplePermutation(prng);
         }
 
-        macoro::task<> setupDlpnSender(OleGenerator& ole)
+        // set the AltMod permutation protocol key OTs. These should be AltMod::KeySize OTs in both directions.
+        void setKeyOts(
+            AltModPrf::KeyType& key,
+            std::vector<oc::block>& rk,
+            std::vector<std::array<oc::block, 2>>& sk);
+
+        // the size of the permutation that is being shared.
+        u64 size() const { return mSender.mNumElems; }
+
+        // initialize the permutation to have the given size.
+        // partyIdx should be in {0,1}, n is size, bytesPer can be
+        // set to how many bytes the user wants to permute. AltModKeyGen
+        // can be set if the user wants to control if the AltMod kets 
+        // should be sampled or not.
+        void init2(u8 partyIdx, u64 n, u64 bytesPer = 0, macoro::optional<bool> AltModKeyGen = {});
+
+        // Clear the set permutations and any correlated randomness 
+        // that is assoicated to them.
+        void clearPermutation() 
         {
-            MC_BEGIN(macoro::task<>, this, &ole);
-            MC_AWAIT(mDlpnPerm.setupDlpnSender(ole));
-            MC_END();
+            mSender.clearPermutation();
+            mReceiver.clearPermutation();
         }
 
-        macoro::task<> setupDlpnReceiver(OleGenerator& ole)
-        {
-            MC_BEGIN(macoro::task<>, this, &ole);
-            MC_AWAIT(mDlpnPerm.setupDlpnReceiver(ole));
-            MC_END();
+        // returns true if there is permutation setup that has not been derandomized
+        // to a user chosen permutation.
+        bool hasRandomSetup() const { return mSender.hasRandomSetup(); }
+
+        //returns true if we have requested correlated randomness
+        bool hasRequest() const { return mSender.hasRequest(); }
+
+        // return true if the permutation share has been set.
+        bool hasPermutation() const { return mSender.mPi; }
+
+        // Samples a random permutation share.
+        void samplePermutation(PRNG& prng) {
+            if (!size())
+                throw std::runtime_error("init must be called first");
+            Perm perm(size(), prng);
+            mSender.setPermutation(std::move(perm));
         }
 
-        u64 size() const
-        {
-            return mPerm.size();
-        }
+        // request the required correlated randomness. init() must be called first.
+        void request(
+            CorGenerator& ole);
 
-        void init(u64 n, u8 partyIdx, PRNG& prng)
-        {
-            mPartyIdx = partyIdx;
-            mPerm.randomize(n, prng);
-        }
+        // request the required correlated randomness. init() must be called first.
+        void setBytePerRow(u64 bytesPer);
 
+        // Generate the required correlated randomness.
+        macoro::task<> preprocess();
+
+        // generate the permutation correlation
+        macoro::task<> setup(
+            coproto::Socket& chl,
+            PRNG& prng);
+
+        // permute the input data by the secret shared permutation. op
+        // control if the permutation is applied directly or its inverse.
+        // in/out are the input and output shared. Correlated randomness 
+        // must have been requested using request().
         template<typename T>
         macoro::task<> apply(
+            PermOp op,
             oc::MatrixView<const T> in,
             oc::MatrixView<T> out,
             coproto::Socket& chl,
-            OleGenerator& ole,
-            bool inv = false)
+            PRNG& prng
+        );
+
+
+        void clear()
         {
-            if (out.rows() != in.rows() ||
-                out.cols() != in.cols())
-                throw RTE_LOC;
-
-            if (out.rows() != mPerm.size())
-                throw RTE_LOC;
-
-            if (mPartyIdx > 1)
-                throw RTE_LOC;
-
-            MC_BEGIN(macoro::task<>, in, out, &chl, &ole, inv,
-                prng = oc::PRNG(ole.mPrng.get()),
-                this,
-                soutperm = oc::Matrix<T>{}
-            );
-
-            soutperm.resize(in.rows(), in.cols());
-            if ((inv ^ bool(mPartyIdx)) == true)
-            {
-                if(!mInsecureMock)
-                {
-                    MC_AWAIT(mDlpnPerm.apply<T>(in, soutperm, prng, chl, ole));
-                    MC_AWAIT(mDlpnPerm.apply<T>(mPerm, soutperm, out, prng, chl, inv, ole));
-                }
-                else
-                {
-                    MC_AWAIT(InsecurePerm::apply<T>(in, soutperm, prng, chl, ole));
-                    MC_AWAIT(InsecurePerm::apply<T>(mPerm, soutperm, out, prng, chl, inv, ole));
-                }
-            }
-            else
-            {
-                if(!mInsecureMock)
-                {
-                    MC_AWAIT(mDlpnPerm.apply<T>(mPerm, in, soutperm, prng, chl, inv, ole));
-                    MC_AWAIT(mDlpnPerm.apply<T>(soutperm, out, prng, chl, ole));
-                }
-                else
-                {
-                    MC_AWAIT(InsecurePerm::apply<T>(mPerm, in, soutperm, prng, chl, inv, ole));
-                    MC_AWAIT(InsecurePerm::apply<T>(soutperm, out, prng, chl, ole));
-                }
-            }
-
-            MC_END();
-        }
-
-        macoro::task<> compose(
-            const ComposedPerm& in,
-            ComposedPerm& out,
-            coproto::Socket& chl,
-            OleGenerator& ole)
-        {
-            throw RTE_LOC;
+            mPartyIdx = -1;
+            mSender.clear();
+            mReceiver.clear();
         }
     };
+
+    template<>
+    macoro::task<> ComposedPerm::apply<u8>(
+        PermOp op,
+        oc::MatrixView<const u8> in,
+        oc::MatrixView<u8> out,
+        coproto::Socket& chl,
+        PRNG& prng);
+
+    template<typename T>
+    macoro::task<> ComposedPerm::apply(
+        PermOp op,
+        oc::MatrixView<const T> in,
+        oc::MatrixView<T> out,
+        coproto::Socket& chl,
+        PRNG& prng)
+    {
+        return apply<u8>(op, matrixCast<const u8>(in), matrixCast<u8>(out), chl, prng);
+    }
 
     static_assert(std::is_move_constructible<ComposedPerm>::value, "ComposedPerm is missing its move ctor");
     static_assert(std::is_move_assignable<ComposedPerm>::value, "ComposedPerm is missing its move ctor");

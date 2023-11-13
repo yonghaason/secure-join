@@ -9,13 +9,14 @@
 
 #include "secure-join/config.h"
 #include "secure-join/Defines.h"
-
 #include "secure-join/GMW/Circuit.h"
-#include <list>
+#include "secure-join/CorGenerator/CorGenerator.h"
+#include "secure-join/Util/Matrix.h"
+
 #include <cryptoTools/Network/Channel.h>
 #include <cryptoTools/Common/Matrix.h>
-#include "secure-join/OleGenerator.h"
-#include "secure-join/Util/Matrix.h"
+#include <cryptoTools/Common/Timer.h>
+#include <list>
 
 namespace secJoin
 {
@@ -51,11 +52,10 @@ namespace secJoin
         // the number of 128 chunks to evaluate
         u64 mN128 = 0;
 
-        // party index {0,1}
-        u64 mIdx = -1;
-
         // when setting the wires memory, this records how many remain unmapped.
         u64 mRemainingMappings = 0;
+
+        u64 mRole = -1;
 
         OtExtType mOtExtType;
         
@@ -74,9 +74,6 @@ namespace secJoin
         // the remaining gates to be evaluated.
         span<oc::BetaGate> mGates;
 
-        // randomness source.
-        oc::PRNG mPrng;
-
         // the index of the circuit to print if debugging is enabled.
         u64 mDebugPrintIdx = -1;
 
@@ -84,14 +81,41 @@ namespace secJoin
         BetaCircuit::PrintIter mPrint;
 
         // the binary triples used in by the protocol.
-        Request<BinOle> mTriples;
+        BinOleRequest mTriples;
+
+        bool mHasPreprocessing = 0;
+
+        bool mHasRequest = 0;
+
+        macoro::task<> mPreproTask;
 
         // initialize this gmw to eval n copies of the circuit cir.
         // use correlations provided by ole.
         void init(
             u64 n,
+            const BetaCircuit& cir);
+
+        void init(
+            u64 n,
             const BetaCircuit& cir,
-            OleGenerator& ole);
+            CorGenerator& gen)
+        {
+            init(n, cir);
+            request(gen);
+        }
+
+        bool hasRequest()
+        {
+            return mHasRequest;
+        }
+
+        void request(CorGenerator& gen);
+
+
+        bool hasPreprocessing() const
+        {
+            return mHasPreprocessing;
+        }
 
         // set the i'th input. There should be mN rows of `input`, each row holding
         // mCur.mInput[i].size() bits (rounded up to 8 * sizeof(T)).
@@ -183,7 +207,13 @@ namespace secJoin
             }
         }
 
+
+
+        macoro::task<> preprocess();
+
         // run the gmw protocol.
+        coproto::task<> run(CorGenerator& gen, coproto::Socket& chl, PRNG& prng);
+
         coproto::task<> run(coproto::Socket& chl);
 
         void getOutput(u64 i, BinMatrix& out)
@@ -218,61 +248,63 @@ namespace secJoin
         }
 
 
-        span<block> multSendP1(span<block> x, oc::GateType gt,
-            span<block> a, span<block> sendIter);
-        span<block> multSendP2(span<block> x, oc::GateType gt,
-            span<block> c, span<block> sendIter);
+        block* multSendP1(block* x, oc::GateType gt,
+            block* a, block* sendIter);
+        block* multSendP2(block* x, oc::GateType gt,
+            block* c, block* sendIter);
 
 
-        span<block> multRecvP1(span<block> x, span<block> z, oc::GateType gt,
-            span<block> b, span<block> recvIter);
-        span<block> multRecvP2(span<block> x,  span<block> z,
-            span<block> c,
-            span<block> d, 
-            span<block> recvIter);
+        block* multRecvP1(block* x, block* z, oc::GateType gt,
+            block* b, block* recvIter);
+        block* multRecvP2(block* x,  block* z,
+            block* c,
+            block* d, 
+            block* recvIter);
 
 
-        span<block> multSend(span<block> x, span<block> y, oc::GateType gt,
-            span<block> a,
-            span<block> c,
-            span<block> sendIter)
+        block* multSend(block* x, block* y, oc::GateType gt,
+            block* a,
+            block* c,
+            block* sendIter,
+            u64 idx)
         {
-            if (mIdx == 0)
+            if (idx == 0)
                 return multSendP1(x, y, gt, a, c, sendIter);
             else
                 return multSendP2(x, y, a, c, sendIter);
         }
-        span<block> multSendP1(span<block> x, span<block> y, oc::GateType gt,
-            span<block> a,
-            span<block> c,
-            span<block> sendIter);
-        span<block> multSendP2(span<block> x, span<block> y,
-            span<block> a,
-            span<block> c,
-            span<block> sendIter);
+        block* multSendP1(block* x, block* y, oc::GateType gt,
+            block* a,
+            block* c,
+            block* sendIter);
+        block* multSendP2(block* x, block* y,
+            block* a,
+            block* c,
+            block* sendIter);
 
 
-        span<block> multRecv(span<block> x, span<block> y, span<block> z, oc::GateType gt,
-            span<block> b,
-            span<block> c,
-            span<block> d,
-            span<block> recvIter)
+        block* multRecv(block* x, block* y, block* z, oc::GateType gt,
+            block* b,
+            block* c,
+            block* d,
+            block* recvIter,
+            u64 idx)
         {
-            if (mIdx == 0)
+            if (idx == 0)
                 return multRecvP1(x, y, z, gt, b, c, d, recvIter);
             else
                 return multRecvP2(x, y, z, b, c, d, recvIter);
         }
 
-        span<block> multRecvP1(span<block> x, span<block> y, span<block> z, oc::GateType gt,
-            span<block> b,
-            span<block> c,
-            span<block> d,
-            span<block> recvIter);
-        span<block> multRecvP2(span<block> x, span<block> y, span<block> z,
-            span<block> b,
-            span<block> c,
-            span<block> d,
-            span<block> recvIter);
+        block* multRecvP1(block* x, block* y, block* z, oc::GateType gt,
+            block* b,
+            block* c,
+            block* d,
+            block* recvIter);
+        block* multRecvP2(block* x, block* y, block* z,
+            block* b,
+            block* c,
+            block* d,
+            block* recvIter);
     };
 }

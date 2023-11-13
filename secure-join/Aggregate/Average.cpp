@@ -9,7 +9,7 @@ namespace secJoin {
         std::vector<ColRef> avgCol,
         BinMatrix& ret,
         std::vector<OmJoin::Offset>& offsets,
-        OleGenerator& ole)
+        CorGenerator& ole)
     {
         u64 m = avgCol.size();
         u64 n0 = groupByCol.mCol.rows();
@@ -39,9 +39,9 @@ namespace secJoin {
 
         // Adding a Columns of 1's for calculating average
         BinMatrix ones(n0, sizeof(oc::u64) * 8);
-
+        
         // Adding 1's in only party column
-        if (ole.mRole == OleGenerator::Role::Receiver)
+        if (ole.partyIdx())
         {
             for (oc::u64 i = 0; i < n0; i++)
                 ones(i, 0) = 1;
@@ -61,7 +61,7 @@ namespace secJoin {
         BinMatrix& data,
         BinMatrix& choice,
         BinMatrix& out,
-        OleGenerator& ole,
+        CorGenerator& ole,
         coproto::Socket& sock)
     {
         MC_BEGIN(macoro::task<>, &data, &choice, &out, &ole, &sock,
@@ -83,7 +83,8 @@ namespace secJoin {
         cir.addOutputBundle(c);
 
         cir.addGate(a.mWires[0], b.mWires[0], oc::GateType::na_And, c.mWires[0]);
-        gmw.init(data.rows(), cir, ole);
+        gmw.init(data.rows(), cir);
+        gmw.request(ole);
 
         if (data.bitsPerEntry() % 8 != 1)
         {
@@ -143,7 +144,7 @@ namespace secJoin {
         std::vector<ColRef> avgCol,
         SharedTable& out,
         oc::PRNG& prng,
-        OleGenerator& ole,
+        CorGenerator& ole,
         coproto::Socket& sock)
     {
 
@@ -174,56 +175,61 @@ namespace secJoin {
         if (mInsecurePrint)
         {
             std::cout << "------------- Average Starts here ---------- " << std::endl;
-            MC_AWAIT(OmJoin::print(keys, controlBits, sock, (int)ole.mRole, "keys", keyOffsets));
+            MC_AWAIT(OmJoin::print(keys, controlBits, sock, ole.partyIdx(), "keys", keyOffsets));
         }
 
         sort.mInsecureMock = mInsecureMockSubroutines;
         sPerm.mInsecureMock = mInsecureMockSubroutines;
 
-        MC_AWAIT(sort.genPerm(keys, sPerm, ole, sock));
+        // need to set sort ole.
+        sort.init(ole.partyIdx(), keys.rows(), keys.bitsPerEntry(), data.bytesPerEntry() + keys.bytesPerEntry());
+        sort.request(ole);
+
+        MC_AWAIT(sort.genPerm(keys, sPerm, sock, prng));
         concatColumns(groupByCol, avgCol, data, offsets, ole);
         
         if (mInsecurePrint)
-            MC_AWAIT(OmJoin::print(data, controlBits, sock, (int)ole.mRole, "preSort", offsets));
+            MC_AWAIT(OmJoin::print(data, controlBits, sock, ole.partyIdx(), "preSort", offsets));
 
         temp.resize(data.numEntries(), data.bytesPerEntry() * 8);
 
         // Apply the sortin permutation to both keys & concat columns
-        MC_AWAIT(sPerm.apply(data, temp, prng, sock, ole, true));
+        MC_AWAIT(sPerm.apply(PermOp::Inverse, data, temp, prng, sock));
         std::swap(data, temp);
 
         if (mInsecurePrint)
-            MC_AWAIT(OmJoin::print(data, controlBits, sock, (int)ole.mRole, "sort-data", offsets));
+            MC_AWAIT(OmJoin::print(data, controlBits, sock, ole.partyIdx(), "sort-data", offsets));
 
         temp.resize(keys.numEntries(), keys.bitsPerEntry());
-        MC_AWAIT(sPerm.apply(keys, temp, prng, sock, ole, true));
+        MC_AWAIT(sPerm.apply(PermOp::Inverse, keys, temp, prng, sock));
         std::swap(keys, temp);
         
         if (mInsecurePrint)
-            MC_AWAIT(OmJoin::print(keys, controlBits, sock, (int)ole.mRole, "sort-keys", keyOffsets));
+            MC_AWAIT(OmJoin::print(keys, controlBits, sock, ole.partyIdx(), "sort-keys", keyOffsets));
 
         // compare adjacent keys. controlBits[i] = 1 if k[i]==k[i-1].
         MC_AWAIT(getControlBits(keys, sock, controlBits, ole));
 
 
         if (mInsecurePrint)
-            MC_AWAIT(OmJoin::print(data, controlBits, sock, (int)ole.mRole, "control", offsets));
-            // MC_AWAIT(print(controlBits, sock, (int)ole.mRole, "controlbits"));
+            MC_AWAIT(OmJoin::print(data, controlBits, sock, ole.partyIdx(), "control", offsets));
+            // MC_AWAIT(print(controlBits, sock, ole.partyIdx(), "controlbits"));
 
         // oc::BetaLibrary::Optimized::Depth shouldn't be hardcoded 
         addCir = getAddCircuit(offsets, op);
 
-        MC_AWAIT(aggTree.apply(data, controlBits, addCir, AggTreeType::Suffix, sock, ole, temp));
+
+        MC_AWAIT(aggTree.apply(data, controlBits, addCir, AggTreeType::Suffix, sock, ole, prng, temp));
         std::swap(data, temp);
 
         if (mInsecurePrint)
-            MC_AWAIT(OmJoin::print(data, controlBits, sock, (int)ole.mRole, "agg-data", offsets));
+            MC_AWAIT(OmJoin::print(data, controlBits, sock, ole.partyIdx(), "agg-data", offsets));
 
         MC_AWAIT(updateActiveFlag(keys, controlBits, temp, ole, sock));
         std::swap(keys, temp);
 
         if (mInsecurePrint)
-            MC_AWAIT(OmJoin::print(keys, controlBits, sock, (int)ole.mRole, "isActive", keyOffsets));
+            MC_AWAIT(OmJoin::print(keys, controlBits, sock, ole.partyIdx(), "isActive", keyOffsets));
 
         getOutput(out, avgCol, groupByCol, keys, data, controlBits, offsets, keyOffsets);
 
@@ -331,7 +337,7 @@ namespace secJoin {
         BinMatrix& keys,
         coproto::Socket& sock,
         BinMatrix& out,
-        OleGenerator& ole)
+        CorGenerator& ole)
     {
         MC_BEGIN(macoro::task<>, &keys, &sock, &out, &ole,
             cir = oc::BetaCircuit{},
@@ -351,7 +357,8 @@ namespace secJoin {
         // {
         //     memcpy(sKeys.data(i + 1), keys.data(i), keyByteSize);
         // }
-        bin.init(n, cir, ole);
+        bin.init(n, cir);
+        bin.request(ole);
 
         bin.setInput(0, sKeys.subMatrix(0, n));
         bin.setInput(1, sKeys.subMatrix(1, n));

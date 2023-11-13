@@ -185,7 +185,7 @@ namespace secJoin
     void populateTable(Table& tb, std::string& fileName, oc::u64 rowCount);
     void populateTable(Table& tb, std::istream& in, oc::u64 rowCount);
     void share(Table& table, std::array<Table, 2>& shares,
-        oc::PRNG& prng);
+        PRNG& prng);
     Table join(const ColRef& l, const ColRef& r, std::vector<ColRef> select);
     oc::BitVector cirEval(oc::BetaCircuit* cir, std::vector<oc::BitVector>& inputs,
         oc::BitVector& output, u8* data, u64 bits, u64 bytes);
@@ -262,7 +262,7 @@ namespace secJoin
     //         //Output* mOutputPtr = nullptr;
     //         int mInputIdx = -1;
     //         int mOutputIdx = -1;
-    //         int mIdx = -1;
+    //         int mNextBatchIdx = -1;
     //         bool mUsed = false;
 
     //         bool isInput() const { return mInputIdx != -1; }

@@ -2,7 +2,7 @@
 set(USER_NAME           )      
 set(TOKEN               )      
 set(GIT_REPOSITORY      "https://github.com/osu-crypto/libOTe.git")
-set(GIT_TAG             "f9c36c4c974aa807d3cc6963c5bac4c4e62b53e9")
+set(GIT_TAG             "da10087d872cf84684edf9063964f41c46674d30")
 
 set(DEP_NAME            libOTe)          
 set(CLONE_DIR "${SECUREJOIN_THIRDPARTY_CLONE_DIR}/${DEP_NAME}")
@@ -36,14 +36,10 @@ if(NOT ${DEP_NAME}_FOUND OR LIBOTE_DEV)
                        -DENABLE_MRR=ON
                        -DENABLE_IKNP=ON
                        -DENABLE_SOFTSPOKEN_OT=ON
-                       #-DENABLE_BITPOLYMUL=${LIBOTE_ENABLE_BITPOLYMUL}
                        -DENABLE_SILENTOT=ON
                        -DENABLE_SILENT_VOLE=ON
                        ${LIBOTE_OS_ARGS}
                        -DENABLE_SSE=${SECUREJOIN_ENABLE_SSE}
-                       #-DCOPROTO_ENABLE_BOOST=${COPROTO_ENABLE_BOOST}
-                       #-DCOPROTO_ENABLE_OPENSSL=${COPROTO_ENABLE_OPENSSL}
-                       #-DOC_PIC=${SECUREJOIN_PIC}
                        -DOC_THIRDPARTY_CLONE_DIR=${SECUREJOIN_THIRDPARTY_CLONE_DIR}
                        -DENABLE_ASAN=${SECUREJOIN_ENABLE_ASAN}
                        -DENABLE_BOOST=${SECUREJOIN_ENABLE_BOOST}

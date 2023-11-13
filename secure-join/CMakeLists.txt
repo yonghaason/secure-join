@@ -2,16 +2,24 @@
 
 
 set(SRCS
-    "Prf/DLpnPrf.cpp"
+    "Prf/AltModPrf.cpp"
+    "Prf/F2LinearCode.cpp"
+    "Prf/F3LinearCode.cpp"
     "Prf/DarkMatter22Prf.cpp"
 
-    "OleGenerator.cpp"
+    
+    "CorGenerator/CorGenerator.cpp"
+    "CorGenerator/Request.cpp"
+    "CorGenerator/Batch.cpp"
+    "CorGenerator/OtBatch.cpp"
+    "CorGenerator/BinOleBatch.cpp"
+
     
     "Perm/Permutation.cpp"
     "Perm/ComposedPerm.cpp"
     "Perm/LowMCPerm.cpp"
     "Perm/AdditivePerm.cpp"
-    "Perm/DLpnPerm.cpp"
+    "Perm/AltModPerm.cpp"
     
     "Perm/PaillierPerm.cpp"
 
@@ -38,7 +46,11 @@ if(SECUREJOIN_ENABLE_PAILLIER)
 endif()
 
 add_library(secureJoin STATIC ${SRCS})
-target_link_libraries(secureJoin oc::libOTe)
+if(SECUREJOIN_DEV)
+    target_link_libraries(secureJoin libOTe)
+else()
+    target_link_libraries(secureJoin oc::libOTe)
+endif()
 
 configure_file(config.h.in "config.h" )
 

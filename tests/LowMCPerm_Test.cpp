@@ -25,16 +25,16 @@ void LocMC_eval_test(const oc::CLP& cmd)
         k[i].resize(n, 16);
     }
 
-    oc::PRNG prng0(oc::block(0, 0));
-    oc::PRNG prng1(oc::block(0, 1));
+    PRNG prng0(oc::block(0, 0));
+    PRNG prng1(oc::block(0, 1));
 
     auto chls = coproto::LocalAsyncSocket::makePair();
-    OleGenerator ole0, ole1;
-    ole0.fakeInit(OleGenerator::Role::Sender);
-    ole1.fakeInit(OleGenerator::Role::Receiver);
+    CorGenerator ole0, ole1;
+    ole0.init(chls[0].fork(), prng0, 0, 1<<18, cmd.getOr("mock", 1));
+    ole1.init(chls[1].fork(), prng1, 1, 1<<18, cmd.getOr("mock", 1));
     Gmw gmw0, gmw1;
-    gmw0.init(n, cir, ole0);
-    gmw1.init(n, cir, ole1);
+    gmw0.init(n, cir);
+    gmw1.init(n, cir);
 
     gmw0.setInput(0, x);
     gmw0.setInput(1, x);
@@ -47,8 +47,8 @@ void LocMC_eval_test(const oc::CLP& cmd)
         gmw1.setZeroInput(i + 2);
     }
 
-    auto proto0 = gmw0.run(chls[0]);
-    auto proto1 = gmw1.run(chls[1]);
+    auto proto0 = gmw0.run(ole0, chls[0], prng0);
+    auto proto1 = gmw1.run(ole1, chls[1], prng0);
 
     auto res = macoro::sync_wait(macoro::when_all_ready(std::move(proto0), std::move(proto1)));
 
@@ -69,19 +69,19 @@ void LowMCPerm_perm_test(const oc::CLP& cmd)
     oc::Matrix<u8> x(n, rowSize), yExp(n,rowSize);
 
     LowMCPerm m1, m2;
-    oc::PRNG prng(oc::block(0, 0));
+    PRNG prng(oc::block(0, 0));
 
     auto chls = coproto::LocalAsyncSocket::makePair();
-    OleGenerator ole0, ole1;
-    ole0.fakeInit(OleGenerator::Role::Sender);
-    ole1.fakeInit(OleGenerator::Role::Receiver);
+    CorGenerator ole0, ole1;
+    ole0.init(chls[0].fork(), prng, 0, 1<<18, cmd.getOr("mock", 1));
+    ole1.init(chls[1].fork(), prng, 1, 1<<18, cmd.getOr("mock", 1));
 
 
     // Initializing the vector x & permutation pi
     prng.get(x.data(), x.size());
     Perm pi(n,prng);
 
-    for(auto invPerm : {false,true})
+    for(auto invPerm : {PermOp::Regular,PermOp::Inverse})
     {
 
         pi.apply<u8>(x, yExp, invPerm);
@@ -91,7 +91,7 @@ void LowMCPerm_perm_test(const oc::CLP& cmd)
         sout[1].resize(n, rowSize);
 
         auto proto0 = m1.apply<u8>(x, sout[0], prng, chls[0], ole0);
-        auto proto1 = m2.apply<u8>(pi, sout[1], prng, chls[1], invPerm, ole1);
+        auto proto1 = m2.apply<u8>(pi, invPerm, sout[1], prng, chls[1], ole1);
 
         auto res = macoro::sync_wait(macoro::when_all_ready(std::move(proto0), std::move(proto1)));
 
@@ -104,7 +104,7 @@ void LowMCPerm_perm_test(const oc::CLP& cmd)
     }
 }
 
-void LowMCPerm_secret_shared_input_perm_test()
+void LowMCPerm_secret_shared_input_perm_test(const oc::CLP& cmd)
 {
     // User input
     u64 n = 144;    // total number of rows
@@ -114,22 +114,22 @@ void LowMCPerm_secret_shared_input_perm_test()
     oc::Matrix<u8> x(n, rowSize), yExp(n,rowSize);
 
     LowMCPerm m1, m2;
-    oc::PRNG prng(oc::block(0,0));
+    PRNG prng(oc::block(0,0));
 
     auto chls = coproto::LocalAsyncSocket::makePair();
 
     Perm pi(n,prng);
 
-    OleGenerator ole0, ole1;
-    ole0.fakeInit(OleGenerator::Role::Sender);
-    ole1.fakeInit(OleGenerator::Role::Receiver);
+    CorGenerator ole0, ole1;
+    ole0.init(chls[0].fork(), prng, 0, 1<<18, cmd.getOr("mock", 1));
+    ole1.init(chls[1].fork(), prng, 1, 1<<18, cmd.getOr("mock", 1));
 
     // Initializing the vector x & permutation pi
     prng.get(x.data(), x.size());
     std::array<oc::Matrix<u8>, 2> xShares = share(x,prng);
 
 
-    for(auto invPerm : {false,true})
+    for(auto invPerm : { PermOp::Regular,PermOp::Inverse })
     {
         pi.apply<u8>(x, yExp, invPerm);
         std::array<oc::Matrix<u8>, 2> sout;
@@ -137,7 +137,7 @@ void LowMCPerm_secret_shared_input_perm_test()
         sout[1].resize(n, rowSize);
 
         auto proto0 = m1.apply<u8>(xShares[0], sout[0], prng, chls[0], ole0);
-        auto proto1 = m2.apply<u8>(pi, xShares[1], sout[1], prng, chls[1], invPerm, ole1);
+        auto proto1 = m2.apply<u8>(pi,invPerm, xShares[1], sout[1], prng, chls[1], ole1);
 
         auto res = macoro::sync_wait(macoro::when_all_ready(std::move(proto0), std::move(proto1)));
 

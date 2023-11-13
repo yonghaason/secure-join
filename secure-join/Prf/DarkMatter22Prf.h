@@ -7,6 +7,8 @@
 #include "libOTe/TwoChooseOne/Silent/SilentOtExtSender.h"
 #include "libOTe/TwoChooseOne/Silent/SilentOtExtReceiver.h"
 #include "libOTe/TwoChooseOne/SoftSpokenOT/SoftSpokenShOtExt.h"
+#include "cryptoTools/Crypto/PRNG.h"
+#include "cryptoTools/Common/Timer.h"
 
 namespace secJoin
 {
@@ -249,7 +251,7 @@ namespace secJoin
     };
 
 
-    inline void sampleMod3(oc::PRNG& prng, span<u16> mBuffer)
+    inline void sampleMod3(PRNG& prng, span<u16> mBuffer)
     {
         auto n = mBuffer.size();
         auto dst = mBuffer.data();
@@ -359,19 +361,9 @@ namespace secJoin
                 }
             }
         }
-
-        //for (u64 q = 0; q < mBuffer.size(); ++q)
-        //{
-        //    //mBuffer[q] = prng.get<u64>() % 3;
-        //    std::cout << int(mBuffer[q]) << " ";
-        //    assert(mBuffer[q] < 3);
-        //}
-        //std::cout << std::endl;
-
     }
 
-
-    inline oc::AlignedUnVector<u16> sampleMod3(oc::PRNG& prng, u64 n)
+    inline oc::AlignedUnVector<u16> sampleMod3(PRNG& prng, u64 n)
     {
         oc::AlignedUnVector<u16> mBuffer(n);
         sampleMod3(prng, mBuffer);
@@ -463,7 +455,7 @@ namespace secJoin
     }
 
 
-    inline void xorVector(span<oc::block> v, oc::PRNG& prng)
+    inline void xorVector(span<oc::block> v, PRNG& prng)
     {
         oc::block m[8];
         auto vIter = v.data();
@@ -505,7 +497,7 @@ namespace secJoin
         assert(vIter == v.data() + v.size());
     }
 
-    inline void xorVector(span<u8> ui, oc::PRNG& prng)
+    inline void xorVector(span<u8> ui, PRNG& prng)
     {
         auto nBlk = ui.size() / sizeof(oc::block);
         assert((u64)ui.data() % 16 == 0);
@@ -519,13 +511,15 @@ namespace secJoin
         }
     }
 
-    inline void xorVector(span<block256> v, oc::PRNG& prng)
+    inline void xorVector(span<block256> v, PRNG& prng)
     {
         auto vv = span<oc::block>((oc::block*)v.data(), v.size() * 2);
         xorVector(vv, prng);
     }
 
-    inline void xorVector(span<oc::block> v, span<const oc::block> u, oc::PRNG& prng)
+
+    // v = v + u + PRNG()
+    inline void xorVectorAdd(span<oc::block> v, span<const oc::block> u, PRNG& prng)
     {
         oc::block m[8];
         auto vIter = v.data();
@@ -571,16 +565,17 @@ namespace secJoin
         assert(vIter == v.data() + v.size());
     }
 
-    inline void xorVector(span<block256> v, span<const block256> u, oc::PRNG& prng)
+    // v = v + u + PRNG()
+    inline void xorVectorAdd(span<block256> v, span<const block256> u, PRNG& prng)
     {
         auto vv = span<oc::block>(v[0].mData.data(), v.size() * 2);
         auto uu = span<const oc::block>(u[0].mData.data(), u.size() * 2);
-        xorVector(vv, uu, prng);
+        xorVectorAdd(vv, uu, prng);
     }
 
     class DarkMatter22PrfSender : public oc::TimerAdapter
     {
-        std::vector<oc::PRNG> mKeyOTs;
+        std::vector<PRNG> mKeyOTs;
     public:
         block256 mKey;
 #ifdef SECUREJOIN_DK_USE_SILENT
@@ -610,7 +605,7 @@ namespace secJoin
         }
 
 
-        coproto::task<> evaluate(span<oc::block> y, coproto::Socket& sock, oc::PRNG& prng)
+        coproto::task<> evaluate(span<oc::block> y, coproto::Socket& sock, PRNG& prng)
         {
             static constexpr auto compSize = 256 / 4;
 
@@ -639,7 +634,7 @@ namespace secJoin
                 if (ki)
                 {
                     // mV = mV ^ vi ^ H(mKeyOTs[i])
-                    xorVector(mV, vi, mKeyOTs[i]);
+                    xorVectorAdd(mV, vi, mKeyOTs[i]);
 
                     // ui = ui ^ H(mKeyOTs[i])
                     xorVector(ui, mKeyOTs[i]);
@@ -852,7 +847,7 @@ namespace secJoin
 
     class DarkMatter22PrfReceiver : public oc::TimerAdapter
     {
-        std::vector<std::array<oc::PRNG, 2>> mKeyOTs;
+        std::vector<std::array<PRNG, 2>> mKeyOTs;
     public:
         oc::SilentOtExtReceiver mOtReceiver;
         oc::SoftSpokenShOtReceiver<> mSoftReceiver;
@@ -878,7 +873,7 @@ namespace secJoin
         }
 
 
-        coproto::task<> evaluate(span<block256> x, span<oc::block> y, coproto::Socket& sock, oc::PRNG& prng)
+        coproto::task<> evaluate(span<block256> x, span<oc::block> y, coproto::Socket& sock, PRNG& prng)
         {
             MC_BEGIN(coproto::task<>, x, y, this, &sock, &prng,
                 X = oc::AlignedUnVector<std::array<u16, 512>>{},

@@ -8,7 +8,7 @@
 
 namespace secJoin
 {
-    struct State
+    struct WrapperState
     {
         Table mLTable, mRTable, mJoinTable, mOutTable, mAggTable;
         // Do I need to hold mLTable & mRTable ??
@@ -21,7 +21,7 @@ namespace secJoin
         oc::PRNG mPrng;
         OmJoin mJoin;
         Average mAvg;
-        OleGenerator mOle;
+        CorGenerator mOle;
         coproto::BufferingSocket mSock;
         macoro::eager_task<void> mProtocol;
     };

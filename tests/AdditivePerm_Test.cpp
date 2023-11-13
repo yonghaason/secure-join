@@ -1,168 +1,174 @@
 #include "AdditivePerm_Test.h"
 
+#include "secure-join/Util/Util.h"
+#include "secure-join/Perm/AdditivePerm.h"
+
 using namespace secJoin;
 
-void AdditivePerm_setup_test()
-{
 
-}
-
-void AdditivePerm_xor_test()
+void AdditivePerm_xor_test(const oc::CLP& cmd)
 {
     // User input
     u64 n = 50000;
     u64 rowSize = 63;
 
-    oc::Matrix<u8> x(n,rowSize),yExp(n,rowSize);
-    oc::PRNG prng(oc::block(0,0));
+    oc::Matrix<u8> x(n, rowSize), yExp(n, rowSize);
+    PRNG prng(oc::block(0, 0));
     auto chls = coproto::LocalAsyncSocket::makePair();
 
-    Perm mPerm(n, prng);
+    Perm mPi(n, prng);
     prng.get(x.data(), x.size());
 
     // Secret Sharing s
-    std::array<std::vector<u32>, 2> sShares = xorShare(mPerm.mPerm, prng);
+    std::array<std::vector<u32>, 2> sShares = xorShare(mPi.mPi, prng);
     std::array<oc::Matrix<u8>, 2> yShare;
 
-    AdditivePerm 
-        vecPerm1(sShares[0], prng, 0),
-        vecPerm2(sShares[1], prng, 1);
+    AdditivePerm vecPerm1;vecPerm1.init2(0, n, rowSize * 2); vecPerm1.setShares(sShares[0]);
+    AdditivePerm vecPerm2;vecPerm2.init2(1, n, rowSize * 2); vecPerm2.setShares(sShares[1]);
 
-    OleGenerator ole0, ole1;
-    ole0.fakeInit(OleGenerator::Role::Sender);
-    ole1.fakeInit(OleGenerator::Role::Receiver);
+    CorGenerator ole0, ole1;
 
-    oc::block kk;
-    kk = prng.get();
+    ole0.init(chls[0].fork(), prng, 0, 1<<18, cmd.getOr("mock", 1));
+    ole1.init(chls[1].fork(), prng, 1, 1<<18, cmd.getOr("mock", 1));
+
 
     // Setuping up the OT Keys
-    std::vector<oc::block> rk(vecPerm1.mPi.mDlpnPerm.mSender.mPrf.KeySize);
-    std::vector<std::array<oc::block, 2>> sk(vecPerm1.mPi.mDlpnPerm.mSender.mPrf.KeySize);
-    for (u64 i = 0; i < vecPerm1.mPi.mDlpnPerm.mSender.mPrf.KeySize; ++i)
+    AltModPrf::KeyType kk = prng.get();
+    std::vector<oc::block> rk(AltModPrf::KeySize);
+    std::vector<std::array<oc::block, 2>> sk(AltModPrf::KeySize);
+    for (u64 i = 0; i < AltModPrf::KeySize; ++i)
     {
         sk[i][0] = oc::block(i, 0);
         sk[i][1] = oc::block(i, 1);
         rk[i] = oc::block(i, *oc::BitIterator((u8*)&kk, i));
     }
-    vecPerm2.setupDlpnSender(kk,rk);
-    vecPerm1.setupDlpnReceiver(sk);
+    vecPerm1.setKeyOts(kk, rk, sk);
+    vecPerm2.setKeyOts(kk, rk, sk);
 
-    vecPerm1.setupDlpnSender(kk,rk);
-    vecPerm2.setupDlpnReceiver(sk);
-
-    auto proto0 = vecPerm1.setup(chls[0], ole0, prng);
-    auto proto1 = vecPerm2.setup(chls[1], ole1, prng);
+    vecPerm1.request(ole0);
+    vecPerm2.request(ole1);
+    auto proto0 = vecPerm1.setup(chls[0], prng);
+    auto proto1 = vecPerm2.setup(chls[1], prng);
 
     auto res = macoro::sync_wait(macoro::when_all_ready(std::move(proto0), std::move(proto1)));
 
     std::get<0>(res).result();
     std::get<1>(res).result();
 
-    if(vecPerm1.mRho != vecPerm2.mRho)
+    if (vecPerm1.mRho != vecPerm2.mRho)
         throw RTE_LOC;
-    
-    auto pi = vecPerm1.mPi.mPerm.compose(vecPerm2.mPi.mPerm);
-    Perm rhoExp = pi.apply(mPerm.mPerm);
-    if(rhoExp != vecPerm1.mRho)
+
+    auto pi = vecPerm1.mRandPi.mSender.mPi->composeSwap(*vecPerm2.mRandPi.mSender.mPi);
+    Perm rhoExp = pi.apply(mPi.mPi);
+    if (rhoExp != vecPerm1.mRho)
         throw RTE_LOC;
 
     // Secret Sharing x
-    std::array<oc::Matrix<u8>, 2> xShares = share(x,prng);
+    std::array<oc::Matrix<u8>, 2> xShares = share(x, prng);
     yShare[0].resize(x.rows(), x.cols());
     yShare[1].resize(x.rows(), x.cols());
 
-    for(auto invPerm :  {false, true})
-    {
-        proto0 = vecPerm1.apply<u8>(xShares[0], yShare[0], prng, chls[0], ole0, invPerm);
-        proto1 = vecPerm2.apply<u8>(xShares[1], yShare[1], prng, chls[1], ole1, invPerm);
+    proto0 = vecPerm1.apply<u8>(PermOp::Regular, xShares[0], yShare[0], prng, chls[0]);
+    proto1 = vecPerm2.apply<u8>(PermOp::Regular, xShares[1], yShare[1], prng, chls[1]);
 
-        auto res = macoro::sync_wait(macoro::when_all_ready(std::move(proto0), std::move(proto1)));
+    auto res1 = macoro::sync_wait(macoro::when_all_ready(std::move(proto0), std::move(proto1)));
 
-        std::get<0>(res).result();
-        std::get<1>(res).result();
+    std::get<0>(res1).result();
+    std::get<1>(res1).result();
 
-        auto yAct = reveal(yShare[0], yShare[1]);
-        mPerm.apply<u8>(x,yExp, invPerm);
+    auto yAct = reveal(yShare[0], yShare[1]);
+    mPi.apply<u8>(x, yExp);
 
-        if(!eq(yAct, yExp))
-            throw RTE_LOC;
-    }
+    if (!eq(yAct, yExp))
+        throw RTE_LOC;
+
+
+    auto res2 = macoro::sync_wait(macoro::when_all_ready(
+        vecPerm1.apply<u8>(PermOp::Inverse, xShares[0], yShare[0], prng, chls[0]),
+        vecPerm2.apply<u8>(PermOp::Inverse, xShares[1], yShare[1], prng, chls[1])
+    ));
+    std::get<0>(res2).result();
+    std::get<1>(res2).result();
+
+
+
+    yAct = reveal(yShare[0], yShare[1]);
+    mPi.apply<u8>(x, yExp, PermOp::Inverse);
 
 }
 
 
-void AdditivePerm_add_test()
+void AdditivePerm_prepro_test(const oc::CLP& cmd)
 {
+    // User input
+    u64 n = 500;    // total number of rows
+    u64 rowSize = 11;
 
-    //// User input
-    //u64 n = 500;    // total number of rows
-    //u64 rowSize = 11;
+    oc::Matrix<u8> x(n, rowSize), yExp(n, rowSize);
+    PRNG prng(oc::block(0, 0));
+    auto chls = coproto::LocalAsyncSocket::makePair();
 
-    //oc::Matrix<u32> x(n, rowSize), yExp(n, rowSize);
-    //oc::PRNG prng(oc::block(0, 0));
-    //auto chls = coproto::LocalAsyncSocket::makePair();
+    Perm mPi(n, prng);
+    prng.get(x.data(), x.size());
 
-    //Perm mPerm(n, prng);
-    //prng.get(x.data(), x.size());
+    // Secret Sharing s
+    std::array<std::vector<u32>, 2> sShares = xorShare(mPi.mPi, prng);
+    std::array<oc::Matrix<u8>, 2> yShare;
 
-    //// Secret Sharing s
-    //std::array<std::vector<u32>, 2> sShares;
-    //share(mPerm.mPerm, sShares[0], sShares[1], prng);
-    //std::array<oc::Matrix<u32>, 2> yShare;
-
-    //AdditivePerm
-    //    vecPerm1(sShares[0], prng, 0, AdditivePerm::Type::Add),
-    //    vecPerm2(sShares[1], prng, 1, AdditivePerm::Type::Add);
-
-    //OleGenerator ole0, ole1;
-    //ole0.fakeInit(OleGenerator::Role::Sender);
-    //ole1.fakeInit(OleGenerator::Role::Receiver);
-
-    //auto proto0 = vecPerm1.setup(chls[0], ole0, prng);
-    //auto proto1 = vecPerm2.setup(chls[1], ole1, prng);
-
-    //auto res = macoro::sync_wait(macoro::when_all_ready(std::move(proto0), std::move(proto1)));
-
-    //std::get<0>(res).result();
-    //std::get<1>(res).result();
-
-    //if (vecPerm1.mRho != vecPerm2.mRho)
-    //    throw RTE_LOC;
-
-    //auto pi = vecPerm1.mPi.mPerm.compose(vecPerm2.mPi.mPerm);
-    //Perm rhoExp = pi.apply(mPerm.mPerm);
-    //if (rhoExp != vecPerm1.mRho)
-    //    throw RTE_LOC;
-    //// Secret Sharing x
-    //std::array<oc::Matrix<u32>, 2> xShares = share(x, prng);
-
-    //proto0 = vecPerm1.apply(xShares[0], yShare[0], prng, chls[0], ole0);
-    //proto1 = vecPerm2.apply(xShares[1], yShare[1], prng, chls[1], ole1);
-
-    //auto res1 = macoro::sync_wait(macoro::when_all_ready(std::move(proto0), std::move(proto1)));
-
-    //std::get<0>(res1).result();
-    //std::get<1>(res1).result();
-
-    //auto yAct = reveal(yShare[0], yShare[1]);
-    //mPerm.apply<u32>(x, yExp);
-
-    //if (!eq(yAct, yExp))
-    //    throw RTE_LOC;
+    AdditivePerm vecPerm1;vecPerm1.init2(0, n, rowSize); vecPerm1.setShares(sShares[0]);
+    AdditivePerm vecPerm2;vecPerm2.init2(1, n, rowSize); vecPerm2.setShares(sShares[1]);
 
 
-    //auto res2 = macoro::sync_wait(macoro::when_all_ready(
-    //    vecPerm1.apply(xShares[0], yShare[0], prng, chls[0], ole0, true),
-    //    vecPerm2.apply(xShares[1], yShare[1], prng, chls[1], ole1, true)
-    //));
-    //std::get<0>(res2).result();
-    //std::get<1>(res2).result();
+    CorGenerator ole0, ole1;
+    ole0.init(chls[0].fork(), prng, 0, 1<<18, cmd.getOr("mock", 1));
+    ole1.init(chls[1].fork(), prng, 1, 1<<18, cmd.getOr("mock", 1));
 
 
+    vecPerm1.request(ole0);
+    vecPerm2.request(ole1);
 
-    //yAct = reveal(yShare[0], yShare[1]);
-    //mPerm.apply<u32>(x, yExp, true);
+    auto res0 = macoro::sync_wait(macoro::when_all_ready(
+        vecPerm1.preprocess(),
+        vecPerm2.preprocess()
+    ));
 
-    //if (!eq(yAct, yExp))
-    //    throw RTE_LOC;
+    std::get<0>(res0).result();
+    std::get<1>(res0).result();
+
+    if (0)
+    {
+        auto res1 = macoro::sync_wait(macoro::when_all_ready(
+            vecPerm1.setup(chls[0], prng),
+            vecPerm2.setup(chls[1], prng)
+        ));
+
+        std::get<0>(res1).result();
+        std::get<1>(res1).result();
+
+        if (vecPerm1.mRho != vecPerm2.mRho)
+            throw RTE_LOC;
+        auto pi = vecPerm1.mRandPi.mSender.mPi->composeSwap(*vecPerm2.mRandPi.mSender.mPi);
+        Perm rhoExp = pi.apply(mPi.mPi);
+        if (rhoExp != vecPerm1.mRho)
+            throw RTE_LOC;
+    }
+
+    // Secret Sharing x
+    std::array<oc::Matrix<u8>, 2> xShares = share(x, prng);
+    yShare[0].resize(x.rows(), x.cols());
+    yShare[1].resize(x.rows(), x.cols());
+
+    auto res1 = macoro::sync_wait(macoro::when_all_ready(
+        vecPerm1.apply<u8>(PermOp::Regular, xShares[0], yShare[0], prng, chls[0]),
+        vecPerm2.apply<u8>(PermOp::Regular, xShares[1], yShare[1], prng, chls[1])
+    ));
+
+    std::get<0>(res1).result();
+    std::get<1>(res1).result();
+
+    auto yAct = reveal(yShare[0], yShare[1]);
+    mPi.apply<u8>(x, yExp);
+
+    if (!eq(yAct, yExp))
+        throw RTE_LOC;
 }
