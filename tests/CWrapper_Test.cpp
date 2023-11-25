@@ -40,10 +40,6 @@ void OmJoin_wrapper_join_test(const oc::CLP& cmd)
     std::string bankCsvPath = rootPath + "/tests/tables/bank.csv";
     std::string visaMetaDataPath = rootPath + "/tests/tables/visa_meta.txt";
     std::string clientMetaDataPath = rootPath + "/tests/tables/bank_meta.txt";
-    std::string joinVisaCols("0");
-    std::string joinClientCols("3");
-    std::string selectVisaCols("0,1");
-    std::string selectClientCols("2");
     std::string joinCsvPath = rootPath + "/tests/tables/joindata.csv";
     std::string joinMetaPath = rootPath + "/tests/tables/joindata_meta.txt";
     bool isUnique = true;
@@ -183,13 +179,8 @@ void OmJoin_wrapper_avg_test(const oc::CLP& cmd)
     std::string bankCsvPath = rootPath + "/tests/tables/bank.csv";
     std::string visaMetaDataPath = rootPath + "/tests/tables/visa_meta.txt";
     std::string clientMetaDataPath = rootPath + "/tests/tables/bank_meta.txt";
-    std::string joinVisaCols("0");
-    std::string joinClientCols("3");
-    std::string selectVisaCols("0,1");
-    std::string selectClientCols("2");
     std::string joinCsvPath = rootPath + "/tests/tables/joindata.csv";
     std::string joinMetaPath = rootPath + "/tests/tables/joindata_meta.txt";
-    std::string jsonString = "{ \"Average\": \"Risk_Score,Balance\", \"Group by\": \"PAN\" }";
     bool isUnique = true;
     bool isAgg = true;
     bool verbose = cmd.isSet("v");

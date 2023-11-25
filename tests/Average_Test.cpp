@@ -201,22 +201,17 @@ void Average_avg_csv_Test(const oc::CLP& cmd)
     std::string bankCsvPath = rootPath + "/tests/tables/bank.csv";
     std::string visaMetaDataPath = rootPath + "/tests/tables/visa_meta.txt";
     std::string clientMetaDataPath = rootPath + "/tests/tables/bank_meta.txt";
-    std::string joinVisaCols("PAN");
-    std::string joinClientCols("PAN");
-    std::string selectVisaCols("Risk_Score,PAN");
-    std::string selectClientCols("Balance");
     std::string joinCsvPath = rootPath + "/tests/tables/joindata.csv";
     std::string joinMetaPath = rootPath + "/tests/tables/joindata_meta.txt";
-    std::string jsonString = "{ \"Average\": \"Risk_Score,Balance\", \"Group by\": \"PAN\" }";
-    // bool isUnique = true;
-    // bool isAgg = false;
-    // bool verbose = cmd.isSet("v");
+    std::vector<oc::i64> opInfo{2, 0, 3, 4, 1, 0, 4, 5, 1, 0, 2, 1, 4};
     bool printSteps = cmd.isSet("print");
     bool mock = cmd.getOr("mock", 1);
 
+    std::vector<oc::u64> joinCols, selectCols, groupByCols, avgCols;
+    u64 startIndex = 0;
+    parseColsArray(joinCols, selectCols, groupByCols, avgCols, opInfo, startIndex, printSteps);
 
-    oc::u64 lRowCount = 0, rRowCount = 0, 
-        lColCount = 0, rColCount = 0;
+    oc::u64 lRowCount = 0, rRowCount = 0, lColCount = 0, rColCount = 0;
 
     std::vector<ColumnInfo> lColInfo, rColInfo;
     getFileInfo(visaMetaDataPath, lColInfo, lRowCount, lColCount);
@@ -229,6 +224,9 @@ void Average_avg_csv_Test(const oc::CLP& cmd)
 
     populateTable(L, visaCsvPath, lRowCount);
     populateTable(R, bankCsvPath, rRowCount);
+
+    // Get Select Col Refs
+    std::vector<secJoin::ColRef> selectColRefs = getSelectColRef(selectCols, L, R, lColCount, rColCount);
 
     // if (printSteps)
     // {
@@ -259,15 +257,20 @@ void Average_avg_csv_Test(const oc::CLP& cmd)
 
     Table tempOut[2], out[2];
 
-    auto joinExp = join(L[0], R[1], { L[0], R[2], L[1] });
-    oc::Timer timer;
-    // join0.setTimer(timer);
-    // join1.setTimer(timer);
+    u64 lJoinColIndex = joinCols[0];
+    u64 rJoinColIndex = getRColIndex(joinCols[1], lColCount, rColCount);
 
+    auto joinExp = join(L[lJoinColIndex], R[rJoinColIndex], selectColRefs);
+    // oc::Timer timer;
+    // // join0.setTimer(timer);
+    // // join1.setTimer(timer);
+
+    std::vector<secJoin::ColRef> lSelectColRefs = getSelectColRef(selectCols, Ls[0], Rs[0], lColCount, rColCount);
+    std::vector<secJoin::ColRef> rSelectColRefs = getSelectColRef(selectCols, Ls[1], Rs[1], lColCount, rColCount);
 
     auto r = macoro::sync_wait(macoro::when_all_ready(
-        join0.join(Ls[0][0], Rs[0][1], { Ls[0][0], Rs[0][2], Ls[0][1] }, tempOut[0], prng0, ole0, sock[0]),
-        join1.join(Ls[1][0], Rs[1][1], { Ls[1][0], Rs[1][2], Ls[1][1] }, tempOut[1], prng1, ole1, sock[1])
+        join0.join(Ls[0][lJoinColIndex], Rs[0][rJoinColIndex], lSelectColRefs, tempOut[0], prng0, ole0, sock[0]),
+        join1.join(Ls[1][lJoinColIndex], Rs[1][rJoinColIndex], rSelectColRefs, tempOut[1], prng1, ole1, sock[1])
     ));
     std::get<0>(r).result();
     std::get<1>(r).result();
@@ -282,6 +285,10 @@ void Average_avg_csv_Test(const oc::CLP& cmd)
         throw RTE_LOC;
     }
 
+    // Create a new mapping and store the new mapping in the cState
+    std::unordered_map<oc::u64, oc::u64> map;
+    createNewMapping(map, selectCols);
+
     Average avg1, avg2;
 
     avg1.mInsecurePrint = printSteps;
@@ -290,42 +297,32 @@ void Average_avg_csv_Test(const oc::CLP& cmd)
     avg1.mInsecureMockSubroutines = mock;
     avg2.mInsecureMockSubroutines = mock;
 
-    //nlohmann::json j = nlohmann::json::parse(jsonString);
-
-    //std::array<std::vector<secJoin::ColRef>,3> avgCols;
-    //std::string avgColNm;
-    //// std::string temp = j[secJoin::AVERAGE_JSON_LITERAL];
-    //std::string temp = j[AVERAGE_JSON_LITERAL];
-    //std::stringstream avgColNmList(temp);
-    //while (getline(avgColNmList, avgColNm, ','))
-    //{
-    //    avgCols[0].emplace_back(tempOut[0][avgColNm]);
-    //    avgCols[1].emplace_back(tempOut[1][avgColNm]);
-    //    avgCols[2].emplace_back(joinExp[avgColNm]);
-    //}
-
-    //// std::string grpByColNm = j[secJoin::GROUP_BY_JSON_LITERAL];
-    //std::string grpByColNm = j[GROUP_BY_JSON_LITERAL];
-
-    //auto r1 = macoro::sync_wait(macoro::when_all_ready(
-    //    avg1.avg(tempOut[0][grpByColNm], avgCols[0], out[0], prng0, ole0, sock[0]),
-    //    avg2.avg(tempOut[1][grpByColNm], avgCols[1], out[1], prng1, ole1, sock[1])
-    //));
-    //std::get<1>(r1).result();
-    //std::get<0>(r1).result();
-
-    //auto res1 = reveal(out[0], out[1]);
-    //auto avgExp = average(joinExp[grpByColNm], avgCols[2]);
-
-    //if (res1 != avgExp)
-    //{
-    //    std::cout << "exp \n" << avgExp << std::endl;
-    //    std::cout << "act \n" << res1 << std::endl;
-    //    // std::cout << "ful \n" << reveal(out[0], out[1], false) << std::endl;
-    //    throw RTE_LOC;
-    //}
+    std::vector<secJoin::ColRef> avgColRefs = getColRefFromMapping(map, avgCols, joinExp);
+    std::vector<secJoin::ColRef> lAvgColRefs = getColRefFromMapping(map, avgCols, tempOut[0]);
+    std::vector<secJoin::ColRef> rAvgColRefs = getColRefFromMapping(map, avgCols, tempOut[1]);
     
-    // if (cmd.isSet("timing"))
-    //     std::cout << timer << std::endl;
+    // Assuming we have only one groupby column
+    oc::u64 groupByColIndex = getMapVal(map, groupByCols[0]);
+
+    auto r1 = macoro::sync_wait(macoro::when_all_ready(
+        avg1.avg(tempOut[0][groupByColIndex], lAvgColRefs, out[0], prng0, ole0, sock[0]),
+        avg2.avg(tempOut[1][groupByColIndex], rAvgColRefs, out[1], prng1, ole1, sock[1])
+    ));
+    std::get<1>(r1).result();
+    std::get<0>(r1).result();
+
+    auto res1 = reveal(out[0], out[1]);
+    auto avgExp = average(joinExp[groupByColIndex], avgColRefs);
+
+    if (res1 != avgExp)
+    {
+       std::cout << "exp \n" << avgExp << std::endl;
+       std::cout << "act \n" << res1 << std::endl;
+       // std::cout << "ful \n" << reveal(out[0], out[1], false) << std::endl;
+       throw RTE_LOC;
+    }
+    
+    // // if (cmd.isSet("timing"))
+    // //     std::cout << timer << std::endl;
 
 }
