@@ -55,6 +55,7 @@ set(SRCS
 	OmJoin_Test.cpp
 	CWrapper_Test.cpp
     Average_Test.cpp
+    Where_Test.cpp
 	)
 
 	

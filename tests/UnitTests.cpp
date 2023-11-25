@@ -20,6 +20,7 @@
 #include "CWrapper_Test.h"
 #include "CorGenerator_Test.h"
 #include "Average_Test.h"
+#include "Where_Test.h"
 
 namespace secJoin_Tests
 {
@@ -121,6 +122,8 @@ namespace secJoin_Tests
             t.add("Average_getControlBits_Test                   ", Average_getControlBits_Test);
             t.add("Average_avg_Test                              ", Average_avg_Test);
             t.add("Average_avg_csv_Test                          ", Average_avg_csv_Test);
+
+            t.add("Where_csv_Test                                ", Where_csv_Test);
             
             
 

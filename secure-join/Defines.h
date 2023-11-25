@@ -21,6 +21,10 @@ namespace secJoin
     using block = oc::block;
     using PRNG = oc::PRNG;
 
+    const std::string WHBUNDLE_COL_TYPE = "Col";
+    const std::string WHBUNDLE_NUM_TYPE = "Number";
+    const std::string WHBUNDLE_STRING_TYPE = "String";
+
     using ::memcpy;
 
     template<typename D, typename S>
