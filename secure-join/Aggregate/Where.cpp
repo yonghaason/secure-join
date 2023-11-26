@@ -197,7 +197,8 @@ namespace secJoin {
         if((mWhBundle[inIndex1].mType == WhType::Number && mWhBundle[inIndex2].mType == WhType::Number)
             || (mWhBundle[inIndex1].mType == WhType::String && mWhBundle[inIndex2].mType == WhType::String)
             || (mWhBundle[inIndex1].mType == WhType::String && mWhBundle[inIndex2].mType == WhType::Number)
-            || (mWhBundle[inIndex1].mType == WhType::Number && mWhBundle[inIndex2].mType == WhType::String))
+            || (mWhBundle[inIndex1].mType == WhType::Number && mWhBundle[inIndex2].mType == WhType::String)
+            || mWhBundle[inIndex1].mType == WhType::InterOut || mWhBundle[inIndex2].mType == WhType::InterOut)
         {
             std::string temp = "Index1 = " + std::to_string(inIndex1) + " Index2 = " +
             std::to_string(inIndex2) + " are not valid for equals operator" + "\n" + LOCATION;
@@ -219,8 +220,22 @@ namespace secJoin {
         b.resize(biggerSize);        
         c.resize(1);
 
-        cd->addInputBundle(a);
-        cd->addInputBundle(b);
+        if(mWhBundle[inIndex1].mType == WhType::Number || mWhBundle[inIndex1].mType == WhType::String)
+        {
+            BitVector aa = mWhBundle[inIndex1].mVal;
+            cd->addConstBundle(a, aa);
+        }
+        else
+            cd->addInputBundle(a);
+        
+        if(mWhBundle[inIndex2].mType == WhType::Number || mWhBundle[inIndex2].mType == WhType::String)
+        {
+            BitVector bb = mWhBundle[inIndex2].mVal;
+            cd->addConstBundle(b, bb);
+        }
+        else
+            cd->addInputBundle(b);
+
         addOutputBundle(cd, c, lastOp);
 
         BetaLibrary::eq_build(*cd, a, b, c);
@@ -250,12 +265,6 @@ namespace secJoin {
             mWhBundle[smallerSizeIndex].mBundle.resize(biggerSize);
             signExtend(mWhBundle[smallerSizeIndex].mVal, biggerSize, WhType::String);
 
-        }
-        else if(mWhBundle[smallerSizeIndex].mType == WhType::InterOut)
-        {
-            std::string temp = "Index1 = " + std::to_string(biggerSizeIndex) + " Index2 = " +
-            std::to_string(smallerSizeIndex) + " are not valid for equals operator" + "\n" + LOCATION;
-            throw std::runtime_error(temp);
         }
         else if(mWhBundle[smallerSizeIndex].mType == WhType::InterInt)
         {
