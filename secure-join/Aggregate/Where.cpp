@@ -9,7 +9,7 @@ namespace secJoin {
         const u64 totalCol,
         SharedTable& out,
         const std::unordered_map<u64, u64>& map,
-        OleGenerator& ole,
+        CorGenerator& ole,
         coproto::Socket& sock)
     {
         

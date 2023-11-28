@@ -171,15 +171,13 @@ void Average_avg_Test(const oc::CLP& cmd)
     ole1.init(sock[1].fork(), prng1, 1, 1 << 16, mock);
 
     Table out[2];
-
-    // crashes.
-    throw RTE_LOC;
     auto r = macoro::sync_wait(macoro::when_all_ready(
         avg1.avg(tb[0], { tb[1], tb[2] }, out[0], prng0, ole0, sock[0]),
         avg2.avg(tbShare[0], { tbShare[1], tbShare[2] }, out[1], prng1, ole1, sock[1])
     ));
-    std::get<1>(r).result();
     std::get<0>(r).result();
+    std::get<1>(r).result();
+    
 
     auto res = reveal(out[0], out[1]);
     

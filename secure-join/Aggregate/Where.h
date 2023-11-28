@@ -45,7 +45,7 @@ namespace secJoin
         macoro::task<> where(SharedTable& st, const std::vector<ArrGate>& gates, 
             const std::vector<std::string>& literals, const std::vector<std::string>& literalsType, 
             const u64 totalCol, SharedTable& out, const std::unordered_map<u64, u64>& map, 
-            OleGenerator& ole, coproto::Socket& sock);
+            CorGenerator& ole, coproto::Socket& sock);
 
         oc::BetaCircuit* genWhCircuit(SharedTable& st, const std::vector<ArrGate>& gates, 
             const std::vector<std::string>& literals, const std::vector<std::string>& literalsType,

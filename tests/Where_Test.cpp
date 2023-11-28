@@ -64,13 +64,14 @@ void Where_csv_Test(const oc::CLP& cmd)
     join0.mInsecureMockSubroutines = mock;
     join1.mInsecureMockSubroutines = mock;
 
-    OleGenerator ole0, ole1;
-    ole0.fakeInit(OleGenerator::Role::Sender);
-    ole1.fakeInit(OleGenerator::Role::Receiver);
 
     PRNG prng0(oc::ZeroBlock);
     PRNG prng1(oc::OneBlock);
     auto sock = coproto::LocalAsyncSocket::makePair();
+
+    CorGenerator ole0, ole1;
+    ole0.init(sock[0].fork(), prng0, 0, 1 << 16, mock);
+    ole1.init(sock[1].fork(), prng1, 1, 1 << 16, mock);
 
     Table tempOut[2], out[2];
 
@@ -109,8 +110,8 @@ void Where_csv_Test(const oc::CLP& cmd)
     Where wh;
     Gmw gmw;
     u64 gmwInIdx = 0;
-    gmw.init(rows, cd, ole);
-    auto cd = wh.genWhCircuit(tempOut[0], gates, literals, literalsType, totalColCount, map);
+    // gmw.init(rows, cd, ole);
+    // auto cd = wh.genWhCircuit(tempOut[0], gates, literals, literalsType, totalColCount, map);
     
     
     std::cout << "Where Over" << std::endl;

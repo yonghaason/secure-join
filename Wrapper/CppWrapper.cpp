@@ -7,33 +7,14 @@ namespace secJoin
         std::cout << str << std::endl;
     }
 
-    oc::u64 getRColIndex(oc::u64 relativeIndex, oc::u64 lColCount, oc::u64 rColCount)
-    {
-        oc::u64 index = relativeIndex - lColCount;
-
-        if( index < 0 || index >= rColCount)
-        {
-            std::string temp = "Right Column relative index = "+ std::to_string(relativeIndex) 
-                + " is not present in the right table" + "\n" + LOCATION;
-            throw std::runtime_error(temp);
-        }
-
-        return index;
-    }
-
     WrapperState* initState(std::string& csvPath, std::string& visaMetaDataPath, std::string& clientMetaDataPath,
         std::vector<std::string>& literals, std::vector<oc::i64>& opInfo, bool isUnique,
         bool verbose, bool mock, bool debug)
     {
         auto cState = std::make_unique<WrapperState>();
         cState->mLiterals = literals; //  This will fail, need to make a copy of literals
-        oc::u64 lRowCount = 0, rRowCount = 0, 
-            lColCount = 0, rColCount = 0;
+        oc::u64 lRowCount = 0, rRowCount = 0, lColCount = 0, rColCount = 0;
 
-        parseColsArray(cState->mJoinCols, cState->mSelectCols, cState->mGroupByCols,
-            cState->mAvgCols, cState->mGates, opInfo, verbose);
-        updateSelectCols(cState, verbose);
-        
         // Current assumption are that Visa always provides table with unique keys 
         // Which means Visa always has to be left Table
         getFileInfo(visaMetaDataPath, cState->mLColInfo, lRowCount, lColCount);
@@ -44,6 +25,11 @@ namespace secJoin
             populateTable(cState->mLTable, csvPath, lRowCount);
         else
             populateTable(cState->mRTable, csvPath, rRowCount);
+
+        parseColsArray(cState->mJoinCols, cState->mSelectCols, cState->mGroupByCols,
+            cState->mAvgCols, cState->mGates, opInfo, verbose);
+        u64 totalCol = lColCount + rColCount;
+        updateSelectCols(cState->mSelectCols, cState->mGates, totalCol);
 
         // Current Assumptions is that there is only one Join Columns
         auto lJoinColRef = cState->mLTable[cState->mJoinCols[0]];
