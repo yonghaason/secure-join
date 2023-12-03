@@ -1,8 +1,217 @@
 #include "Where_Test.h"
 using namespace secJoin;
 
+
+void Where_genWhBundle_Test(const oc::CLP& cmd)
+{
+    u64 nT = cmd.getOr("T", 511);
+    bool printSteps = cmd.isSet("print");
+    Table T;
+
+    T.init(nT, { {
+        {"T1", TypeID::IntID, 8},
+        {"T2", TypeID::IntID, 16},
+        {"T3", TypeID::StringID, 16},
+    } });
+    u64 totalCol = T.cols();
+
+    std::vector<std::string> literals = {"T1", "T2", "T3", "TestString", "10"};
+    std::vector<std::string> literalsType = { WHBUNDLE_COL_TYPE, WHBUNDLE_COL_TYPE, 
+        WHBUNDLE_COL_TYPE, WHBUNDLE_STRING_TYPE, WHBUNDLE_NUM_TYPE};
+
+    std::unordered_map<u64, u64> map;
+    for(oc::u64 i = 0; i < totalCol; i++)
+        map[i] = i;
+    
+    Where wh;
+
+    wh.genWhBundle(literals, literalsType, totalCol, T, map, printSteps);
+
+    for(u64 i=0; i<wh.mWhBundle.size(); i++)
+    {
+        if(wh.mWhBundle[i].mType == WhType::Col)
+        {
+            if(i >= totalCol)
+                throw RTE_LOC;
+            u64 size = wh.getInputColSize(T, i, totalCol, map);
+            if(wh.mWhBundle[i].mBundle.size() != size)
+                throw RTE_LOC;
+        }
+        else if(wh.mWhBundle[i].mType == WhType::Number)
+        {
+            // Ask Peter how to convert a BitVector into Number
+            BitVector bitVector = wh.mWhBundle[i].mVal;
+            oc::u64 exp = 0;
+            memcpy((oc::u8*)exp, bitVector.data(), bitVector.size()/8);
+            std::cout << "Number is " << exp << std::endl;
+
+            oc::u64 act = stoll(literals[i]);
+
+            if(act != exp)
+                throw RTE_LOC;
+        }
+        else if(wh.mWhBundle[i].mType == WhType::String)
+        {
+            // Ask Peter how to convert a BitVector into a String
+            BitVector bitVector = wh.mWhBundle[i].mVal;
+            std::string exp;
+            exp.reserve(bitVector.size()/8);
+            std::cout << "Size of Bit vector " << bitVector.size() << std::endl;
+            memcpy(exp.data(), bitVector.data(), bitVector.size()/8);
+            
+            std::cout << "String is " << exp << std::endl;
+
+            std::string act = literals[i];
+            if(act.compare(exp) != 0)
+                throw RTE_LOC;
+        }
+        else
+            throw RTE_LOC;
+    }
+}
+
+void Where_ArrType_Less_Than_Test(const oc::CLP& cmd)
+{
+
+}
+
+void Where_ArrType_Equals_Test(const oc::CLP& cmd)
+{
+    u64 nT = cmd.getOr("nT", 10);
+    bool printSteps = cmd.isSet("print");
+    bool mock = !cmd.isSet("noMock");
+    Table T;
+    PRNG prng0(oc::ZeroBlock);
+    PRNG prng1(oc::OneBlock);
+
+
+    T.init(nT, { {
+        {"T0", TypeID::IntID, 16},
+        {"T1", TypeID::IntID, 16},
+        {"T2", TypeID::IntID, 8},
+        {"T3", TypeID::IntID, 8},
+        {"T4", TypeID::StringID, 128},
+        {"T5", TypeID::StringID, 96}
+    } });
+    
+    T.mIsActive.resize(nT);
+    for(u64 i=0; i < nT; i++)
+        T.mIsActive[i] = (u8)1;
+
+    std::string comparisionString = "TestString";
+    std::string comparisionString1 = "ldetbjfejb";
+    for (u64 i = 0; i < nT; ++i)
+    {
+        T.mColumns[0].mData.mData(i, 0) = -1 * (i % 3);
+        T.mColumns[1].mData.mData(i, 0) = i % 4;
+        T.mColumns[2].mData.mData(i, 0) = i % 4;   
+        T.mColumns[3].mData.mData(i, 0) = -1 * (i % 5);
+        if(i % 3 == 0)
+            memcpy(T.mColumns[4].mData.data(i), comparisionString.data(), comparisionString.size());
+        else
+            memcpy(T.mColumns[4].mData.data(i), comparisionString1.data(), comparisionString1.size());
+        if(i % 4 == 0)
+            memcpy(T.mColumns[5].mData.data(i), comparisionString.data(), comparisionString.size());
+    }
+    std::array<Table, 2> Ts;
+    share(T, Ts, prng0);
+
+    u64 totalCol = T.cols();
+
+    std::vector<std::string> literals = {"T0", "T1", "T2", "T3", "T4", "T5", comparisionString, 
+        "1", "-4"};
+    std::vector<std::string> literalsType = { WHBUNDLE_COL_TYPE, WHBUNDLE_COL_TYPE, WHBUNDLE_COL_TYPE,
+        WHBUNDLE_COL_TYPE, WHBUNDLE_COL_TYPE, WHBUNDLE_COL_TYPE, WHBUNDLE_STRING_TYPE, 
+        WHBUNDLE_NUM_TYPE, WHBUNDLE_NUM_TYPE};
+
+    std::unordered_map<u64, u64> map;
+    for(oc::u64 i = 0; i < totalCol; i++)
+        map[i] = i;
+    
+
+    auto sock = coproto::LocalAsyncSocket::makePair();
+    CorGenerator ole0, ole1;
+    ole0.init(sock[0].fork(), prng0, 0, 1 << 16, mock);
+    ole1.init(sock[1].fork(), prng1, 1, 1 << 16, mock);
+
+    // Test Case doesn't cover the InterInt comparision
+    std::vector<std::array<u64, 2>> inIdxs = {{4, 5}, {1, 2}, {1, 3}, {1, 7}, {3, 8}, {4, 6}};
+
+    for(u64 i = 0; i < inIdxs.size(); i++)
+    {
+        Where wh0, wh1;
+        u64 inIdx1 = inIdxs[i][0], inIdx2 = inIdxs[i][1];
+        ArrGate gate(1 , inIdx1, inIdx2, literals.size());
+        SharedTable out0, out1;
+        
+        auto r = macoro::sync_wait(macoro::when_all_ready( 
+            wh0.where(Ts[0], {gate}, literals, literalsType, totalCol, out0, map, ole0, sock[0], false),
+            wh1.where(Ts[1], {gate}, literals, literalsType, totalCol, out1, map, ole1, sock[1], false)
+        ));
+
+        std::get<1>(r).result();
+        std::get<0>(r).result();
+
+        auto act = reveal(out0, out1);
+
+        Where wh;
+        wh.genWhBundle(literals, literalsType, totalCol, T, map, printSteps);
+        BetaCircuit cd;
+        BetaBundle c;
+        wh.ArrTypeEqualInputs(inIdx1, inIdx2, T, &cd, map, c, true);
+        wh.eq_build(cd, wh.mWhBundle[inIdx1].mBundle, wh.mWhBundle[inIdx2].mBundle, c);
+
+        std::vector<u8> expActFlags;
+        expActFlags.resize(nT);
+        u64 expRows = 0;
+
+        for(u64 j = 0; j < nT; j++)
+        {
+            std::vector<oc::BitVector> inputs;
+            inputs.reserve(wh.mGmwIn.size());
+            oc::BitVector tmp(1);
+            std::vector<BitVector> exp = {tmp};
+            for(u64 k=0; k < wh.mGmwIn.size(); k++)
+            {
+                BitVector bitVec(wh.mGmwIn[k].mData.data(j), wh.mGmwIn[k].bytesPerEntry() * 8);
+                inputs.emplace_back(bitVec);
+            }
+
+            cd.evaluate( inputs, exp );
+
+            if(exp[0][0] == 1)
+                expRows++;
+
+            expActFlags[j] = exp[0][0];
+        }
+        Table exp(expRows, T.getColumnInfo());
+        u64 expRowPointer = 0;
+        for(u64 j = 0; j < nT; j++)
+        {
+            if(expActFlags[j] == 1)
+            {
+                for(u64 k = 0; k < T.mColumns.size(); k++)
+                {
+                    memcpy(exp.mColumns[k].mData.data(expRowPointer), 
+                        T.mColumns[k].mData.data(j), 
+                        T.mColumns[k].getByteCount());
+                }
+                expRowPointer++;
+            }
+
+        }
+
+        if(exp != act)
+            throw RTE_LOC;
+
+    }
+}
+
+
+
 void Where_csv_Test(const oc::CLP& cmd)
 {
+    
     std::string rootPath(SEC_JOIN_ROOT_DIRECTORY);
     std::string visaCsvPath = rootPath + "/tests/tables/visa.csv";
     std::string bankCsvPath = rootPath + "/tests/tables/bank.csv";
@@ -16,7 +225,7 @@ void Where_csv_Test(const oc::CLP& cmd)
         "Col", "Number", "Number"};
     // std::vector<i64> opInfo{2, 0, 3, 4, 1, 0, 4, 5, 1, 0, 2, 1, 4, 4, 5,
     //      5, 1, 8, 7, 8, 6, 9, 6, 0, 7, 10, 3, 9, 10, 11, -1};
-    std::vector<i64> opInfo{    2, 0, 3, 4, 1, 0, 4, 5, 1, 0, 2, 1, 4, 3, 6, 5, 6, 
+    std::vector<i64> opInfo{ 2, 0, 3, 4, 1, 0, 4, 5, 1, 0, 2, 1, 4, 3, 6, 5, 6, 
         8, 1, 0, 7, 9, 3, 8, 9, 10, -1};
     bool printSteps = cmd.isSet("print");
     bool mock = !cmd.isSet("noMock");
@@ -32,7 +241,7 @@ void Where_csv_Test(const oc::CLP& cmd)
     std::vector<ColumnInfo> lColInfo, rColInfo;
     getFileInfo(visaMetaDataPath, lColInfo, lRowCount, lColCount);
     getFileInfo(clientMetaDataPath, rColInfo, rRowCount, rColCount);
-    u64 totalColCount = lColCount + rColCount;
+    u64 totalCol = lColCount + rColCount;
 
     Table L, R;
 
@@ -74,12 +283,12 @@ void Where_csv_Test(const oc::CLP& cmd)
     ole1.init(sock[1].fork(), prng1, 1, 1 << 16, mock);
 
     Table tempOut[2], out[2];
-
+    
     u64 lJoinColIndex = joinCols[0];
     u64 rJoinColIndex = getRColIndex(joinCols[1], lColCount, rColCount);
 
     auto joinExp = join(L[lJoinColIndex], R[rJoinColIndex], selectColRefs);
-
+    /*
     std::vector<secJoin::ColRef> lSelectColRefs = getSelectColRef(selectCols, Ls[0], Rs[0], lColCount, rColCount);
     std::vector<secJoin::ColRef> rSelectColRefs = getSelectColRef(selectCols, Ls[1], Rs[1], lColCount, rColCount);
 
@@ -99,19 +308,30 @@ void Where_csv_Test(const oc::CLP& cmd)
         // std::cout << "ful \n" << reveal(out[0], out[1], false) << std::endl;
         throw RTE_LOC;
     }
-
+    */
     // Create a new mapping and store the new mapping in the cState
     std::unordered_map<u64, u64> map;
     createNewMapping(map, selectCols);
     std::cout << "Printing Map" << std::endl;
-    for (auto i : map) 
-        std::cout << i.first << " \t\t\t " << i.second << std::endl; 
+    if(printSteps)
+    {
+        std::cout << "Printing Map" << std::endl;
+        for (auto i : map) 
+            std::cout << i.first << " \t\t\t " << i.second << std::endl; 
+    }
+    
+    Where wh0, wh1;
 
-    Where wh;
-    Gmw gmw;
-    u64 gmwInIdx = 0;
-    // gmw.init(rows, cd, ole);
-    // auto cd = wh.genWhCircuit(tempOut[0], gates, literals, literalsType, totalColCount, map);
+    std::array<Table, 2> joinExpShares;
+    share(joinExp, joinExpShares, prng);
+    
+    // auto r1 = macoro::sync_wait(macoro::when_all_ready(
+    //     wh0.where(joinExpShares[0], gates, literals, literalsType, totalCol, out[0], map, ole0, sock[0], printSteps),
+    //     wh1.where(joinExpShares[1], gates, literals, literalsType, totalCol, out[1], map, ole0, sock[1], printSteps)
+    // ));
+    // std::get<0>(r1).result();
+    // std::get<1>(r1).result();
+
     
     
     std::cout << "Where Over" << std::endl;

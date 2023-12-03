@@ -208,6 +208,7 @@ void Average_avg_csv_Test(const oc::CLP& cmd)
     std::vector<oc::u64> joinCols, selectCols, groupByCols, avgCols;
     u64 startIndex = 0;
     parseColsArray(joinCols, selectCols, groupByCols, avgCols, opInfo, startIndex, printSteps);
+    updateSelectCols(selectCols, groupByCols, avgCols, printSteps);
 
     oc::u64 lRowCount = 0, rRowCount = 0, lColCount = 0, rColCount = 0;
 

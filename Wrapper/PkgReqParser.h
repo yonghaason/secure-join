@@ -1,6 +1,6 @@
 #pragma once
 #include "secure-join/Util/ArrGate.h"
-#include "Wrapper/state.h"
+#include "secure-join/Join/Table.h"
 
 namespace secJoin{
 
@@ -30,7 +30,8 @@ namespace secJoin{
         return index;
     }
 
-    inline std::vector<secJoin::ColRef> getColRefFromMapping(std::unordered_map<oc::u64, oc::u64>& map, 
+    inline std::vector<secJoin::ColRef> getColRefFromMapping(
+        std::unordered_map<oc::u64, oc::u64>& map, 
         std::vector<oc::u64>& colList, Table& joinTable)
     {
         std::vector<secJoin::ColRef> colRefs;
@@ -214,8 +215,8 @@ namespace secJoin{
 
     }
 
-    inline void updateSelectCols(std::vector<oc::u64>& select, std::vector<ArrGate>& gates, 
-        oc::u64 totalColCount)
+    inline void updateSelectCols(std::vector<oc::u64>& select, const std::vector<ArrGate>& gates, 
+        const oc::u64 totalColCount)
     {
         for(u64 i=0; i < gates.size(); i++)
         {
@@ -231,7 +232,8 @@ namespace secJoin{
     }
 
 
-    inline void updateSelectCols(std::vector<oc::u64>& select, std::vector<oc::u64>& colList)
+    inline void updateSelectCols(std::vector<oc::u64>& select, 
+        const std::vector<oc::u64>& colList)
     {
         for(u64 i=0; i < colList.size(); i++)
         {
@@ -241,35 +243,53 @@ namespace secJoin{
 
         }        
     }
+    /*
+    This method method updates the Select Cols if any of the 
+    groupby & Average Columns don't exists in the Select Cols.
+    */
+    inline void updateSelectCols(std::vector<oc::u64>& selectCols,
+        const std::vector<oc::u64>& groupByCols, 
+        const std::vector<oc::u64>& avgCols, 
+        bool print)
+    {
+        // Checking GroupBy Cols
+        updateSelectCols(selectCols, groupByCols);
+
+        // Checking Average Cols
+        updateSelectCols(selectCols, avgCols);
+
+        if(print)
+            printCols(selectCols, "Select");
+    }
 
     /*
     This method method updates the Select Cols if any of the where, 
     groupby & Average Columns don't exists in the Select Cols.
     */
-    inline void updateSelectCols(WrapperState* cState, bool print)
+    inline void updateSelectCols(std::vector<oc::u64>& selectCols,
+        const std::vector<oc::u64>& groupByCols, 
+        const std::vector<oc::u64>& avgCols, 
+        const std::vector<secJoin::ArrGate>& gates,
+        const oc::u64 totalCol,
+        bool print)
     {  
-
-        // Checking GroupBy Cols
-        updateSelectCols(cState->mSelectCols, cState->mGroupByCols);
-
-        // Checking Average Cols
-        updateSelectCols(cState->mSelectCols, cState->mAvgCols);
+        // Checking GroupBy & Average Cols
+        updateSelectCols(selectCols, groupByCols, avgCols, false);
 
         // Checking where Cols
-        updateSelectCols(cState->mSelectCols, cState->mGates, 
-            cState->mLTable.cols() + cState->mRTable.cols());
+        updateSelectCols(selectCols, gates, totalCol);
 
         if(print)
-            printCols(cState->mSelectCols, "Select");
+            printCols(selectCols, "Select");
     }
 
-    inline void createNewMapping(std::unordered_map<oc::u64, oc::u64> &mMap,
-        std::vector<oc::u64>& mSelectCols)
+    inline void createNewMapping(std::unordered_map<oc::u64, oc::u64> &map,
+        std::vector<oc::u64>& selectCols)
     {
-        for(oc::u64 i = 0; i < mSelectCols.size(); i++)
+        for(oc::u64 i = 0; i < selectCols.size(); i++)
         {
-            oc::u64 colIndex = mSelectCols[i];
-            mMap[colIndex] = i;
+            oc::u64 colIndex = selectCols[i];
+            map[colIndex] = i;
         }
     }
 

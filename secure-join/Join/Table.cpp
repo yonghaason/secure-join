@@ -404,6 +404,13 @@ namespace secJoin
             }
         }
 
+        shares[0].mIsActive.resize(table.mIsActive.size());
+        shares[1].mIsActive.resize(table.mIsActive.size());
+
+        prng.get(shares[0].mIsActive.data(), shares[0].mIsActive.size());
+        for(u64 i = 0; i < table.mIsActive.size(); i++)
+                shares[1].mIsActive[i] = shares[0].mIsActive[i] ^ table.mIsActive[i];   
+
     }
 
     bool eq(span<const u8> l, span<const u8> r)

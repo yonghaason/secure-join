@@ -12,7 +12,7 @@ namespace secJoin{
         OR = 4,
         ADDITION = 5,
         LESS_THAN = 6,
-        GREATER_THAN = 7
+        GREATER_THAN_EQUALS = 7
     };
 
     inline ArrGateType numToGateType(oc::u64 type)
@@ -30,7 +30,7 @@ namespace secJoin{
         else if (type == 6)
             return ArrGateType::LESS_THAN;
         else if (type == 7)
-            return ArrGateType::GREATER_THAN;
+            return ArrGateType::GREATER_THAN_EQUALS;
         
         std::string temp = "Gate Type not available for num = " + std::to_string(type)
              + "\n" + LOCATION;
@@ -45,7 +45,7 @@ namespace secJoin{
 		if(type == 	   ArrGateType::OR    )return "Or";
 		if(type == 	   ArrGateType::ADDITION)return "Addition";
 		if(type == 	   ArrGateType::LESS_THAN    )return "Less Than";
-		if(type == 	   ArrGateType::GREATER_THAN   )return "Greater Than";
+		if(type == 	   ArrGateType::GREATER_THAN_EQUALS   )return "Greater Than Equals";
         return "";
     }
 

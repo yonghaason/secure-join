@@ -466,8 +466,6 @@ namespace secJoin
         }
     }
 
-
-
     // leftJoinCol should be unique
     macoro::task<> OmJoin::join(
         ColRef leftJoinCol,

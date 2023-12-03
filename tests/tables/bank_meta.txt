@@ -1,4 +1,4 @@
-Rows;1000
+Rows;10000
 Cols;4
 Date;STRING;10
 PAN;INT;8

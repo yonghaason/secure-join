@@ -29,7 +29,10 @@ namespace secJoin
         parseColsArray(cState->mJoinCols, cState->mSelectCols, cState->mGroupByCols,
             cState->mAvgCols, cState->mGates, opInfo, verbose);
         u64 totalCol = lColCount + rColCount;
-        updateSelectCols(cState->mSelectCols, cState->mGates, totalCol);
+        updateSelectCols(cState->mSelectCols, cState->mGroupByCols, cState->mAvgCols, 
+        cState->mGates, totalCol, verbose);
+
+
 
         // Current Assumptions is that there is only one Join Columns
         auto lJoinColRef = cState->mLTable[cState->mJoinCols[0]];

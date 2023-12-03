@@ -278,7 +278,6 @@ namespace secJoin {
 
         for (u64 i = 0; i < data.numEntries(); i++)
         {
-        
             // Storing the Group By Column
             memcpy(out.mColumns[0].mData.data(i), keys.data(i), out.mColumns[0].getByteCount());
 

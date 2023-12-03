@@ -123,7 +123,11 @@ namespace secJoin_Tests
             t.add("Average_avg_Test                              ", Average_avg_Test);
             t.add("Average_avg_csv_Test                          ", Average_avg_csv_Test);
 
+            t.add("Where_genWhBundle_Test                        ", Where_genWhBundle_Test);
+            t.add("Where_ArrType_Equals_Test                     ", Where_ArrType_Equals_Test);
+            
             t.add("Where_csv_Test                                ", Where_csv_Test);
+            
             
             
 
