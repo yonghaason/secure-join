@@ -1,7 +1,7 @@
 #include "Table.h"
 #include "secure-join/Util/Util.h"
 #include "secure-join/Sort/RadixSort.h"
-
+#include "secure-join/Aggregate/Where.h"
 
 
 namespace secJoin
@@ -591,6 +591,67 @@ namespace secJoin
 
         return out;
     }
+
+
+
+    Table where(Table& T,
+        const std::vector<ArrGate>& gates, 
+        const std::vector<std::string>& literals,
+        const std::vector<std::string>& literalsType,
+        const u64 totalCol,
+        const std::unordered_map<u64, u64>& map,
+        bool print)
+    {
+        Where wh;
+        BetaCircuit cd = *wh.genWhCir(T, gates, literals, literalsType, totalCol, map, print);
+        u64 nT = T.rows();
+
+        std::vector<u8> outActFlags;
+        outActFlags.resize(nT);
+        u64 outRows = 0;
+
+        for(u64 j = 0; j < nT; j++)
+        {
+            std::vector<oc::BitVector> inputs;
+            inputs.reserve(wh.mGmwIn.size());
+            oc::BitVector tmp(1);
+            std::vector<BitVector> outputs = {tmp};
+            for(u64 k=0; k < wh.mGmwIn.size(); k++)
+            {
+                BitVector bitVec(wh.mGmwIn[k].mData.data(j), wh.mGmwIn[k].bytesPerEntry() * 8);
+                inputs.emplace_back(bitVec);
+            }
+
+            cd.evaluate( inputs, outputs );
+
+            if(outputs[0][0] == 1)
+                outRows++;
+
+            outActFlags[j] = outputs[0][0];
+        }
+        Table out(outRows, T.getColumnInfo());
+        u64 outRowPointer = 0;
+        for(u64 j = 0; j < nT; j++)
+        {
+            assert(outRowPointer <= outRows);
+            if(outActFlags[j] == 1)
+            {
+                for(u64 k = 0; k < T.mColumns.size(); k++)
+                {
+                    memcpy(out.mColumns[k].mData.data(outRowPointer), 
+                        T.mColumns[k].mData.data(j), 
+                        T.mColumns[k].getByteCount());
+                }
+                outRowPointer++;
+            }
+
+        }
+
+        return out;
+
+    }
+
+
 
     void copyTableEntry(Table& out, ColRef groupByCol, std::vector<ColRef> avgCol,
                 std::vector<oc::BitVector>& inputs, BinMatrix& ones,

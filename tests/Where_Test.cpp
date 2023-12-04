@@ -147,52 +147,7 @@ void Where_ArrType_Equals_Test(const oc::CLP& cmd)
 
         auto act = reveal(out0, out1);
 
-        Where wh;
-        wh.genWhBundle(literals, literalsType, totalCol, T, map, printSteps);
-        BetaCircuit cd;
-        BetaBundle c;
-        wh.ArrTypeEqualInputs(inIdx1, inIdx2, T, &cd, map, c, true);
-        wh.eq_build(cd, wh.mWhBundle[inIdx1].mBundle, wh.mWhBundle[inIdx2].mBundle, c);
-
-        std::vector<u8> expActFlags;
-        expActFlags.resize(nT);
-        u64 expRows = 0;
-
-        for(u64 j = 0; j < nT; j++)
-        {
-            std::vector<oc::BitVector> inputs;
-            inputs.reserve(wh.mGmwIn.size());
-            oc::BitVector tmp(1);
-            std::vector<BitVector> exp = {tmp};
-            for(u64 k=0; k < wh.mGmwIn.size(); k++)
-            {
-                BitVector bitVec(wh.mGmwIn[k].mData.data(j), wh.mGmwIn[k].bytesPerEntry() * 8);
-                inputs.emplace_back(bitVec);
-            }
-
-            cd.evaluate( inputs, exp );
-
-            if(exp[0][0] == 1)
-                expRows++;
-
-            expActFlags[j] = exp[0][0];
-        }
-        Table exp(expRows, T.getColumnInfo());
-        u64 expRowPointer = 0;
-        for(u64 j = 0; j < nT; j++)
-        {
-            if(expActFlags[j] == 1)
-            {
-                for(u64 k = 0; k < T.mColumns.size(); k++)
-                {
-                    memcpy(exp.mColumns[k].mData.data(expRowPointer), 
-                        T.mColumns[k].mData.data(j), 
-                        T.mColumns[k].getByteCount());
-                }
-                expRowPointer++;
-            }
-
-        }
+        Table exp = where(T, {gate}, literals, literalsType, totalCol, map, printSteps);
 
         if(exp != act)
             throw RTE_LOC;

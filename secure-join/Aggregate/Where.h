@@ -74,8 +74,8 @@ namespace secJoin
         void ArrTypeAddInputs(u64 inIndex1, u64 inIndex2, SharedTable& st, oc::BetaCircuit* cd, 
             const std::unordered_map<u64, u64>& map, BetaBundle &c, bool lastOp);
 
-        void ArrTypeEqualInputs(const u64 inIndex1, const u64 inIndex2, SharedTable& st, oc::BetaCircuit* cd, 
-            const std::unordered_map<u64, u64>& map, BetaBundle &c, bool lastOp);
+        void ArrTypeEqualInputs(const u64 inIndex1, const u64 inIndex2, SharedTable& st,
+            oc::BetaCircuit* cd, const std::unordered_map<u64, u64>& map, BetaBundle &c, bool lastOp);
 
         void signExtend(u64 smallerSizeIndex, u64 biggerSize, u64 biggerSizeIndex,
             SharedTable& st, const std::unordered_map<u64, u64>& map);

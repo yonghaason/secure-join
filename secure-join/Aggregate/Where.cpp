@@ -35,8 +35,6 @@ namespace secJoin {
         coproto::Socket& sock,
         bool print)
     {
-
-        Table t;   
         MC_BEGIN(macoro::task<>, this, &st, &gates, &literals, &literalsType, &out, &sock, print,
             &map, totalCol, &ole,
             cd = oc::BetaCircuit{},
@@ -313,7 +311,6 @@ namespace secJoin {
         SharedTable& st,
         const std::unordered_map<u64, u64>& map)
     {
-        
         addToGmwInput(st, biggerSizeIndex, map, mWhBundle[biggerSizeIndex].mType);
 
         if(mWhBundle[smallerSizeIndex].mType == WhType::Col)

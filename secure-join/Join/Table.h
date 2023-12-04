@@ -8,6 +8,7 @@
 #include "coproto/coproto.h"
 #include "cryptoTools/Common/BitVector.h"
 #include "cryptoTools/Circuit/BetaCircuit.h"
+#include "secure-join/Util/ArrGate.h"
 #include <vector>
 
 namespace secJoin
@@ -195,6 +196,10 @@ namespace secJoin
         std::vector<oc::BitVector>& inputs, BinMatrix& ones,
         u64 curOutRow, u64 nOutRows, u64 row);
     Table average(ColRef groupByCol, std::vector<ColRef> avgCol);
+    Table where(Table& T, const std::vector<ArrGate>& gates, const std::vector<std::string>& literals,
+        const std::vector<std::string>& literalsType, const u64 totalCol,
+        const std::unordered_map<u64, u64>& map, bool print);
+    
     // class SharedTable
     // {
     // public:
