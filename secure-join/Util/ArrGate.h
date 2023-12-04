@@ -63,6 +63,14 @@ namespace secJoin{
             mOutput = output;
         }
 
+        ArrGate(ArrGateType op, oc::u64 input1, oc::u64 input2, oc::u64 output)
+        {
+            mType = op;
+            mInput[0] = input1;
+            mInput[1] = input2;
+            mOutput = output;
+        }
+
         ArrGate()=default;
 
     };

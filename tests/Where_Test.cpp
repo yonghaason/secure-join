@@ -39,12 +39,9 @@ void Where_genWhBundle_Test(const oc::CLP& cmd)
         }
         else if(wh.mWhBundle[i].mType == WhType::Number)
         {
-            // Ask Peter how to convert a BitVector into Number
             BitVector bitVector = wh.mWhBundle[i].mVal;
             oc::u64 exp = 0;
-            memcpy((oc::u8*)exp, bitVector.data(), bitVector.size()/8);
-            std::cout << "Number is " << exp << std::endl;
-
+            memcpy( &exp, bitVector.data(), oc::divCeil(bitVector.size(), 8));
             oc::u64 act = stoll(literals[i]);
 
             if(act != exp)
@@ -52,14 +49,10 @@ void Where_genWhBundle_Test(const oc::CLP& cmd)
         }
         else if(wh.mWhBundle[i].mType == WhType::String)
         {
-            // Ask Peter how to convert a BitVector into a String
             BitVector bitVector = wh.mWhBundle[i].mVal;
             std::string exp;
-            exp.reserve(bitVector.size()/8);
-            std::cout << "Size of Bit vector " << bitVector.size() << std::endl;
+            exp.resize(bitVector.size()/8);
             memcpy(exp.data(), bitVector.data(), bitVector.size()/8);
-            
-            std::cout << "String is " << exp << std::endl;
 
             std::string act = literals[i];
             if(act.compare(exp) != 0)
@@ -141,7 +134,7 @@ void Where_ArrType_Equals_Test(const oc::CLP& cmd)
     {
         Where wh0, wh1;
         u64 inIdx1 = inIdxs[i][0], inIdx2 = inIdxs[i][1];
-        ArrGate gate(1 , inIdx1, inIdx2, literals.size());
+        ArrGate gate(ArrGateType::EQUALS, inIdx1, inIdx2, literals.size());
         SharedTable out0, out1;
         
         auto r = macoro::sync_wait(macoro::when_all_ready( 
