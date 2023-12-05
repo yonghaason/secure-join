@@ -125,7 +125,11 @@ namespace secJoin_Tests
 
             t.add("Where_genWhBundle_Test                        ", Where_genWhBundle_Test);
             t.add("Where_ArrType_Equals_Test                     ", Where_ArrType_Equals_Test);
-            
+            t.add("Where_ArrType_NOT_Equals_Test                 ", Where_ArrType_NOT_Equals_Test);
+            t.add("Where_ArrType_Less_Than_Test                  ", Where_ArrType_Less_Than_Test);
+            t.add("Where_ArrType_Greater_Than_Equals_Test        ", Where_ArrType_Greater_Than_Equals_Test);
+            t.add("Where_ArrType_Addition_Test                   ", Where_ArrType_Addition_Test);
+            t.add("Where_ArrType_And_Or_Test                     ", Where_ArrType_And_Or_Test);
             t.add("Where_csv_Test                                ", Where_csv_Test);
             
             

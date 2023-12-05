@@ -48,15 +48,16 @@ namespace secJoin
         macoro::task<> where(SharedTable& st, const std::vector<ArrGate>& gates, 
             const std::vector<std::string>& literals, const std::vector<std::string>& literalsType, 
             const u64 totalCol, SharedTable& out, const std::unordered_map<u64, u64>& map, 
-            CorGenerator& ole, coproto::Socket& sock, bool print);
+            CorGenerator& ole, coproto::Socket& sock, const bool print);
 
         oc::BetaCircuit* genWhCir(SharedTable& st, const std::vector<ArrGate>& gates, 
             const std::vector<std::string>& literals, const std::vector<std::string>& literalsType,
-            const u64 totalCol, const std::unordered_map<u64, u64>& map, bool print);
+            const u64 totalCol, const std::unordered_map<u64, u64>& map, 
+            const u64 role, const bool print);
 
         void genWhBundle(const std::vector<std::string>& literals, 
             const std::vector<std::string>& literalsType, const u64 totalCol, SharedTable& st, 
-            const std::unordered_map<u64, u64>& map, bool print);            
+            const std::unordered_map<u64, u64>& map, const bool print);            
 
         u64 getInputColSize(SharedTable& st, u64 gateInputIndex, u64 totalCol,
             const std::unordered_map<u64, u64>& map);
@@ -64,18 +65,19 @@ namespace secJoin
         void addToGmwInput(SharedTable& st, u64 gateInputIndex,
             const std::unordered_map<u64, u64>& map, WhType type);
 
-        void addOutBundle(oc::BetaCircuit* cd, BetaBundle &c, bool lastOp);
+        void addOutBundle(oc::BetaCircuit* cd, BetaBundle &c, const bool lastOp);
 
         u64 getMapVal(const std::unordered_map<u64, u64>& map, u64 tag);
 
         void ArrTypeLessThanInputs(u64 inIndex1, u64 inIndex2, SharedTable& st, oc::BetaCircuit* cd, 
-            const std::unordered_map<u64, u64>& map, BetaBundle &c, bool lastOp);
+            const std::unordered_map<u64, u64>& map, BetaBundle &c, const bool lastOp);
 
         void ArrTypeAddInputs(u64 inIndex1, u64 inIndex2, SharedTable& st, oc::BetaCircuit* cd, 
-            const std::unordered_map<u64, u64>& map, BetaBundle &c, bool lastOp);
+            const std::unordered_map<u64, u64>& map, BetaBundle &c, const bool lastOp);
 
         void ArrTypeEqualInputs(const u64 inIndex1, const u64 inIndex2, SharedTable& st,
-            oc::BetaCircuit* cd, const std::unordered_map<u64, u64>& map, BetaBundle &c, bool lastOp);
+            oc::BetaCircuit* cd, const std::unordered_map<u64, u64>& map, BetaBundle &c, 
+            const bool lastOp);
 
         void signExtend(u64 smallerSizeIndex, u64 biggerSize, u64 biggerSizeIndex,
             SharedTable& st, const std::unordered_map<u64, u64>& map);

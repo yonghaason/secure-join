@@ -63,9 +63,348 @@ void Where_genWhBundle_Test(const oc::CLP& cmd)
     }
 }
 
+void Where_ArrType_Greater_Than_Equals_Test(const oc::CLP& cmd)
+{
+    u64 nT = cmd.getOr("nT", 10);
+    bool printSteps = cmd.isSet("print");
+    bool mock = !cmd.isSet("noMock");
+    Table T;
+    PRNG prng0(oc::ZeroBlock);
+    PRNG prng1(oc::OneBlock);
+
+
+    T.init(nT, { {
+        {"T0", TypeID::IntID, 16},
+        {"T1", TypeID::IntID, 16},
+        {"T2", TypeID::IntID, 8},
+        {"T3", TypeID::IntID, 8},
+        {"T4", TypeID::StringID, 128},
+        {"T5", TypeID::StringID, 96}
+    } });
+    
+    T.mIsActive.resize(nT);
+    for(u64 i=0; i < nT; i++)
+        T.mIsActive[i] = (u8)1;
+
+    std::string comparisionString = "TestString";
+    std::string comparisionString1 = "dfgdfggds";
+
+    for (u64 i = 0; i < nT; ++i)
+    {
+        T.mColumns[0].mData.mData(i, 0) = -1 * (i % 3);
+        T.mColumns[1].mData.mData(i, 0) = i % 4;
+        T.mColumns[2].mData.mData(i, 0) = i % 4;   
+        T.mColumns[3].mData.mData(i, 0) = -1 * (i % 5);
+        if(i % 3 == 0)
+            memcpy(T.mColumns[4].mData.data(i), comparisionString.data(), comparisionString.size());
+        else
+            memcpy(T.mColumns[4].mData.data(i), comparisionString1.data(), comparisionString1.size());
+        if(i % 4 == 0)
+            memcpy(T.mColumns[5].mData.data(i), comparisionString.data(), comparisionString.size());
+    }
+    std::array<Table, 2> Ts;
+    share(T, Ts, prng0);
+
+    u64 totalCol = T.cols();
+
+    std::vector<std::string> literals = {"T0", "T1", "T2", "T3", "T4", "T5", comparisionString, 
+        "1", "-4"};
+    std::vector<std::string> literalsType = { WHBUNDLE_COL_TYPE, WHBUNDLE_COL_TYPE, WHBUNDLE_COL_TYPE,
+        WHBUNDLE_COL_TYPE, WHBUNDLE_COL_TYPE, WHBUNDLE_COL_TYPE, WHBUNDLE_STRING_TYPE, 
+        WHBUNDLE_NUM_TYPE, WHBUNDLE_NUM_TYPE};
+
+    std::unordered_map<u64, u64> map;
+    for(oc::u64 i = 0; i < totalCol; i++)
+        map[i] = i;
+    
+
+    auto sock = coproto::LocalAsyncSocket::makePair();
+    CorGenerator ole0, ole1;
+    ole0.init(sock[0].fork(), prng0, 0, 1 << 16, mock);
+    ole1.init(sock[1].fork(), prng1, 1, 1 << 16, mock);
+
+    std::vector<std::array<u64, 2>> inIdxs = {{2, 3}, {0, 1}, {0, 3}, {3, 0}, {4, 5}, {8, 3},
+        {1, 7}, {4, 6}};
+
+    for(u64 i = 0; i < inIdxs.size(); i++)
+    {
+        Where wh0, wh1;
+        u64 inIdx1 = inIdxs[i][0], inIdx2 = inIdxs[i][1];
+        ArrGate gate(ArrGateType::GREATER_THAN_EQUALS, inIdx1, inIdx2, literals.size());
+        SharedTable out0, out1;
+        
+        auto r = macoro::sync_wait(macoro::when_all_ready( 
+            wh0.where(Ts[0], {gate}, literals, literalsType, totalCol, out0, map, ole0, sock[0], false),
+            wh1.where(Ts[1], {gate}, literals, literalsType, totalCol, out1, map, ole1, sock[1], false)
+        ));
+
+        std::get<1>(r).result();
+        std::get<0>(r).result();
+
+        auto act = reveal(out0, out1);
+        std::cout << "Act table rows " << act.rows() << std::endl;
+
+        Table exp = where(T, {gate}, literals, literalsType, totalCol, map, printSteps);
+
+        if(exp != act)
+            throw RTE_LOC;
+
+    }
+}
+
+void Where_ArrType_Addition_Test(const oc::CLP& cmd)
+{
+    u64 nT = cmd.getOr("nT", 10);
+    bool printSteps = cmd.isSet("print");
+    bool mock = !cmd.isSet("noMock");
+    Table T;
+    PRNG prng0(oc::ZeroBlock);
+    PRNG prng1(oc::OneBlock);
+
+
+    T.init(nT, { {
+        {"T0", TypeID::IntID, 16},
+        {"T1", TypeID::IntID, 12},
+        {"T2", TypeID::IntID, 8},
+    } });
+    
+    T.mIsActive.resize(nT);
+    for(u64 i=0; i < nT; i++)
+        T.mIsActive[i] = (u8)1;
+
+    for (u64 i = 0; i < nT; ++i)
+    {
+        T.mColumns[0].mData.mData(i, 0) = -1 * (i % 3);
+        T.mColumns[1].mData.mData(i, 0) = i % 4;
+        T.mColumns[2].mData.mData(i, 0) = 5;
+    }
+    std::array<Table, 2> Ts;
+    share(T, Ts, prng0);
+
+    u64 totalCol = T.cols();
+
+    std::vector<std::string> literals = {"T0", "T1", "T2", "1", "-4"};
+    std::vector<std::string> literalsType = { WHBUNDLE_COL_TYPE, WHBUNDLE_COL_TYPE,
+        WHBUNDLE_COL_TYPE, WHBUNDLE_NUM_TYPE, WHBUNDLE_NUM_TYPE};
+
+    std::unordered_map<u64, u64> map;
+    for(oc::u64 i = 0; i < totalCol; i++)
+        map[i] = i;
+    
+
+    auto sock = coproto::LocalAsyncSocket::makePair();
+    CorGenerator ole0, ole1;
+    ole0.init(sock[0].fork(), prng0, 0, 1 << 16, mock);
+    ole1.init(sock[1].fork(), prng1, 1, 1 << 16, mock);
+
+    // Case 1: Adding a column
+    std::vector<ArrGate> gates1 = {
+        {ArrGateType::ADDITION, 0, 1, 5} ,
+        {ArrGateType::LESS_THAN, 5, 2, 6} };
+
+    // Case 2: Adding a constant
+    std::vector<ArrGate> gates2 = {
+        {ArrGateType::ADDITION, 4, 1, 5} ,
+        {ArrGateType::LESS_THAN, 5, 2, 6} };
+
+    
+    std::vector<std::vector<ArrGate>> gates = {gates1, gates2};
+
+    for(u64 i = 0; i < gates.size(); i++)
+    {
+        Where wh0, wh1;
+        SharedTable out0, out1;
+        
+        auto r = macoro::sync_wait(macoro::when_all_ready( 
+            wh0.where(Ts[0], gates[i], literals, literalsType, totalCol, out0, map, ole0, sock[0], false),
+            wh1.where(Ts[1], gates[i], literals, literalsType, totalCol, out1, map, ole1, sock[1], false)
+        ));
+
+        std::get<0>(r).result();    
+        std::get<1>(r).result();
+
+        auto act = reveal(out0, out1);
+        std::cout << "Act table rows " << act.rows() << std::endl;
+
+        Table exp = where(T, gates[i], literals, literalsType, totalCol, map, printSteps);
+
+        if(exp != act)
+            throw RTE_LOC;
+
+    }
+}
+
+void Where_ArrType_And_Or_Test(const oc::CLP& cmd)
+{
+    u64 nT = cmd.getOr("nT", 10);
+    bool printSteps = cmd.isSet("print");
+    bool mock = !cmd.isSet("noMock");
+    Table T;
+    PRNG prng0(oc::ZeroBlock);
+    PRNG prng1(oc::OneBlock);
+
+
+    T.init(nT, { {
+        {"T0", TypeID::IntID, 16},
+        {"T1", TypeID::IntID, 12},
+    } });
+    
+    T.mIsActive.resize(nT);
+    for(u64 i=0; i < nT; i++)
+        T.mIsActive[i] = (u8)1;
+
+
+    for (u64 i = 0; i < nT; ++i)
+    {
+        T.mColumns[0].mData.mData(i, 0) = i % 3;
+        T.mColumns[1].mData.mData(i, 0) = i % 4;
+    }
+    std::array<Table, 2> Ts;
+    share(T, Ts, prng0);
+
+    u64 totalCol = T.cols();
+
+    std::vector<std::string> literals = {"T0", "T1", "1", "-4"};
+    std::vector<std::string> literalsType = { WHBUNDLE_COL_TYPE, WHBUNDLE_COL_TYPE,
+        WHBUNDLE_NUM_TYPE, WHBUNDLE_NUM_TYPE};
+
+    std::unordered_map<u64, u64> map;
+    for(oc::u64 i = 0; i < totalCol; i++)
+        map[i] = i;
+    
+
+    auto sock = coproto::LocalAsyncSocket::makePair();
+    CorGenerator ole0, ole1;
+    ole0.init(sock[0].fork(), prng0, 0, 1 << 16, mock);
+    ole1.init(sock[1].fork(), prng1, 1, 1 << 16, mock);
+
+    // Case 1: AND Gate
+    std::vector<ArrGate> gates1 = {
+        {ArrGateType::EQUALS, 0, 1, 4} ,
+        {ArrGateType::EQUALS, 0, 2, 5} ,
+        {ArrGateType::AND, 4, 5, 6} };
+
+    // Case 2: Or Gate
+    std::vector<ArrGate> gates2 = {
+        {ArrGateType::EQUALS, 0, 1, 4} ,
+        {ArrGateType::EQUALS, 0, 2, 5} ,
+        {ArrGateType::OR, 4, 5, 6} };
+
+    
+    std::vector<std::vector<ArrGate>> gates = {gates1, gates2};
+
+    for(u64 i = 0; i < gates.size(); i++)
+    {
+        Where wh0, wh1;
+        SharedTable out0, out1;
+        
+        auto r = macoro::sync_wait(macoro::when_all_ready( 
+            wh0.where(Ts[0], gates[i], literals, literalsType, totalCol, out0, map, ole0, sock[0], false),
+            wh1.where(Ts[1], gates[i], literals, literalsType, totalCol, out1, map, ole1, sock[1], false)
+        ));
+
+        std::get<0>(r).result();    
+        std::get<1>(r).result();
+
+        auto act = reveal(out0, out1);
+        std::cout << "Act table rows " << act.rows() << std::endl;
+
+        Table exp = where(T, gates[i], literals, literalsType, totalCol, map, printSteps);
+
+        if(exp != act)
+            throw RTE_LOC;
+
+    }
+}
+
+
 void Where_ArrType_Less_Than_Test(const oc::CLP& cmd)
 {
+    u64 nT = cmd.getOr("nT", 10);
+    bool printSteps = cmd.isSet("print");
+    bool mock = !cmd.isSet("noMock");
+    Table T;
+    PRNG prng0(oc::ZeroBlock);
+    PRNG prng1(oc::OneBlock);
 
+
+    T.init(nT, { {
+        {"T0", TypeID::IntID, 16},
+        {"T1", TypeID::IntID, 16},
+        {"T2", TypeID::IntID, 8},
+        {"T3", TypeID::IntID, 8},
+        {"T4", TypeID::StringID, 128},
+        {"T5", TypeID::StringID, 96}
+    } });
+    
+    T.mIsActive.resize(nT);
+    for(u64 i=0; i < nT; i++)
+        T.mIsActive[i] = (u8)1;
+
+    std::string comparisionString = "TestString";
+    std::string comparisionString1 = "dfgdfggds";
+
+    for (u64 i = 0; i < nT; ++i)
+    {
+        T.mColumns[0].mData.mData(i, 0) = -1 * (i % 3);
+        T.mColumns[1].mData.mData(i, 0) = i % 4;
+        T.mColumns[2].mData.mData(i, 0) = i % 4;   
+        T.mColumns[3].mData.mData(i, 0) = -1 * (i % 5);
+        if(i % 3 == 0)
+            memcpy(T.mColumns[4].mData.data(i), comparisionString.data(), comparisionString.size());
+        else
+            memcpy(T.mColumns[4].mData.data(i), comparisionString1.data(), comparisionString1.size());
+        if(i % 4 == 0)
+            memcpy(T.mColumns[5].mData.data(i), comparisionString.data(), comparisionString.size());
+    }
+    std::array<Table, 2> Ts;
+    share(T, Ts, prng0);
+
+    u64 totalCol = T.cols();
+
+    std::vector<std::string> literals = {"T0", "T1", "T2", "T3", "T4", "T5", comparisionString, 
+        "1", "-4"};
+    std::vector<std::string> literalsType = { WHBUNDLE_COL_TYPE, WHBUNDLE_COL_TYPE, WHBUNDLE_COL_TYPE,
+        WHBUNDLE_COL_TYPE, WHBUNDLE_COL_TYPE, WHBUNDLE_COL_TYPE, WHBUNDLE_STRING_TYPE, 
+        WHBUNDLE_NUM_TYPE, WHBUNDLE_NUM_TYPE};
+
+    std::unordered_map<u64, u64> map;
+    for(oc::u64 i = 0; i < totalCol; i++)
+        map[i] = i;
+    
+
+    auto sock = coproto::LocalAsyncSocket::makePair();
+    CorGenerator ole0, ole1;
+    ole0.init(sock[0].fork(), prng0, 0, 1 << 16, mock);
+    ole1.init(sock[1].fork(), prng1, 1, 1 << 16, mock);
+
+    std::vector<std::array<u64, 2>> inIdxs = {{2, 3}, {0, 1}, {0, 3}, {3, 0}, {4, 5}, {8, 3},
+        {1, 7}, {4, 6}};
+
+    for(u64 i = 4; i < inIdxs.size(); i++)
+    {
+        Where wh0, wh1;
+        u64 inIdx1 = inIdxs[i][0], inIdx2 = inIdxs[i][1];
+        ArrGate gate(ArrGateType::LESS_THAN, inIdx1, inIdx2, literals.size());
+        SharedTable out0, out1;
+        
+        auto r = macoro::sync_wait(macoro::when_all_ready( 
+            wh0.where(Ts[0], {gate}, literals, literalsType, totalCol, out0, map, ole0, sock[0], false),
+            wh1.where(Ts[1], {gate}, literals, literalsType, totalCol, out1, map, ole1, sock[1], false)
+        ));
+
+        std::get<1>(r).result();
+        std::get<0>(r).result();
+
+        auto act = reveal(out0, out1);
+        std::cout << "Act table rows " << act.rows() << std::endl;
+
+        Table exp = where(T, {gate}, literals, literalsType, totalCol, map, printSteps);
+
+        if(exp != act)
+            throw RTE_LOC;
+
+    }
 }
 
 void Where_ArrType_Equals_Test(const oc::CLP& cmd)
@@ -146,6 +485,100 @@ void Where_ArrType_Equals_Test(const oc::CLP& cmd)
         std::get<0>(r).result();
 
         auto act = reveal(out0, out1);
+
+        Table exp = where(T, {gate}, literals, literalsType, totalCol, map, printSteps);
+
+        if(exp != act)
+            throw RTE_LOC;
+
+    }
+}
+
+void Where_ArrType_NOT_Equals_Test(const oc::CLP& cmd)
+{
+    u64 nT = cmd.getOr("nT", 10);
+    bool printSteps = cmd.isSet("print");
+    bool mock = !cmd.isSet("noMock");
+    Table T;
+    PRNG prng0(oc::ZeroBlock);
+    PRNG prng1(oc::OneBlock);
+
+
+    T.init(nT, { {
+        {"T0", TypeID::IntID, 16},
+        {"T1", TypeID::IntID, 16},
+        {"T2", TypeID::IntID, 8},
+        {"T3", TypeID::IntID, 8},
+        {"T4", TypeID::StringID, 128},
+        {"T5", TypeID::StringID, 96}
+    } });
+    
+    T.mIsActive.resize(nT);
+    for(u64 i=0; i < nT; i++)
+        T.mIsActive[i] = (u8)1;
+
+    std::string comparisionString = "TestString";
+    std::string comparisionString1 = "ldetbjfejb";
+    for (u64 i = 0; i < nT; ++i)
+    {
+        T.mColumns[0].mData.mData(i, 0) = -1 * (i % 3);
+        T.mColumns[1].mData.mData(i, 0) = i % 4;
+        T.mColumns[2].mData.mData(i, 0) = i % 4;   
+        T.mColumns[3].mData.mData(i, 0) = -1 * (i % 5);
+        if(i % 3 == 0)
+            memcpy(T.mColumns[4].mData.data(i), comparisionString.data(), comparisionString.size());
+        else
+            memcpy(T.mColumns[4].mData.data(i), comparisionString1.data(), comparisionString1.size());
+        if(i % 4 == 0)
+            memcpy(T.mColumns[5].mData.data(i), comparisionString.data(), comparisionString.size());
+    }
+    std::array<Table, 2> Ts;
+    share(T, Ts, prng0);
+
+    u64 totalCol = T.cols();
+
+    std::vector<std::string> literals = {"T0", "T1", "T2", "T3", "T4", "T5", comparisionString, 
+        "1", "-4"};
+    std::vector<std::string> literalsType = { WHBUNDLE_COL_TYPE, WHBUNDLE_COL_TYPE, WHBUNDLE_COL_TYPE,
+        WHBUNDLE_COL_TYPE, WHBUNDLE_COL_TYPE, WHBUNDLE_COL_TYPE, WHBUNDLE_STRING_TYPE, 
+        WHBUNDLE_NUM_TYPE, WHBUNDLE_NUM_TYPE};
+
+    std::unordered_map<u64, u64> map;
+    for(oc::u64 i = 0; i < totalCol; i++)
+        map[i] = i;
+    
+
+    auto sock = coproto::LocalAsyncSocket::makePair();
+    CorGenerator ole0, ole1;
+    ole0.init(sock[0].fork(), prng0, 0, 1 << 16, mock);
+    ole1.init(sock[1].fork(), prng1, 1, 1 << 16, mock);
+
+    // Test Case doesn't cover the InterInt comparision
+    std::vector<std::array<u64, 2>> inIdxs = {{4, 5}, {1, 2}, {1, 3}, {1, 7}, {3, 8}, {4, 6}};
+
+    for(u64 i = 0; i < inIdxs.size(); i++)
+    {
+        Where wh0, wh1;
+        u64 inIdx1 = inIdxs[i][0], inIdx2 = inIdxs[i][1];
+        ArrGate gate(ArrGateType::NOT_EQUALS, inIdx1, inIdx2, literals.size());
+        SharedTable out0, out1;
+        
+        auto r = macoro::sync_wait(macoro::when_all_ready( 
+            wh0.where(Ts[0], {gate}, literals, literalsType, totalCol, out0, map, ole0, sock[0], false),
+            wh1.where(Ts[1], {gate}, literals, literalsType, totalCol, out1, map, ole1, sock[1], false)
+        ));
+
+        std::get<1>(r).result();
+        std::get<0>(r).result();
+
+        // for(u64 w=0; w<out0.mIsActive.size(); w++)
+        // {
+        //     u8 asd = out0.mIsActive[w] ^ out1.mIsActive[w];
+        //     std::cout << asd << std::endl;
+        // }
+
+        auto act = reveal(out0, out1);
+        std::cout << "Act table rows " << act.rows() << std::endl;
 
         Table exp = where(T, {gate}, literals, literalsType, totalCol, map, printSteps);
 

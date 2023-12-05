@@ -33,7 +33,7 @@ namespace secJoin {
         const std::unordered_map<u64, u64>& map,
         CorGenerator& ole,
         coproto::Socket& sock,
-        bool print)
+        const bool print)
     {
         MC_BEGIN(macoro::task<>, this, &st, &gates, &literals, &literalsType, &out, &sock, print,
             &map, totalCol, &ole,
@@ -42,7 +42,7 @@ namespace secJoin {
             rows = u64(),
             tempOut = oc::Matrix<u8>());
 
-        cd = *genWhCir(st, gates, literals, literalsType, totalCol, map, print);
+        cd = *genWhCir(st, gates, literals, literalsType, totalCol, map, ole.partyIdx(), print);
         rows = st.rows();
         gmw.init(rows, cd, ole);
         
@@ -73,7 +73,8 @@ namespace secJoin {
         const std::vector<std::string>& literalsType,
         const u64 totalCol,
         const std::unordered_map<u64, u64>& map,
-        bool print)
+        const u64 role,
+        const bool print)
     {
         auto* cd = new BetaCircuit;
         bool lastOp = false;
@@ -132,7 +133,7 @@ namespace secJoin {
                 assert(c.mWires.size() == 1);
                 eq_build(*cd, a, b, c);
 
-                if(gates[i].mType == ArrGateType::NOT_EQUALS)
+                if(gates[i].mType == ArrGateType::NOT_EQUALS && role == 0)
                     cd->addInvert(c.mWires[0]);
             }
             else if(gates[i].mType == ArrGateType::AND || gates[i].mType == ArrGateType::OR)
@@ -153,7 +154,7 @@ namespace secJoin {
                 BetaLibrary::lessThan_build(*cd, a, b, c, BetaLibrary::IntType::TwosComplement, mOp);
 
                 // This is greater than equals
-                if(gates[i].mType == ArrGateType::GREATER_THAN_EQUALS)
+                if(gates[i].mType == ArrGateType::GREATER_THAN_EQUALS  && role == 0)
                     cd->addInvert(c.mWires[0]);
 
             }
@@ -176,8 +177,9 @@ namespace secJoin {
 
     void Where::genWhBundle(const std::vector<std::string>& literals, 
         const std::vector<std::string>& literalsType, const u64 totalCol,
-        SharedTable& st, const std::unordered_map<u64, u64>& map, bool print)
+        SharedTable& st, const std::unordered_map<u64, u64>& map, const bool print)
     {
+        assert(literals.size() == literalsType.size());
         // Adding all the columns
         for(u64 i=0; i < totalCol; i++)
         {
@@ -429,6 +431,14 @@ namespace secJoin {
         BetaBundle &c,
         bool lastOp)
     {
+        if(lastOp)
+        {
+            std::string temp = "index = "+ std::to_string(inIndex1) +
+                " index = "+ std::to_string(inIndex2) + 
+                " is an invalid circuit. This addition can't be the last operation" + "\n" + LOCATION;
+            throw std::runtime_error(temp);
+        }
+
         BetaBundle& a = mWhBundle[inIndex1].mBundle;
         BetaBundle& b = mWhBundle[inIndex2].mBundle;
         u64 aSize = mWhBundle[inIndex1].mBundle.size();
