@@ -43,7 +43,7 @@ namespace secJoin
 
         std::vector<WhBundle> mWhBundle;
         std::vector<BinMatrix> mGmwIn;
-        std::vector<BetaBundle> mTempWireBundle;
+        // std::vector<BetaBundle> mTempWireBundle;
         Optimized mOp = Optimized::Size;
         macoro::task<> where(SharedTable& st, const std::vector<ArrGate>& gates, 
             const std::vector<std::string>& literals, const std::vector<std::string>& literalsType, 
@@ -65,28 +65,33 @@ namespace secJoin
         void addToGmwInput(SharedTable& st, u64 gateInputIndex,
             const std::unordered_map<u64, u64>& map, WhType type);
 
-        void addOutBundle(oc::BetaCircuit* cd, BetaBundle &c, const bool lastOp);
+        void addInputBundle(oc::BetaCircuit* cd, SharedTable& st,
+            const u64 gateInputIndex, const std::unordered_map<u64, u64>& map);
+        // void addOutputBundle(oc::BetaCircuit* cd, BetaBundle &c, const bool lastOp);
 
         u64 getMapVal(const std::unordered_map<u64, u64>& map, u64 tag);
 
-        void ArrTypeLessThanInputs(u64 inIndex1, u64 inIndex2, SharedTable& st, oc::BetaCircuit* cd, 
-            const std::unordered_map<u64, u64>& map, BetaBundle &c, const bool lastOp);
+        void ArrTypeLessThanCir(const u64 inIndex1, const u64 inIndex2, oc::BetaCircuit* cd, 
+            BetaBundle &c, const bool lastOp);
 
-        void ArrTypeAddInputs(u64 inIndex1, u64 inIndex2, SharedTable& st, oc::BetaCircuit* cd, 
-            const std::unordered_map<u64, u64>& map, BetaBundle &c, const bool lastOp);
+        void ArrTypeAddCir(const u64 inIndex1, const u64 inIndex2, oc::BetaCircuit* cd, 
+            BetaBundle &c, const bool lastOp);
+
+        void ArrTypeEqualCir(const u64 inIndex1, const u64 inIndex2, oc::BetaCircuit* cd, 
+            BetaBundle &c, const bool lastOp);
 
         void ArrTypeEqualInputs(const u64 inIndex1, const u64 inIndex2, SharedTable& st,
-            oc::BetaCircuit* cd, const std::unordered_map<u64, u64>& map, BetaBundle &c, 
-            const bool lastOp);
+            oc::BetaCircuit* cd, const std::unordered_map<u64, u64>& map);
+        
 
-        void signExtend(u64 smallerSizeIndex, u64 biggerSize, u64 biggerSizeIndex,
-            SharedTable& st, const std::unordered_map<u64, u64>& map);
+        void signExtend(const u64 smallerSizeIndex, const u64 biggerSize, const u64 biggerSizeIndex,
+            SharedTable& st, oc::BetaCircuit* cd, const std::unordered_map<u64, u64>& map);
 
-        void signExtend(BitVector& aa, u64 size, WhType type);
-        void signExtend(BinMatrix& in, u64 size, TypeID type);
-        void signExtend(BetaBundle& aa, u64 size, WhType type);
-        void extendBetaBundle(BetaBundle& aa, u32 bit, u64 size);
-        void extendBitVector(BitVector& aa, u8 bit, u64 size);
+        void signExtend(BitVector& aa, const u64 size, const WhType type);
+        void signExtend(BinMatrix& in, const u64 size, const TypeID type);
+        void signExtend(BetaBundle& aa, const u64 size, const WhType type);
+        void extendBetaBundle(BetaBundle& aa, const u64 size);
+        void extendBitVector(BitVector& aa, const u8 bit, const u64 size);
 
     };
 }

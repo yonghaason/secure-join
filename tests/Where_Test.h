@@ -16,7 +16,6 @@ void Where_ArrType_Greater_Than_Equals_Test(const oc::CLP& cmd);
 void Where_ArrType_Addition_Test(const oc::CLP& cmd);
 void Where_ArrType_Equals_Test(const oc::CLP& cmd);
 void Where_ArrType_NOT_Equals_Test(const oc::CLP& cmd);
-void Where_ArrType_Add_Test(const oc::CLP& cmd);
 void Where_ArrType_And_Or_Test(const oc::CLP& cmd);
 void Where_where_Test(const oc::CLP& cmd);
 

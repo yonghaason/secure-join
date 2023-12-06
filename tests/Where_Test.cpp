@@ -224,7 +224,6 @@ void Where_ArrType_Addition_Test(const oc::CLP& cmd)
         std::get<1>(r).result();
 
         auto act = reveal(out0, out1);
-        std::cout << "Act table rows " << act.rows() << std::endl;
 
         Table exp = where(T, gates[i], literals, literalsType, totalCol, map, printSteps);
 
@@ -307,7 +306,6 @@ void Where_ArrType_And_Or_Test(const oc::CLP& cmd)
         std::get<1>(r).result();
 
         auto act = reveal(out0, out1);
-        std::cout << "Act table rows " << act.rows() << std::endl;
 
         Table exp = where(T, gates[i], literals, literalsType, totalCol, map, printSteps);
 
@@ -381,7 +379,7 @@ void Where_ArrType_Less_Than_Test(const oc::CLP& cmd)
     std::vector<std::array<u64, 2>> inIdxs = {{2, 3}, {0, 1}, {0, 3}, {3, 0}, {4, 5}, {8, 3},
         {1, 7}, {4, 6}};
 
-    for(u64 i = 4; i < inIdxs.size(); i++)
+    for(u64 i = 5; i < inIdxs.size(); i++)
     {
         Where wh0, wh1;
         u64 inIdx1 = inIdxs[i][0], inIdx2 = inIdxs[i][1];

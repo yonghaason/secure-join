@@ -77,100 +77,89 @@ namespace secJoin {
         const bool print)
     {
         auto* cd = new BetaCircuit;
-        bool lastOp = false;
+        BetaBundle outBundle(1);
         genWhBundle(literals, literalsType, totalCol, st, map, print);
-        
-        // Adding Input, temp, Output Bundles
+
+        // Adding Inputbundles
         for(u64 i = 0; i < gates.size(); i++)
         {
             u64 inIndex1 = gates[i].mInput[0];
             u64 inIndex2 = gates[i].mInput[1];
+
+            if(gates[i].mType == ArrGateType::EQUALS || gates[i].mType == ArrGateType::NOT_EQUALS)
+                ArrTypeEqualInputs(inIndex1, inIndex2, st, cd, map);
+            else
+            {
+                addInputBundle(cd, st, inIndex1, map);
+                addInputBundle(cd, st, inIndex2, map);
+            }
+        }
+
+        // Adding Output Bundle 
+        cd->addOutputBundle(outBundle);
+        
+        bool lastOp = false;
+        // Adding tempBundles & Gates
+        for(u64 i = 0; i < gates.size(); i++)
+        {
+            u64 inIndex1 = gates[i].mInput[0];
+            u64 inIndex2 = gates[i].mInput[1];
+            // u64 outIndex = gates[i].mOutput;
+            BetaBundle &a = mWhBundle[inIndex1].mBundle;
+            BetaBundle &b = mWhBundle[inIndex2].mBundle;
             BetaBundle c;
 
             // For the last operation we add Output Gate not tempwirebundle
             if( i == (gates.size() - 1))
+            {
+                c = outBundle;
                 lastOp = true;
-
-            if(gates[i].mType == ArrGateType::EQUALS || gates[i].mType == ArrGateType::NOT_EQUALS)
-            {
-                ArrTypeEqualInputs(inIndex1, inIndex2, st, cd, map, c, lastOp);
-                mWhBundle.emplace_back(c, WhType::InterOut);
             }
-            else if(gates[i].mType == ArrGateType::AND || gates[i].mType == ArrGateType::OR)
-            {
-                // We assume that inputs to these gates are betabundles & are already part of WhBundle
-                // bcoz they are logical and & or.
-                c.resize(1);
-                addOutBundle(cd, c, lastOp);
-                mWhBundle.emplace_back(c, WhType::InterOut);
-            }
-            else if(gates[i].mType == ArrGateType::LESS_THAN || 
-                gates[i].mType == ArrGateType::GREATER_THAN_EQUALS)
-            {
-                ArrTypeLessThanInputs(inIndex1, inIndex2, st, cd, map, c, lastOp); 
-                mWhBundle.emplace_back(c, WhType::InterOut);
-            }
-            else if(gates[i].mType == ArrGateType::ADDITION)
-            {
-                ArrTypeAddInputs(inIndex1, inIndex2, st, cd, map, c, lastOp);
-                mWhBundle.emplace_back(c, WhType::InterInt);
-            }
-
-        }
-        // Adding Gates to the Circuit
-        for(u64 i = 0; i < gates.size(); i++)
-        {
-            u64 inIndex1 = gates[i].mInput[0];
-            u64 inIndex2 = gates[i].mInput[1];
-            u64 outIndex = gates[i].mOutput;
-            BetaBundle &a = mWhBundle[inIndex1].mBundle;
-            BetaBundle &b = mWhBundle[inIndex2].mBundle;
-            BetaBundle &c = mWhBundle[outIndex].mBundle;
 
             if(gates[i].mType == ArrGateType::EQUALS || gates[i].mType == ArrGateType::NOT_EQUALS)
             {
                 assert(a.mWires.size() == b.mWires.size());
-                assert(c.mWires.size() == 1);
-                eq_build(*cd, a, b, c);
-
+                ArrTypeEqualCir(inIndex1, inIndex2, cd, c, lastOp);
+                
                 if(gates[i].mType == ArrGateType::NOT_EQUALS && role == 0)
                     cd->addInvert(c.mWires[0]);
+
+                mWhBundle.emplace_back(c, WhType::InterOut);
             }
             else if(gates[i].mType == ArrGateType::AND || gates[i].mType == ArrGateType::OR)
             {
+                // Assuming these are logical AND & OR
                 assert(a.mWires.size() == 1);
                 assert(b.mWires.size() == 1);
-                assert(c.mWires.size() == 1);
+                c.resize(1);
+
+                if(!lastOp)
+                    cd->addTempWireBundle(c);
 
                 if(gates[i].mType == ArrGateType::AND)
                     cd->addGate(a.mWires[0], b.mWires[0], oc::GateType::And, c.mWires[0]);
                 else if(gates[i].mType == ArrGateType::OR)
                     cd->addGate(a.mWires[0], b.mWires[0], oc::GateType::Or, c.mWires[0]);
+
+                mWhBundle.emplace_back(c, WhType::InterOut);
             }
             else if(gates[i].mType == ArrGateType::LESS_THAN || 
                 gates[i].mType == ArrGateType::GREATER_THAN_EQUALS)
             {
-                assert(c.mWires.size() == 1);
-                BetaLibrary::lessThan_build(*cd, a, b, c, BetaLibrary::IntType::TwosComplement, mOp);
-
+                ArrTypeLessThanCir(inIndex1, inIndex2, cd, c, lastOp); 
+                
                 // This is greater than equals
                 if(gates[i].mType == ArrGateType::GREATER_THAN_EQUALS  && role == 0)
                     cd->addInvert(c.mWires[0]);
 
+                mWhBundle.emplace_back(c, WhType::InterOut);
             }
             else if(gates[i].mType == ArrGateType::ADDITION)
             {
-                u64 cSize = a.mWires.size() > b.mWires.size() ? a.mWires.size() : b.mWires.size();
-                assert(c.mWires.size() == cSize);
-                assert(mTempWireBundle.size() > 0);
-                BetaBundle t = mTempWireBundle[0];
-                // Removing the first entry from the temp Wire Bundle
-                mTempWireBundle.erase(mTempWireBundle.begin()); 
-                BetaLibrary::add_build(*cd, a, b, c, t, IntType::TwosComplement, mOp);
+                ArrTypeAddCir(inIndex1, inIndex2, cd, c, lastOp);
+                mWhBundle.emplace_back(c, WhType::InterInt);
             }
-
         }
-
         return cd;
     }
 
@@ -234,20 +223,58 @@ namespace secJoin {
         // InterMediate Outputs will be added when we are creating the circuit
     }
 
-    void Where::addOutBundle(oc::BetaCircuit* cd, BetaBundle &c, bool lastOp)
+    void Where::addInputBundle(oc::BetaCircuit* cd, SharedTable& st,
+        const u64 gateInputIndex, const std::unordered_map<u64, u64>& map)
     {
-        if(lastOp)
-            cd->addOutputBundle(c);
-        else
+        if(gateInputIndex >= mWhBundle.size())
+            return;
+
+        BetaBundle &a = mWhBundle[gateInputIndex].mBundle;
+        WhType type = mWhBundle[gateInputIndex].mType;
+        if(type == WhType::Col)
+        {
+            cd->addInputBundle(a);
+            addToGmwInput(st, gateInputIndex, map,type);
+        }
+            
+    }
+
+    void Where::ArrTypeEqualCir(const u64 inIndex1, const u64 inIndex2,
+        oc::BetaCircuit* cd, BetaBundle &c, const bool lastOp)
+    {
+        BetaBundle& a = mWhBundle[inIndex1].mBundle;
+        BetaBundle& b = mWhBundle[inIndex2].mBundle;
+        u64 aSize = mWhBundle[inIndex1].mBundle.size();
+        u64 bSize = mWhBundle[inIndex2].mBundle.size();
+        WhType typeIndex1 = mWhBundle[inIndex1].mType;
+        WhType typeIndex2 = mWhBundle[inIndex2].mType;
+        c.resize(1);
+
+        assert(aSize == bSize);
+
+        if(typeIndex1 == WhType::Number || typeIndex1 == WhType::String)
+        {
+            BitVector aa = mWhBundle[inIndex1].mVal;
+            cd->addConstBundle(a, aa);
+        }
+        
+        if(typeIndex2 == WhType::Number || typeIndex2 == WhType::String)
+        {
+            BitVector bb = mWhBundle[inIndex2].mVal;
+            cd->addConstBundle(b, bb);
+        }
+
+        if(!lastOp)
             cd->addTempWireBundle(c);
+
+        eq_build(*cd, a, b, c);
+
     }
 
     void Where::ArrTypeEqualInputs(const u64 inIndex1, const u64 inIndex2,
         SharedTable& st,
         oc::BetaCircuit* cd,
-        const std::unordered_map<u64, u64>& map, 
-        BetaBundle &c,
-        bool lastOp)
+        const std::unordered_map<u64, u64>& map)
     {
         BetaBundle& a = mWhBundle[inIndex1].mBundle;
         BetaBundle& b = mWhBundle[inIndex2].mBundle;
@@ -266,60 +293,42 @@ namespace secJoin {
             std::to_string(inIndex2) + " are not valid for equals operator" + "\n" + LOCATION;
             throw std::runtime_error(temp);
         }
-        u64 biggerSize = aSize;        
+        u64 biggerSize = aSize;    
+        a.resize(biggerSize);
+        b.resize(biggerSize);    
         if(aSize > bSize)
         {
-            signExtend(inIndex2, aSize, inIndex1, st, map);
+            signExtend(inIndex2, aSize, inIndex1, st, cd, map);
             biggerSize = aSize;
         }
         else if(bSize > aSize)
         {
-            signExtend(inIndex1, bSize, inIndex2, st, map);
+            signExtend(inIndex1, bSize, inIndex2, st, cd, map);
             biggerSize = bSize;
         }
         else
         {
             // SignExtend Adds GMW Input but the case where 
             // input size are equal, we are adding it here
-            addToGmwInput(st, inIndex1, map, typeIndex1);
-            addToGmwInput(st, inIndex2, map, typeIndex2);
+            addInputBundle(cd, st, inIndex1, map);
+            addInputBundle(cd, st, inIndex2, map);
         }
-
-        a.resize(biggerSize);
-        b.resize(biggerSize);        
-        c.resize(1);
-
-        if(typeIndex1 == WhType::Number || typeIndex1 == WhType::String)
-        {
-            BitVector aa = mWhBundle[inIndex1].mVal;
-            cd->addConstBundle(a, aa);
-        }
-        else
-            cd->addInputBundle(a);
-        
-        if(typeIndex2 == WhType::Number || typeIndex2 == WhType::String)
-        {
-            BitVector bb = mWhBundle[inIndex2].mVal;
-            cd->addConstBundle(b, bb);
-        }
-        else
-            cd->addInputBundle(b);
-
-        addOutBundle(cd, c, lastOp);
-        
     }
 
     void Where::signExtend(u64 smallerSizeIndex, u64 biggerSize, u64 biggerSizeIndex,
-        SharedTable& st,
+        SharedTable& st, oc::BetaCircuit* cd,
         const std::unordered_map<u64, u64>& map)
     {
-        addToGmwInput(st, biggerSizeIndex, map, mWhBundle[biggerSizeIndex].mType);
+        addInputBundle(cd, st, biggerSizeIndex, map);
 
         if(mWhBundle[smallerSizeIndex].mType == WhType::Col)
         {
             u64 index = getMapVal(map, smallerSizeIndex);
             BinMatrix in = st[index].mCol.mData;
+            // signExtend extends the BinMatrix & adds it in GmwIns
             signExtend(in, biggerSize, st[index].mCol.mType);
+            // Adding Input Bundle
+            cd->addInputBundle(mWhBundle[smallerSizeIndex].mBundle);
         }
         else if(mWhBundle[smallerSizeIndex].mType == WhType::Number)
             signExtend(mWhBundle[smallerSizeIndex].mVal, biggerSize, WhType::Number);
@@ -400,22 +409,15 @@ namespace secJoin {
             throw std::runtime_error(temp);
         }
 
-        u64 rem = size - aa.size();
-
         // Sign Extending Number
         if(type == WhType::InterInt)
-        {
-            if(aa[aa.size() - 1] == 1)
-                extendBetaBundle(aa, 1, rem); 
-            else
-                extendBetaBundle(aa, 0, rem); 
-        }
+            extendBetaBundle(aa, size);
     }
 
-    void Where::extendBetaBundle(BetaBundle& aa, u32 bit, u64 size)
+    void Where::extendBetaBundle(BetaBundle& aa, u64 size)
     {
-        for(oc::u64 i=0; i<size; i++)
-            aa.push_back(bit);
+        while(aa.size() < size) 
+            aa.push_back(aa.back());
     }
 
     void Where::extendBitVector(BitVector& aa, u8 bit, u64 size)
@@ -424,12 +426,8 @@ namespace secJoin {
             aa.pushBack(bit);
     }
     
-    void Where::ArrTypeAddInputs(u64 inIndex1, u64 inIndex2,
-        SharedTable& st,
-        oc::BetaCircuit* cd,
-        const std::unordered_map<u64, u64>& map, 
-        BetaBundle &c,
-        bool lastOp)
+    void Where::ArrTypeAddCir(const u64 inIndex1, const u64 inIndex2,
+        oc::BetaCircuit* cd, BetaBundle &c, const bool lastOp)
     {
         if(lastOp)
         {
@@ -463,38 +461,25 @@ namespace secJoin {
             BitVector aa = mWhBundle[inIndex1].mVal;
             t.resize(3 + 2 * cSize);
             cd->addConstBundle(a, aa);
-            cd->addInputBundle(b);
         }
         else if(typeIndex2 == WhType::Number)
         {
             BitVector bb = mWhBundle[inIndex2].mVal;
             t.resize(3 + 2 * cSize);
-            cd->addInputBundle(a);
             cd->addConstBundle(b, bb);
         }
         else
-        {
             t.resize(mOp == Optimized::Size ? 4 : cSize * 2);
-            cd->addInputBundle(a);
-            cd->addInputBundle(b);
-        }
-        cd->addTempWireBundle(t);
-        mTempWireBundle.emplace_back(t);
-        addOutBundle(cd, c, lastOp);
-
-        // BetaLibrary::add_build(*cd, a, b, c, t, IntType::TwosComplement	, mOp);
         
-        // Adding GMW Inputs
-        addToGmwInput(st, inIndex1, map, typeIndex1);
-        addToGmwInput(st, inIndex2, map, typeIndex2);
+        cd->addTempWireBundle(t);
+        if(!lastOp)
+            cd->addTempWireBundle(c);
+
+        BetaLibrary::add_build(*cd, a, b, c, t, IntType::TwosComplement, mOp);
     }
 
-    void Where::ArrTypeLessThanInputs(u64 inIndex1, u64 inIndex2,
-        SharedTable& st,
-        oc::BetaCircuit* cd,
-        const std::unordered_map<u64, u64>& map,  
-        BetaBundle &c,
-        bool lastOp)
+    void Where::ArrTypeLessThanCir(const u64 inIndex1, const u64 inIndex2,
+        oc::BetaCircuit* cd, BetaBundle &c, const bool lastOp)
     {
         BetaBundle& a = mWhBundle[inIndex1].mBundle;
         BetaBundle& b = mWhBundle[inIndex2].mBundle;
@@ -516,25 +501,17 @@ namespace secJoin {
         {
             BitVector aa = mWhBundle[inIndex1].mVal;
             cd->addConstBundle(a, aa);
-            cd->addInputBundle(b);
         }
         else if(typeIndex2 == WhType::Number || typeIndex2 == WhType::String)
         {
             BitVector bb = mWhBundle[inIndex2].mVal;
             cd->addConstBundle(b, bb);
-            cd->addInputBundle(a);
-        }
-        else
-        {
-            cd->addInputBundle(a);
-            cd->addInputBundle(b);
         }
 
-        addOutBundle(cd, c, lastOp);
+        if(!lastOp)
+            cd->addTempWireBundle(c);
 
-        // Adding GMW Inputs
-        addToGmwInput(st, inIndex1, map, typeIndex1);
-        addToGmwInput(st, inIndex2, map, typeIndex2);
+        BetaLibrary::lessThan_build(*cd, a, b, c, BetaLibrary::IntType::TwosComplement, mOp);
     }
 
     void Where::addToGmwInput(SharedTable& st,
