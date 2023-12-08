@@ -129,9 +129,10 @@ namespace secJoin {
         keyOffsets = { OmJoin::Offset{0, offset * 8, "key"},
             OmJoin::Offset{offset * 8, 1, "ActFlag"} };
 
-        // key size will become of 8 after the concatColumn operation
+        // key size will become of multiple of 8 after the concatColumn operation
         OmJoin::concatColumns(ret, temp);
 
+        assert(keys.rows() == actFlagVec.size());
         for (u64 i = 0; i < keys.rows(); ++i)
             *oc::BitIterator((u8*)ret.data(i), offset * 8) = actFlagVec[i];
     }

@@ -31,7 +31,7 @@ void Average_concatColumns_Test()
 
 
     CorGenerator ole;
-    ole.init(coproto::Socket{}, prng, 0);
+    ole.init(coproto::Socket{}, prng, 1);
      
     Average::concatColumns( t0[0], averageCols, y, offsets, ole);
     BinMatrix ones(n0, sizeof(oc::u64) * 8);
@@ -127,31 +127,25 @@ void Average_getControlBits_Test(const oc::CLP& cmd)
 
 void Average_avg_Test(const oc::CLP& cmd)
 {
-    u64 nTb = 333;
-    Table tb, tbShare;
+    u64 nT = 10;
+    Table T;
 
     bool printSteps = cmd.isSet("print");
     bool mock = cmd.getOr("mock", 1);
 
-    tb.init(nTb, { {
+    T.init(nT, { {
         {"L1", TypeID::IntID, 12},
         {"L2", TypeID::IntID, 16},
         {"L3", TypeID::IntID, 16}
     } });
 
-    tbShare.init(nTb, { {
-        {"L1", TypeID::IntID, 12},
-        {"L2", TypeID::IntID, 16},
-        {"L3", TypeID::IntID, 16}
-    } });
-
-    for (u64 i = 0; i < nTb; ++i)
+    for (u64 i = 0; i < nT; ++i)
     {
-        tb.mColumns[0].mData.mData(i, 0) = i % 5 ;
-        tb.mColumns[1].mData.mData(i, 0) = i % 4;
-        tb.mColumns[1].mData.mData(i, 1) = i % 4;
-        tb.mColumns[2].mData.mData(i, 0) = i % 4;
-        tb.mColumns[2].mData.mData(i, 1) = i % 4;
+        T.mColumns[0].mData.mData(i, 0) = i % 5;
+        T.mColumns[1].mData.mData(i, 0) = i % 4;
+        T.mColumns[1].mData.mData(i, 1) = i % 4;
+        T.mColumns[2].mData.mData(i, 0) = i % 4;
+        T.mColumns[2].mData.mData(i, 1) = i % 4;
     }
 
     Average avg1, avg2;
@@ -166,14 +160,26 @@ void Average_avg_Test(const oc::CLP& cmd)
 
     PRNG prng0(oc::ZeroBlock);
     PRNG prng1(oc::OneBlock);
+
+    std::array<Table, 2> Ts;
+    share(T, Ts, prng0);
+
+    Ts[0].mIsActive.resize(nT);
+    Ts[1].mIsActive.resize(nT);
+    for(u64 i=0; i< nT; i++)
+    {
+        Ts[0].mIsActive[i] = 1;
+        Ts[1].mIsActive[i] = 0;
+    }
+
     CorGenerator ole0, ole1;
     ole0.init(sock[0].fork(), prng0, 0, 1 << 16, mock);
     ole1.init(sock[1].fork(), prng1, 1, 1 << 16, mock);
 
     Table out[2];
     auto r = macoro::sync_wait(macoro::when_all_ready(
-        avg1.avg(tb[0], { tb[1], tb[2] }, out[0], prng0, ole0, sock[0]),
-        avg2.avg(tbShare[0], { tbShare[1], tbShare[2] }, out[1], prng1, ole1, sock[1])
+        avg1.avg(Ts[0][0], { Ts[0][1], Ts[0][2] }, out[0], prng0, ole0, sock[0]),
+        avg2.avg(Ts[1][0], { Ts[1][1], Ts[1][2] }, out[1], prng1, ole1, sock[1])
     ));
     std::get<0>(r).result();
     std::get<1>(r).result();
@@ -181,7 +187,7 @@ void Average_avg_Test(const oc::CLP& cmd)
 
     auto res = reveal(out[0], out[1]);
     
-    auto exp = average(tb[0], { tb[1], tb[2] });
+    auto exp = average(T[0], { T[1], T[2] });
 
     if (res != exp)
     {

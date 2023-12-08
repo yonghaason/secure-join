@@ -142,7 +142,6 @@ void Where_ArrType_Greater_Than_Equals_Test(const oc::CLP& cmd)
         std::get<0>(r).result();
 
         auto act = reveal(out0, out1);
-        std::cout << "Act table rows " << act.rows() << std::endl;
 
         Table exp = where(T, {gate}, literals, literalsType, totalCol, map, printSteps);
 
@@ -395,7 +394,6 @@ void Where_ArrType_Less_Than_Test(const oc::CLP& cmd)
         std::get<0>(r).result();
 
         auto act = reveal(out0, out1);
-        std::cout << "Act table rows " << act.rows() << std::endl;
 
         Table exp = where(T, {gate}, literals, literalsType, totalCol, map, printSteps);
 
@@ -492,7 +490,7 @@ void Where_ArrType_Equals_Test(const oc::CLP& cmd)
     }
 }
 
-void Where_ArrType_NOT_Equals_Test(const oc::CLP& cmd)
+void Where_ArrType_Not_Equals_Test(const oc::CLP& cmd)
 {
     u64 nT = cmd.getOr("nT", 10);
     bool printSteps = cmd.isSet("print");
@@ -569,14 +567,7 @@ void Where_ArrType_NOT_Equals_Test(const oc::CLP& cmd)
         std::get<1>(r).result();
         std::get<0>(r).result();
 
-        // for(u64 w=0; w<out0.mIsActive.size(); w++)
-        // {
-        //     u8 asd = out0.mIsActive[w] ^ out1.mIsActive[w];
-        //     std::cout << asd << std::endl;
-        // }
-
         auto act = reveal(out0, out1);
-        std::cout << "Act table rows " << act.rows() << std::endl;
 
         Table exp = where(T, {gate}, literals, literalsType, totalCol, map, printSteps);
 
@@ -586,9 +577,99 @@ void Where_ArrType_NOT_Equals_Test(const oc::CLP& cmd)
     }
 }
 
+void Where_join_where_Test(const oc::CLP& cmd)
+{
+    u64 nT = cmd.getOr("nT", 10);
+    bool printSteps = cmd.isSet("print");
+    bool mock = !cmd.isSet("noMock");
+    Table T;
+    PRNG prng0(oc::ZeroBlock);
+    PRNG prng1(oc::OneBlock);
 
 
-void Where_csv_Test(const oc::CLP& cmd)
+    T.init(nT, { {
+        {"T0", TypeID::IntID, 16},
+        {"T1", TypeID::IntID, 16},
+        {"T2", TypeID::IntID, 8},
+        {"T3", TypeID::IntID, 8},
+        {"T4", TypeID::StringID, 128},
+        {"T5", TypeID::StringID, 96}
+    } });
+    
+    T.mIsActive.resize(nT);
+    for(u64 i=0; i < nT; i++)
+        T.mIsActive[i] = (u8)1;
+
+    std::string comparisionString = "TestString";
+    std::string comparisionString1 = "ldetbjfejb";
+    for (u64 i = 0; i < nT; ++i)
+    {
+        T.mColumns[0].mData.mData(i, 0) = -1 * (i % 3);
+        T.mColumns[1].mData.mData(i, 0) = i % 4;
+        T.mColumns[2].mData.mData(i, 0) = i % 4;   
+        T.mColumns[3].mData.mData(i, 0) = -1 * (i % 5);
+        if(i % 3 == 0)
+            memcpy(T.mColumns[4].mData.data(i), comparisionString.data(), comparisionString.size());
+        else
+            memcpy(T.mColumns[4].mData.data(i), comparisionString1.data(), comparisionString1.size());
+        if(i % 4 == 0)
+            memcpy(T.mColumns[5].mData.data(i), comparisionString.data(), comparisionString.size());
+    }
+    std::array<Table, 2> Ts;
+    share(T, Ts, prng0);
+
+    u64 totalCol = T.cols();
+
+    std::vector<std::string> literals = {"T0", "T1", "T2", "T3", "T4", "T5", comparisionString, 
+        "1", "-4"};
+    std::vector<std::string> literalsType = { WHBUNDLE_COL_TYPE, WHBUNDLE_COL_TYPE, WHBUNDLE_COL_TYPE,
+        WHBUNDLE_COL_TYPE, WHBUNDLE_COL_TYPE, WHBUNDLE_COL_TYPE, WHBUNDLE_STRING_TYPE, 
+        WHBUNDLE_NUM_TYPE, WHBUNDLE_NUM_TYPE};
+
+    std::unordered_map<u64, u64> map;
+    for(oc::u64 i = 0; i < totalCol; i++)
+        map[i] = i;
+    
+
+    auto sock = coproto::LocalAsyncSocket::makePair();
+    CorGenerator ole0, ole1;
+    ole0.init(sock[0].fork(), prng0, 0, 1 << 16, mock);
+    ole1.init(sock[1].fork(), prng1, 1, 1 << 16, mock);
+
+    // Col1 < Col2 && Col3 == Const
+    std::vector<ArrGate> gates1 = {
+        {ArrGateType::LESS_THAN, 0, 1, 9} ,
+        {ArrGateType::EQUALS, 0, 3, 10} ,
+        {ArrGateType::AND, 9, 10, 11} };
+    
+    std::vector<std::vector<ArrGate>> gates = {gates1};
+
+
+    for(u64 i = 0; i < gates.size(); i++)
+    {
+        Where wh0, wh1;
+        SharedTable out0, out1;
+        
+        auto r = macoro::sync_wait(macoro::when_all_ready( 
+            wh0.where(Ts[0], gates[i], literals, literalsType, totalCol, out0, map, ole0, sock[0], false),
+            wh1.where(Ts[1], gates[i], literals, literalsType, totalCol, out1, map, ole1, sock[1], false)
+        ));
+
+        std::get<1>(r).result();
+        std::get<0>(r).result();
+
+        auto act = reveal(out0, out1);
+
+        Table exp = where(T, gates[i], literals, literalsType, totalCol, map, printSteps);
+
+        if(exp != act)
+            throw RTE_LOC;
+
+    }    
+}
+
+
+void Where_join_where_csv_Test(const oc::CLP& cmd)
 {
     
     std::string rootPath(SEC_JOIN_ROOT_DIRECTORY);
@@ -604,12 +685,10 @@ void Where_csv_Test(const oc::CLP& cmd)
         "Col", "Number", "Number"};
     // std::vector<i64> opInfo{2, 0, 3, 4, 1, 0, 4, 5, 1, 0, 2, 1, 4, 4, 5,
     //      5, 1, 8, 7, 8, 6, 9, 6, 0, 7, 10, 3, 9, 10, 11, -1};
-    std::vector<i64> opInfo{ 2, 0, 3, 4, 1, 0, 4, 5, 1, 0, 2, 1, 4, 3, 6, 5, 6, 
+    std::vector<i64> opInfo{ 2, 0, 3, 4, 1, 0, 4, 5, 1, 0, 2, 1, 4, 3, 6, 5, 1, 
         8, 1, 0, 7, 9, 3, 8, 9, 10, -1};
     bool printSteps = cmd.isSet("print");
     bool mock = !cmd.isSet("noMock");
-
-
 
     std::vector<u64> joinCols, selectCols, groupByCols, avgCols;
     std::vector<ArrGate> gates;
@@ -652,7 +731,6 @@ void Where_csv_Test(const oc::CLP& cmd)
     join0.mInsecureMockSubroutines = mock;
     join1.mInsecureMockSubroutines = mock;
 
-
     PRNG prng0(oc::ZeroBlock);
     PRNG prng1(oc::OneBlock);
     auto sock = coproto::LocalAsyncSocket::makePair();
@@ -667,7 +745,7 @@ void Where_csv_Test(const oc::CLP& cmd)
     u64 rJoinColIndex = getRColIndex(joinCols[1], lColCount, rColCount);
 
     auto joinExp = join(L[lJoinColIndex], R[rJoinColIndex], selectColRefs);
-    /*
+    
     std::vector<secJoin::ColRef> lSelectColRefs = getSelectColRef(selectCols, Ls[0], Rs[0], lColCount, rColCount);
     std::vector<secJoin::ColRef> rSelectColRefs = getSelectColRef(selectCols, Ls[1], Rs[1], lColCount, rColCount);
 
@@ -687,35 +765,165 @@ void Where_csv_Test(const oc::CLP& cmd)
         // std::cout << "ful \n" << reveal(out[0], out[1], false) << std::endl;
         throw RTE_LOC;
     }
-    */
+    
     // Create a new mapping and store the new mapping in the cState
     std::unordered_map<u64, u64> map;
     createNewMapping(map, selectCols);
-    std::cout << "Printing Map" << std::endl;
     if(printSteps)
     {
         std::cout << "Printing Map" << std::endl;
         for (auto i : map) 
             std::cout << i.first << " \t\t\t " << i.second << std::endl; 
     }
-    
     Where wh0, wh1;
+    
+    auto r1 = macoro::sync_wait(macoro::when_all_ready(
+        wh0.where(tempOut[0], gates, literals, literalsType, totalCol, out[0], map, ole0, sock[0], printSteps),
+        wh1.where(tempOut[1], gates, literals, literalsType, totalCol, out[1], map, ole1, sock[1], printSteps)
+    ));
+    std::get<0>(r1).result();
+    std::get<1>(r1).result();
 
-    std::array<Table, 2> joinExpShares;
-    share(joinExp, joinExpShares, prng);
-    
-    // auto r1 = macoro::sync_wait(macoro::when_all_ready(
-    //     wh0.where(joinExpShares[0], gates, literals, literalsType, totalCol, out[0], map, ole0, sock[0], printSteps),
-    //     wh1.where(joinExpShares[1], gates, literals, literalsType, totalCol, out[1], map, ole0, sock[1], printSteps)
-    // ));
-    // std::get<0>(r1).result();
-    // std::get<1>(r1).result();
+    auto act = reveal(out[0], out[1]);
 
-    
-    
-    std::cout << "Where Over" << std::endl;
-    
+    Table exp = where(joinExp, gates, literals, literalsType, totalCol, map, printSteps);
 
-    
+    if(exp != act)
+    {   
+        std::cout << "exp \n" << exp << std::endl;
+        std::cout << "act \n" << act << std::endl;
+        throw RTE_LOC;
+    }
 }
 
+
+
+void Where_avg_where_csv_Test(const oc::CLP& cmd)
+{
+    
+    std::string rootPath(SEC_JOIN_ROOT_DIRECTORY);
+    std::string visaCsvPath = rootPath + "/tests/tables/visa.csv";
+    std::string bankCsvPath = rootPath + "/tests/tables/bank.csv";
+    std::string visaMetaDataPath = rootPath + "/tests/tables/visa_meta.txt";
+    std::string clientMetaDataPath = rootPath + "/tests/tables/bank_meta.txt";
+    
+    // literals, literalType, opInfo is generated by Java
+    std::vector<std::string> literals = {"PAN", "Risk_Score", "Date", "PAN", "Balance", 
+        "Risk_Score", "50", "51643999233877"};
+    std::vector<std::string> literalsType = { "Col", "Col", "Col", "Col", "Col", 
+        "Col", "Number", "Number"};
+    // std::vector<i64> opInfo{2, 0, 3, 4, 1, 0, 4, 5, 1, 0, 2, 1, 4, 4, 5,
+    //      5, 1, 8, 7, 8, 6, 9, 6, 0, 7, 10, 3, 9, 10, 11, -1};
+    std::vector<i64> opInfo{ 2, 0, 3, 4, 1, 0, 4, 5, 1, 0, 2, 1, 4, 3, 6, 5, 1, 
+        8, 1, 0, 7, 9, 3, 8, 9, 10, -1};
+    bool printSteps = cmd.isSet("print");
+    bool mock = !cmd.isSet("noMock");
+
+    std::vector<u64> joinCols, selectCols, groupByCols, avgCols;
+    std::vector<ArrGate> gates;
+    parseColsArray(joinCols, selectCols, groupByCols, avgCols, gates, opInfo, printSteps);
+
+    u64 lRowCount = 0, rRowCount = 0, lColCount = 0, rColCount = 0;
+
+    std::vector<ColumnInfo> lColInfo, rColInfo;
+    getFileInfo(visaMetaDataPath, lColInfo, lRowCount, lColCount);
+    getFileInfo(clientMetaDataPath, rColInfo, rRowCount, rColCount);
+    u64 totalCol = lColCount + rColCount;
+
+    Table L, R;
+
+    L.init( lRowCount, lColInfo);
+    R.init( rRowCount, rColInfo);
+
+    populateTable(L, visaCsvPath, lRowCount);
+    populateTable(R, bankCsvPath, rRowCount);
+
+    // Get Select Col Refs
+    std::vector<secJoin::ColRef> selectColRefs = getSelectColRef(selectCols, L, R, lColCount, rColCount);
+
+    // if (printSteps)
+    // {
+    //     std::cout << "L\n" << L << std::endl;
+    //     std::cout << "R\n" << R << std::endl;
+    // }
+
+    PRNG prng(oc::ZeroBlock);
+    std::array<Table, 2> Ls, Rs;
+    share(L, Ls, prng);
+    share(R, Rs, prng);
+
+    OmJoin join0, join1;
+
+    join0.mInsecurePrint = printSteps;
+    join1.mInsecurePrint = printSteps;
+
+    join0.mInsecureMockSubroutines = mock;
+    join1.mInsecureMockSubroutines = mock;
+
+    PRNG prng0(oc::ZeroBlock);
+    PRNG prng1(oc::OneBlock);
+    auto sock = coproto::LocalAsyncSocket::makePair();
+
+    CorGenerator ole0, ole1;
+    ole0.init(sock[0].fork(), prng0, 0, 1 << 16, mock);
+    ole1.init(sock[1].fork(), prng1, 1, 1 << 16, mock);
+
+    Table tempOut[2], out[2];
+    
+    u64 lJoinColIndex = joinCols[0];
+    u64 rJoinColIndex = getRColIndex(joinCols[1], lColCount, rColCount);
+
+    auto joinExp = join(L[lJoinColIndex], R[rJoinColIndex], selectColRefs);
+    
+    std::vector<secJoin::ColRef> lSelectColRefs = getSelectColRef(selectCols, Ls[0], Rs[0], lColCount, rColCount);
+    std::vector<secJoin::ColRef> rSelectColRefs = getSelectColRef(selectCols, Ls[1], Rs[1], lColCount, rColCount);
+
+    auto r = macoro::sync_wait(macoro::when_all_ready(
+        join0.join(Ls[0][lJoinColIndex], Rs[0][rJoinColIndex], lSelectColRefs, tempOut[0], prng0, ole0, sock[0]),
+        join1.join(Ls[1][lJoinColIndex], Rs[1][rJoinColIndex], rSelectColRefs, tempOut[1], prng1, ole1, sock[1])
+    ));
+    std::get<0>(r).result();
+    std::get<1>(r).result();
+
+    auto res = reveal(tempOut[0], tempOut[1]);
+
+    if (res != joinExp)
+    {
+        std::cout << "exp \n" << joinExp << std::endl;
+        std::cout << "act \n" << res << std::endl;
+        // std::cout << "ful \n" << reveal(out[0], out[1], false) << std::endl;
+        throw RTE_LOC;
+    }
+    
+    // Create a new mapping and store the new mapping in the cState
+    std::unordered_map<u64, u64> map;
+    createNewMapping(map, selectCols);
+    if(printSteps)
+    {
+        std::cout << "Printing Map" << std::endl;
+        for (auto i : map) 
+            std::cout << i.first << " \t\t\t " << i.second << std::endl; 
+    }
+    Where wh0, wh1;
+    
+    auto r1 = macoro::sync_wait(macoro::when_all_ready(
+        wh0.where(tempOut[0], gates, literals, literalsType, totalCol, out[0], map, ole0, sock[0], printSteps),
+        wh1.where(tempOut[1], gates, literals, literalsType, totalCol, out[1], map, ole1, sock[1], printSteps)
+    ));
+    std::get<0>(r1).result();
+    std::get<1>(r1).result();
+
+    auto act = reveal(out[0], out[1]);
+
+    Table exp = where(joinExp, gates, literals, literalsType, totalCol, map, printSteps);
+
+    if(exp != act)
+    {   
+        std::cout << "exp \n" << exp << std::endl;
+        std::cout << "act \n" << act << std::endl;
+        throw RTE_LOC;
+    }
+
+    // Average stuff would start after the where
+
+}

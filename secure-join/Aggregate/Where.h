@@ -52,8 +52,7 @@ namespace secJoin
 
         oc::BetaCircuit* genWhCir(SharedTable& st, const std::vector<ArrGate>& gates, 
             const std::vector<std::string>& literals, const std::vector<std::string>& literalsType,
-            const u64 totalCol, const std::unordered_map<u64, u64>& map, 
-            const u64 role, const bool print);
+            const u64 totalCol, const std::unordered_map<u64, u64>& map, const bool print);
 
         void genWhBundle(const std::vector<std::string>& literals, 
             const std::vector<std::string>& literalsType, const u64 totalCol, SharedTable& st, 
@@ -64,6 +63,9 @@ namespace secJoin
         
         void addToGmwInput(SharedTable& st, u64 gateInputIndex,
             const std::unordered_map<u64, u64>& map, WhType type);
+            
+        macoro::task<> updateActiveFlag( std::vector<u8>& actFlag, BinMatrix& choice,
+            CorGenerator& ole, coproto::Socket& sock);
 
         void addInputBundle(oc::BetaCircuit* cd, SharedTable& st,
             const u64 gateInputIndex, const std::unordered_map<u64, u64>& map);

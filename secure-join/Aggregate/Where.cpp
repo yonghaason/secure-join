@@ -40,9 +40,9 @@ namespace secJoin {
             cd = oc::BetaCircuit{},
             gmw = Gmw{},
             rows = u64(),
-            tempOut = oc::Matrix<u8>());
+            tempOut = BinMatrix{});
 
-        cd = *genWhCir(st, gates, literals, literalsType, totalCol, map, ole.partyIdx(), print);
+        cd = *genWhCir(st, gates, literals, literalsType, totalCol, map, print);
         rows = st.rows();
         gmw.init(rows, cd, ole);
         
@@ -52,19 +52,65 @@ namespace secJoin {
 
         MC_AWAIT(gmw.run(sock));
 
+        // Where evaulates to either true or false (1 bit)
         tempOut.resize(rows, 1);
         gmw.getOutput(0, tempOut);
         out = st;
-        for (u64 i = 0; i < rows; ++i)
-        {
-            // memcpy(out[i].subspan(0, offset), data[i].subspan(0, offset));
-            // out(i, offset) = temp(i);
-            memcpy(&out.mIsActive[i], tempOut.data(i), 1);
-        }
+
+        assert(out.mIsActive.size() == rows);
+        // for (u64 i = 0; i < rows; ++i)
+        //     memcpy(&out.mIsActive[i], tempOut.data(i), 1);
+
+        MC_AWAIT(updateActiveFlag(out.mIsActive, tempOut, ole, sock));
+        
+        MC_END();
+    }
+
+    // Active Flag = previous Active flag & Active Flag from where
+    macoro::task<> Where::updateActiveFlag(
+        std::vector<u8>& actFlag,
+        BinMatrix& choice,
+        CorGenerator& ole,
+        coproto::Socket& sock)
+    {
+        MC_BEGIN(macoro::task<>, &actFlag, &choice, &ole, &sock,
+            gmw = Gmw{},
+            cir = oc::BetaCircuit{},
+            temp = BinMatrix{},
+            a = BetaBundle{},
+            b = BetaBundle{},
+            c = BetaBundle{}
+        );
+        // Circuit Design
+        a.mWires.resize(1);
+        b.mWires.resize(1);
+        c.mWires.resize(1);
+
+        cir.addInputBundle(a);
+        cir.addInputBundle(b);
+        cir.addOutputBundle(c);
+
+        cir.addGate(a.mWires[0], b.mWires[0], oc::GateType::And, c.mWires[0]);
+        gmw.init(actFlag.size(), cir);
+        gmw.request(ole);
+
+        temp.resize(actFlag.size(), 1);
+
+        for (u64 i = 0; i < actFlag.size(); ++i)
+            temp(i) = actFlag[i];
+
+        gmw.setInput(0, choice);
+        gmw.setInput(1, temp);
+
+        MC_AWAIT(gmw.run(sock));
+
+        gmw.getOutput(0, temp);
+        
+        for (u64 i = 0; i < actFlag.size(); ++i)
+            actFlag[i] = temp(i);
         
 
-        // Need to update the Active Flag
-        MC_END();
+        MC_END();    
     }
 
     oc::BetaCircuit* Where::genWhCir(SharedTable& st,
@@ -73,7 +119,6 @@ namespace secJoin {
         const std::vector<std::string>& literalsType,
         const u64 totalCol,
         const std::unordered_map<u64, u64>& map,
-        const u64 role,
         const bool print)
     {
         auto* cd = new BetaCircuit;
@@ -121,7 +166,7 @@ namespace secJoin {
                 assert(a.mWires.size() == b.mWires.size());
                 ArrTypeEqualCir(inIndex1, inIndex2, cd, c, lastOp);
                 
-                if(gates[i].mType == ArrGateType::NOT_EQUALS && role == 0)
+                if(gates[i].mType == ArrGateType::NOT_EQUALS)
                     cd->addInvert(c.mWires[0]);
 
                 mWhBundle.emplace_back(c, WhType::InterOut);
@@ -149,7 +194,7 @@ namespace secJoin {
                 ArrTypeLessThanCir(inIndex1, inIndex2, cd, c, lastOp); 
                 
                 // This is greater than equals
-                if(gates[i].mType == ArrGateType::GREATER_THAN_EQUALS  && role == 0)
+                if(gates[i].mType == ArrGateType::GREATER_THAN_EQUALS)
                     cd->addInvert(c.mWires[0]);
 
                 mWhBundle.emplace_back(c, WhType::InterOut);

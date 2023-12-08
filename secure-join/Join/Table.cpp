@@ -603,7 +603,7 @@ namespace secJoin
         bool print)
     {
         Where wh;
-        BetaCircuit cd = *wh.genWhCir(T, gates, literals, literalsType, totalCol, map, 0, print);
+        BetaCircuit cd = *wh.genWhCir(T, gates, literals, literalsType, totalCol, map, print);
         u64 nT = T.rows();
 
         std::vector<u8> outActFlags;
@@ -629,7 +629,6 @@ namespace secJoin
 
             outActFlags[j] = outputs[0][0];
         }
-        std::cout << "Expected OutRows is " << outRows << std::endl;
         Table out(outRows, T.getColumnInfo());
         u64 outRowPointer = 0;
         for(u64 j = 0; j < nT; j++)
