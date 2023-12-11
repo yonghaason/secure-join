@@ -130,9 +130,9 @@ namespace secJoin_Tests
             t.add("Where_ArrType_Greater_Than_Equals_Test        ", Where_ArrType_Greater_Than_Equals_Test);
             t.add("Where_ArrType_Addition_Test                   ", Where_ArrType_Addition_Test);
             t.add("Where_ArrType_And_Or_Test                     ", Where_ArrType_And_Or_Test);
-            t.add("Where_csv_Test                                ", Where_csv_Test);
             t.add("Where_join_where_Test                         ", Where_join_where_Test);
-            
+            t.add("Where_join_where_csv_Test                     ", Where_join_where_csv_Test);
+            t.add("Where_avg_where_csv_Test                      ", Where_avg_where_csv_Test);
             
             
 

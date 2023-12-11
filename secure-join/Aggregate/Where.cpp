@@ -138,6 +138,22 @@ namespace secJoin {
                 addInputBundle(cd, st, inIndex1, map);
                 addInputBundle(cd, st, inIndex2, map);
             }
+
+            // Adding new Bundles in mWhBundle otherwise
+            // InterInts for ArrTypeEqualInputs will fail to signExtend
+            if(gates[i].mType == ArrGateType::ADDITION)
+            {
+                u64 aSize = mWhBundle[inIndex1].mBundle.size();
+                u64 bSize = mWhBundle[inIndex2].mBundle.size();
+                u64 cSize = aSize > bSize ? aSize : bSize;
+                BetaBundle c(cSize);
+                mWhBundle.emplace_back(c, WhType::InterInt);
+            }
+            else
+            {
+                BetaBundle c(1);
+                mWhBundle.emplace_back(c, WhType::InterOut);
+            }
         }
 
         // Adding Output Bundle 
@@ -149,10 +165,10 @@ namespace secJoin {
         {
             u64 inIndex1 = gates[i].mInput[0];
             u64 inIndex2 = gates[i].mInput[1];
-            // u64 outIndex = gates[i].mOutput;
+            u64 outIndex = gates[i].mOutput;
             BetaBundle &a = mWhBundle[inIndex1].mBundle;
             BetaBundle &b = mWhBundle[inIndex2].mBundle;
-            BetaBundle c;
+            BetaBundle &c = mWhBundle[outIndex].mBundle;
 
             // For the last operation we add Output Gate not tempwirebundle
             if( i == (gates.size() - 1))
@@ -164,19 +180,19 @@ namespace secJoin {
             if(gates[i].mType == ArrGateType::EQUALS || gates[i].mType == ArrGateType::NOT_EQUALS)
             {
                 assert(a.mWires.size() == b.mWires.size());
+                assert(c.mWires.size() == 1);
                 ArrTypeEqualCir(inIndex1, inIndex2, cd, c, lastOp);
                 
                 if(gates[i].mType == ArrGateType::NOT_EQUALS)
                     cd->addInvert(c.mWires[0]);
 
-                mWhBundle.emplace_back(c, WhType::InterOut);
             }
             else if(gates[i].mType == ArrGateType::AND || gates[i].mType == ArrGateType::OR)
             {
                 // Assuming these are logical AND & OR
                 assert(a.mWires.size() == 1);
                 assert(b.mWires.size() == 1);
-                c.resize(1);
+                assert(c.mWires.size() == 1);
 
                 if(!lastOp)
                     cd->addTempWireBundle(c);
@@ -186,7 +202,6 @@ namespace secJoin {
                 else if(gates[i].mType == ArrGateType::OR)
                     cd->addGate(a.mWires[0], b.mWires[0], oc::GateType::Or, c.mWires[0]);
 
-                mWhBundle.emplace_back(c, WhType::InterOut);
             }
             else if(gates[i].mType == ArrGateType::LESS_THAN || 
                 gates[i].mType == ArrGateType::GREATER_THAN_EQUALS)
@@ -196,13 +211,10 @@ namespace secJoin {
                 // This is greater than equals
                 if(gates[i].mType == ArrGateType::GREATER_THAN_EQUALS)
                     cd->addInvert(c.mWires[0]);
-
-                mWhBundle.emplace_back(c, WhType::InterOut);
             }
             else if(gates[i].mType == ArrGateType::ADDITION)
             {
                 ArrTypeAddCir(inIndex1, inIndex2, cd, c, lastOp);
-                mWhBundle.emplace_back(c, WhType::InterInt);
             }
         }
         return cd;
@@ -338,9 +350,7 @@ namespace secJoin {
             std::to_string(inIndex2) + " are not valid for equals operator" + "\n" + LOCATION;
             throw std::runtime_error(temp);
         }
-        u64 biggerSize = aSize;    
-        a.resize(biggerSize);
-        b.resize(biggerSize);    
+        u64 biggerSize = aSize;     
         if(aSize > bSize)
         {
             signExtend(inIndex2, aSize, inIndex1, st, cd, map);
@@ -358,6 +368,10 @@ namespace secJoin {
             addInputBundle(cd, st, inIndex1, map);
             addInputBundle(cd, st, inIndex2, map);
         }
+
+        // Resizing the BetaBundles
+        a.resize(biggerSize);
+        b.resize(biggerSize);   
     }
 
     void Where::signExtend(u64 smallerSizeIndex, u64 biggerSize, u64 biggerSizeIndex,
