@@ -8,6 +8,7 @@
 #include "secure-join/Aggregate/Where.h"
 #include "secure-join/Join/OmJoin.h"
 #include "secure-join/Util/Util.h"
+#include "secure-join/Aggregate/Average.h"
 
 void Where_genWhBundle_Test(const oc::CLP& cmd);
 void Where_ArrType_Less_Than_Test(const oc::CLP& cmd);

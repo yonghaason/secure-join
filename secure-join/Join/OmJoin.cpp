@@ -532,8 +532,6 @@ namespace secJoin
         MC_AWAIT(sort.genPerm(keys, sPerm, sock,prng));
         setTimePoint("sort");
 
-        if (mInsecurePrint)
-            MC_AWAIT(print(data, controlBits, sock, ole.partyIdx(), "preSort", offsets));
 
         // gather all of the columns from the left table and concatinate them
         // together. Append dummy rows after that. Then add the column of keys
@@ -543,6 +541,9 @@ namespace secJoin
         concatColumns(leftJoinCol, selects, rightJoinCol.mTable.rows(), keys, keyOffset, data, ole.partyIdx(), offsets);
         setTimePoint("concat");
         keys.mData = {};
+
+        if (mInsecurePrint)
+            MC_AWAIT(print(data, controlBits, sock, ole.partyIdx(), "preSort", offsets));
 
         // Apply the sortin permutation. What you end up with are the keys
         // in sorted order and the rows of L also in sorted order.

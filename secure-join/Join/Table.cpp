@@ -495,12 +495,6 @@ namespace secJoin
         }
 
         populateOutTable(out, avgCol, groupByCol, nOutRows);
-
-        // Base case where there are no rows
-        if(n0 == 0)
-            return out;
-        
-
     
         // Creating a vector of inputs for Beta Curcuit evaluation
         std::vector<oc::BetaCircuit*> cir;
@@ -530,6 +524,15 @@ namespace secJoin
         inputs[2*m+1].reset(size);
         outputs[m].reset(size);
 
+        // Base case
+        if(n0 == 0)
+            return out;
+        else if(n0 == 1)
+        {
+            copyTableEntry(out, groupByCol, avgCol, inputs, ones,
+                    0, nOutRows, 1);
+        }
+        
 
         u64 curOutRow = 0;
         // We don't have to check the first entry
@@ -583,7 +586,7 @@ namespace secJoin
             if( row == n0 - 1)
             {
                 copyTableEntry(out, groupByCol, avgCol, inputs, ones,
-                    curOutRow, nOutRows, row);
+                    curOutRow, nOutRows, row + 1);
             }
 
         }
