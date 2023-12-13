@@ -801,7 +801,6 @@ void Where_join_where_csv_Test(const oc::CLP& cmd)
 
 void Where_avg_where_csv_Test(const oc::CLP& cmd)
 {
-    
     std::string rootPath(SEC_JOIN_ROOT_DIRECTORY);
     std::string visaCsvPath = rootPath + "/tests/tables/visa.csv";
     std::string bankCsvPath = rootPath + "/tests/tables/bank.csv";
@@ -826,6 +825,7 @@ void Where_avg_where_csv_Test(const oc::CLP& cmd)
         WHBUNDLE_NUM_TYPE, WHBUNDLE_NUM_TYPE, WHBUNDLE_NUM_TYPE};
     std::vector<i64> opInfo{ 2, 0, 3, 4, 0, 1, 4, 5, 1, 0, 2, 1, 4, 6, 5, 4, 5, 
         9, 1, 6, 9, 10, 1, 0, 7, 11, 4, 10, 11, 12, 1, 0, 8, 13, 4, 12, 13, 14, -1};
+    
 
     bool printSteps = cmd.isSet("print");
     bool mock = !cmd.isSet("noMock");
@@ -850,7 +850,8 @@ void Where_avg_where_csv_Test(const oc::CLP& cmd)
     populateTable(R, bankCsvPath, rRowCount);
 
     // Get Select Col Refs
-    std::vector<secJoin::ColRef> selectColRefs = getSelectColRef(selectCols, L, R, lColCount, rColCount);
+    std::vector<secJoin::ColRef> selectColRefs = getSelectColRef(selectCols, L, R, 
+        lColCount, rColCount);
 
     // if (printSteps)
     // {

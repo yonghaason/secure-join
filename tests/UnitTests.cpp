@@ -117,6 +117,8 @@ namespace secJoin_Tests
             t.add("OmJoin_join_csv_Test                          ", OmJoin_join_csv_Test);
             t.add("OmJoin_wrapper_join_test                      ", OmJoin_wrapper_join_test);
             t.add("OmJoin_wrapper_avg_test                       ", OmJoin_wrapper_avg_test);
+            t.add("OmJoin_wrapper_where_test                     ", OmJoin_wrapper_where_test);
+
 
             t.add("Average_concatColumns_Test                    ", Average_concatColumns_Test);
             t.add("Average_getControlBits_Test                   ", Average_getControlBits_Test);

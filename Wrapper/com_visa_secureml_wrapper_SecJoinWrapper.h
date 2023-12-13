@@ -12,7 +12,7 @@ JNIEXPORT void JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_testApi
   (JNIEnv *, jobject);
 
 JNIEXPORT jlong JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_initState
-(JNIEnv *, jobject, jstring, jstring, jstring, jobjectArray, jintArray, jboolean, 
+(JNIEnv *, jobject, jstring, jstring, jstring, jobjectArray, jobjectArray, jintArray, jboolean, 
   jboolean, jboolean, jboolean);
 
 JNIEXPORT jbyteArray JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_runProtocol
@@ -25,12 +25,15 @@ JNIEXPORT jboolean JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_isProto
   (JNIEnv *, jobject, jlong);
 
 JNIEXPORT void JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_getOtherShare
-  (JNIEnv *, jobject, jlong, jboolean, jboolean);
+  (JNIEnv *, jobject, jlong, jboolean);
 
 JNIEXPORT void JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_getJoinTable
   (JNIEnv *, jobject, jlong, jstring, jstring, jboolean);
 
 JNIEXPORT void JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_aggFunc
+  (JNIEnv *, jobject, jlong);
+
+JNIEXPORT void JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_whereFunc
   (JNIEnv *, jobject, jlong);
 
 #ifdef __cplusplus

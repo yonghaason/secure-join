@@ -15,8 +15,8 @@ JNIEXPORT void JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_testApi
 
 JNIEXPORT jlong JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_initState
 (JNIEnv* env, jobject obj, jstring csvPath, jstring visaMetaDataPath, jstring clientMetaDataPath,
-  jobjectArray jstringArr, jintArray jintArr, jboolean isUnique, jboolean verbose, 
-  jboolean mock, jboolean debug)
+  jobjectArray jliterals, jobjectArray jlitTypes, jintArray jintArr, jboolean isUnique, 
+  jboolean verbose, jboolean mock, jboolean debug)
 {
   std::string cppCSVPath = env->GetStringUTFChars(csvPath, NULL);
   std::string cppVisaMetaDataPath = env->GetStringUTFChars(visaMetaDataPath, NULL);
@@ -24,36 +24,47 @@ JNIEXPORT jlong JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_initState
 
   // Getting Literals 
   // Code Reference https://stackoverflow.com/questions/19591873/get-an-array-of-strings-from-java-to-c-jni
-  std::vector<std::string> literals;
+  std::vector<std::string> literals, literalsType;
 
   // Get length
-  int len = env->GetArrayLength(jstringArr);
+  int len1 = env->GetArrayLength(jliterals);
+  int len2 = env->GetArrayLength(jlitTypes);
 
-  for (int i=0; i<len; i++) {
+  assert(len1 == len2);
+
+  for (int i=0; i<len1; i++) {
       // Cast array element to string
-      jstring jstr = (jstring) (env->GetObjectArrayElement(jstringArr, i));
+      jstring jstr1 = (jstring) (env->GetObjectArrayElement(jliterals, i));
+      jstring jstr2 = (jstring) (env->GetObjectArrayElement(jlitTypes, i));
 
       // Convert Java string to std::string
-      const jsize strLen = env->GetStringUTFLength(jstr);
-      const char *charBuffer = env->GetStringUTFChars(jstr, (jboolean *) 0);
-      std::string str(charBuffer, strLen);
+      const jsize strLen1 = env->GetStringUTFLength(jstr1);
+      const char *charBuffer1 = env->GetStringUTFChars(jstr1, (jboolean *) 0);
+      std::string str1(charBuffer1, strLen1);
+      const jsize strLen2 = env->GetStringUTFLength(jstr2);
+      const char *charBuffer2 = env->GetStringUTFChars(jstr2, (jboolean *) 0);
+      std::string str2(charBuffer2, strLen2);
+
 
       // Push back string to vector
-      literals.push_back(str);
+      literals.push_back(str1);
+      literalsType.push_back(str2);
 
       // Release memory
-      env->ReleaseStringUTFChars(jstr, charBuffer);
-      env->DeleteLocalRef(jstr);
+      env->ReleaseStringUTFChars(jstr1, charBuffer1);
+      env->DeleteLocalRef(jstr1);
+      env->ReleaseStringUTFChars(jstr2, charBuffer2);
+      env->DeleteLocalRef(jstr2);
   }
   
   // Getting the opInfo
-  len = env->GetArrayLength(jintArr);
+  int len = env->GetArrayLength(jintArr);
   jint *ptr = env->GetIntArrayElements(jintArr, 0);
   std::vector<oc::i64> opInfo(ptr, ptr + len);
 
-  static_assert(sizeof(jlong) == sizeof(secJoin::State*), "jlong must be pointer size");
+  static_assert(sizeof(jlong) == sizeof(secJoin::WrapperState*), "jlong must be pointer size");
   return (jlong)secJoin::initState(cppCSVPath, cppVisaMetaDataPath, cppClientMetaDataPath, literals,
-     opInfo, isUnique, verbose, mock, debug);
+     literalsType, opInfo, isUnique, verbose, mock, debug);
 }
 
 JNIEXPORT jbyteArray JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_runProtocol
@@ -66,7 +77,7 @@ JNIEXPORT jbyteArray JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_runPr
   std::vector<oc::u8> buff(dataSize);
   memcpy(buff.data(), elements, dataSize);
 
-  auto b = secJoin::runProtocol((secJoin::State*)stateAddress, buff);
+  auto b = secJoin::runProtocol((secJoin::WrapperState*)stateAddress, buff);
 
   jbyteArray byteArray = (*env).NewByteArray(b.size());
   (*env).SetByteArrayRegion(byteArray, 0, b.size(), reinterpret_cast<const signed char*>(b.data()));
@@ -79,7 +90,7 @@ JNIEXPORT jbyteArray JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_runPr
 JNIEXPORT void JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_releaseState
 (JNIEnv* env, jobject obj, jlong memoryAddress)
 {
-  secJoin::releaseState((secJoin::State*)memoryAddress);
+  secJoin::releaseState((secJoin::WrapperState*)memoryAddress);
 }
 
 
@@ -87,13 +98,13 @@ JNIEXPORT jboolean JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_isProto
 (JNIEnv* env, jobject obj, jlong stateAddress)
 {
 
-  return secJoin::isProtocolReady((secJoin::State*)stateAddress);
+  return secJoin::isProtocolReady((secJoin::WrapperState*)stateAddress);
 }
 
 JNIEXPORT void JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_getOtherShare
-(JNIEnv* env, jobject obj, jlong stateAddress, jboolean isUnique, jboolean isAgg)
+(JNIEnv* env, jobject obj, jlong stateAddress, jboolean isUnique)
 {
-  secJoin::getOtherShare((secJoin::State*)stateAddress, isUnique, isAgg);
+  secJoin::getOtherShare((secJoin::WrapperState*)stateAddress, isUnique);
 }
 
 
@@ -106,12 +117,18 @@ JNIEXPORT void JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_getJoinTabl
   std::string cppCSVPath = env->GetStringUTFChars(csvPath, NULL);
   std::string cppMetaPath = env->GetStringUTFChars(metaDataPath, NULL);
 
-  secJoin::getJoinTable((secJoin::State*)stateAddress, cppCSVPath, cppMetaPath, isUnique);
+  secJoin::getJoinTable((secJoin::WrapperState*)stateAddress, cppCSVPath, cppMetaPath, isUnique);
 }
 
 
 JNIEXPORT void JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_aggFunc
 (JNIEnv* env, jobject obj, jlong stateAddress)
 {
-  secJoin::aggFunc((secJoin::State*)stateAddress);
+  secJoin::aggFunc((secJoin::WrapperState*)stateAddress);
 }
+
+JNIEXPORT void JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_whereFunc
+  (JNIEnv* env, jobject obj, jlong stateAddress)
+  {
+    secJoin::whereFunc((secJoin::WrapperState*)stateAddress);
+  }

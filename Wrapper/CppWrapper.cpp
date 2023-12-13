@@ -7,41 +7,51 @@ namespace secJoin
         std::cout << str << std::endl;
     }
 
-    WrapperState* initState(std::string& csvPath, std::string& visaMetaDataPath, std::string& clientMetaDataPath,
-        std::vector<std::string>& literals, std::vector<oc::i64>& opInfo, bool isUnique,
-        bool verbose, bool mock, bool debug)
+    WrapperState* initState(std::string& csvPath, 
+        std::string& visaMetaDataPath, 
+        std::string& clientMetaDataPath,
+        std::vector<std::string>& literals, 
+        std::vector<std::string>& literalsType,
+        std::vector<oc::i64>& opInfo, 
+        bool isUnique, 
+        bool verbose, 
+        bool mock, 
+        bool debug)
     {
+        mock = true; // Remove this once Peter fixes the Join bug
         auto cState = std::make_unique<WrapperState>();
-        cState->mLiterals = literals; //  This will fail, need to make a copy of literals
+        cState->mLiterals = literals;//  This will fail, need to make a copy of literals
+        cState->mLiteralsType = literalsType;
         oc::u64 lRowCount = 0, rRowCount = 0, lColCount = 0, rColCount = 0;
 
         // Current assumption are that Visa always provides table with unique keys 
         // Which means Visa always has to be left Table
-        getFileInfo(visaMetaDataPath, cState->mLColInfo, lRowCount, lColCount);
-        getFileInfo(clientMetaDataPath, cState->mRColInfo, rRowCount, rColCount);
-        cState->mLTable.init(lRowCount, cState->mLColInfo);
-        cState->mRTable.init(rRowCount, cState->mRColInfo);
+        std::vector<ColumnInfo> lColInfo, rColInfo;
+        getFileInfo(visaMetaDataPath, lColInfo, lRowCount, lColCount);
+        getFileInfo(clientMetaDataPath, rColInfo, rRowCount, rColCount);
+        cState->mLTb.init(lRowCount, lColInfo);
+        cState->mRTb.init(rRowCount, rColInfo);
         if (isUnique)
-            populateTable(cState->mLTable, csvPath, lRowCount);
+            populateTable(cState->mLTb, csvPath, lRowCount);
         else
-            populateTable(cState->mRTable, csvPath, rRowCount);
+            populateTable(cState->mRTb, csvPath, rRowCount);
 
         parseColsArray(cState->mJoinCols, cState->mSelectCols, cState->mGroupByCols,
             cState->mAvgCols, cState->mGates, opInfo, verbose);
-        u64 totalCol = lColCount + rColCount;
+        cState->mTotCol = lColCount + rColCount;
         updateSelectCols(cState->mSelectCols, cState->mGroupByCols, cState->mAvgCols, 
-        cState->mGates, totalCol, verbose);
+        cState->mGates, cState->mTotCol, verbose);
 
 
 
         // Current Assumptions is that there is only one Join Columns
-        auto lJoinColRef = cState->mLTable[cState->mJoinCols[0]];
+        auto lJoinColRef = cState->mLTb[cState->mJoinCols[0]];
         oc::u64 index = getRColIndex(cState->mJoinCols[1], lColCount, rColCount);
-        auto rJoinColRef = cState->mRTable[index];
+        auto rJoinColRef = cState->mRTb[index];
 
         // Constructing Select Col Ref
         std::vector<secJoin::ColRef> selectColRefs = getSelectColRef(cState->mSelectCols, 
-            cState->mLTable, cState->mRTable, lColCount, rColCount);
+            cState->mLTb, cState->mRTb, lColCount, rColCount);
         
         // Create a new mapping and store the new mapping in the cState
         createNewMapping(cState->mMap, cState->mSelectCols);
@@ -51,6 +61,9 @@ namespace secJoin
         cState->mPrng.SetSeed(oc::sysRandomSeed());
         cState->mJoin.mInsecurePrint = verbose;
         cState->mJoin.mInsecureMockSubroutines = mock;
+        cState->mInsecurePrint = verbose;
+        cState->mInsecureMockSubroutines = mock;
+
 
         // Current assumption are that Visa always provides table with unique keys 
         // Which means Visa always has to be left Table
@@ -63,7 +76,7 @@ namespace secJoin
 
         cState->mProtocol =
             cState->mJoin.join(lJoinColRef, rJoinColRef, selectColRefs,
-                cState->mJoinTable, cState->mPrng, cState->mOle, cState->mSock) | macoro::make_eager();
+                cState->mJoinTb, cState->mPrng, cState->mOle, cState->mSock) | macoro::make_eager();
 
         
         return cState.release();
@@ -98,30 +111,47 @@ namespace secJoin
 
     }
 
-    void getOtherShare(WrapperState* cState, bool isUnique, bool isAgg)
+    void getOtherShare(WrapperState* cState, bool isUnique)
     {
 
-        Table& table = cState->mJoinTable;
-        if(isAgg)
-            table = cState->mAggTable;
-
+        Table& table = cState->mJoinTb;
+        if(cState->mAggTb.cols() > 0)
+            table = cState->mAggTb;
+        else if(cState->mWhTb.cols() > 0)
+            table = cState->mWhTb;
+        
         // Assuming Visa always receives the client's share
         if (isUnique)
         {
-            cState->mProtocol = revealLocal(cState->mJoinTable, cState->mSock, cState->mOutTable)
+            cState->mProtocol = revealLocal(table, cState->mSock, cState->mOutTb)
                 | macoro::make_eager();
         }
         else
         {
-            cState->mProtocol = revealRemote(cState->mJoinTable, cState->mSock)
+            cState->mProtocol = revealRemote(table, cState->mSock)
                 | macoro::make_eager();
         }
     }
 
     void getJoinTable(WrapperState* cState, std::string csvPath, std::string metaDataPath, bool isUnique)
     {
-        writeFileInfo(metaDataPath, cState->mOutTable);
-        writeFileData(csvPath, cState->mOutTable);
+        writeFileInfo(metaDataPath, cState->mOutTb);
+        writeFileData(csvPath, cState->mOutTb);
+    }
+
+
+    void whereFunc(WrapperState* cState)
+    {
+        if(cState->mGates.size() == 0)
+        {
+                std::string temp("Gates Information not present for Where operation\n");
+                throw std::runtime_error(temp + LOCATION);
+        }
+
+        cState->mProtocol = cState->mWh.where(cState->mJoinTb, cState->mGates, cState->mLiterals, 
+            cState->mLiteralsType, cState->mTotCol, cState->mWhTb, cState->mMap, cState->mOle, 
+            cState->mSock, cState->mInsecurePrint) | macoro::make_eager();
+
     }
 
 
@@ -131,20 +161,25 @@ namespace secJoin
         {
             if(cState->mGroupByCols.size() == 0)
             {
-                std::string temp("Group By Table not present in json for Average operation\n");
+                std::string temp("Group By Table not present for Average operation\n");
                 throw std::runtime_error(temp + LOCATION);
             }
+            Table& inTb = cState->mJoinTb;
+            if(cState->mWhTb.cols() > 0)
+                inTb = cState->mWhTb;
 
             std::vector<secJoin::ColRef> avgCols = 
-                getColRefFromMapping(cState->mMap, cState->mAvgCols, cState->mJoinTable);
+                getColRefFromMapping(cState->mMap, cState->mAvgCols, inTb);
 
             // Current Assumption we only have 
             oc::u64 groupByColIndex = getMapVal(cState->mMap, cState->mGroupByCols[0]);
-            secJoin::ColRef grpByCol = cState->mJoinTable[groupByColIndex];
+            secJoin::ColRef grpByCol = inTb[groupByColIndex];
 
+            cState->mAvg.mInsecurePrint = cState->mInsecurePrint;
+            cState->mAvg.mInsecureMockSubroutines = cState->mInsecureMockSubroutines;
 
             cState->mProtocol =
-                cState->mAvg.avg( grpByCol, avgCols, cState->mAggTable,
+                cState->mAvg.avg( grpByCol, avgCols, cState->mAggTb,
                     cState->mPrng, cState->mOle, cState->mSock) | macoro::make_eager();
     
         }

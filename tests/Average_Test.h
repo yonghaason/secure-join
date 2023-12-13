@@ -3,7 +3,6 @@
 #include "secure-join/Util/Util.h"
 #include "cryptoTools/Common/CLP.h"
 #include "secure-join/Util/CSVParser.h"
-#include "Wrapper/Defines.h"
 #include "Wrapper/PkgReqParser.h"
 
 

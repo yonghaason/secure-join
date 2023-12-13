@@ -102,8 +102,11 @@ namespace secJoin{
 
     inline void initCols(std::vector<oc::u64>& vec, oc::u64& startIndex, std::vector<oc::i64>& opInfo)
     {
-        oc::u64 size = checkEOA(opInfo[startIndex++]);
-        
+        // If some columns types are not needed, this function can gracefully return
+        if(opInfo[startIndex] == -1)
+            return;
+
+        oc::u64 size = opInfo[startIndex++];   
         vec.reserve(size);
         
         for(u64 i=0; i<size; i++)
@@ -112,7 +115,11 @@ namespace secJoin{
 
     inline void initGates(std::vector<ArrGate>& gates, oc::u64& startIndex, std::vector<oc::i64>& opInfo)
     {
-        oc::u64 size = checkEOA(opInfo[startIndex++]);
+        // When there are no gates specifies we can gracefully return
+        if(opInfo[startIndex] == -1)
+            return;
+
+        oc::u64 size = opInfo[startIndex++];
         gates.reserve(size);
 
         for(u64 i=0; i<size; i++)
@@ -283,6 +290,10 @@ namespace secJoin{
             printCols(selectCols, "Select");
     }
 
+    // Our initial ordering is 1, 2.. c1 -> for first table columns
+    // c1+1, c1+2, .... c2 -> for second table column
+    // This column order changes after join happens, that's where this method helps
+    // User doesn't to think about ordering they always stick to OG ordering 
     inline void createNewMapping(std::unordered_map<oc::u64, oc::u64> &map,
         std::vector<oc::u64>& selectCols)
     {
