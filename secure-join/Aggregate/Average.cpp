@@ -251,32 +251,10 @@ namespace secJoin {
         assert(data.numEntries() == keys.numEntries());
 
         // populateOutTable() can be used here
-        u64 nAvg = avgCol.size();
         u64 nEntries = data.numEntries();
-        out.mColumns.resize(nAvg + 2); // Average Cols + Group By Cols + Count Col
-
-        // Adding the group by column info
-        out.mColumns[0].mName = groupByCol.mCol.mName;
-        out.mColumns[0].mBitCount = groupByCol.mCol.getByteCount() * 8;
-        out.mColumns[0].mType = groupByCol.mCol.mType;
-        out.mColumns[0].mData.resize(nEntries, groupByCol.mCol.mBitCount);
-
-        // Adding the average cols
-        for (u64 i = 0; i < nAvg; i++)
-        {
-            out.mColumns[i + 1].mName = avgCol[i].mCol.mName;
-            out.mColumns[i + 1].mBitCount = avgCol[i].mCol.getByteCount() * 8;
-            out.mColumns[i + 1].mType = avgCol[i].mCol.mType;
-            out.mColumns[i + 1].mData.resize(nEntries, avgCol[i].mCol.mBitCount);
-        }
-
-        // Adding the count col
-        out.mColumns[nAvg + 1].mName = "Count";
-        out.mColumns[nAvg + 1].mBitCount = sizeof(oc::u64) * 8;
-        out.mColumns[nAvg + 1].mType = TypeID::IntID;
-        out.mColumns[nAvg + 1].mData.resize(nEntries, sizeof(oc::u64) * 8);
+        populateOutTable(out, avgCol, groupByCol, nEntries);
         out.mIsActive.resize(nEntries);
-
+       
         for (u64 i = 0; i < data.numEntries(); i++)
         {
             // Storing the Group By Column
