@@ -134,6 +134,15 @@ namespace secJoin
 			PRNG& prng,
 			CorGenerator& ole,
 			coproto::Socket& sock);
+
+		static macoro::task<> applyRandPerm(
+			BinMatrix& data,
+			BinMatrix& out,
+			CorGenerator& ole,
+			PRNG& prng,
+			Perm& randPerm,
+			coproto::Socket& sock,
+			bool securePerm = true);
 	};
 
 }

@@ -51,7 +51,7 @@ namespace secJoin
 
         // Constructing Select Col Ref
         std::vector<secJoin::ColRef> selectColRefs = getSelectColRef(cState->mSelectCols, 
-            cState->mLTb, cState->mRTb, lColCount, rColCount);
+            cState->mLTb, cState->mRTb);
         
         // Create a new mapping and store the new mapping in the cState
         createNewMapping(cState->mMap, cState->mSelectCols);
@@ -153,7 +153,6 @@ namespace secJoin
             cState->mSock, cState->mInsecurePrint) | macoro::make_eager();
 
     }
-
 
     void aggFunc(WrapperState* cState)
     {

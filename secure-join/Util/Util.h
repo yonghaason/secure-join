@@ -275,7 +275,9 @@ namespace secJoin
             ret.mIsActive.resize(size);
         for (u64 i = 0, j = 0; i < t0.rows(); ++i)
         {
-            bool isActive = t0.mIsActive[i] ^ t1.mIsActive[i];
+            bool isActive = true;
+            if(t0.mIsActive.size() > 0 && t1.mIsActive.size() > 0)
+                isActive = t0.mIsActive[i] ^ t1.mIsActive[i];
             if (removeNulls == false)
             {
                 ret.mIsActive[j] = isActive;

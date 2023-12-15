@@ -711,7 +711,7 @@ void Where_join_where_csv_Test(const oc::CLP& cmd)
     populateTable(R, bankCsvPath, rRowCount);
 
     // Get Select Col Refs
-    std::vector<secJoin::ColRef> selectColRefs = getSelectColRef(selectCols, L, R, lColCount, rColCount);
+    std::vector<secJoin::ColRef> selectColRefs = getSelectColRef(selectCols, L, R);
 
     // if (printSteps)
     // {
@@ -747,8 +747,8 @@ void Where_join_where_csv_Test(const oc::CLP& cmd)
 
     auto joinExp = join(L[lJoinColIndex], R[rJoinColIndex], selectColRefs);
     
-    std::vector<secJoin::ColRef> lSelectColRefs = getSelectColRef(selectCols, Ls[0], Rs[0], lColCount, rColCount);
-    std::vector<secJoin::ColRef> rSelectColRefs = getSelectColRef(selectCols, Ls[1], Rs[1], lColCount, rColCount);
+    std::vector<secJoin::ColRef> lSelectColRefs = getSelectColRef(selectCols, Ls[0], Rs[0]);
+    std::vector<secJoin::ColRef> rSelectColRefs = getSelectColRef(selectCols, Ls[1], Rs[1]);
 
     auto r = macoro::sync_wait(macoro::when_all_ready(
         join0.join(Ls[0][lJoinColIndex], Rs[0][rJoinColIndex], lSelectColRefs, tempOut[0], prng0, ole0, sock[0]),
@@ -850,8 +850,7 @@ void Where_avg_where_csv_Test(const oc::CLP& cmd)
     populateTable(R, bankCsvPath, rRowCount);
 
     // Get Select Col Refs
-    std::vector<secJoin::ColRef> selectColRefs = getSelectColRef(selectCols, L, R, 
-        lColCount, rColCount);
+    std::vector<secJoin::ColRef> selectColRefs = getSelectColRef(selectCols, L, R);
 
     // if (printSteps)
     // {
@@ -887,8 +886,8 @@ void Where_avg_where_csv_Test(const oc::CLP& cmd)
 
     auto joinExp = join(L[lJoinColIndex], R[rJoinColIndex], selectColRefs);
     
-    std::vector<secJoin::ColRef> lSelectColRefs = getSelectColRef(selectCols, Ls[0], Rs[0], lColCount, rColCount);
-    std::vector<secJoin::ColRef> rSelectColRefs = getSelectColRef(selectCols, Ls[1], Rs[1], lColCount, rColCount);
+    std::vector<secJoin::ColRef> lSelectColRefs = getSelectColRef(selectCols, Ls[0], Rs[0]);
+    std::vector<secJoin::ColRef> rSelectColRefs = getSelectColRef(selectCols, Ls[1], Rs[1]);
 
     auto r = macoro::sync_wait(macoro::when_all_ready(
         join0.join(Ls[0][lJoinColIndex], Rs[0][rJoinColIndex], lSelectColRefs, joinOut[0], prng0, ole0, sock[0]),

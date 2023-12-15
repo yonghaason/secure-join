@@ -146,10 +146,13 @@ namespace secJoin {
         SharedTable& out,
         oc::PRNG& prng,
         CorGenerator& ole,
-        coproto::Socket& sock)
+        coproto::Socket& sock,
+        bool remDummies,
+        Perm* randPerm)
     {
 
-        MC_BEGIN(macoro::task<>, this, groupByCol, avgCol, &out, &prng, &ole, &sock,
+        MC_BEGIN(macoro::task<>, this, groupByCol, avgCol, &out, &prng, &ole, &sock, remDummies,
+            randPerm,
             keys = BinMatrix{},
             data = BinMatrix{},
             temp = BinMatrix{},
@@ -160,7 +163,6 @@ namespace secJoin {
             keyOffsets = std::vector<OmJoin::Offset>{},
             addCir = AggTree::Operator{},
             aggTree = AggTree{},
-            perm = ComposedPerm{},
             actFlagVec = std::vector<u8>{},
             tempVec= std::vector<u8>{}
         );
@@ -232,7 +234,13 @@ namespace secJoin {
         if (mInsecurePrint)
             MC_AWAIT(OmJoin::print(keys, controlBits, sock, ole.partyIdx(), "isActive", keyOffsets));
 
-        getOutput(out, avgCol, groupByCol, keys, data, controlBits, offsets, keyOffsets);
+        if(remDummies)
+        {
+            MC_AWAIT(getOutput(out, avgCol, groupByCol, keys, data, offsets, keyOffsets,
+                ole, sock, prng, !mInsecureMockSubroutines, randPerm));
+        }
+        else
+            getOutput(out, avgCol, groupByCol, keys, data, controlBits, offsets, keyOffsets);
 
         MC_END();
     }
@@ -250,11 +258,11 @@ namespace secJoin {
     {
         assert(data.numEntries() == keys.numEntries());
 
-        // populateOutTable() can be used here
         u64 nEntries = data.numEntries();
         populateOutTable(out, avgCol, groupByCol, nEntries);
+           
         out.mIsActive.resize(nEntries);
-       
+        
         for (u64 i = 0; i < data.numEntries(); i++)
         {
             // Storing the Group By Column
@@ -273,6 +281,116 @@ namespace secJoin {
             out.mIsActive[i] = *oc::BitIterator(keys.data(i), keyOffsets[1].mStart);
         }
 
+    }
+
+    // Call this getOutput for removing Dummies
+    macoro::task<> Average::getOutput(
+        SharedTable& out,
+        std::vector<ColRef> avgCol,
+        ColRef groupByCol,
+        BinMatrix& keys,
+        BinMatrix& data,
+        std::vector<OmJoin::Offset>& offsets,
+        std::vector<OmJoin::Offset>& keyOffsets,
+        CorGenerator& ole,
+        coproto::Socket& sock,
+        oc::PRNG& prng,
+        bool securePerm,
+        Perm* randPerm)
+    {
+        MC_BEGIN(macoro::task<>, &out, avgCol, groupByCol, &keys, &data, &offsets, 
+            &keyOffsets, &ole, &sock, &prng, securePerm, randPerm,
+            temp = BinMatrix{},
+            actFlag = BinMatrix{},
+            curOutRow = u64{},
+            nOutRows = u64{},
+            perm = ComposedPerm{},
+            tempPerm = Perm{},
+            i = u64()
+            );
+
+        assert(data.numEntries() == keys.numEntries());
+
+        actFlag.resize(keys.rows(), 1);
+
+        for (u64 i = 0; i < keys.rows(); ++i)
+            actFlag(i) = *oc::BitIterator(keys.data(i), keyOffsets[1].mStart);
+
+        // Revealing the active flag
+        if (ole.partyIdx() == 0)
+        {
+            temp.resize(actFlag.numEntries(), actFlag.bitsPerEntry());
+            MC_AWAIT(sock.recv(temp.mData));
+            temp = reveal(temp, actFlag);
+            std::swap(actFlag, temp);
+            MC_AWAIT(sock.send(coproto::copy(actFlag.mData)));
+        }
+        else
+        {
+            MC_AWAIT(sock.send(coproto::copy(actFlag.mData)));
+            temp.resize(actFlag.numEntries(), actFlag.bitsPerEntry());
+            MC_AWAIT(sock.recv(temp.mData));
+            std::swap(actFlag, temp);
+        }
+        
+        nOutRows = 0;
+        for (u64 i = 0; i < actFlag.numEntries(); i++)
+        {
+            if (actFlag.mData(i, 0)  == 1)
+                nOutRows++;
+        }
+
+        populateOutTable(out, avgCol, groupByCol, nOutRows);
+        // out.mIsActive.resize(nOutRows);
+
+        curOutRow = 0;
+        for (u64 i = 0; i < data.numEntries(); i++)
+        {
+            assert(curOutRow <= nOutRows);
+            if (actFlag.mData(i, 0) == 1)
+            {
+                // Storing the Group By Column
+                memcpy(out.mColumns[0].mData.data(curOutRow), keys.data(i), 
+                    out.mColumns[0].mData.bytesPerEntry());
+
+                // Copying the average columns
+                for (u64 j = 0; j < offsets.size(); j++)
+                {
+                    memcpy(out.mColumns[j + 1].mData.data(curOutRow),
+                        &data(i, offsets[j].mStart / 8),
+                        out.mColumns[j + 1].getByteCount());
+
+                }
+                // out.mIsActive[curOutRow] = *oc::BitIterator(keys.data(i), keyOffsets[1].mStart);
+                curOutRow++;
+            }
+
+            // We got all our entries
+            if(curOutRow == nOutRows)
+                break;
+        }
+
+        if(randPerm == nullptr)
+        {
+            tempPerm.randomize(nOutRows, prng);
+            randPerm = &tempPerm;
+        }
+
+        // A Better way could have been to permute the keys & data
+        // But since we want to compare it expected result in the test
+        // We need to permute only the final remaining rows
+        for(i = 0; i < out.cols(); i++)
+        {
+            MC_AWAIT(OmJoin::applyRandPerm(out.mColumns[i].mData, temp, ole, 
+                prng, *randPerm, sock, securePerm));
+            std::swap(out.mColumns[i].mData, temp);
+        }
+
+        // MC_AWAIT(OmJoin::applyRandPerm(keys, temp, ole, prng, *randPerm, sock, securePerm));
+        // std::swap(keys, temp);
+        
+
+        MC_END();
     }
 
     AggTree::Operator Average::getAddCircuit(std::vector<OmJoin::Offset>& offsets,

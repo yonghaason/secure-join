@@ -46,8 +46,10 @@ namespace secJoin{
     }
 
     inline std::vector<secJoin::ColRef> getSelectColRef( std::vector<oc::u64>& selectCols, 
-        Table& L, Table &R, u64 lColCount, u64 rColCount)
+        Table& L, Table &R)
     {
+        u64 lColCount = L.cols();
+        u64 rColCount = R.cols();
         std::vector<secJoin::ColRef> selectColRef;
         selectColRef.reserve(selectCols.size());
 

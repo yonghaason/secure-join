@@ -172,30 +172,47 @@ void Average_avg_Test(const oc::CLP& cmd)
         Ts[1].mIsActive[i] = 0;
     }
 
+    auto exp = average(T[0], { T[1], T[2] });
+
     CorGenerator ole0, ole1;
     ole0.init(sock[0].fork(), prng0, 0, 1 << 16, mock);
     ole1.init(sock[1].fork(), prng1, 1, 1 << 16, mock);
 
-    Table out[2];
-    auto r = macoro::sync_wait(macoro::when_all_ready(
-        avg1.avg(Ts[0][0], { Ts[0][1], Ts[0][2] }, out[0], prng0, ole0, sock[0]),
-        avg2.avg(Ts[1][0], { Ts[1][1], Ts[1][2] }, out[1], prng1, ole1, sock[1])
-    ));
-    std::get<0>(r).result();
-    std::get<1>(r).result();
     
-
-    auto res = reveal(out[0], out[1]);
-    
-    auto exp = average(T[0], { T[1], T[2] });
-
-    if (res != exp)
+    for(auto remDummies : { false, true })
     {
-        std::cout << "exp \n" << exp << std::endl;
-        std::cout << "act \n" << res << std::endl;
-        std::cout << "ful \n" << reveal(out[0], out[1], false) << std::endl;
-        throw RTE_LOC;
+        Perm p0(exp.rows(), prng0);
+        Perm p1(exp.rows(), prng1);
+        Perm pi = p0.composeSwap(p1);
+
+        Table out[2];
+        auto r = macoro::sync_wait(macoro::when_all_ready(
+            avg1.avg(Ts[0][0], { Ts[0][1], Ts[0][2] }, out[0], prng0, ole0, sock[0], remDummies, &p0),
+            avg2.avg(Ts[1][0], { Ts[1][1], Ts[1][2] }, out[1], prng1, ole1, sock[1], remDummies, &p1)
+        ));
+        std::get<0>(r).result();
+        std::get<1>(r).result();
+
+        Table res;
+        
+        res = reveal(out[0], out[1]);
+
+        if(remDummies)
+        {
+            Table tmp = applyPerm(exp, pi);
+            std::swap(exp, tmp);
+        }
+
+        if (res != exp)
+        {
+            std::cout << "remove dummies flag = " << remDummies << std::endl;
+            std::cout << "exp \n" << exp << std::endl;
+            std::cout << "act \n" << res << std::endl;
+            std::cout << "ful \n" << reveal(out[0], out[1], false) << std::endl;
+            throw RTE_LOC;
+        }
     }
+    
 }
 
 void Average_avg_csv_Test(const oc::CLP& cmd)
@@ -231,7 +248,7 @@ void Average_avg_csv_Test(const oc::CLP& cmd)
     populateTable(R, bankCsvPath, rRowCount);
 
     // Get Select Col Refs
-    std::vector<secJoin::ColRef> selectColRefs = getSelectColRef(selectCols, L, R, lColCount, rColCount);
+    std::vector<secJoin::ColRef> selectColRefs = getSelectColRef(selectCols, L, R);
 
     // if (printSteps)
     // {
@@ -244,14 +261,6 @@ void Average_avg_csv_Test(const oc::CLP& cmd)
     share(L, Ls, prng);
     share(R, Rs, prng);
 
-    OmJoin join0, join1;
-
-    join0.mInsecurePrint = printSteps;
-    join1.mInsecurePrint = printSteps;
-
-    join0.mInsecureMockSubroutines = mock;
-    join1.mInsecureMockSubroutines = mock;
-
     CorGenerator ole0, ole1;
     PRNG prng0(oc::ZeroBlock);
     PRNG prng1(oc::OneBlock);
@@ -259,75 +268,101 @@ void Average_avg_csv_Test(const oc::CLP& cmd)
     ole0.init(sock[0].fork(), prng0, 0, 1 << 16, mock);
     ole1.init(sock[1].fork(), prng1, 1, 1 << 16, mock);
 
-
-    Table tempOut[2], out[2];
-
-    u64 lJoinColIndex = joinCols[0];
-    u64 rJoinColIndex = getRColIndex(joinCols[1], lColCount, rColCount);
-
-    auto joinExp = join(L[lJoinColIndex], R[rJoinColIndex], selectColRefs);
-    // oc::Timer timer;
-    // // join0.setTimer(timer);
-    // // join1.setTimer(timer);
-
-    std::vector<secJoin::ColRef> lSelectColRefs = getSelectColRef(selectCols, Ls[0], Rs[0], lColCount, rColCount);
-    std::vector<secJoin::ColRef> rSelectColRefs = getSelectColRef(selectCols, Ls[1], Rs[1], lColCount, rColCount);
-
-    auto r = macoro::sync_wait(macoro::when_all_ready(
-        join0.join(Ls[0][lJoinColIndex], Rs[0][rJoinColIndex], lSelectColRefs, tempOut[0], prng0, ole0, sock[0]),
-        join1.join(Ls[1][lJoinColIndex], Rs[1][rJoinColIndex], rSelectColRefs, tempOut[1], prng1, ole1, sock[1])
-    ));
-    std::get<0>(r).result();
-    std::get<1>(r).result();
-
-    auto res = reveal(tempOut[0], tempOut[1]);
-
-    if (res != joinExp)
+    for(auto remDummies : { false, true })
     {
-        std::cout << "exp \n" << joinExp << std::endl;
-        std::cout << "act \n" << res << std::endl;
+        OmJoin join0, join1;
+
+        join0.mInsecurePrint = printSteps;
+        join1.mInsecurePrint = printSteps;
+
+        join0.mInsecureMockSubroutines = mock;
+        join1.mInsecureMockSubroutines = mock;
+
+        u64 lJoinColIndex = joinCols[0];
+        u64 rJoinColIndex = getRColIndex(joinCols[1], lColCount, rColCount);
+
+        auto joinExp = join(L[lJoinColIndex], R[rJoinColIndex], selectColRefs);
+
+        // oc::Timer timer;
+        // // join0.setTimer(timer);
+        // // join1.setTimer(timer);
+        Table tempOut[2], out[2];
+
+        std::vector<secJoin::ColRef> lSelectColRefs = getSelectColRef(selectCols, Ls[0], Rs[0]);
+        std::vector<secJoin::ColRef> rSelectColRefs = getSelectColRef(selectCols, Ls[1], Rs[1]);
+
+        auto r = macoro::sync_wait(macoro::when_all_ready(
+            join0.join(Ls[0][lJoinColIndex], Rs[0][rJoinColIndex], lSelectColRefs, 
+                tempOut[0], prng0, ole0, sock[0]),
+            join1.join(Ls[1][lJoinColIndex], Rs[1][rJoinColIndex], rSelectColRefs, 
+                tempOut[1], prng1, ole1, sock[1])
+        ));
+        std::get<0>(r).result();
+        std::get<1>(r).result();
+
+        auto res = reveal(tempOut[0], tempOut[1]);
+
+        if (res != joinExp)
+        {
+            std::cout << "exp \n" << joinExp << std::endl;
+            std::cout << "act \n" << res << std::endl;
+            // std::cout << "ful \n" << reveal(out[0], out[1], false) << std::endl;
+            throw RTE_LOC;
+        }
+
+
+        // Create a new mapping and store the new mapping in the cState
+        std::unordered_map<oc::u64, oc::u64> map;
+        createNewMapping(map, selectCols);
+
+        std::vector<secJoin::ColRef> avgColRefs = getColRefFromMapping(map, avgCols, joinExp);
+        // Assuming we have only one groupby column
+        oc::u64 groupByColIndex = getMapVal(map, groupByCols[0]);
+        auto avgExp = average(joinExp[groupByColIndex], avgColRefs);
+
+
+        Perm p0(avgExp.rows(), prng0);
+        Perm p1(avgExp.rows(), prng1);
+        Perm pi = p0.composeSwap(p1);
+
+        Average avg1, avg2;
+
+        avg1.mInsecurePrint = printSteps;
+        avg2.mInsecurePrint = printSteps;
+
+        avg1.mInsecureMockSubroutines = mock;
+        avg2.mInsecureMockSubroutines = mock;
+
+        std::vector<secJoin::ColRef> lAvgColRefs = getColRefFromMapping(map, avgCols, tempOut[0]);
+        std::vector<secJoin::ColRef> rAvgColRefs = getColRefFromMapping(map, avgCols, tempOut[1]);
+        
+        auto r1 = macoro::sync_wait(macoro::when_all_ready(
+            avg1.avg(tempOut[0][groupByColIndex], lAvgColRefs, out[0], 
+                prng0, ole0, sock[0], remDummies, &p0),
+            avg2.avg(tempOut[1][groupByColIndex], rAvgColRefs, out[1], 
+                prng1, ole1, sock[1], remDummies, &p1)
+        ));
+        std::get<1>(r1).result();
+        std::get<0>(r1).result();
+
+        auto res1 = reveal(out[0], out[1]);
+
+        if(remDummies)
+        {
+            Table tmp = applyPerm(avgExp, pi);
+            std::swap(avgExp, tmp);
+        }
+
+
+        if (res1 != avgExp)
+        {
+        std::cout << "exp \n" << avgExp << std::endl;
+        std::cout << "act \n" << res1 << std::endl;
         // std::cout << "ful \n" << reveal(out[0], out[1], false) << std::endl;
         throw RTE_LOC;
+        }
+        
+        // if (cmd.isSet("timing"))
+        //     std::cout << timer << std::endl;
     }
-
-    // Create a new mapping and store the new mapping in the cState
-    std::unordered_map<oc::u64, oc::u64> map;
-    createNewMapping(map, selectCols);
-
-    Average avg1, avg2;
-
-    avg1.mInsecurePrint = printSteps;
-    avg2.mInsecurePrint = printSteps;
-
-    avg1.mInsecureMockSubroutines = mock;
-    avg2.mInsecureMockSubroutines = mock;
-
-    std::vector<secJoin::ColRef> avgColRefs = getColRefFromMapping(map, avgCols, joinExp);
-    std::vector<secJoin::ColRef> lAvgColRefs = getColRefFromMapping(map, avgCols, tempOut[0]);
-    std::vector<secJoin::ColRef> rAvgColRefs = getColRefFromMapping(map, avgCols, tempOut[1]);
-    
-    // Assuming we have only one groupby column
-    oc::u64 groupByColIndex = getMapVal(map, groupByCols[0]);
-
-    auto r1 = macoro::sync_wait(macoro::when_all_ready(
-        avg1.avg(tempOut[0][groupByColIndex], lAvgColRefs, out[0], prng0, ole0, sock[0]),
-        avg2.avg(tempOut[1][groupByColIndex], rAvgColRefs, out[1], prng1, ole1, sock[1])
-    ));
-    std::get<1>(r1).result();
-    std::get<0>(r1).result();
-
-    auto res1 = reveal(out[0], out[1]);
-    auto avgExp = average(joinExp[groupByColIndex], avgColRefs);
-
-    if (res1 != avgExp)
-    {
-       std::cout << "exp \n" << avgExp << std::endl;
-       std::cout << "act \n" << res1 << std::endl;
-       // std::cout << "ful \n" << reveal(out[0], out[1], false) << std::endl;
-       throw RTE_LOC;
-    }
-    
-    // // if (cmd.isSet("timing"))
-    // //     std::cout << timer << std::endl;
-
 }
