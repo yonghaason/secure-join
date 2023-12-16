@@ -318,7 +318,7 @@ void OmJoin_wrapper_where_test(const oc::CLP& cmd)
         WHBUNDLE_COL_TYPE, WHBUNDLE_COL_TYPE, WHBUNDLE_COL_TYPE, WHBUNDLE_COL_TYPE, 
         WHBUNDLE_NUM_TYPE, WHBUNDLE_NUM_TYPE, WHBUNDLE_NUM_TYPE};
     std::vector<i64> opInfo{ 2, 0, 3, 4, 1, 0, 4, 5, 1, 0, 2, 1, 4, 6, 1, 0, 6, 9,
-        1, 0, 7, 10, 4, 9, 10, 11, 5, 4, 5, 12, 1, 12, 8, 13, 4, 12, 13, 14, -1};
+        1, 0, 7, 10, 4, 9, 10, 11, 5, 4, 5, 12, 1, 12, 8, 13, 4, 11, 13, 14, -1};
 
     std::unique_ptr<secJoin::WrapperState> visaState(secJoin::initState(visaCsvPath, visaMetaDataPath, clientMetaDataPath,
         literals, literalsType, opInfo, isUnique, verbose, mock, debug));

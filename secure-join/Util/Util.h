@@ -134,6 +134,15 @@ namespace secJoin
         return r;
     }
 
+    inline std::vector<u8> reveal(const std::vector<u8>& x0, const std::vector<u8>& x1)
+    {
+        assert(x0.size() == x1.size());
+        std::vector<u8> r(x0.size());
+        for (u64 i = 0; i < r.size(); ++i)
+            r[i] = x0[i] + x1[i];
+        return r;
+    }
+
     inline std::array<oc::Matrix<oc::u8>, 2> share(
         oc::Matrix<oc::u8> v,
         PRNG& prng)

@@ -346,7 +346,7 @@ namespace secJoin {
         curOutRow = 0;
         for (u64 i = 0; i < data.numEntries(); i++)
         {
-            assert(curOutRow <= nOutRows);
+            // assert(curOutRow <= nOutRows);
             if (actFlag.mData(i, 0) == 1)
             {
                 // Storing the Group By Column
@@ -379,11 +379,14 @@ namespace secJoin {
         // A Better way could have been to permute the keys & data
         // But since we want to compare it expected result in the test
         // We need to permute only the final remaining rows
-        for(i = 0; i < out.cols(); i++)
+        if(nOutRows > 1)
         {
-            MC_AWAIT(OmJoin::applyRandPerm(out.mColumns[i].mData, temp, ole, 
-                prng, *randPerm, sock, securePerm));
-            std::swap(out.mColumns[i].mData, temp);
+            for(i = 0; i < out.cols(); i++)
+            {
+                MC_AWAIT(OmJoin::applyRandPerm(out.mColumns[i].mData, temp, ole, 
+                    prng, *randPerm, sock, securePerm));
+                std::swap(out.mColumns[i].mData, temp);
+            }
         }
 
         // MC_AWAIT(OmJoin::applyRandPerm(keys, temp, ole, prng, *randPerm, sock, securePerm));

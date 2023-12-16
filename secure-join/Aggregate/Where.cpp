@@ -33,14 +33,18 @@ namespace secJoin {
         const std::unordered_map<u64, u64>& map,
         CorGenerator& ole,
         coproto::Socket& sock,
-        const bool print)
+        const bool print,
+        oc::PRNG& prng,
+        bool remDummies,
+        Perm* randPerm)
     {
-        MC_BEGIN(macoro::task<>, this, &st, &gates, &literals, &literalsType, &out, &sock, print,
-            &map, totalCol, &ole,
+        MC_BEGIN(macoro::task<>, this, &st, &gates, &literals, &literalsType, totalCol, &out,
+            &map, &ole, &sock, print, &prng, remDummies, randPerm,
             cd = oc::BetaCircuit{},
             gmw = Gmw{},
             rows = u64(),
-            tempOut = BinMatrix{});
+            tempOut = BinMatrix{},
+            tempTable = Table{});
 
         cd = *genWhCir(st, gates, literals, literalsType, totalCol, map, print);
         rows = st.rows();
@@ -52,17 +56,113 @@ namespace secJoin {
 
         MC_AWAIT(gmw.run(sock));
 
-        // Where evaulates to either true or false (1 bit)
+        // Where evaluates to either true or false (1 bit)
         tempOut.resize(rows, 1);
         gmw.getOutput(0, tempOut);
         out = st;
 
         assert(out.mIsActive.size() == rows);
-        // for (u64 i = 0; i < rows; ++i)
-        //     memcpy(&out.mIsActive[i], tempOut.data(i), 1);
 
         MC_AWAIT(updateActiveFlag(out.mIsActive, tempOut, ole, sock));
+
+        if(remDummies)
+        {
+            MC_AWAIT(getOutput(out, tempTable, ole, sock, prng, 
+                !mInsecureMockSubroutines, randPerm));
+            std::swap(tempTable, out);
+        }
         
+        MC_END();
+    }
+
+    // Call this getOutput for removing Dummies
+    macoro::task<> Where::getOutput(
+        SharedTable& in,
+        SharedTable& out,
+        CorGenerator& ole,
+        coproto::Socket& sock,
+        oc::PRNG& prng,
+        bool securePerm,
+        Perm* randPerm)
+    {
+        MC_BEGIN(macoro::task<>, &in, &out, &ole, &sock, &prng, securePerm, randPerm,
+            temp = BinMatrix{},
+            revealedActFlag = std::vector<u8>{},
+            actFlag = BinMatrix{},
+            curOutRow = u64{},
+            nOutRows = u64{},
+            perm = ComposedPerm{},
+            tempPerm = Perm{},
+            i = u64()
+            );
+        
+        // Revealing the active flag
+        if (ole.partyIdx() == 0)
+        {
+            revealedActFlag.resize(in.mIsActive.size());
+            MC_AWAIT(sock.recv(revealedActFlag));
+            revealedActFlag = reveal(revealedActFlag, in.mIsActive);
+            MC_AWAIT(sock.send(coproto::copy(revealedActFlag)));
+        }
+        else
+        {
+            MC_AWAIT(sock.send(coproto::copy(in.mIsActive)));
+            revealedActFlag.resize(in.mIsActive.size());
+            MC_AWAIT(sock.recv(revealedActFlag));
+        }
+        
+        nOutRows = 0;
+        for (u64 i = 0; i < revealedActFlag.size(); i++)
+        {
+            if (revealedActFlag[i] == 1)
+                nOutRows++;
+        }
+
+        out.init(nOutRows, in.getColumnInfo());
+        out.mIsActive.resize(nOutRows);
+
+        curOutRow = 0;
+        for (u64 i = 0; i < in.rows(); i++)
+        {
+            // assert(curOutRow <= nOutRows);
+            if (revealedActFlag[i] == 1)
+            {
+                for (u64 j = 0; j < in.cols(); j++)
+                {
+                    memcpy(out.mColumns[j].mData.data(curOutRow),
+                        in.mColumns[j].mData.data(i),
+                        in.mColumns[j].getByteCount());
+
+                }
+                out.mIsActive[curOutRow] = in.mIsActive[i];
+                curOutRow++;
+            }
+            
+            // We got all our entries
+            if(curOutRow == nOutRows)
+                break;
+        }
+
+        if(randPerm == nullptr)
+        {
+            tempPerm.randomize(nOutRows, prng);
+            randPerm = &tempPerm;
+        }
+
+        // A Better way could have been to permute the keys & data
+        // But since we want to compare it expected result in the test
+        // We need to permute only the final remaining rows
+        // We don't need to permute the active flag bcoz all the rows are active
+        if(nOutRows > 1)
+        {
+            for(i = 0; i < out.cols(); i++)
+            {
+                MC_AWAIT(OmJoin::applyRandPerm(out.mColumns[i].mData, temp, ole, 
+                    prng, *randPerm, sock, securePerm));
+                std::swap(out.mColumns[i].mData, temp);
+            }
+        }
+
         MC_END();
     }
 
@@ -368,10 +468,9 @@ namespace secJoin {
             addInputBundle(cd, st, inIndex1, map);
             addInputBundle(cd, st, inIndex2, map);
         }
-
-        // Resizing the BetaBundles
+        // Resizing the BetaBundles 
         a.resize(biggerSize);
-        b.resize(biggerSize);   
+        b.resize(biggerSize);
     }
 
     void Where::signExtend(u64 smallerSizeIndex, u64 biggerSize, u64 biggerSizeIndex,
@@ -387,6 +486,7 @@ namespace secJoin {
             // signExtend extends the BinMatrix & adds it in GmwIns
             signExtend(in, biggerSize, st[index].mCol.mType);
             // Adding Input Bundle
+            mWhBundle[smallerSizeIndex].mBundle.resize(biggerSize);
             cd->addInputBundle(mWhBundle[smallerSizeIndex].mBundle);
         }
         else if(mWhBundle[smallerSizeIndex].mType == WhType::Number)
