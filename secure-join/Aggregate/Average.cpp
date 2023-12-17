@@ -313,25 +313,29 @@ namespace secJoin {
 
         actFlag.resize(keys.rows(), 1);
 
+        // Extracting Active Flag
         for (u64 i = 0; i < keys.rows(); ++i)
             actFlag(i) = *oc::BitIterator(keys.data(i), keyOffsets[1].mStart);
 
         // Revealing the active flag
-        if (ole.partyIdx() == 0)
-        {
-            temp.resize(actFlag.numEntries(), actFlag.bitsPerEntry());
-            MC_AWAIT(sock.recv(temp.mData));
-            temp = reveal(temp, actFlag);
-            std::swap(actFlag, temp);
-            MC_AWAIT(sock.send(coproto::copy(actFlag.mData)));
-        }
-        else
-        {
-            MC_AWAIT(sock.send(coproto::copy(actFlag.mData)));
-            temp.resize(actFlag.numEntries(), actFlag.bitsPerEntry());
-            MC_AWAIT(sock.recv(temp.mData));
-            std::swap(actFlag, temp);
-        }
+        MC_AWAIT(OmJoin::revealActFlag(actFlag, temp, sock, ole.partyIdx()));
+        std::swap(actFlag, temp);    
+
+        // if (ole.partyIdx() == 0)
+        // {
+        //     temp.resize(actFlag.numEntries(), actFlag.bitsPerEntry());
+        //     MC_AWAIT(sock.recv(temp.mData));
+        //     temp = reveal(temp, actFlag);
+        //     std::swap(actFlag, temp);
+        //     MC_AWAIT(sock.send(coproto::copy(actFlag.mData)));
+        // }
+        // else
+        // {
+        //     MC_AWAIT(sock.send(coproto::copy(actFlag.mData)));
+        //     temp.resize(actFlag.numEntries(), actFlag.bitsPerEntry());
+        //     MC_AWAIT(sock.recv(temp.mData));
+        //     std::swap(actFlag, temp);
+        // }
         
         nOutRows = 0;
         for (u64 i = 0; i < actFlag.numEntries(); i++)

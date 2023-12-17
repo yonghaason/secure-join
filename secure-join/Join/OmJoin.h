@@ -4,6 +4,7 @@
 #include "secure-join/GMW/Gmw.h"
 #include "secure-join/AggTree/AggTree.h"
 #include "secure-join/Sort/RadixSort.h"
+#include "secure-join/Util/Util.h"
 
 namespace secJoin
 {
@@ -143,6 +144,13 @@ namespace secJoin
 			Perm& randPerm,
 			coproto::Socket& sock,
 			bool securePerm = true);
+
+		static macoro::task<> revealActFlag(
+			BinMatrix& actFlag,
+			BinMatrix& out,
+			coproto::Socket& sock,
+			u64 partyIdx);
+    
 	};
 
 }

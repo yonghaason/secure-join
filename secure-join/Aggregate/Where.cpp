@@ -87,7 +87,7 @@ namespace secJoin {
     {
         MC_BEGIN(macoro::task<>, &in, &out, &ole, &sock, &prng, securePerm, randPerm,
             temp = BinMatrix{},
-            revealedActFlag = std::vector<u8>{},
+            revealedActFlag = BinMatrix{},
             actFlag = BinMatrix{},
             curOutRow = u64{},
             nOutRows = u64{},
@@ -95,26 +95,21 @@ namespace secJoin {
             tempPerm = Perm{},
             i = u64()
             );
-        
+
+        actFlag.resize(in.mIsActive.size(), 1);
+
+        // Extracting Active Flag
+        for (u64 i = 0; i < in.mIsActive.size(); ++i)
+            actFlag(i) = in.mIsActive[i];
+
         // Revealing the active flag
-        if (ole.partyIdx() == 0)
-        {
-            revealedActFlag.resize(in.mIsActive.size());
-            MC_AWAIT(sock.recv(revealedActFlag));
-            revealedActFlag = reveal(revealedActFlag, in.mIsActive);
-            MC_AWAIT(sock.send(coproto::copy(revealedActFlag)));
-        }
-        else
-        {
-            MC_AWAIT(sock.send(coproto::copy(in.mIsActive)));
-            revealedActFlag.resize(in.mIsActive.size());
-            MC_AWAIT(sock.recv(revealedActFlag));
-        }
+        MC_AWAIT(OmJoin::revealActFlag(actFlag, revealedActFlag, sock, ole.partyIdx()));
+        
         
         nOutRows = 0;
         for (u64 i = 0; i < revealedActFlag.size(); i++)
         {
-            if (revealedActFlag[i] == 1)
+            if (revealedActFlag(i,0) == 1)
                 nOutRows++;
         }
 
@@ -125,7 +120,7 @@ namespace secJoin {
         for (u64 i = 0; i < in.rows(); i++)
         {
             // assert(curOutRow <= nOutRows);
-            if (revealedActFlag[i] == 1)
+            if (revealedActFlag(i,0) == 1)
             {
                 for (u64 j = 0; j < in.cols(); j++)
                 {

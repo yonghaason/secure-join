@@ -633,6 +633,33 @@ namespace secJoin
         MC_END();
     }
 
+    macoro::task<> OmJoin::revealActFlag(
+        BinMatrix& actFlag,
+        BinMatrix& out,
+        coproto::Socket& sock,
+        u64 partyIdx
+    )
+    {
+        MC_BEGIN(macoro::task<>, &actFlag, &out, partyIdx, &sock);
+
+        // Revealing the active flag
+        if (partyIdx == 0)
+        {
+            out.resize(actFlag.numEntries(), actFlag.bitsPerEntry());
+            MC_AWAIT(sock.recv(out.mData));
+            out = reveal(out, actFlag);
+            MC_AWAIT(sock.send(coproto::copy(out.mData)));
+        }
+        else
+        {
+            MC_AWAIT(sock.send(coproto::copy(actFlag.mData)));
+            out.resize(actFlag.numEntries(), actFlag.bitsPerEntry());
+            MC_AWAIT(sock.recv(out.mData));
+        }
+
+        MC_END();
+    }
+
 
     macoro::task<> OmJoin::applyRandPerm(
         BinMatrix& data,
