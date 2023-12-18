@@ -26,5 +26,7 @@ namespace secJoin
         macoro::eager_task<void> mProtocol;
         oc::u64 mTotCol;
         bool mInsecurePrint, mInsecureMockSubroutines, mRemDummies;
+        // Need for Debugging Purpose
+        Perm mPerm;
     };
 }

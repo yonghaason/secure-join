@@ -17,7 +17,7 @@ namespace secJoin
         bool verbose, 
         bool mock, 
         bool remDummies,
-        Perm* randPerm)
+        Perm randPerm)
     {
         mock = true; // Remove this once Peter fixes the Join bug
         auto cState = std::make_unique<WrapperState>();
@@ -65,6 +65,7 @@ namespace secJoin
         cState->mInsecurePrint = verbose;
         cState->mInsecureMockSubroutines = mock;
         cState->mRemDummies = remDummies;
+        cState->mPerm = randPerm;
 
 
         // Current assumption are that Visa always provides table with unique keys 
@@ -78,7 +79,7 @@ namespace secJoin
 
         cState->mProtocol =
             cState->mJoin.join(lJoinColRef, rJoinColRef, selectColRefs, cState->mJoinTb, 
-                cState->mPrng, cState->mOle, cState->mSock, remDummies) | macoro::make_eager();
+            cState->mPrng, cState->mOle, cState->mSock, remDummies, randPerm) | macoro::make_eager();
 
         
         return cState.release();
@@ -151,9 +152,11 @@ namespace secJoin
         }
 
         cState->mWh.mInsecureMockSubroutines = cState->mInsecureMockSubroutines;
+
         cState->mProtocol = cState->mWh.where(cState->mJoinTb, cState->mGates, cState->mLiterals, 
             cState->mLiteralsType, cState->mTotCol, cState->mWhTb, cState->mMap, cState->mOle, 
-            cState->mSock, cState->mInsecurePrint, cState->mPrng, cState->mRemDummies) 
+            cState->mSock, cState->mInsecurePrint, cState->mPrng, cState->mRemDummies,
+            cState->mPerm) 
             | macoro::make_eager();
 
     }
@@ -183,7 +186,7 @@ namespace secJoin
 
             cState->mProtocol =
                 cState->mAvg.avg( grpByCol, avgCols, cState->mAggTb, cState->mPrng, 
-                cState->mOle, cState->mSock, cState->mRemDummies) | macoro::make_eager();
+                cState->mOle, cState->mSock, cState->mRemDummies, cState->mPerm) | macoro::make_eager();
     
         }
 

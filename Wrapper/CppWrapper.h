@@ -16,7 +16,7 @@ namespace secJoin
     WrapperState* initState(std::string& csvPath, std::string& visaMetaDataPath, 
         std::string& clientMetaDataPath, std::vector<std::string>& literals, 
         std::vector<std::string>& literalsType, std::vector<oc::i64>& opInfo, 
-        bool isUnique, bool verbose, bool mock, bool remDummies = false, Perm* randPerm = nullptr);
+        bool isUnique, bool verbose, bool mock, bool remDummies = false, Perm randPerm = {});
     std::vector<u8> runProtocol(WrapperState* stateAddress, std::vector<u8>& buff);
     void releaseState(WrapperState* memoryAddress);
     bool isProtocolReady(WrapperState* stateAddress);
