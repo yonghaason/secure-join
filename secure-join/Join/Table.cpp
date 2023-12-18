@@ -339,7 +339,7 @@ namespace secJoin
         bool print)
     {
         Where wh;
-        BetaCircuit cd = *wh.genWhCir(T, gates, literals, literalsType, totalCol, map, print);
+        BetaCircuit cd = wh.genWhCir(T, gates, literals, literalsType, totalCol, map, print);
         u64 nT = T.rows();
 
         std::vector<u8> outActFlags;

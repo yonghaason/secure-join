@@ -46,7 +46,7 @@ namespace secJoin {
             tempOut = BinMatrix{},
             tempTable = Table{});
 
-        cd = *genWhCir(st, gates, literals, literalsType, totalCol, map, print);
+        cd = genWhCir(st, gates, literals, literalsType, totalCol, map, print);
         rows = st.rows();
         gmw.init(rows, cd, ole);
         
@@ -207,7 +207,7 @@ namespace secJoin {
         MC_END();    
     }
 
-    oc::BetaCircuit* Where::genWhCir(SharedTable& st,
+    oc::BetaCircuit Where::genWhCir(SharedTable& st,
         const std::vector<ArrGate>& gates, 
         const std::vector<std::string>& literals,
         const std::vector<std::string>& literalsType,
@@ -215,7 +215,7 @@ namespace secJoin {
         const std::unordered_map<u64, u64>& map,
         const bool print)
     {
-        auto* cd = new BetaCircuit;
+        BetaCircuit cd;
         BetaBundle outBundle(1);
         genWhBundle(literals, literalsType, totalCol, st, map, print);
 
@@ -251,7 +251,7 @@ namespace secJoin {
         }
 
         // Adding Output Bundle 
-        cd->addOutputBundle(outBundle);
+        cd.addOutputBundle(outBundle);
         
         bool lastOp = false;
         // Adding tempBundles & Gates
@@ -279,11 +279,11 @@ namespace secJoin {
                 
                 if(gates[i].mType == ArrGateType::NOT_EQUALS)
                 {
-                    // cd->addInvert(c.mWires[0]);
+                    // cd.addInvert(c.mWires[0]);
                     oc::BetaWire t;
-                    cd->addTempWire(t);
-                    cd->addInvert(c.mWires[0], t);
-                    cd->addCopy(t, c[0]);
+                    cd.addTempWire(t);
+                    cd.addInvert(c.mWires[0], t);
+                    cd.addCopy(t, c[0]);
                 }
                     
 
@@ -296,12 +296,12 @@ namespace secJoin {
                 assert(c.mWires.size() == 1);
 
                 if(!lastOp)
-                    cd->addTempWireBundle(c);
+                    cd.addTempWireBundle(c);
 
                 if(gates[i].mType == ArrGateType::AND)
-                    cd->addGate(a.mWires[0], b.mWires[0], oc::GateType::And, c.mWires[0]);
+                    cd.addGate(a.mWires[0], b.mWires[0], oc::GateType::And, c.mWires[0]);
                 else if(gates[i].mType == ArrGateType::OR)
-                    cd->addGate(a.mWires[0], b.mWires[0], oc::GateType::Or, c.mWires[0]);
+                    cd.addGate(a.mWires[0], b.mWires[0], oc::GateType::Or, c.mWires[0]);
 
             }
             else if(gates[i].mType == ArrGateType::LESS_THAN || 
@@ -311,7 +311,7 @@ namespace secJoin {
                 
                 // This is greater than equals
                 if(gates[i].mType == ArrGateType::GREATER_THAN_EQUALS)
-                    cd->addInvert(c.mWires[0]);
+                    cd.addInvert(c.mWires[0]);
             }
             else if(gates[i].mType == ArrGateType::ADDITION)
             {
@@ -381,7 +381,7 @@ namespace secJoin {
         // InterMediate Outputs will be added when we are creating the circuit
     }
 
-    void Where::addInputBundle(oc::BetaCircuit* cd, SharedTable& st,
+    void Where::addInputBundle(oc::BetaCircuit& cd, SharedTable& st,
         const u64 gateInputIndex, const std::unordered_map<u64, u64>& map)
     {
         if(gateInputIndex >= mWhBundle.size())
@@ -391,14 +391,14 @@ namespace secJoin {
         WhType type = mWhBundle[gateInputIndex].mType;
         if(type == WhType::Col)
         {
-            cd->addInputBundle(a);
+            cd.addInputBundle(a);
             addToGmwInput(st, gateInputIndex, map,type);
         }
             
     }
 
     void Where::ArrTypeEqualCir(const u64 inIndex1, const u64 inIndex2,
-        oc::BetaCircuit* cd, BetaBundle &c, const bool lastOp)
+        oc::BetaCircuit& cd, BetaBundle &c, const bool lastOp)
     {
         BetaBundle& a = mWhBundle[inIndex1].mBundle;
         BetaBundle& b = mWhBundle[inIndex2].mBundle;
@@ -413,25 +413,25 @@ namespace secJoin {
         if(typeIndex1 == WhType::Number || typeIndex1 == WhType::String)
         {
             BitVector aa = mWhBundle[inIndex1].mVal;
-            cd->addConstBundle(a, aa);
+            cd.addConstBundle(a, aa);
         }
         
         if(typeIndex2 == WhType::Number || typeIndex2 == WhType::String)
         {
             BitVector bb = mWhBundle[inIndex2].mVal;
-            cd->addConstBundle(b, bb);
+            cd.addConstBundle(b, bb);
         }
 
         if(!lastOp)
-            cd->addTempWireBundle(c);
+            cd.addTempWireBundle(c);
 
-        eq_build(*cd, a, b, c);
+        eq_build(cd, a, b, c);
 
     }
 
     void Where::ArrTypeEqualInputs(const u64 inIndex1, const u64 inIndex2,
         SharedTable& st,
-        oc::BetaCircuit* cd,
+        oc::BetaCircuit& cd,
         const std::unordered_map<u64, u64>& map)
     {
         BetaBundle& a = mWhBundle[inIndex1].mBundle;
@@ -475,7 +475,7 @@ namespace secJoin {
     }
 
     void Where::signExtend(u64 smallerSizeIndex, u64 biggerSize, u64 biggerSizeIndex,
-        SharedTable& st, oc::BetaCircuit* cd,
+        SharedTable& st, oc::BetaCircuit& cd,
         const std::unordered_map<u64, u64>& map)
     {
         addInputBundle(cd, st, biggerSizeIndex, map);
@@ -488,7 +488,7 @@ namespace secJoin {
             signExtend(in, biggerSize, st[index].mCol.mType);
             // Adding Input Bundle
             mWhBundle[smallerSizeIndex].mBundle.resize(biggerSize);
-            cd->addInputBundle(mWhBundle[smallerSizeIndex].mBundle);
+            cd.addInputBundle(mWhBundle[smallerSizeIndex].mBundle);
         }
         else if(mWhBundle[smallerSizeIndex].mType == WhType::Number)
             signExtend(mWhBundle[smallerSizeIndex].mVal, biggerSize, WhType::Number);
@@ -587,7 +587,7 @@ namespace secJoin {
     }
     
     void Where::ArrTypeAddCir(const u64 inIndex1, const u64 inIndex2,
-        oc::BetaCircuit* cd, BetaBundle &c, const bool lastOp)
+        oc::BetaCircuit& cd, BetaBundle &c, const bool lastOp)
     {
         if(lastOp)
         {
@@ -620,26 +620,26 @@ namespace secJoin {
         {
             BitVector aa = mWhBundle[inIndex1].mVal;
             t.resize(3 + 2 * cSize);
-            cd->addConstBundle(a, aa);
+            cd.addConstBundle(a, aa);
         }
         else if(typeIndex2 == WhType::Number)
         {
             BitVector bb = mWhBundle[inIndex2].mVal;
             t.resize(3 + 2 * cSize);
-            cd->addConstBundle(b, bb);
+            cd.addConstBundle(b, bb);
         }
         else
             t.resize(mOp == Optimized::Size ? 4 : cSize * 2);
         
-        cd->addTempWireBundle(t);
+        cd.addTempWireBundle(t);
         if(!lastOp)
-            cd->addTempWireBundle(c);
+            cd.addTempWireBundle(c);
 
-        BetaLibrary::add_build(*cd, a, b, c, t, IntType::TwosComplement, mOp);
+        BetaLibrary::add_build(cd, a, b, c, t, IntType::TwosComplement, mOp);
     }
 
     void Where::ArrTypeLessThanCir(const u64 inIndex1, const u64 inIndex2,
-        oc::BetaCircuit* cd, BetaBundle &c, const bool lastOp)
+        oc::BetaCircuit& cd, BetaBundle &c, const bool lastOp)
     {
         BetaBundle& a = mWhBundle[inIndex1].mBundle;
         BetaBundle& b = mWhBundle[inIndex2].mBundle;
@@ -660,18 +660,18 @@ namespace secJoin {
         else if(typeIndex1 == WhType::Number || typeIndex1 == WhType::String)
         {
             BitVector aa = mWhBundle[inIndex1].mVal;
-            cd->addConstBundle(a, aa);
+            cd.addConstBundle(a, aa);
         }
         else if(typeIndex2 == WhType::Number || typeIndex2 == WhType::String)
         {
             BitVector bb = mWhBundle[inIndex2].mVal;
-            cd->addConstBundle(b, bb);
+            cd.addConstBundle(b, bb);
         }
 
         if(!lastOp)
-            cd->addTempWireBundle(c);
+            cd.addTempWireBundle(c);
 
-        BetaLibrary::lessThan_build(*cd, a, b, c, BetaLibrary::IntType::TwosComplement, mOp);
+        BetaLibrary::lessThan_build(cd, a, b, c, BetaLibrary::IntType::TwosComplement, mOp);
     }
 
     void Where::addToGmwInput(SharedTable& st,
