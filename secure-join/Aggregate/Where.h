@@ -48,12 +48,12 @@ namespace secJoin
         void eq_build(BetaCircuit& cd, BetaBundle& a1, BetaBundle& a2,
 		    BetaBundle& out);
 
-        Optimized mOp = Optimized::Size;
+        Optimized mOp = Optimized::Depth;
         macoro::task<> where(SharedTable& st, const std::vector<ArrGate>& gates, 
             const std::vector<std::string>& literals, const std::vector<std::string>& literalsType, 
             const u64 totalCol, SharedTable& out, const std::unordered_map<u64, u64>& map, 
             CorGenerator& ole, coproto::Socket& sock, const bool print, 
-            oc::PRNG& prng, bool remDummies = false, Perm* randPerm = nullptr);
+            oc::PRNG& prng, bool remDummies = false, Perm randPerm = {});
 
         oc::BetaCircuit* genWhCir(SharedTable& st, const std::vector<ArrGate>& gates, 
             const std::vector<std::string>& literals, const std::vector<std::string>& literalsType,
@@ -101,7 +101,7 @@ namespace secJoin
         void extendBitVector(BitVector& aa, const u8 bit, const u64 size);
 
         macoro::task<> getOutput( SharedTable& in, SharedTable& out, CorGenerator& ole,
-            coproto::Socket& sock, oc::PRNG& prng, bool securePerm, Perm* randPerm);
+            coproto::Socket& sock, oc::PRNG& prng, bool securePerm, Perm& randPerm);
 
     };
 }

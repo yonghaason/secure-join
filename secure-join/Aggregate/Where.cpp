@@ -36,10 +36,10 @@ namespace secJoin {
         const bool print,
         oc::PRNG& prng,
         bool remDummies,
-        Perm* randPerm)
+        Perm randPerm)
     {
         MC_BEGIN(macoro::task<>, this, &st, &gates, &literals, &literalsType, totalCol, &out,
-            &map, &ole, &sock, print, &prng, remDummies, randPerm,
+            &map, &ole, &sock, print, &prng, remDummies, &randPerm,
             cd = oc::BetaCircuit{},
             gmw = Gmw{},
             rows = u64(),
@@ -83,15 +83,14 @@ namespace secJoin {
         coproto::Socket& sock,
         oc::PRNG& prng,
         bool securePerm,
-        Perm* randPerm)
+        Perm& randPerm)
     {
-        MC_BEGIN(macoro::task<>, &in, &out, &ole, &sock, &prng, securePerm, randPerm,
+        MC_BEGIN(macoro::task<>, &in, &out, &ole, &sock, &prng, securePerm, &randPerm,
             temp = BinMatrix{},
             revealedActFlag = BinMatrix{},
             actFlag = BinMatrix{},
             curOutRow = u64{},
             nOutRows = u64{},
-            perm = ComposedPerm{},
             tempPerm = Perm{},
             i = u64()
             );
@@ -138,10 +137,10 @@ namespace secJoin {
                 break;
         }
 
-        if(randPerm == nullptr)
+        if(randPerm.size() == 0 && nOutRows > 1)
         {
             tempPerm.randomize(nOutRows, prng);
-            randPerm = &tempPerm;
+            randPerm = tempPerm;
         }
 
         // A Better way could have been to permute the keys & data
@@ -153,7 +152,7 @@ namespace secJoin {
             for(i = 0; i < out.cols(); i++)
             {
                 MC_AWAIT(OmJoin::applyRandPerm(out.mColumns[i].mData, temp, ole, 
-                    prng, *randPerm, sock, securePerm));
+                    prng, randPerm, sock, securePerm));
                 std::swap(out.mColumns[i].mData, temp);
             }
         }
@@ -279,7 +278,14 @@ namespace secJoin {
                 ArrTypeEqualCir(inIndex1, inIndex2, cd, c, lastOp);
                 
                 if(gates[i].mType == ArrGateType::NOT_EQUALS)
-                    cd->addInvert(c.mWires[0]);
+                {
+                    // cd->addInvert(c.mWires[0]);
+                    oc::BetaWire t;
+                    cd->addTempWire(t);
+                    cd->addInvert(c.mWires[0], t);
+                    cd->addCopy(t, c[0]);
+                }
+                    
 
             }
             else if(gates[i].mType == ArrGateType::AND || gates[i].mType == ArrGateType::OR)

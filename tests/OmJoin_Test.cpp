@@ -312,59 +312,68 @@ void OmJoin_join_Test(const oc::CLP& cmd)
     share(L, Ls, prng);
     share(R, Rs, prng);
 
-    OmJoin join0, join1;
-
-    join0.mInsecurePrint = printSteps;
-    join1.mInsecurePrint = printSteps;
-
-    join0.mInsecureMockSubroutines = mock;
-    join1.mInsecureMockSubroutines = mock;
-
-    auto sock = coproto::LocalAsyncSocket::makePair();
-    CorGenerator ole0, ole1;
-    ole0.init(sock[0].fork(), prng, 0, 1 << 18, mock);
-    ole1.init(sock[1].fork(), prng, 1, 1 << 18, mock);
-
-    PRNG prng0(oc::ZeroBlock);
-    PRNG prng1(oc::OneBlock);
-
-    Table out[2];
-
-    auto exp = join(L[0], R[0], { L[0], R[1], L[1] });
-    oc::Timer timer;
-    join0.setTimer(timer);
-    // join1.setTimer(timer);
-
-
-
-    auto r = macoro::sync_wait(macoro::when_all_ready(
-        join0.join(Ls[0][0], Rs[0][0], { Ls[0][0], Rs[0][1], Ls[0][1] }, out[0], prng0, ole0, sock[0]),
-        join1.join(Ls[1][0], Rs[1][0], { Ls[1][0], Rs[1][1], Ls[1][1] }, out[1], prng1, ole1, sock[1])
-    ));
-    std::get<0>(r).result();
-    std::get<1>(r).result();
-    // std::cout << "out0" << std::endl;
-    // std::cout << out[0] << std::endl;
-    // std::cout << "out1" << std::endl;
-    // std::cout << out[1] << std::endl;
-
-    auto res = reveal(out[0], out[1]);
-
-    if (res != exp)
+    for(auto remDummies : { false, true })
     {
+        OmJoin join0, join1;
 
-        if (printSteps)
+        join0.mInsecurePrint = printSteps;
+        join1.mInsecurePrint = printSteps;
+
+        join0.mInsecureMockSubroutines = mock;
+        join1.mInsecureMockSubroutines = mock;
+
+        auto sock = coproto::LocalAsyncSocket::makePair();
+        CorGenerator ole0, ole1;
+        ole0.init(sock[0].fork(), prng, 0, 1 << 18, mock);
+        ole1.init(sock[1].fork(), prng, 1, 1 << 18, mock);
+
+        PRNG prng0(oc::ZeroBlock);
+        PRNG prng1(oc::OneBlock);
+
+        Table out[2];
+
+        auto exp = join(L[0], R[0], { L[0], R[1], L[1] });
+        oc::Timer timer;
+        join0.setTimer(timer);
+        join1.setTimer(timer);
+
+        Perm p0(exp.rows(), prng0);
+        Perm p1(exp.rows(), prng1);
+        Perm pi = p0.composeSwap(p1);
+
+        auto r = macoro::sync_wait(macoro::when_all_ready(
+            join0.join(Ls[0][0], Rs[0][0], { Ls[0][0], Rs[0][1], Ls[0][1] }, out[0], 
+                prng0, ole0, sock[0], remDummies, p0),
+            join1.join(Ls[1][0], Rs[1][0], { Ls[1][0], Rs[1][1], Ls[1][1] }, out[1], 
+                prng1, ole1, sock[1], remDummies, p1)
+        ));
+        std::get<0>(r).result();
+        std::get<1>(r).result();
+
+        auto res = reveal(out[0], out[1]);
+
+
+        if(remDummies)
         {
-
-            std::cout << "exp \n" << exp << std::endl;
-            std::cout << "act \n" << res << std::endl;
-            std::cout << "ful \n" << reveal(out[0], out[1], false) << std::endl;
+            Table tmp = applyPerm(exp, pi);
+            std::swap(exp, tmp);
         }
-        throw RTE_LOC;
-    }
 
-    if (cmd.isSet("timing"))
-        std::cout << timer << std::endl;
+        if (res != exp)
+        {
+            if (printSteps)
+            {
+
+                std::cout << "exp \n" << exp << std::endl;
+                std::cout << "act \n" << res << std::endl;
+                std::cout << "ful \n" << reveal(out[0], out[1], false) << std::endl;
+            }
+            throw RTE_LOC;
+        }
+
+        if (cmd.isSet("timing"))
+            std::cout << timer << std::endl;
+    }
 }
 
 void OmJoin_join_BigKey_Test(const oc::CLP& cmd)
@@ -824,52 +833,63 @@ void OmJoin_join_csv_Test(const oc::CLP& cmd)
     share(L, Ls, prng);
     share(R, Rs, prng);
 
-    OmJoin join0, join1;
-
-    join0.mInsecurePrint = printSteps;
-    join1.mInsecurePrint = printSteps;
-
-    join0.mInsecureMockSubroutines = mock;
-    join1.mInsecureMockSubroutines = mock;
-
-    PRNG prng0(oc::ZeroBlock);
-    PRNG prng1(oc::OneBlock);
-    auto sock = coproto::LocalAsyncSocket::makePair();
-    CorGenerator ole0, ole1;
-    ole0.init(sock[0].fork(), prng0, 0, 1 << 16, mock);
-    ole1.init(sock[1].fork(), prng1, 1, 1 << 16, mock);
-
-    Table out[2];
-
-    auto exp = join(L[0], R[1], { L[0], R[2], L[1] });
-    oc::Timer timer;
-    join0.setTimer(timer);
-    // join1.setTimer(timer);
-
-
-
-    auto r = macoro::sync_wait(macoro::when_all_ready(
-        join0.join(Ls[0][0], Rs[0][1], { Ls[0][0], Rs[0][2], Ls[0][1] }, out[0], prng0, ole0, sock[0]),
-        join1.join(Ls[1][0], Rs[1][1], { Ls[1][0], Rs[1][2], Ls[1][1] }, out[1], prng1, ole1, sock[1])
-    ));
-    std::get<0>(r).result();
-    std::get<1>(r).result();
-    // std::cout << "out0" << std::endl;
-    // std::cout << out[0] << std::endl;
-    // std::cout << "out1" << std::endl;
-    // std::cout << out[1] << std::endl;
-
-    auto res = reveal(out[0], out[1]);
-
-    if (res != exp)
+    for(auto remDummies : { false, true })
     {
-        std::cout << "exp \n" << exp << std::endl;
-        std::cout << "act \n" << res << std::endl;
-        // std::cout << "ful \n" << reveal(out[0], out[1], false) << std::endl;
-        throw RTE_LOC;
-    }
+        OmJoin join0, join1;
 
-    if (cmd.isSet("timing"))
-        std::cout << timer << std::endl;
+        join0.mInsecurePrint = printSteps;
+        join1.mInsecurePrint = printSteps;
+
+        join0.mInsecureMockSubroutines = mock;
+        join1.mInsecureMockSubroutines = mock;
+
+        PRNG prng0(oc::ZeroBlock);
+        PRNG prng1(oc::OneBlock);
+        auto sock = coproto::LocalAsyncSocket::makePair();
+        CorGenerator ole0, ole1;
+
+        ole0.init(sock[0].fork(), prng0, 0, 1 << 16, mock);
+        ole1.init(sock[1].fork(), prng1, 1, 1 << 16, mock);
+
+        Table out[2];
+
+        auto exp = join(L[0], R[1], { L[0], R[2], L[1] });
+        oc::Timer timer;
+        join0.setTimer(timer);
+        join1.setTimer(timer);
+
+        Perm p0(exp.rows(), prng0);
+        Perm p1(exp.rows(), prng1);
+        Perm pi = p0.composeSwap(p1);
+
+
+        auto r = macoro::sync_wait(macoro::when_all_ready(
+            join0.join(Ls[0][0], Rs[0][1], { Ls[0][0], Rs[0][2], Ls[0][1] }, out[0], 
+                prng0, ole0, sock[0], remDummies, p0),
+            join1.join(Ls[1][0], Rs[1][1], { Ls[1][0], Rs[1][2], Ls[1][1] }, out[1], 
+                prng1, ole1, sock[1], remDummies, p1)
+        ));
+        std::get<0>(r).result();
+        std::get<1>(r).result();
+
+        auto res = reveal(out[0], out[1]);
+
+        if(remDummies)
+        {
+            Table tmp = applyPerm(exp, pi);
+            std::swap(exp, tmp);
+        }
+
+        if (res != exp)
+        {
+            std::cout << "exp \n" << exp << std::endl;
+            std::cout << "act \n" << res << std::endl;
+            // std::cout << "ful \n" << reveal(out[0], out[1], false) << std::endl;
+            throw RTE_LOC;
+        }
+
+        if (cmd.isSet("timing"))
+            std::cout << timer << std::endl;
+    }
 
 }

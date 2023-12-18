@@ -187,8 +187,8 @@ void Average_avg_Test(const oc::CLP& cmd)
 
         Table out[2];
         auto r = macoro::sync_wait(macoro::when_all_ready(
-            avg1.avg(Ts[0][0], { Ts[0][1], Ts[0][2] }, out[0], prng0, ole0, sock[0], remDummies, &p0),
-            avg2.avg(Ts[1][0], { Ts[1][1], Ts[1][2] }, out[1], prng1, ole1, sock[1], remDummies, &p1)
+            avg1.avg(Ts[0][0], { Ts[0][1], Ts[0][2] }, out[0], prng0, ole0, sock[0], remDummies, p0),
+            avg2.avg(Ts[1][0], { Ts[1][1], Ts[1][2] }, out[1], prng1, ole1, sock[1], remDummies, p1)
         ));
         std::get<0>(r).result();
         std::get<1>(r).result();
@@ -283,6 +283,10 @@ void Average_avg_csv_Test(const oc::CLP& cmd)
 
         auto joinExp = join(L[lJoinColIndex], R[rJoinColIndex], selectColRefs);
 
+        Perm p2(joinExp.rows(), prng0);
+        Perm p3(joinExp.rows(), prng1);
+        Perm pi1 = p2.composeSwap(p3);
+
         // oc::Timer timer;
         // // join0.setTimer(timer);
         // // join1.setTimer(timer);
@@ -293,14 +297,20 @@ void Average_avg_csv_Test(const oc::CLP& cmd)
 
         auto r = macoro::sync_wait(macoro::when_all_ready(
             join0.join(Ls[0][lJoinColIndex], Rs[0][rJoinColIndex], lSelectColRefs, 
-                tempOut[0], prng0, ole0, sock[0]),
+                tempOut[0], prng0, ole0, sock[0], remDummies, p2),
             join1.join(Ls[1][lJoinColIndex], Rs[1][rJoinColIndex], rSelectColRefs, 
-                tempOut[1], prng1, ole1, sock[1])
+                tempOut[1], prng1, ole1, sock[1], remDummies, p3)
         ));
         std::get<0>(r).result();
         std::get<1>(r).result();
 
         auto res = reveal(tempOut[0], tempOut[1]);
+
+        if(remDummies)
+        {
+            Table tmp = applyPerm(joinExp, pi1);
+            std::swap(joinExp, tmp);
+        }
 
         if (res != joinExp)
         {
@@ -338,9 +348,9 @@ void Average_avg_csv_Test(const oc::CLP& cmd)
         
         auto r1 = macoro::sync_wait(macoro::when_all_ready(
             avg1.avg(tempOut[0][groupByColIndex], lAvgColRefs, out[0], 
-                prng0, ole0, sock[0], remDummies, &p0),
+                prng0, ole0, sock[0], remDummies, p0),
             avg2.avg(tempOut[1][groupByColIndex], rAvgColRefs, out[1], 
-                prng1, ole1, sock[1], remDummies, &p1)
+                prng1, ole1, sock[1], remDummies, p1)
         ));
         std::get<1>(r1).result();
         std::get<0>(r1).result();

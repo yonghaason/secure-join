@@ -148,11 +148,11 @@ namespace secJoin {
         CorGenerator& ole,
         coproto::Socket& sock,
         bool remDummies,
-        Perm* randPerm)
+        Perm randPerm)
     {
 
         MC_BEGIN(macoro::task<>, this, groupByCol, avgCol, &out, &prng, &ole, &sock, remDummies,
-            randPerm,
+            &randPerm,
             keys = BinMatrix{},
             data = BinMatrix{},
             temp = BinMatrix{},
@@ -296,15 +296,14 @@ namespace secJoin {
         coproto::Socket& sock,
         oc::PRNG& prng,
         bool securePerm,
-        Perm* randPerm)
+        Perm& randPerm)
     {
         MC_BEGIN(macoro::task<>, &out, avgCol, groupByCol, &keys, &data, &offsets, 
-            &keyOffsets, &ole, &sock, &prng, securePerm, randPerm,
+            &keyOffsets, &ole, &sock, &prng, securePerm, &randPerm,
             temp = BinMatrix{},
             actFlag = BinMatrix{},
             curOutRow = u64{},
             nOutRows = u64{},
-            perm = ComposedPerm{},
             tempPerm = Perm{},
             i = u64()
             );
@@ -321,22 +320,6 @@ namespace secJoin {
         MC_AWAIT(OmJoin::revealActFlag(actFlag, temp, sock, ole.partyIdx()));
         std::swap(actFlag, temp);    
 
-        // if (ole.partyIdx() == 0)
-        // {
-        //     temp.resize(actFlag.numEntries(), actFlag.bitsPerEntry());
-        //     MC_AWAIT(sock.recv(temp.mData));
-        //     temp = reveal(temp, actFlag);
-        //     std::swap(actFlag, temp);
-        //     MC_AWAIT(sock.send(coproto::copy(actFlag.mData)));
-        // }
-        // else
-        // {
-        //     MC_AWAIT(sock.send(coproto::copy(actFlag.mData)));
-        //     temp.resize(actFlag.numEntries(), actFlag.bitsPerEntry());
-        //     MC_AWAIT(sock.recv(temp.mData));
-        //     std::swap(actFlag, temp);
-        // }
-        
         nOutRows = 0;
         for (u64 i = 0; i < actFlag.numEntries(); i++)
         {
@@ -374,10 +357,10 @@ namespace secJoin {
                 break;
         }
 
-        if(randPerm == nullptr)
+        if(randPerm.size() == 0 && nOutRows > 1)
         {
             tempPerm.randomize(nOutRows, prng);
-            randPerm = &tempPerm;
+            randPerm = tempPerm;
         }
 
         // A Better way could have been to permute the keys & data
@@ -388,7 +371,7 @@ namespace secJoin {
             for(i = 0; i < out.cols(); i++)
             {
                 MC_AWAIT(OmJoin::applyRandPerm(out.mColumns[i].mData, temp, ole, 
-                    prng, *randPerm, sock, securePerm));
+                    prng, randPerm, sock, securePerm));
                 std::swap(out.mColumns[i].mData, temp);
             }
         }

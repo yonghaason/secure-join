@@ -25,6 +25,6 @@ namespace secJoin
         coproto::BufferingSocket mSock;
         macoro::eager_task<void> mProtocol;
         oc::u64 mTotCol;
-        bool mInsecurePrint, mInsecureMockSubroutines;
+        bool mInsecurePrint, mInsecureMockSubroutines, mRemDummies;
     };
 }

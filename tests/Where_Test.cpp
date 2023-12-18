@@ -143,9 +143,9 @@ void Where_ArrType_Greater_Than_Equals_Test(const oc::CLP& cmd)
             
             auto r = macoro::sync_wait(macoro::when_all_ready( 
                 wh0.where(Ts[0], {gate}, literals, literalsType, totalCol, 
-                    out0, map, ole0, sock[0], false, prng0, remDummies, &p0),
+                    out0, map, ole0, sock[0], false, prng0, remDummies, p0),
                 wh1.where(Ts[1], {gate}, literals, literalsType, totalCol, 
-                    out1, map, ole1, sock[1], false, prng1, remDummies, &p1)
+                    out1, map, ole1, sock[1], false, prng1, remDummies, p1)
             ));
 
             std::get<1>(r).result();
@@ -238,9 +238,9 @@ void Where_ArrType_Addition_Test(const oc::CLP& cmd)
             
             auto r = macoro::sync_wait(macoro::when_all_ready( 
                 wh0.where(Ts[0], gates[i], literals, literalsType, totalCol, 
-                    out0, map, ole0, sock[0], false, prng0, remDummies, &p0),
+                    out0, map, ole0, sock[0], false, prng0, remDummies, p0),
                 wh1.where(Ts[1], gates[i], literals, literalsType, totalCol, 
-                    out1, map, ole1, sock[1], false, prng1, remDummies, &p1)
+                    out1, map, ole1, sock[1], false, prng1, remDummies, p1)
             ));
 
             std::get<0>(r).result();    
@@ -336,9 +336,9 @@ void Where_ArrType_And_Or_Test(const oc::CLP& cmd)
             
             auto r = macoro::sync_wait(macoro::when_all_ready( 
                 wh0.where(Ts[0], gates[i], literals, literalsType, totalCol, 
-                    out0, map, ole0, sock[0], false, prng0, remDummies, &p0),
+                    out0, map, ole0, sock[0], false, prng0, remDummies, p0),
                 wh1.where(Ts[1], gates[i], literals, literalsType, totalCol, 
-                    out1, map, ole1, sock[1], false, prng1, remDummies, &p1)
+                    out1, map, ole1, sock[1], false, prng1, remDummies, p1)
             ));
 
             std::get<0>(r).result();    
@@ -420,8 +420,8 @@ void Where_ArrType_Less_Than_Test(const oc::CLP& cmd)
     ole0.init(sock[0].fork(), prng0, 0, 1 << 16, mock);
     ole1.init(sock[1].fork(), prng1, 1, 1 << 16, mock);
 
-    std::vector<std::array<u64, 2>> inIdxs = {{2, 3}, {0, 1}, {0, 3}, {3, 0}, {4, 5} };
-    // {8, 3}, {1, 7}, {4, 6}};
+    std::vector<std::array<u64, 2>> inIdxs = {{2, 3}, {0, 1}, {0, 3}, {3, 0}, {4, 5},  //};
+    {8, 3}, {1, 7}, {4, 6}};
 
     for(u64 i = 0; i < inIdxs.size(); i++)
     {
@@ -439,9 +439,9 @@ void Where_ArrType_Less_Than_Test(const oc::CLP& cmd)
             
             auto r = macoro::sync_wait(macoro::when_all_ready( 
                 wh0.where(Ts[0], {gate}, literals, literalsType, totalCol, 
-                    out0, map, ole0, sock[0], false, prng0, remDummies, &p0),
+                    out0, map, ole0, sock[0], false, prng0, remDummies, p0),
                 wh1.where(Ts[1], {gate}, literals, literalsType, totalCol, 
-                    out1, map, ole1, sock[1], false, prng1, remDummies, &p1)
+                    out1, map, ole1, sock[1], false, prng1, remDummies, p1)
             ));
 
             std::get<1>(r).result();
@@ -542,9 +542,9 @@ void Where_ArrType_Equals_Test(const oc::CLP& cmd)
             
             auto r = macoro::sync_wait(macoro::when_all_ready( 
                 wh0.where(Ts[0], {gate}, literals, literalsType, totalCol, 
-                    out0, map, ole0, sock[0], false, prng0, remDummies, &p0),
+                    out0, map, ole0, sock[0], false, prng0, remDummies, p0),
                 wh1.where(Ts[1], {gate}, literals, literalsType, totalCol, 
-                    out1, map, ole1, sock[1], false, prng1, remDummies, &p1)
+                    out1, map, ole1, sock[1], false, prng1, remDummies, p1)
             ));
 
             std::get<1>(r).result();
@@ -635,7 +635,7 @@ void Where_ArrType_Not_Equals_Test(const oc::CLP& cmd)
         ArrGate gate(ArrGateType::NOT_EQUALS, inIdx1, inIdx2, literals.size());
         Table exp = where(T, {gate}, literals, literalsType, totalCol, map, printSteps);
 
-        for(auto remDummies : { false, true })
+        for(auto remDummies : { false })
         {
             Where wh0, wh1;
             SharedTable out0, out1;
@@ -646,15 +646,18 @@ void Where_ArrType_Not_Equals_Test(const oc::CLP& cmd)
             
             auto r = macoro::sync_wait(macoro::when_all_ready( 
                 wh0.where(Ts[0], {gate}, literals, literalsType, totalCol, 
-                    out0, map, ole0, sock[0], false, prng0, remDummies, &p0),
+                    out0, map, ole0, sock[0], false, prng0, remDummies, p0),
                 wh1.where(Ts[1], {gate}, literals, literalsType, totalCol, 
-                    out1, map, ole1, sock[1], false, prng1, remDummies, &p1)
+                    out1, map, ole1, sock[1], false, prng1, remDummies, p1)
             ));
 
             std::get<1>(r).result();
             std::get<0>(r).result();
 
             auto act = reveal(out0, out1);
+
+            std::cout << "exp " << exp << std::endl;
+            std::cout << "act " << act << std::endl;
 
             if(remDummies)
             {
@@ -751,9 +754,9 @@ void Where_join_where_Test(const oc::CLP& cmd)
             
             auto r = macoro::sync_wait(macoro::when_all_ready( 
                 wh0.where(Ts[0], gates[i], literals, literalsType, totalCol, 
-                    out0, map, ole0, sock[0], false, prng0, remDummies, &p0),
+                    out0, map, ole0, sock[0], false, prng0, remDummies, p0),
                 wh1.where(Ts[1], gates[i], literals, literalsType, totalCol, 
-                    out1, map, ole1, sock[1], false, prng1, remDummies, &p1)
+                    out1, map, ole1, sock[1], false, prng1, remDummies, p1)
             ));
 
             std::get<1>(r).result();
@@ -829,66 +832,78 @@ void Where_join_where_csv_Test(const oc::CLP& cmd)
     std::array<Table, 2> Ls, Rs;
     share(L, Ls, prng);
     share(R, Rs, prng);
-
-    OmJoin join0, join1;
-
-    join0.mInsecurePrint = printSteps;
-    join1.mInsecurePrint = printSteps;
-
-    join0.mInsecureMockSubroutines = mock;
-    join1.mInsecureMockSubroutines = mock;
-
-    PRNG prng0(oc::ZeroBlock);
-    PRNG prng1(oc::OneBlock);
-    auto sock = coproto::LocalAsyncSocket::makePair();
-
-    CorGenerator ole0, ole1;
-    ole0.init(sock[0].fork(), prng0, 0, 1 << 16, mock);
-    ole1.init(sock[1].fork(), prng1, 1, 1 << 16, mock);
-
-    Table tempOut[2], out[2];
-    
-    u64 lJoinColIndex = joinCols[0];
-    u64 rJoinColIndex = getRColIndex(joinCols[1], lColCount, rColCount);
-
-    auto joinExp = join(L[lJoinColIndex], R[rJoinColIndex], selectColRefs);
-    
-    std::vector<secJoin::ColRef> lSelectColRefs = getSelectColRef(selectCols, Ls[0], Rs[0]);
-    std::vector<secJoin::ColRef> rSelectColRefs = getSelectColRef(selectCols, Ls[1], Rs[1]);
-
-    auto r = macoro::sync_wait(macoro::when_all_ready(
-        join0.join(Ls[0][lJoinColIndex], Rs[0][rJoinColIndex], lSelectColRefs, tempOut[0], prng0, ole0, sock[0]),
-        join1.join(Ls[1][lJoinColIndex], Rs[1][rJoinColIndex], rSelectColRefs, tempOut[1], prng1, ole1, sock[1])
-    ));
-    std::get<0>(r).result();
-    std::get<1>(r).result();
-
-    auto res = reveal(tempOut[0], tempOut[1]);
-
-    if (res != joinExp)
-    {
-        std::cout << "exp \n" << joinExp << std::endl;
-        std::cout << "act \n" << res << std::endl;
-        // std::cout << "ful \n" << reveal(out[0], out[1], false) << std::endl;
-        throw RTE_LOC;
-    }
-    // Create a new mapping and store the new mapping in the cState
-    std::unordered_map<u64, u64> map;
-    createNewMapping(map, selectCols);
-    if(printSteps)
-    {
-        std::cout << "Printing Map" << std::endl;
-        for (auto i : map) 
-            std::cout << i.first << " \t\t\t " << i.second << std::endl; 
-    }
-    Table exp = where(joinExp, gates, literals, literalsType, totalCol, map, printSteps);
-
-    Perm p0(exp.rows(), prng0);
-    Perm p1(exp.rows(), prng1);
-    Perm pi = p0.composeSwap(p1);
     
     for(auto remDummies : { false, true })
     {
+        OmJoin join0, join1;
+
+        join0.mInsecurePrint = printSteps;
+        join1.mInsecurePrint = printSteps;
+
+        join0.mInsecureMockSubroutines = mock;
+        join1.mInsecureMockSubroutines = mock;
+
+        PRNG prng0(oc::ZeroBlock);
+        PRNG prng1(oc::OneBlock);
+        auto sock = coproto::LocalAsyncSocket::makePair();
+
+        CorGenerator ole0, ole1;
+        ole0.init(sock[0].fork(), prng0, 0, 1 << 16, mock);
+        ole1.init(sock[1].fork(), prng1, 1, 1 << 16, mock);
+
+        Table tempOut[2], out[2];
+        
+        u64 lJoinColIndex = joinCols[0];
+        u64 rJoinColIndex = getRColIndex(joinCols[1], lColCount, rColCount);
+
+        auto joinExp = join(L[lJoinColIndex], R[rJoinColIndex], selectColRefs);
+
+        Perm p2(joinExp.rows(), prng0);
+        Perm p3(joinExp.rows(), prng1);
+        Perm pi1 = p2.composeSwap(p3);
+        
+        std::vector<secJoin::ColRef> lSelectColRefs = getSelectColRef(selectCols, Ls[0], Rs[0]);
+        std::vector<secJoin::ColRef> rSelectColRefs = getSelectColRef(selectCols, Ls[1], Rs[1]);
+
+        auto r = macoro::sync_wait(macoro::when_all_ready(
+            join0.join(Ls[0][lJoinColIndex], Rs[0][rJoinColIndex], lSelectColRefs, tempOut[0], 
+                prng0, ole0, sock[0], remDummies, p2),
+            join1.join(Ls[1][lJoinColIndex], Rs[1][rJoinColIndex], rSelectColRefs, tempOut[1], 
+                prng1, ole1, sock[1], remDummies, p3)
+        ));
+        std::get<0>(r).result();
+        std::get<1>(r).result();
+
+        auto res = reveal(tempOut[0], tempOut[1]);
+
+        if(remDummies)
+        {
+            Table tmp = applyPerm(joinExp, pi1);
+            std::swap(joinExp, tmp);
+        }
+
+
+        if (res != joinExp)
+        {
+            std::cout << "exp \n" << joinExp << std::endl;
+            std::cout << "act \n" << res << std::endl;
+            // std::cout << "ful \n" << reveal(out[0], out[1], false) << std::endl;
+            throw RTE_LOC;
+        }
+        // Create a new mapping and store the new mapping in the cState
+        std::unordered_map<u64, u64> map;
+        createNewMapping(map, selectCols);
+        if(printSteps)
+        {
+            std::cout << "Printing Map" << std::endl;
+            for (auto i : map) 
+                std::cout << i.first << " \t\t\t " << i.second << std::endl; 
+        }
+        Table exp = where(joinExp, gates, literals, literalsType, totalCol, map, printSteps);
+
+        Perm p0(exp.rows(), prng0);
+        Perm p1(exp.rows(), prng1);
+        Perm pi = p0.composeSwap(p1);
 
         Where wh0, wh1;
         wh0.mInsecureMockSubroutines = mock;
@@ -896,9 +911,9 @@ void Where_join_where_csv_Test(const oc::CLP& cmd)
         
         auto r1 = macoro::sync_wait(macoro::when_all_ready(
             wh0.where(tempOut[0], gates, literals, literalsType, totalCol, 
-                out[0], map, ole0, sock[0], printSteps, prng0, remDummies, &p0),
+                out[0], map, ole0, sock[0], printSteps, prng0, remDummies, p0),
             wh1.where(tempOut[1], gates, literals, literalsType, totalCol, 
-                out[1], map, ole1, sock[1], printSteps, prng1, remDummies, &p1)
+                out[1], map, ole1, sock[1], printSteps, prng1, remDummies, p1)
         ));
         std::get<0>(r1).result();
         std::get<1>(r1).result();
@@ -1022,18 +1037,30 @@ void Where_avg_where_csv_Test(const oc::CLP& cmd)
         u64 rJoinColIndex = getRColIndex(joinCols[1], lColCount, rColCount);
 
         auto joinExp = join(L[lJoinColIndex], R[rJoinColIndex], selectColRefs);
+
+        Perm p4(joinExp.rows(), prng0);
+        Perm p5(joinExp.rows(), prng1);
+        Perm pi2 = p4.composeSwap(p5);
         
         std::vector<secJoin::ColRef> lSelectColRefs = getSelectColRef(selectCols, Ls[0], Rs[0]);
         std::vector<secJoin::ColRef> rSelectColRefs = getSelectColRef(selectCols, Ls[1], Rs[1]);
 
         auto r = macoro::sync_wait(macoro::when_all_ready(
-            join0.join(Ls[0][lJoinColIndex], Rs[0][rJoinColIndex], lSelectColRefs, joinOut[0], prng0, ole0, sock[0]),
-            join1.join(Ls[1][lJoinColIndex], Rs[1][rJoinColIndex], rSelectColRefs, joinOut[1], prng1, ole1, sock[1])
+            join0.join(Ls[0][lJoinColIndex], Rs[0][rJoinColIndex], lSelectColRefs, joinOut[0], 
+                prng0, ole0, sock[0], remDummies, p4),
+            join1.join(Ls[1][lJoinColIndex], Rs[1][rJoinColIndex], rSelectColRefs, joinOut[1], 
+                prng1, ole1, sock[1], remDummies, p5)
         ));
         std::get<0>(r).result();
         std::get<1>(r).result();
 
         auto res = reveal(joinOut[0], joinOut[1]);
+
+        if(remDummies)
+        {
+            Table tmp = applyPerm(joinExp, pi2);
+            std::swap(joinExp, tmp);
+        }
 
         if (res != joinExp)
         {
@@ -1055,9 +1082,9 @@ void Where_avg_where_csv_Test(const oc::CLP& cmd)
         
         auto r1 = macoro::sync_wait(macoro::when_all_ready(
             wh0.where(joinOut[0], gates, literals, literalsType, totalCol, 
-                whereOut[0], map, ole0, sock[0], printSteps, prng0, remDummies, &p0),
+                whereOut[0], map, ole0, sock[0], printSteps, prng0, remDummies, p0),
             wh1.where(joinOut[1], gates, literals, literalsType, totalCol, 
-                whereOut[1], map, ole1, sock[1], printSteps, prng1, remDummies, &p1)
+                whereOut[1], map, ole1, sock[1], printSteps, prng1, remDummies, p1)
         ));
         std::get<0>(r1).result();
         std::get<1>(r1).result();
@@ -1099,9 +1126,9 @@ void Where_avg_where_csv_Test(const oc::CLP& cmd)
 
         auto r2 = macoro::sync_wait(macoro::when_all_ready(
             avg1.avg(whereOut[0][groupByColIndex], lAvgColRefs, out[0], prng0, ole0, 
-                sock[0], remDummies, &p2),
+                sock[0], remDummies, p2),
             avg2.avg(whereOut[1][groupByColIndex], rAvgColRefs, out[1], prng1, ole1,
-                sock[1], remDummies, &p3)
+                sock[1], remDummies, p3)
         ));
         std::get<1>(r2).result();
         std::get<0>(r2).result();

@@ -134,7 +134,9 @@ namespace secJoin
 			SharedTable& out,
 			PRNG& prng,
 			CorGenerator& ole,
-			coproto::Socket& sock);
+			coproto::Socket& sock,
+			bool remDummies = false, 
+			Perm randPerm = {});
 
 		static macoro::task<> applyRandPerm(
 			BinMatrix& data,
@@ -150,6 +152,18 @@ namespace secJoin
 			BinMatrix& out,
 			coproto::Socket& sock,
 			u64 partyIdx);
+
+		static  macoro::task<> getOutput(
+			BinMatrix& data,
+			span<ColRef> selects,
+			ColRef& left,
+			SharedTable& out,
+			std::vector<Offset>& offsets,
+			CorGenerator& ole,
+			coproto::Socket& sock,
+			oc::PRNG& prng,
+			bool securePerm,
+			Perm& randPerm);
     
 	};
 

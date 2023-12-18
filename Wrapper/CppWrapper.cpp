@@ -16,7 +16,8 @@ namespace secJoin
         bool isUnique, 
         bool verbose, 
         bool mock, 
-        bool debug)
+        bool remDummies,
+        Perm* randPerm)
     {
         mock = true; // Remove this once Peter fixes the Join bug
         auto cState = std::make_unique<WrapperState>();
@@ -63,6 +64,7 @@ namespace secJoin
         cState->mJoin.mInsecureMockSubroutines = mock;
         cState->mInsecurePrint = verbose;
         cState->mInsecureMockSubroutines = mock;
+        cState->mRemDummies = remDummies;
 
 
         // Current assumption are that Visa always provides table with unique keys 
@@ -75,8 +77,8 @@ namespace secJoin
             //cState->mOle.mock(CorGenerator::Role::Receiver);
 
         cState->mProtocol =
-            cState->mJoin.join(lJoinColRef, rJoinColRef, selectColRefs,
-                cState->mJoinTb, cState->mPrng, cState->mOle, cState->mSock) | macoro::make_eager();
+            cState->mJoin.join(lJoinColRef, rJoinColRef, selectColRefs, cState->mJoinTb, 
+                cState->mPrng, cState->mOle, cState->mSock, remDummies) | macoro::make_eager();
 
         
         return cState.release();
@@ -148,9 +150,11 @@ namespace secJoin
                 throw std::runtime_error(temp + LOCATION);
         }
 
+        cState->mWh.mInsecureMockSubroutines = cState->mInsecureMockSubroutines;
         cState->mProtocol = cState->mWh.where(cState->mJoinTb, cState->mGates, cState->mLiterals, 
             cState->mLiteralsType, cState->mTotCol, cState->mWhTb, cState->mMap, cState->mOle, 
-            cState->mSock, cState->mInsecurePrint, cState->mPrng) | macoro::make_eager();
+            cState->mSock, cState->mInsecurePrint, cState->mPrng, cState->mRemDummies) 
+            | macoro::make_eager();
 
     }
 
@@ -178,8 +182,8 @@ namespace secJoin
             cState->mAvg.mInsecureMockSubroutines = cState->mInsecureMockSubroutines;
 
             cState->mProtocol =
-                cState->mAvg.avg( grpByCol, avgCols, cState->mAggTb,
-                    cState->mPrng, cState->mOle, cState->mSock) | macoro::make_eager();
+                cState->mAvg.avg( grpByCol, avgCols, cState->mAggTb, cState->mPrng, 
+                cState->mOle, cState->mSock, cState->mRemDummies) | macoro::make_eager();
     
         }
 

@@ -20,7 +20,7 @@ namespace secJoin
 
         macoro::task<> avg(ColRef groupByCol, std::vector<ColRef> avgCol, SharedTable& out,
             oc::PRNG& prng, CorGenerator& ole, coproto::Socket& sock, bool remDummies = false,
-            Perm* randPerm = nullptr);
+            Perm randPerm = {});
 
         static macoro::task<> getControlBits(BinMatrix& keys, coproto::Socket& sock, BinMatrix& out,
         CorGenerator& ole);
@@ -35,7 +35,7 @@ namespace secJoin
         static macoro::task<> getOutput( SharedTable& out, std::vector<ColRef> avgCol,
             ColRef groupByCol, BinMatrix& keys, BinMatrix& data, std::vector<OmJoin::Offset>& offsets,
             std::vector<OmJoin::Offset>& keyOffsets, CorGenerator& ole, coproto::Socket& sock, 
-            oc::PRNG& prng, bool securePerm, Perm* randPerm);
+            oc::PRNG& prng, bool securePerm, Perm& randPerm);
 
         static macoro::task<> updateActiveFlag(BinMatrix& data, BinMatrix& choice, 
             BinMatrix& out, CorGenerator& ole, coproto::Socket& sock);
