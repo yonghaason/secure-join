@@ -101,7 +101,6 @@ void runProtocol(secJoin::WrapperState* visaState, secJoin::WrapperState* bankSt
 
 void OmJoin_wrapper_join_test(const oc::CLP& cmd)
 {
-
     // std::string str("Hello World!");
     // testApi(str);
     std::string rootPath(SEC_JOIN_ROOT_DIRECTORY);
@@ -114,7 +113,7 @@ void OmJoin_wrapper_join_test(const oc::CLP& cmd)
     bool isUnique = true;
     bool verbose = cmd.isSet("v");
     bool mock = cmd.getOr("mock", 1);
-    bool debug = cmd.isSet("debug");
+    bool remDummies = cmd.isSet("remDummies");
 
     // Literals & opInfo are dynamically generated on java side
     std::vector<std::string> literals{"PAN", "Risk_Score", "Date", "PAN", "Balance",
@@ -124,10 +123,10 @@ void OmJoin_wrapper_join_test(const oc::CLP& cmd)
     std::vector<oc::i64> opInfo{ 2, 0, 3, 4, 0, 1, 4, 5, -1};
 
     std::unique_ptr<secJoin::WrapperState> visaState(secJoin::initState(visaCsvPath, visaMetaDataPath, clientMetaDataPath, 
-        literals, literalsType, opInfo, isUnique, verbose, mock, debug));
+        literals, literalsType, opInfo, isUnique, verbose, mock, remDummies));
 
     std::unique_ptr<secJoin::WrapperState> bankState(secJoin::initState(bankCsvPath, visaMetaDataPath, clientMetaDataPath,
-        literals, literalsType, opInfo, !isUnique, verbose, mock, debug));
+        literals, literalsType, opInfo, !isUnique, verbose, mock, remDummies));
 
     auto lColCount = visaState->mLTb.cols();
     auto rColCount = visaState->mRTb.cols();
@@ -160,10 +159,10 @@ void OmJoin_wrapper_join_test(const oc::CLP& cmd)
     if (visaState->mOutTb != exp)
     {
 
-        std::cout << "L \n" << visaState->mLTb << std::endl;
-        std::cout << "R \n" << bankState->mRTb << std::endl;
-        std::cout << "exp \n" << exp << std::endl;
-        std::cout << "act \n" << visaState->mOutTb << std::endl;
+        // std::cout << "L \n" << visaState->mLTb << std::endl;
+        // std::cout << "R \n" << bankState->mRTb << std::endl;
+        // std::cout << "exp \n" << exp << std::endl;
+        // std::cout << "act \n" << visaState->mOutTb << std::endl;
         secJoin::releaseState(visaState.release());
         secJoin::releaseState(bankState.release());
         throw RTE_LOC;
@@ -187,7 +186,7 @@ void OmJoin_wrapper_avg_test(const oc::CLP& cmd)
     bool isUnique = true;
     bool verbose = cmd.isSet("v");
     bool mock = cmd.getOr("mock", 1);
-    bool debug = cmd.isSet("debug");
+    bool remDummies = cmd.isSet("remDummies");
     
     // Literals & opInfo are dynamically generated on java side
     std::vector<std::string> literals{"PAN", "Risk_Score", "Date", "PAN", "Balance",
@@ -197,10 +196,10 @@ void OmJoin_wrapper_avg_test(const oc::CLP& cmd)
     std::vector<oc::i64> opInfo{ 2, 0, 3, 4, 0, 1, 4, 5, 1, 0, 2, 1, 4, -1};
 
     std::unique_ptr<secJoin::WrapperState> visaState(secJoin::initState(visaCsvPath, visaMetaDataPath, clientMetaDataPath,
-        literals, literalsType, opInfo, isUnique, verbose, mock, debug));
+        literals, literalsType, opInfo, isUnique, verbose, mock, remDummies));
 
     std::unique_ptr<secJoin::WrapperState> bankState(secJoin::initState(bankCsvPath, visaMetaDataPath, clientMetaDataPath,
-        literals, literalsType, opInfo, !isUnique, verbose, mock, debug));
+        literals, literalsType, opInfo, !isUnique, verbose, mock, remDummies));
 
     auto select = genSelectCols(visaState.get(), bankState.get());
     auto lColCount = visaState->mLTb.cols();
@@ -240,7 +239,7 @@ void OmJoin_wrapper_avg_test(const oc::CLP& cmd)
         secJoin::releaseState(bankState.release());
         throw RTE_LOC;
     }
-    
+
     secJoin::aggFunc(visaState.get());
     secJoin::aggFunc(bankState.get());
 
@@ -308,7 +307,7 @@ void OmJoin_wrapper_where_test(const oc::CLP& cmd)
     bool isUnique = true;
     bool verbose = cmd.isSet("v");
     bool mock = cmd.getOr("mock", 1);
-    bool debug = cmd.isSet("debug");
+    bool remDummies = cmd.isSet("remDummies");
     
     // Literals & opInfo are dynamically generated on java side
     //Where Clause PAN == 52522546320168 || PAN == 52474898920631 || Balance + Risk_Score == 8375
@@ -321,10 +320,10 @@ void OmJoin_wrapper_where_test(const oc::CLP& cmd)
         1, 0, 7, 10, 4, 9, 10, 11, 5, 4, 5, 12, 1, 12, 8, 13, 4, 11, 13, 14, -1};
 
     std::unique_ptr<secJoin::WrapperState> visaState(secJoin::initState(visaCsvPath, visaMetaDataPath, clientMetaDataPath,
-        literals, literalsType, opInfo, isUnique, verbose, mock, debug));
+        literals, literalsType, opInfo, isUnique, verbose, mock, remDummies));
 
     std::unique_ptr<secJoin::WrapperState> bankState(secJoin::initState(bankCsvPath, visaMetaDataPath, clientMetaDataPath,
-        literals, literalsType, opInfo, !isUnique, verbose, mock, debug));
+        literals, literalsType, opInfo, !isUnique, verbose, mock, remDummies));
 
     auto select = genSelectCols(visaState.get(), bankState.get());
     auto lColCount = visaState->mLTb.cols();
@@ -382,7 +381,6 @@ void OmJoin_wrapper_where_test(const oc::CLP& cmd)
 
     if (visaState->mOutTb != whExp)
     {
-
         std::cout << "L \n" << visaState->mLTb << std::endl;
         std::cout << "R \n" << bankState->mRTb << std::endl;
         std::cout << "exp \n" << whExp << std::endl;

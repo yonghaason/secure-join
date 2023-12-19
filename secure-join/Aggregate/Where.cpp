@@ -39,7 +39,7 @@ namespace secJoin {
         Perm randPerm)
     {
         MC_BEGIN(macoro::task<>, this, &st, &gates, &literals, &literalsType, totalCol, &out,
-            &map, &ole, &sock, print, &prng, remDummies, &randPerm,
+            &map, &ole, &sock, print, &prng, remDummies, randPerm,
             cd = oc::BetaCircuit{},
             gmw = Gmw{},
             rows = u64(),

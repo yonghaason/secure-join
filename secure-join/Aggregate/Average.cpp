@@ -152,7 +152,7 @@ namespace secJoin {
     {
 
         MC_BEGIN(macoro::task<>, this, groupByCol, avgCol, &out, &prng, &ole, &sock, remDummies,
-            &randPerm,
+            randPerm,
             keys = BinMatrix{},
             data = BinMatrix{},
             temp = BinMatrix{},

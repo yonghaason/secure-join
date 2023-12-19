@@ -432,7 +432,7 @@ namespace secJoin
             // We got all our entries
             if(curOutRow == nOutRows)
                 break;
-        }
+        }            
 
         if(randPerm.size() == 0 && nOutRows > 1)
         {
@@ -605,7 +605,7 @@ namespace secJoin
         Perm randPerm)
     {
         MC_BEGIN(macoro::task<>, this, leftJoinCol, rightJoinCol, selects, &out, &prng, &ole, &sock,
-            remDummies, &randPerm,
+            remDummies, randPerm,
             keys = BinMatrix{},
             sPerm = AdditivePerm{},
             controlBits = BinMatrix{},
