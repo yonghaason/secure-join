@@ -42,6 +42,7 @@ namespace secJoin_Tests
             t.add("Gmw_inOut_test                                ", Gmw_inOut_test);
             t.add("Gmw_xor_test                                  ", Gmw_xor_test);
             t.add("Gmw_and_test                                  ", Gmw_and_test);
+            t.add("Gmw_nand_test                                 ", Gmw_nand_test);
             t.add("Gmw_na_and_test                               ", Gmw_na_and_test);
             t.add("Gmw_or_test                                   ", Gmw_or_test);
             t.add("Gmw_xor_and_test                              ", Gmw_xor_and_test);
