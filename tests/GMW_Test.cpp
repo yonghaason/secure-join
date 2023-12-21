@@ -668,6 +668,86 @@ namespace secJoin_Tests
         }
     }
 
+    void Gmw_nb_or_test(const oc::CLP& cmd)
+    {
+
+        u64 w = 8;
+        u64 n = 1;
+
+        auto sockets = LocalAsyncSocket::makePair();
+        BetaCircuit cir;
+
+        BetaBundle a(w);
+        BetaBundle b(w);
+        BetaBundle t0(w);
+        BetaBundle t1(w);
+        BetaBundle c(w);
+        BetaBundle d(w);
+
+        cir.addInputBundle(a);
+        cir.addInputBundle(b);
+        cir.addOutputBundle(c);
+
+        for (u64 i = 0; i < w; ++i)
+            cir.addGate(a[i], b[i], oc::GateType::nb_Or, c[i]);
+        
+
+        PRNG prng(block(0, 0));
+        CorGenerator ole0, ole1;
+        ole0.init(sockets[0].fork(), prng, 0, 1<<18, cmd.getOr("mock", 1));
+        ole1.init(sockets[1].fork(), prng, 1, 1<<18, cmd.getOr("mock", 1));
+
+        Gmw gmw0, gmw1;
+        gmw0.init(n, cir);
+        gmw1.init(n, cir);
+
+        gmw0.mO.mDebug = true;
+        gmw1.mO.mDebug = true;
+
+        Matrix<u8> in0(n, oc::divCeil(w, 8));
+        Matrix<u8> in1(n, oc::divCeil(w, 8));
+        Matrix<u8> out0(n, oc::divCeil(w, 8));
+        Matrix<u8> out1(n, oc::divCeil(w, 8));
+        Matrix<u8> d0(n, oc::divCeil(w, 8));
+        Matrix<u8> d1(n, oc::divCeil(w, 8));
+
+        prng.get(in0.data(), in0.size());
+        prng.get(in1.data(), in1.size());
+
+        auto sin0 = share(in0, prng);
+        auto sin1 = share(in1, prng);
+
+        gmw0.setInput(0, sin0[0]);
+        gmw0.setInput(1, sin1[0]);
+        gmw1.setInput(0, sin0[1]);
+        gmw1.setInput(1, sin1[1]);
+
+        auto p0 = gmw0.run(ole0, sockets[0], prng);
+        auto p1 = gmw1.run(ole1, sockets[1], prng);
+        eval(p0, p1);
+
+        gmw0.getOutput(0, out0);
+        gmw1.getOutput(0, out1);
+
+
+        oc::RandomOracle ro(16);
+        ro.Update(out0.data(), out0.size());
+        ro.Update(out1.data(), out0.size());
+        block bb;
+        ro.Final(bb);
+
+        for (u64 i = 0; i < out0.size(); ++i)
+        {
+            {
+                u8 exp = in0(i) | ~in1(i);
+                u8 act = out0(i) ^ out1(i);
+
+                if (exp != act)
+                    throw RTE_LOC;
+            }
+        }
+    }
+
     void Gmw_or_test(const oc::CLP& cmd)
     {
 

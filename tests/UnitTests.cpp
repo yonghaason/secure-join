@@ -44,11 +44,13 @@ namespace secJoin_Tests
             t.add("Gmw_and_test                                  ", Gmw_and_test);
             t.add("Gmw_nand_test                                 ", Gmw_nand_test);
             t.add("Gmw_na_and_test                               ", Gmw_na_and_test);
+            t.add("Gmw_nb_or_test                                ", Gmw_nb_or_test);
             t.add("Gmw_or_test                                   ", Gmw_or_test);
             t.add("Gmw_xor_and_test                              ", Gmw_xor_and_test);
             t.add("Gmw_aa_na_and_test                            ", Gmw_aa_na_and_test);
             t.add("Gmw_add_test                                  ", Gmw_add_test);
             t.add("Gmw_noLevelize_test                           ", Gmw_noLevelize_test);
+            
 
             // t.add("PaillierPerm_basic_test                       ", PaillierPerm_basic_test);
             t.add("AltModPrf_mod3BitDecompostion_test              ", AltModPrf_mod3BitDecompostion_test);

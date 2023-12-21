@@ -635,7 +635,7 @@ void Where_ArrType_Not_Equals_Test(const oc::CLP& cmd)
         ArrGate gate(ArrGateType::NOT_EQUALS, inIdx1, inIdx2, literals.size());
         Table exp = where(T, {gate}, literals, literalsType, totalCol, map, printSteps);
 
-        for(auto remDummies : { false })
+        for(auto remDummies : { false, true })
         {
             Where wh0, wh1;
             SharedTable out0, out1;
@@ -655,9 +655,6 @@ void Where_ArrType_Not_Equals_Test(const oc::CLP& cmd)
             std::get<0>(r).result();
 
             auto act = reveal(out0, out1);
-
-            std::cout << "exp " << exp << std::endl;
-            std::cout << "act " << act << std::endl;
 
             if(remDummies)
             {

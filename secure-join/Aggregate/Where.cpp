@@ -278,14 +278,7 @@ namespace secJoin {
                 ArrTypeEqualCir(inIndex1, inIndex2, cd, c, lastOp);
                 
                 if(gates[i].mType == ArrGateType::NOT_EQUALS)
-                {
-                    // cd.addInvert(c.mWires[0]);
-                    oc::BetaWire t;
-                    cd.addTempWire(t);
-                    cd.addInvert(c.mWires[0], t);
-                    cd.addCopy(t, c[0]);
-                }
-                    
+                    cd.mGates.back().mType = oc::GateType((u8)cd.mGates.back().mType ^ 15);
 
             }
             else if(gates[i].mType == ArrGateType::AND || gates[i].mType == ArrGateType::OR)
@@ -311,7 +304,8 @@ namespace secJoin {
                 
                 // This is greater than equals
                 if(gates[i].mType == ArrGateType::GREATER_THAN_EQUALS)
-                    cd.addInvert(c.mWires[0]);
+                    cd.mGates.back().mType = oc::GateType((u8)cd.mGates.back().mType ^ 15);
+
             }
             else if(gates[i].mType == ArrGateType::ADDITION)
             {

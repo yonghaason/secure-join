@@ -104,6 +104,13 @@ namespace secJoin
 			throw RTE_LOC;
 
 		auto& wires = mCir.mOutputs[i];
+		// for(auto w : wires)
+        // {
+        //     if(mCir.mWireFlags[w] == oc::BetaWireFlag::InvWire)
+        //     {
+        //         throw RTE_LOC;
+        //     }  
+        // }
 
 		return getMemView(wires);
 	}
@@ -381,6 +388,7 @@ namespace secJoin
 					gate->mType == oc::GateType::And ||
 					gate->mType == oc::GateType::Nand ||
 					gate->mType == oc::GateType::Nor ||
+					gate->mType == oc::GateType::nb_Or ||
 					gate->mType == oc::GateType::Or)
 				{
 					if (buff.size() == 0 && roundRem)
@@ -437,6 +445,7 @@ namespace secJoin
 			{
 				if (gate->mType == oc::GateType::na_And ||
 					gate->mType == oc::GateType::nb_And ||
+					gate->mType == oc::GateType::nb_Or ||
 					gate->mType == oc::GateType::And ||
 					gate->mType == oc::GateType::Nand ||
 					gate->mType == oc::GateType::Or ||
@@ -529,6 +538,9 @@ namespace secJoin
 						case oc::GateType::Or:
 							c = a | b;
 							break;
+						case oc::GateType::nb_Or:
+							c = a | (oc::AllOneBlock ^ b);
+							break;
 						case oc::GateType::Nor:
 							c = (a | b) ^ oc::AllOneBlock;
 							break;
@@ -616,6 +628,7 @@ namespace secJoin
 			case osuCrypto::GateType::na_And:
 			case osuCrypto::GateType::Or:
 			case osuCrypto::GateType::Nor:
+			case osuCrypto::GateType::nb_Or:
 				invertX = true;
 				break;
 			case osuCrypto::GateType::And:
@@ -642,6 +655,7 @@ namespace secJoin
 			case osuCrypto::GateType::na_And:
 			case osuCrypto::GateType::And:
 			case osuCrypto::GateType::Nand:
+			case osuCrypto::GateType::nb_Or:
 				invertX = false;
 				break;
 			default:
@@ -657,6 +671,7 @@ namespace secJoin
 			{
 			case osuCrypto::GateType::Or:
 			case osuCrypto::GateType::Nand:
+			case osuCrypto::GateType::nb_Or:
 				invertX = true;
 				break;
 			case osuCrypto::GateType::na_And:

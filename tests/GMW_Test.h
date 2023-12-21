@@ -20,6 +20,7 @@ namespace secJoin_Tests
     void Gmw_and_test(const oc::CLP& cmd);
     void Gmw_nand_test(const oc::CLP& cmd);
     void Gmw_na_and_test(const oc::CLP& cmd);
+    void Gmw_nb_or_test(const oc::CLP& cmd);
     void Gmw_or_test(const oc::CLP& cmd);
     void Gmw_xor_and_test(const oc::CLP& cmd);
     void Gmw_aa_na_and_test(const oc::CLP& cmd);
