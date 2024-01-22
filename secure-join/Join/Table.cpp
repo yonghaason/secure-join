@@ -46,28 +46,65 @@ namespace secJoin
         MC_END();
     }
 
-
-    void populateTable(Table& tb, std::istream& in, oc::u64 rowCount)
+    void readBinFile(Table& tb, std::istream& in, oc::u64 rowCount)
     {
-        bool isheader = true;
+        u64 totalBytes = 0;
+        for(u64 i=0; i< tb.cols(); i++)
+            totalBytes += tb.mColumns[i].getByteCount();
+
+        std::vector<char> buffer (totalBytes * BATCH_READ_ENTRIES, 0);
+        u64 rowPtr = 0;
+        while(!in.eof()) {
+            in.read(buffer.data(), buffer.size());
+            std::streamsize readBytes = in.gcount();
+
+            // Checking if the file has enough bytes
+            if(readBytes % totalBytes != 0)
+                throw RTE_LOC;
+            
+            u64 rows = readBytes / totalBytes;
+
+            if(rowPtr + rows > rowCount)
+                throw RTE_LOC;
+
+            u64 buffptr = 0;
+            for (oc::u64 rowNum = 0; rowNum < rows; rowNum++, rowPtr++)
+            {
+                for (oc::u64 colNum = 0; colNum < tb.cols(); colNum++)
+                {
+                    u64 bytes = tb.mColumns[colNum].getByteCount();
+                    memcpy(tb.mColumns[colNum].mData.data(rowPtr), 
+                        &buffer[buffptr],
+                        bytes);
+                    buffptr += bytes;
+                }
+            }
+        }
+    }
+
+    void readTxtFile(Table& tb, std::istream& in, oc::u64 rowCount)
+    {
         std::string line, word;
+
+        // Skipping the header
+        getline(in, line);
 
         for (oc::u64 rowNum = 0; rowNum < rowCount; rowNum++)
         {
             getline(in, line);
 
-            // Skipping the header
-            if (isheader)
-            {
-                isheader = false;
-                rowNum--;
-                continue;
-            }
             oc::u64 colNum = 0;
             std::stringstream str(line);
             while (getline(str, word, CSV_COL_DELIM))
             {
-                if (tb.mColumns[colNum].getTypeID() == TypeID::IntID)
+                if(tb.mColumns[colNum].getTypeID() == TypeID::StringID)
+                {
+                    oc::u64 minSize = tb.mColumns[colNum].getByteCount() > word.size() ?
+                        word.size() : tb.mColumns[colNum].getByteCount();
+
+                    memcpy(tb.mColumns[colNum].mData.data(rowNum), word.data(), minSize);
+                }
+                else if (tb.mColumns[colNum].getTypeID() == TypeID::IntID)
                 {
                     if (tb.mColumns[colNum].getByteCount() <= 4)
                     {
@@ -88,32 +125,34 @@ namespace secJoin
                     }
 
                 }
-                else
-                {
-                    oc::u64 minSize = tb.mColumns[colNum].getByteCount() > word.size() ?
-                        word.size() : tb.mColumns[colNum].getByteCount();
-
-                    memcpy(tb.mColumns[colNum].mData.data(rowNum), word.data(), minSize);
-                }
+                
                 colNum++;
             }
-            isheader = false;
         }
-
     }
 
-
-
-    void populateTable(Table& tb, std::string& fileName, oc::u64 rowCount)
+    void populateTable(Table& tb, std::istream& in, oc::u64 rowCount, bool isBin)
     {
-        std::fstream file(fileName, std::ios::in);
-        std::istream in(file.rdbuf());
-        if (!file.is_open())
+        if(isBin)
+            readBinFile(tb, in, rowCount);
+        else
+            readTxtFile(tb, in, rowCount);
+    }
+
+    void populateTable(Table& tb, std::string& fileName, oc::u64 rowCount, bool isBin)
+    {
+        std::ifstream file;
+        if(isBin)
+            file.open(fileName, std::ifstream::binary);
+        else 
+            file.open(fileName, std::ios::in);
+
+        if (!file.good())
         {
-            std::cout << "Could not open the file" << std::endl;
+            std::cout << "Could not open the file " << fileName << std::endl;
             throw RTE_LOC;
         }
-        populateTable(tb, in, rowCount);
+        populateTable(tb, file, rowCount, isBin);
         file.close();
     }
 

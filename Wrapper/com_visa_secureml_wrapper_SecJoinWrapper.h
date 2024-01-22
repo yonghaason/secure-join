@@ -27,8 +27,11 @@ JNIEXPORT jboolean JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_isProto
 JNIEXPORT void JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_getOtherShare
   (JNIEnv *, jobject, jlong, jboolean);
 
-JNIEXPORT void JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_getJoinTable
+JNIEXPORT void JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_getFinalTable
   (JNIEnv *, jobject, jlong, jstring, jstring, jboolean);
+
+JNIEXPORT void JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_saveSecretShareData
+  (JNIEnv *, jobject, jlong, jstring, jstring);
 
 JNIEXPORT void JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_aggFunc
   (JNIEnv *, jobject, jlong);

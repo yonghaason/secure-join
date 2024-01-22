@@ -40,8 +40,6 @@ namespace secJoin
         static macoro::task<> updateActiveFlag(BinMatrix& data, BinMatrix& choice, 
             BinMatrix& out, CorGenerator& ole, coproto::Socket& sock);
     
-    
-
     };
 
 }

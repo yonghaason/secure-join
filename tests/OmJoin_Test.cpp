@@ -807,20 +807,20 @@ void OmJoin_join_csv_Test(const oc::CLP& cmd)
     bool printSteps = cmd.isSet("print");
     bool mock = !cmd.isSet("noMock");
 
-    oc::u64 lRowCount = 0, rRowCount = 0,
-        lColCount = 0, rColCount = 0;
+    oc::u64 lRowCount = 0, rRowCount = 0, lColCount = 0, rColCount = 0;
+    bool isBin;
 
     std::vector<ColumnInfo> lColInfo, rColInfo;
-    getFileInfo(visaMetaDataPath, lColInfo, lRowCount, lColCount);
-    getFileInfo(clientMetaDataPath, rColInfo, rRowCount, rColCount);
+    getFileInfo(visaMetaDataPath, lColInfo, lRowCount, lColCount, isBin);
+    getFileInfo(clientMetaDataPath, rColInfo, rRowCount, rColCount, isBin);
 
     Table L, R;
 
     L.init(lRowCount, lColInfo);
     R.init(rRowCount, rColInfo);
 
-    populateTable(L, visaCsvPath, lRowCount);
-    populateTable(R, bankCsvPath, rRowCount);
+    populateTable(L, visaCsvPath, lRowCount, isBin);
+    populateTable(R, bankCsvPath, rRowCount, isBin);
 
     // if (printSteps)
     // {

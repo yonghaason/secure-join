@@ -2,13 +2,13 @@
 
 namespace secJoin
 {
-    // Reading files starts here
-    u64 getCount(std::string& line, const std::string& type)
+    
+    std::string getMetaInfo(std::string& line, const std::string& type)
     {
         std::stringstream str(line);
         std::string word;
 
-        u64 count = 0;
+        std::string info;
         u8 colInfoCount = 0;
         while (getline(str, word, CSV_COL_DELIM))
         {
@@ -19,7 +19,7 @@ namespace secJoin
             }
             else if (colInfoCount == 1)
             {
-                count = std::stol(word);
+                info = word;
             }
 
             colInfoCount++;
@@ -30,7 +30,7 @@ namespace secJoin
             std::string temp = line + " -> Not enough Information in the Meta File\n" + LOCATION;
             throw std::runtime_error(temp);
         }
-        return count;
+        return info;
     }
 
     ColumnInfo getColumnInfo(std::string& line)
@@ -75,22 +75,35 @@ namespace secJoin
                      std::istream &in,
                      std::vector<ColumnInfo> &columnInfo,
                      u64 &rowCount,
-                     u64 &colCount)
+                     u64 &colCount,
+                     bool &isBin)
     {
         std::string line, word;
+        bool readFileType = false;
         bool readRowCount = false;
         bool readColCount = false;
 
         while (getline(in, line))
         {
-            if (!readRowCount)
+            if(!readFileType)
             {
-                rowCount = getCount(line, ROWS_META_TYPE);
+                std::string type = getMetaInfo(line, TYPE_OF_DATA);
+
+                if(type.compare(BINARY_META_TYPE) == 0)
+                    isBin = true;
+                else
+                    isBin = false;
+
+                readFileType = true;
+            }
+            else if (!readRowCount)
+            {
+                rowCount = std::stol(getMetaInfo(line, ROWS_META_TYPE));
                 readRowCount = true;
             }
             else if (!readColCount)
             {
-                colCount = getCount(line, COLS_META_TYPE);
+                colCount = std::stol(getMetaInfo(line, COLS_META_TYPE));
                 readColCount = true;
             }
             else
@@ -129,34 +142,42 @@ namespace secJoin
         }
     }
 
-    void getFileInfo(std::string &fileName, std::vector<ColumnInfo> &columnInfo, 
-        u64 &rowCount, u64& colCount)
+    void getFileInfo(std::string &fileName, 
+            std::vector<ColumnInfo> &columnInfo, 
+            u64 &rowCount, 
+            u64& colCount,
+            bool& isBin)
     {
 
         std::fstream file(fileName, std::ios::in);
-        std::istream in(file.rdbuf());
 
-        if (!file.is_open())
+        if (!file.good())
             throw std::runtime_error("Could not open the file " + fileName + "\n" LOCATION);
 
-        getFileInfo(fileName, in, columnInfo, rowCount, colCount);
+        getFileInfo(fileName, file, columnInfo, rowCount, colCount, isBin);
         file.close();
     }
 
-
-    // Writing to files starts here
-    void writeFileInfo(std::string &filePath, Table& tb)
+    
+    void writeFileInfo(std::string &filePath, Table& tb, bool isBin)
     {
-
         std::ofstream file;
         file.open(filePath);
 
         if (!file.is_open())
             throw std::runtime_error("Could not open the file " + filePath + "\n" LOCATION);
-        
+
+        // Adding the Type to the file
+        if(isBin)
+            file << TYPE_OF_DATA << CSV_COL_DELIM << BINARY_META_TYPE << "\n";
+        else
+            file << TYPE_OF_DATA << CSV_COL_DELIM << TEXT_META_TYPE << "\n";
 
         // Adding the Row Count to the file
         file << ROWS_META_TYPE << CSV_COL_DELIM << tb.rows() << "\n";
+
+        // Adding the Col Count to the file
+        file << COLS_META_TYPE << CSV_COL_DELIM << tb.mColumns.size() << "\n";
 
         // Adding the Column info to the file
         writeColumnInfo(file, tb);
@@ -198,7 +219,7 @@ namespace secJoin
         }
     }
 
-    void writeFileData(std::string &filePath, Table& tb)
+    void writeFileData(std::string &filePath, Table& tb, bool isBin)
     {
         std::ofstream file;
         file.open(filePath);
@@ -207,52 +228,68 @@ namespace secJoin
             throw std::runtime_error("Could not open the file " + filePath + "\n" LOCATION);
     
         // Adding the Columns names to the file
-        writeFileHeader(file, tb);
+        if(!isBin)
+            writeFileHeader(file, tb);
         
         for(u64 rowNum=0; rowNum<tb.rows(); rowNum++)
         {
             for(u64 colNum=0; colNum<tb.cols(); colNum++)
             {
-                if( tb.mColumns[colNum].getTypeID() == TypeID::IntID)
+                if(isBin)
                 {
-                    if(tb.mColumns[colNum].getByteCount() <= 4)
-                    {
-                        u8* ptr = tb.mColumns[colNum].mData[rowNum].data();
-                        i32 number = *(i32*)ptr;
+                    u64 bytes = tb.mColumns[colNum].getByteCount();
+                    u8* ptr = tb.mColumns[colNum].mData[rowNum].data();
 
-                        file << number;
-                    }
-                    else if(tb.mColumns[colNum].getByteCount() <= 8)
+                    for(u64 i=0; i<bytes; i++)
                     {
-                        u8* ptr = tb.mColumns[colNum].mData[rowNum].data();
-                        i64 number = *(i64*)ptr;
-                        
-                        file << number;
+                        file << *ptr;
+                        ptr++;
+                    }
+                }
+                else
+                {
+                    if( tb.mColumns[colNum].getTypeID() == TypeID::IntID)
+                    {
+                        if(tb.mColumns[colNum].getByteCount() <= 4)
+                        {
+                            u8* ptr = tb.mColumns[colNum].mData[rowNum].data();
+                            i32 number = *(i32*)ptr;
+
+                            file << number;
+                        }
+                        else if(tb.mColumns[colNum].getByteCount() <= 8)
+                        {
+                            u8* ptr = tb.mColumns[colNum].mData[rowNum].data();
+                            i64 number = *(i64*)ptr;
+                            
+                            file << number;
+                        }
+                        else
+                        {
+                            std::string temp = tb.mColumns[colNum].mName  
+                                + " can't be stored as int type\n"
+                                + LOCATION;
+                            throw std::runtime_error(temp);
+                        }
                     }
                     else
                     {
-                        std::string temp = tb.mColumns[colNum].mName  
-                            + " can't be stored as int type\n"
-                            + LOCATION;
-                        throw std::runtime_error(temp);
+                        std::string temp(tb.mColumns[colNum].getByteCount(), '\0');
+
+                        // Is this safe?
+                        memcpy(temp.data(), tb.mColumns[colNum].mData[rowNum].begin(),  
+                                    tb.mColumns[colNum].getByteCount() );
+
+                        temp.erase(temp.find('\0'));
+                        file << temp;
                     }
+
+                    if( colNum == tb.cols() - 1 )
+                        file << "\n";
+                    else
+                        file << CSV_COL_DELIM;
+
                 }
-                else
-                {
-                    std::string temp(tb.mColumns[colNum].getByteCount(), '\0');
-
-                    // Is this safe?
-                    memcpy(temp.data(), tb.mColumns[colNum].mData[rowNum].begin(),  
-                                tb.mColumns[colNum].getByteCount() );
-
-                    temp.erase(temp.find('\0'));
-                    file << temp;
-                }
-
-                if( colNum == tb.cols() - 1 )
-                    file << "\n";
-                else
-                    file << CSV_COL_DELIM;
 
             }
         }

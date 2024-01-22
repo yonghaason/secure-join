@@ -18,6 +18,10 @@ namespace secJoin
     const std::string STRING_META_TYPE = "STRING";
     const std::string ROWS_META_TYPE = "Rows";
     const std::string COLS_META_TYPE = "Cols";
+    const std::string TYPE_OF_FILE = "Type";
+    const std::string TEXT_FILE_TYPE = "Text";
+    const std::string BINARY_FILE_TYPE = "Binary";
+    const u64 BATCH_READ_ENTRIES = 10000;
     using block = oc::block;
     using PRNG = oc::PRNG;
 

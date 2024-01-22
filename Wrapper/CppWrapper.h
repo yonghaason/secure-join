@@ -21,7 +21,9 @@ namespace secJoin
     void releaseState(WrapperState* memoryAddress);
     bool isProtocolReady(WrapperState* stateAddress);
     void getOtherShare(WrapperState* stateAddress, bool isUnique);
-    void getJoinTable(WrapperState* stateAddress, std::string csvPath, std::string metaDataPath, bool isUnique);
+    void getFinalTable(WrapperState* stateAddress, std::string csvPath, std::string metaDataPath, 
+        bool isUnique);
+    void saveSecretShareData(WrapperState* cState, std::string csvPath, std::string metaDataPath);
     oc::u64 getRColIndex(oc::u64 relativeIndex, oc::u64 lColCount, oc::u64 rColCount);
     void aggFunc(WrapperState* cWrapperState);
     void whereFunc(WrapperState* cWrapperState);

@@ -21,29 +21,28 @@ namespace secJoin
     {
         mock = true; // Remove this once Peter fixes the Join bug
         auto cState = std::make_unique<WrapperState>();
-        cState->mLiterals = literals;//  This will fail, need to make a copy of literals
+        cState->mLiterals = literals;
         cState->mLiteralsType = literalsType;
         oc::u64 lRowCount = 0, rRowCount = 0, lColCount = 0, rColCount = 0;
 
         // Current assumption are that Visa always provides table with unique keys 
         // Which means Visa always has to be left Table
         std::vector<ColumnInfo> lColInfo, rColInfo;
-        getFileInfo(visaMetaDataPath, lColInfo, lRowCount, lColCount);
-        getFileInfo(clientMetaDataPath, rColInfo, rRowCount, rColCount);
+        bool isBin; 
+        getFileInfo(visaMetaDataPath, lColInfo, lRowCount, lColCount, isBin);
+        getFileInfo(clientMetaDataPath, rColInfo, rRowCount, rColCount, isBin);
         cState->mLTb.init(lRowCount, lColInfo);
         cState->mRTb.init(rRowCount, rColInfo);
         if (isUnique)
-            populateTable(cState->mLTb, csvPath, lRowCount);
+            populateTable(cState->mLTb, csvPath, lRowCount, isBin);
         else
-            populateTable(cState->mRTb, csvPath, rRowCount);
+            populateTable(cState->mRTb, csvPath, rRowCount, isBin);
 
         parseColsArray(cState->mJoinCols, cState->mSelectCols, cState->mGroupByCols,
             cState->mAvgCols, cState->mGates, opInfo, verbose);
         cState->mTotCol = lColCount + rColCount;
         updateSelectCols(cState->mSelectCols, cState->mGroupByCols, cState->mAvgCols, 
-        cState->mGates, cState->mTotCol, verbose);
-
-
+            cState->mGates, cState->mTotCol, verbose);
 
         // Current Assumptions is that there is only one Join Columns
         auto lJoinColRef = cState->mLTb[cState->mJoinCols[0]];
@@ -85,7 +84,6 @@ namespace secJoin
         return cState.release();
     }
 
-
     std::vector<oc::u8> runProtocol(WrapperState* cState, std::vector<oc::u8>& buff)
     {
         cState->mSock.processInbound(buff);
@@ -99,8 +97,6 @@ namespace secJoin
         }
 
         return *b;
-        // return b.value();
-
     }
 
     void releaseState(WrapperState* state)
@@ -111,12 +107,22 @@ namespace secJoin
     bool isProtocolReady(WrapperState* cState)
     {
         return cState->mProtocol.is_ready();
+    }
 
+    void saveSecretShareData(WrapperState* cState, std::string csvPath, std::string metaDataPath)
+    {
+        Table& table = cState->mJoinTb;
+        if(cState->mAggTb.cols() > 0)
+            table = cState->mAggTb;
+        else if(cState->mWhTb.cols() > 0)
+            table = cState->mWhTb;
+
+        writeFileInfo(metaDataPath, table, true);
+        writeFileData(csvPath, table, true);
     }
 
     void getOtherShare(WrapperState* cState, bool isUnique)
     {
-
         Table& table = cState->mJoinTb;
         if(cState->mAggTb.cols() > 0)
             table = cState->mAggTb;
@@ -136,8 +142,12 @@ namespace secJoin
         }
     }
 
-    void getJoinTable(WrapperState* cState, std::string csvPath, std::string metaDataPath, bool isUnique)
+    void getFinalTable(WrapperState* cState, std::string csvPath, std::string metaDataPath, bool isUnique)
     {
+        // Only Visa can call this API 
+        // Bcoz it has the final result
+        if(!isUnique)
+            throw RTE_LOC;
         writeFileInfo(metaDataPath, cState->mOutTb);
         writeFileData(csvPath, cState->mOutTb);
     }

@@ -8,3 +8,4 @@
 void secret_share_table_test();
 void secret_share_csv_test();
 void table_write_csv_test();
+void table_write_bin_csv_test();

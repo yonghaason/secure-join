@@ -1,4 +1,5 @@
-Rows;10000
+Type;Text
+Rows;20001
 Cols;2
 PAN;INT;8
 Risk_Score;INT;4

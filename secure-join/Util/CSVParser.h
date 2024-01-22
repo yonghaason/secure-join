@@ -8,15 +8,15 @@
 namespace secJoin
 {
 
-    u64 getCount(std::string& line, const std::string& type);
-    ColumnInfo getColumnInfo(std::string& line);
+    // std::string getMetaInfo(std::string& line, const std::string& type);
+    // ColumnInfo getColumnInfo(std::string& line);
     void getFileInfo(std::string& fileName, std::vector<ColumnInfo>& columnInfo, 
-                    u64& rowCount, u64 &colCount);
+                    u64& rowCount, u64 &colCount, bool& isBin);
     void getFileInfo(std::string& fileName, std::istream& in, std::vector<ColumnInfo>& columnInfo, 
-                    u64& rowCount, u64& colCount);
-    void writeFileInfo(std::string &filePath, Table& tb);
+                    u64& rowCount, u64& colCount, bool& isBin);
+    void writeFileInfo(std::string &filePath, Table& tb, bool isBin=false);
     void writeColumnInfo(std::ofstream &file, Table &tb);
-    void writeFileData(std::string &filePath, Table& tb);
+    void writeFileData(std::string &filePath, Table& tb, bool isBin=false);
     void writeFileHeader(std::ofstream &file, Table &tb);
 
 }

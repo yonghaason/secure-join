@@ -802,10 +802,11 @@ void Where_join_where_csv_Test(const oc::CLP& cmd)
     parseColsArray(joinCols, selectCols, groupByCols, avgCols, gates, opInfo, printSteps);
 
     u64 lRowCount = 0, rRowCount = 0, lColCount = 0, rColCount = 0;
+    bool isBin;
 
     std::vector<ColumnInfo> lColInfo, rColInfo;
-    getFileInfo(visaMetaDataPath, lColInfo, lRowCount, lColCount);
-    getFileInfo(clientMetaDataPath, rColInfo, rRowCount, rColCount);
+    getFileInfo(visaMetaDataPath, lColInfo, lRowCount, lColCount, isBin);
+    getFileInfo(clientMetaDataPath, rColInfo, rRowCount, rColCount, isBin);
     u64 totalCol = lColCount + rColCount;
 
     Table L, R;
@@ -813,8 +814,8 @@ void Where_join_where_csv_Test(const oc::CLP& cmd)
     L.init( lRowCount, lColInfo);
     R.init( rRowCount, rColInfo);
 
-    populateTable(L, visaCsvPath, lRowCount);
-    populateTable(R, bankCsvPath, rRowCount);
+    populateTable(L, visaCsvPath, lRowCount, isBin);
+    populateTable(R, bankCsvPath, rRowCount, isBin);
 
     // Get Select Col Refs
     std::vector<secJoin::ColRef> selectColRefs = getSelectColRef(selectCols, L, R);
@@ -970,10 +971,11 @@ void Where_avg_where_csv_Test(const oc::CLP& cmd)
     parseColsArray(joinCols, selectCols, groupByCols, avgCols, gates, opInfo, printSteps);
 
     u64 lRowCount = 0, rRowCount = 0, lColCount = 0, rColCount = 0;
+    bool isBin;
 
     std::vector<ColumnInfo> lColInfo, rColInfo;
-    getFileInfo(visaMetaDataPath, lColInfo, lRowCount, lColCount);
-    getFileInfo(clientMetaDataPath, rColInfo, rRowCount, rColCount);
+    getFileInfo(visaMetaDataPath, lColInfo, lRowCount, lColCount, isBin);
+    getFileInfo(clientMetaDataPath, rColInfo, rRowCount, rColCount, isBin);
     u64 totalCol = lColCount + rColCount;
 
     Table L, R;
@@ -981,8 +983,8 @@ void Where_avg_where_csv_Test(const oc::CLP& cmd)
     L.init( lRowCount, lColInfo);
     R.init( rRowCount, rColInfo);
 
-    populateTable(L, visaCsvPath, lRowCount);
-    populateTable(R, bankCsvPath, rRowCount);
+    populateTable(L, visaCsvPath, lRowCount, isBin);
+    populateTable(R, bankCsvPath, rRowCount, isBin);
 
     // Get Select Col Refs
     std::vector<secJoin::ColRef> selectColRefs = getSelectColRef(selectCols, L, R);

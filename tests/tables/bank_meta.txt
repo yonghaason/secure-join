@@ -1,3 +1,4 @@
+Type;Text
 Rows;10000
 Cols;4
 Date;STRING;10

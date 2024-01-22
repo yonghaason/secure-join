@@ -1,10 +1,5 @@
 #include "com_visa_secureml_wrapper_SecJoinWrapper.h"
 #include "CppWrapper.h"
-// #include "state.h"
-
-// #ifndef SECUREJOIN_ENABLE_JNI
-// static_assert(1, "SECUREJOIN_ENABLE_JNI not defined");
-// #endif
 
 JNIEXPORT void JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_testApi
 (JNIEnv* env, jobject obj)
@@ -70,7 +65,6 @@ JNIEXPORT jlong JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_initState
 JNIEXPORT jbyteArray JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_runProtocol
 (JNIEnv* env, jobject obj, jlong stateAddress, jbyteArray data, jlong dataSize)
 {
-
   // Get elements of the array
   jbyte* elements = env->GetByteArrayElements(data, 0);
 
@@ -85,19 +79,15 @@ JNIEXPORT jbyteArray JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_runPr
   return byteArray;
 }
 
-
-
 JNIEXPORT void JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_releaseState
 (JNIEnv* env, jobject obj, jlong memoryAddress)
 {
   secJoin::releaseState((secJoin::WrapperState*)memoryAddress);
 }
 
-
 JNIEXPORT jboolean JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_isProtocolReady
 (JNIEnv* env, jobject obj, jlong stateAddress)
 {
-
   return secJoin::isProtocolReady((secJoin::WrapperState*)stateAddress);
 }
 
@@ -107,19 +97,24 @@ JNIEXPORT void JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_getOtherSha
   secJoin::getOtherShare((secJoin::WrapperState*)stateAddress, isUnique);
 }
 
-
-
-JNIEXPORT void JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_getJoinTable
+JNIEXPORT void JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_getFinalTable
 (JNIEnv* env, jobject obj, jlong stateAddress, jstring csvPath,
   jstring metaDataPath, jboolean isUnique)
 {
-
   std::string cppCSVPath = env->GetStringUTFChars(csvPath, NULL);
   std::string cppMetaPath = env->GetStringUTFChars(metaDataPath, NULL);
 
-  secJoin::getJoinTable((secJoin::WrapperState*)stateAddress, cppCSVPath, cppMetaPath, isUnique);
+  secJoin::getFinalTable((secJoin::WrapperState*)stateAddress, cppCSVPath, cppMetaPath, isUnique);
 }
 
+JNIEXPORT void JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_saveSecretShareData
+(JNIEnv* env, jobject obj, jlong stateAddress, jstring csvPath, jstring metaDataPath)
+{
+  std::string cppCSVPath = env->GetStringUTFChars(csvPath, NULL);
+  std::string cppMetaPath = env->GetStringUTFChars(metaDataPath, NULL);
+
+  secJoin::saveSecretShareData((secJoin::WrapperState*)stateAddress, cppCSVPath, cppMetaPath);
+}
 
 JNIEXPORT void JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_aggFunc
 (JNIEnv* env, jobject obj, jlong stateAddress)
@@ -129,6 +124,6 @@ JNIEXPORT void JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_aggFunc
 
 JNIEXPORT void JNICALL Java_com_visa_secureml_wrapper_SecJoinWrapper_whereFunc
   (JNIEnv* env, jobject obj, jlong stateAddress)
-  {
-    secJoin::whereFunc((secJoin::WrapperState*)stateAddress);
-  }
+{
+  secJoin::whereFunc((secJoin::WrapperState*)stateAddress);
+}

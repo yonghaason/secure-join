@@ -59,7 +59,6 @@ namespace secJoin
             return { mName, mType, mBitCount };
         }
 
-
         bool operator!=(const Column& o) const
         {
             return !(*this == o);
@@ -183,8 +182,8 @@ namespace secJoin
     std::ostream& operator<<(std::ostream& o, const Table& t);
     macoro::task<> revealLocal(const Table& share, coproto::Socket& sock, Table& out);
     macoro::task<> revealRemote(const Table& share, coproto::Socket& sock);
-    void populateTable(Table& tb, std::string& fileName, oc::u64 rowCount);
-    void populateTable(Table& tb, std::istream& in, oc::u64 rowCount);
+    void populateTable(Table& tb, std::string& fileName, oc::u64 rowCount, bool isBin);
+    void populateTable(Table& tb, std::istream& in, oc::u64 rowCount, bool isBin);
     void share(Table& table, std::array<Table, 2>& shares,
         PRNG& prng);
     Table join(const ColRef& l, const ColRef& r, std::vector<ColRef> select);
