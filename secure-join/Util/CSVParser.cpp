@@ -87,9 +87,9 @@ namespace secJoin
         {
             if(!readFileType)
             {
-                std::string type = getMetaInfo(line, TYPE_OF_DATA);
+                std::string type = getMetaInfo(line, TYPE_OF_FILE);
 
-                if(type.compare(BINARY_META_TYPE) == 0)
+                if(type.compare(BINARY_FILE_TYPE) == 0)
                     isBin = true;
                 else
                     isBin = false;
@@ -169,9 +169,9 @@ namespace secJoin
 
         // Adding the Type to the file
         if(isBin)
-            file << TYPE_OF_DATA << CSV_COL_DELIM << BINARY_META_TYPE << "\n";
+            file << TYPE_OF_FILE << CSV_COL_DELIM << BINARY_FILE_TYPE << "\n";
         else
-            file << TYPE_OF_DATA << CSV_COL_DELIM << TEXT_META_TYPE << "\n";
+            file << TYPE_OF_FILE << CSV_COL_DELIM << BINARY_FILE_TYPE << "\n";
 
         // Adding the Row Count to the file
         file << ROWS_META_TYPE << CSV_COL_DELIM << tb.rows() << "\n";
