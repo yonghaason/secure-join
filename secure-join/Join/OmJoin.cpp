@@ -52,7 +52,7 @@ namespace secJoin
 
             for (u64 i = 0, j = rows0; i < rows1; ++i, ++j)
                 code.encode(
-                    rightJoinCol.mCol.mData.data(i), 
+                    rightJoinCol.mCol.mData.data(i),
                     keys.data(j));
 
             return keys;
@@ -122,7 +122,7 @@ namespace secJoin
         coproto::Socket& sock,
         BinMatrix& out,
         CorGenerator& ole,
-        PRNG&prng)
+        PRNG& prng)
     {
         MC_BEGIN(macoro::task<>, &data, &sock, &out, &ole, keyByteOffset, keyBitCount, &prng,
             cir = oc::BetaCircuit{},
@@ -139,12 +139,12 @@ namespace secJoin
         {
             memcpy(sKeys.data(i + 1), data.data(i) + keyByteOffset, keyByteSize);
         }
-        bin.init(n, cir);
+        bin.init(n, cir, ole);
 
         bin.setInput(0, sKeys.subMatrix(0, n));
         bin.setInput(1, sKeys.subMatrix(1, n));
 
-        MC_AWAIT(bin.run(ole, sock, prng));
+        MC_AWAIT(bin.run(sock));
 
         out.resize(n, 1);
         bin.getOutput(0, out);
@@ -344,7 +344,7 @@ namespace secJoin
         bool securePerm,
         Perm& randPerm)
     {
-        
+
         MC_BEGIN(macoro::task<>, &data, selects, left, &out, &offsets, &ole, &sock, &prng,
             securePerm, &randPerm,
             actFlag = BinMatrix{},
@@ -379,12 +379,12 @@ namespace secJoin
         nR = data.rows() - nL;
         for (u64 i = nL; i < revealedActFlag.size(); i++)
         {
-            if (revealedActFlag(i,0) == 1)
+            if (revealedActFlag(i, 0) == 1)
                 nOutRows++;
         }
 
         out.mColumns.resize(selects.size());
-        
+
         for (u64 i = 0; i < selects.size(); ++i)
         {
             out[i].mCol.mName = selects[i].mCol.mName;
@@ -417,7 +417,7 @@ namespace secJoin
                     }
                     else
                     {
-                        assert(selects[j].mCol.mBitCount  == out[j].mCol.mBitCount);
+                        assert(selects[j].mCol.mBitCount == out[j].mCol.mBitCount);
                         memcpy(out.mColumns[j].mData.data(curOutRow),
                             selects[j].mCol.mData.data(i),
                             out.mColumns[j].getByteCount());
@@ -428,13 +428,13 @@ namespace secJoin
                 out.mIsActive[curOutRow] = data(i + nL, actOffSet);
                 curOutRow++;
             }
-            
-            // We got all our entries
-            if(curOutRow == nOutRows)
-                break;
-        }            
 
-        if(randPerm.size() == 0 && nOutRows > 1)
+            // We got all our entries
+            if (curOutRow == nOutRows)
+                break;
+        }
+
+        if (randPerm.size() == 0 && nOutRows > 1)
         {
             tempPerm.randomize(nOutRows, prng);
             randPerm = tempPerm;
@@ -444,16 +444,16 @@ namespace secJoin
         // But since we want to compare it expected result in the test
         // We need to permute only the final remaining rows
         // We don't need to permute the active flag bcoz all the rows are active
-        if(nOutRows > 1)
+        if (nOutRows > 1)
         {
-            for(i = 0; i < out.cols(); i++)
+            for (i = 0; i < out.cols(); i++)
             {
-                MC_AWAIT(applyRandPerm(out.mColumns[i].mData, temp, ole, 
+                MC_AWAIT(applyRandPerm(out.mColumns[i].mData, temp, ole,
                     prng, randPerm, sock, securePerm));
                 std::swap(out.mColumns[i].mData, temp);
             }
         }
-        
+
         MC_END();
     }
 
@@ -464,10 +464,10 @@ namespace secJoin
             const oc::BetaBundle& left,
             const oc::BetaBundle& right,
             oc::BetaBundle& out)
-        {
-            for (u64 i = 0; i < left.size(); ++i)
-                c.addCopy(left[i], out[i]);
-        };
+            {
+                for (u64 i = 0; i < left.size(); ++i)
+                    c.addCopy(left[i], out[i]);
+            };
     }
 
     macoro::task<> OmJoin::print(
@@ -545,7 +545,7 @@ namespace secJoin
             offset = u64{});
 
         cir = *oc::BetaLibrary{}.int_int_bitwiseAnd(1, 1, 1);
-        gmw.init(data.rows(), cir);
+        gmw.init(data.rows(), cir, ole);
 
         if (data.bitsPerEntry() % 8 != 1)
         {
@@ -564,7 +564,7 @@ namespace secJoin
         offsets.emplace_back(Offset{ 0,1 });
         //MC_AWAIT(print(temp, choice, sock, ole.partyIdx(), "active", offsets));
 
-        MC_AWAIT(gmw.run(ole, sock, prng));
+        MC_AWAIT(gmw.run(sock));
 
         gmw.getOutput(0, temp);
 
@@ -601,13 +601,14 @@ namespace secJoin
         PRNG& prng,
         CorGenerator& ole,
         coproto::Socket& sock,
-        bool remDummies, 
+        bool remDummies,
         Perm randPerm)
     {
         MC_BEGIN(macoro::task<>, this, leftJoinCol, rightJoinCol, selects, &out, &prng, &ole, &sock,
             remDummies, randPerm,
             keys = BinMatrix{},
             sPerm = AdditivePerm{},
+            perm = ComposedPerm{},
             controlBits = BinMatrix{},
             data = BinMatrix{},
             temp = BinMatrix{},
@@ -617,7 +618,7 @@ namespace secJoin
             dup = AggTree::Operator{},
             offsets = std::vector<Offset>{},
             bytesPermuted0 = u64{},
-            bytesPermuted1 = u64{}, 
+            bytesPermuted1 = u64{},
             prepro = macoro::eager_task<>{});
 
         setTimePoint("start");
@@ -633,7 +634,7 @@ namespace secJoin
         }
 
         sort.mInsecureMock = mInsecureMockSubroutines;
-        sPerm.mInsecureMock = mInsecureMockSubroutines;
+        //sPerm.mInsecureMock = mInsecureMockSubroutines;
 
 
         // if the forward direction we will permute the keys, a flag, 
@@ -653,12 +654,13 @@ namespace secJoin
             }
         }
 
-        sort.init(ole.partyIdx(), keys.rows(), keys.bitsPerEntry(), bytesPermuted0 + bytesPermuted1);
-        sort.request(ole);
-        prepro = sort.preprocess(sock, prng) |macoro::make_eager();
+        sort.init(ole.partyIdx(), keys.rows(), keys.bitsPerEntry(), ole);
+
+        sort.preprocess();
+        prepro = sort.genPrePerm(sock, prng) | macoro::make_eager();
 
         // get the stable sorting permutation sPerm
-        MC_AWAIT(sort.genPerm(keys, sPerm, sock,prng));
+        MC_AWAIT(sort.genPerm(keys, sPerm, sock, prng));
         setTimePoint("sort");
 
 
@@ -681,7 +683,10 @@ namespace secJoin
 
         assert(data.bytesPerEntry() == bytesPermuted0);
 
-        MC_AWAIT(sPerm.apply(PermOp::Inverse, data, temp, prng, sock));//, ole
+        throw RTE_LOC; //genPerm(perm, bytesPermuted0 + bytesPermuted1)
+        MC_AWAIT(perm.derandomize(sPerm, sock));
+
+        MC_AWAIT(perm.apply<u8>(PermOp::Inverse, data, temp, sock));
         std::swap(data, temp);
         setTimePoint("applyInv-sort");
         //std::cout << "Perm::apply done " << LOCATION << std::endl;
@@ -741,10 +746,9 @@ namespace secJoin
         temp.reshape(data.bitsPerEntry());
         temp.setZero();
         assert(data.bytesPerEntry() == bytesPermuted1);
-        MC_AWAIT(sPerm.apply(PermOp::Regular, data, temp, prng, sock));//, ole
+        MC_AWAIT(perm.apply<u8>(PermOp::Regular, data, temp, sock));//, ole
         std::swap(data, temp);
         setTimePoint("apply-sort");
-
 
         //std::cout << "Perm::Apply inv done " << LOCATION << std::endl;
 
@@ -753,7 +757,7 @@ namespace secJoin
             MC_AWAIT(print(data, controlBits, sock, ole.partyIdx(), "unsort", offsets));
 
 
-        if(remDummies)
+        if (remDummies)
         {
             MC_AWAIT(getOutput(data, selects, leftJoinCol, out, offsets, ole,
                 sock, prng, !mInsecureMockSubroutines, randPerm));
@@ -805,35 +809,36 @@ namespace secJoin
         coproto::Socket& sock,
         bool securePerm)
     {
-        MC_BEGIN(macoro::task<>, &data, &out, &ole, &sock, &prng, &randPerm, securePerm, 
+        MC_BEGIN(macoro::task<>, &data, &out, &ole, &sock, &prng, &randPerm, securePerm,
             perm = ComposedPerm{},
             kk = AltModPrf::KeyType{},
             rk = std::vector<oc::block>{},
             sk = std::vector<std::array<oc::block, 2>>{}
-            );
+        );
 
-        perm.init2(ole.partyIdx(), data.rows(), data.bytesPerEntry());
-        perm.mSender.setPermutation(randPerm);
-        perm.mIsSecure = securePerm;
+        throw RTE_LOC;// not impl
+        // perm.init2(ole.partyIdx(), data.rows(), data.bytesPerEntry());
+        //perm.mSender.setPermutation(randPerm);
+        //perm.mIsSecure = securePerm;
 
         // Setuping up the OT Keys
-        kk = prng.get();
-        rk.resize(AltModPrf::KeySize);
-        sk.resize(AltModPrf::KeySize);
-        for (u64 i = 0; i < AltModPrf::KeySize; ++i)
-        {
-            sk[i][0] = oc::block(i, 0);
-            sk[i][1] = oc::block(i, 1);
-            rk[i] = oc::block(i, *oc::BitIterator((u8*)&kk, i));
-        }
-        perm.setKeyOts(kk, rk, sk);
+        // kk = prng.get();
+        // rk.resize(AltModPrf::KeySize);
+        // sk.resize(AltModPrf::KeySize);
+        // for (u64 i = 0; i < AltModPrf::KeySize; ++i)
+        // {
+        //     sk[i][0] = oc::block(i, 0);
+        //     sk[i][1] = oc::block(i, 1);
+        //     rk[i] = oc::block(i, *oc::BitIterator((u8*)&kk, i));
+        // }
+        // perm.setKeyOts(kk, rk, sk);
 
-        perm.request(ole);
+        // perm.request(ole);
 
-        MC_AWAIT(perm.setup(sock, prng));
+        // MC_AWAIT(perm.setup(sock, prng));
 
-        out.resize(data.numEntries(), data.bytesPerEntry() * 8);
-        MC_AWAIT(perm.apply<u8>(PermOp::Regular, data.mData, out.mData, sock, prng));
+        // out.resize(data.numEntries(), data.bytesPerEntry() * 8);
+        // MC_AWAIT(perm.apply<u8>(PermOp::Regular, data.mData, out.mData, sock, prng));
 
         MC_END();
     }

@@ -70,6 +70,8 @@ namespace secJoin
             PRNG& prng,
             coproto::Socket& chl,
             CorGenerator& ole);
+
+
     };
 
 
@@ -120,7 +122,7 @@ namespace secJoin
 
         blocksPerRow = oc::divCeil(bytesPerRow, sizeof(LowMC2<>::block));
         xEncrypted_.resize(blocksPerRow * n * sizeof(LowMC2<>::block));
-        xEncrypted = span<LowMC2<>::block>((LowMC2<>::block*)xEncrypted_.data(),blocksPerRow * n); 
+        xEncrypted = span<LowMC2<>::block>((LowMC2<>::block*)xEncrypted_.data(), blocksPerRow * n);
 
         // Encrypting the vector x
         counterMode = 0;
@@ -144,7 +146,7 @@ namespace secJoin
         // gmw0.mDebugPrintIdx = 1;
 
 
-        gmw0.init(n * blocksPerRow, mLowMcCir());
+        gmw0.init(n * blocksPerRow, mLowMcCir(), ole);
 
         // Indexes are set by other party because they have the permutation pi
         gmw0.setZeroInput(0);
@@ -169,7 +171,7 @@ namespace secJoin
             gmw0.setInput(2 + i, roundkeysMatrix[i]);
         }
 
-        MC_AWAIT(gmw0.run(ole, chl, prng));
+        MC_AWAIT(gmw0.run(chl));
 
         if (bytesPerRow % sizeof(LowMC2<>::block) == 0)
         {
@@ -235,7 +237,7 @@ namespace secJoin
         using lowBlock = LowMC2<>::block;
         blocksPerRow = oc::divCeil(bytesPerRow, sizeof(LowMC2<>::block));
         xEncrypted_.resize(n * blocksPerRow * sizeof(LowMC2<>::block));
-        xEncrypted = span<LowMC2<>::block>((LowMC2<>::block*)xEncrypted_.data(),blocksPerRow * n); 
+        xEncrypted = span<LowMC2<>::block>((LowMC2<>::block*)xEncrypted_.data(), blocksPerRow * n);
 
         MC_AWAIT(chl.recv(xEncrypted_));
 
@@ -268,7 +270,7 @@ namespace secJoin
             std::iota(idx, idx + blocksPerRow, srcIdx);
         }
 
-        gmw1.init(n * blocksPerRow, mLowMcCir());
+        gmw1.init(n * blocksPerRow, mLowMcCir(), ole);
 
         // Setting the permuted indexes (since we are using the counter mode)
         gmw1.setInput(0, oc::MatrixView<u8>((u8*)indexMatrix.data(), indexMatrix.size(), sizeof(lowBlock)));
@@ -282,7 +284,7 @@ namespace secJoin
             gmw1.setZeroInput(2 + i);
         }
 
-        MC_AWAIT(gmw1.run(ole, chl, prng));
+        MC_AWAIT(gmw1.run(chl));
 
         if (bytesPerRow % sizeof(LowMC2<>::block) == 0)
         {

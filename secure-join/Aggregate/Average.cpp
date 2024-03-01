@@ -39,7 +39,7 @@ namespace secJoin {
 
         // Adding a Columns of 1's for calculating average
         BinMatrix ones(n0, sizeof(oc::u64) * 8);
-        
+
         // Adding 1's in only party column
         if (ole.partyIdx())
         {
@@ -83,8 +83,7 @@ namespace secJoin {
         cir.addOutputBundle(c);
 
         cir.addGate(a.mWires[0], b.mWires[0], oc::GateType::na_And, c.mWires[0]);
-        gmw.init(data.rows(), cir);
-        gmw.request(ole);
+        gmw.init(data.rows(), cir, ole);
 
         if (data.bitsPerEntry() % 8 != 1)
         {
@@ -111,14 +110,14 @@ namespace secJoin {
             out(i, offset) = temp(i);
         }
 
-        MC_END();    
+        MC_END();
     }
 
 
     void appendFlagToKey(
-        BinMatrix &keys, 
-        std::vector<u8>& actFlagVec, 
-        BinMatrix &ret,
+        BinMatrix& keys,
+        std::vector<u8>& actFlagVec,
+        BinMatrix& ret,
         std::vector<OmJoin::Offset>& keyOffsets)
     {
 
@@ -164,7 +163,7 @@ namespace secJoin {
             addCir = AggTree::Operator{},
             aggTree = AggTree{},
             actFlagVec = std::vector<u8>{},
-            tempVec= std::vector<u8>{}
+            tempVec = std::vector<u8>{}
         );
 
         // Appending Active Flag to the key
@@ -182,31 +181,33 @@ namespace secJoin {
         }
 
         sort.mInsecureMock = mInsecureMockSubroutines;
-        sPerm.mInsecureMock = mInsecureMockSubroutines;
+        //sPerm.mInsecureMock = mInsecureMockSubroutines;
 
         // need to set sort ole.
-        sort.init(ole.partyIdx(), keys.rows(), keys.bitsPerEntry(), data.bytesPerEntry() + keys.bytesPerEntry());
-        sort.request(ole);
+        sort.init(ole.partyIdx(), keys.rows(), keys.bitsPerEntry(), ole);
 
         MC_AWAIT(sort.genPerm(keys, sPerm, sock, prng));
         concatColumns(groupByCol, avgCol, data, offsets, ole);
-        
+
+        throw std::runtime_error("we need to generate perm, data.bytesPerEntry() + keys.bytesPerEntry() bytes. " LOCATION);
+        // MC_AWAIT(perm.derandomize(sPerm, sock));
+
         if (mInsecurePrint)
             MC_AWAIT(OmJoin::print(data, controlBits, sock, ole.partyIdx(), "preSort", offsets));
 
         temp.resize(data.numEntries(), data.bytesPerEntry() * 8);
 
         // Apply the sortin permutation to both keys & concat columns
-        MC_AWAIT(sPerm.apply(PermOp::Inverse, data, temp, prng, sock));
+        MC_AWAIT(perm.apply<u8>(PermOp::Inverse, data, temp, sock));
         std::swap(data, temp);
 
         if (mInsecurePrint)
             MC_AWAIT(OmJoin::print(data, controlBits, sock, ole.partyIdx(), "sort-data", offsets));
 
         temp.resize(keys.numEntries(), keys.bitsPerEntry());
-        MC_AWAIT(sPerm.apply(PermOp::Inverse, keys, temp, prng, sock));
+        MC_AWAIT(perm.apply<u8>(PermOp::Inverse, keys, temp, sock));
         std::swap(keys, temp);
-        
+
         if (mInsecurePrint)
             MC_AWAIT(OmJoin::print(keys, controlBits, sock, ole.partyIdx(), "sort-keys", keyOffsets));
 
@@ -216,9 +217,9 @@ namespace secJoin {
 
         if (mInsecurePrint)
             MC_AWAIT(OmJoin::print(data, controlBits, sock, ole.partyIdx(), "control", offsets));
-            // MC_AWAIT(print(controlBits, sock, ole.partyIdx(), "controlbits"));
+        // MC_AWAIT(print(controlBits, sock, ole.partyIdx(), "controlbits"));
 
-        // oc::BetaLibrary::Optimized::Depth shouldn't be hardcoded 
+    // oc::BetaLibrary::Optimized::Depth shouldn't be hardcoded 
         addCir = getAddCircuit(offsets, op);
 
 
@@ -234,7 +235,7 @@ namespace secJoin {
         if (mInsecurePrint)
             MC_AWAIT(OmJoin::print(keys, controlBits, sock, ole.partyIdx(), "isActive", keyOffsets));
 
-        if(remDummies)
+        if (remDummies)
         {
             MC_AWAIT(getOutput(out, avgCol, groupByCol, keys, data, offsets, keyOffsets,
                 ole, sock, prng, !mInsecureMockSubroutines, randPerm));
@@ -260,9 +261,9 @@ namespace secJoin {
 
         u64 nEntries = data.numEntries();
         populateOutTable(out, avgCol, groupByCol, nEntries);
-           
+
         out.mIsActive.resize(nEntries);
-        
+
         for (u64 i = 0; i < data.numEntries(); i++)
         {
             // Storing the Group By Column
@@ -298,7 +299,7 @@ namespace secJoin {
         bool securePerm,
         Perm& randPerm)
     {
-        MC_BEGIN(macoro::task<>, &out, avgCol, groupByCol, &keys, &data, &offsets, 
+        MC_BEGIN(macoro::task<>, &out, avgCol, groupByCol, &keys, &data, &offsets,
             &keyOffsets, &ole, &sock, &prng, securePerm, &randPerm,
             temp = BinMatrix{},
             actFlag = BinMatrix{},
@@ -306,7 +307,7 @@ namespace secJoin {
             nOutRows = u64{},
             tempPerm = Perm{},
             i = u64()
-            );
+        );
 
         assert(data.numEntries() == keys.numEntries());
 
@@ -318,12 +319,12 @@ namespace secJoin {
 
         // Revealing the active flag
         MC_AWAIT(OmJoin::revealActFlag(actFlag, temp, sock, ole.partyIdx()));
-        std::swap(actFlag, temp);    
+        std::swap(actFlag, temp);
 
         nOutRows = 0;
         for (u64 i = 0; i < actFlag.numEntries(); i++)
         {
-            if (actFlag.mData(i, 0)  == 1)
+            if (actFlag.mData(i, 0) == 1)
                 nOutRows++;
         }
 
@@ -337,7 +338,7 @@ namespace secJoin {
             if (actFlag.mData(i, 0) == 1)
             {
                 // Storing the Group By Column
-                memcpy(out.mColumns[0].mData.data(curOutRow), keys.data(i), 
+                memcpy(out.mColumns[0].mData.data(curOutRow), keys.data(i),
                     out.mColumns[0].mData.bytesPerEntry());
 
                 // Copying the average columns
@@ -353,11 +354,11 @@ namespace secJoin {
             }
 
             // We got all our entries
-            if(curOutRow == nOutRows)
+            if (curOutRow == nOutRows)
                 break;
         }
 
-        if(randPerm.size() == 0 && nOutRows > 1)
+        if (randPerm.size() == 0 && nOutRows > 1)
         {
             tempPerm.randomize(nOutRows, prng);
             randPerm = tempPerm;
@@ -366,11 +367,11 @@ namespace secJoin {
         // A Better way could have been to permute the keys & data
         // But since we want to compare it expected result in the test
         // We need to permute only the final remaining rows
-        if(nOutRows > 1)
+        if (nOutRows > 1)
         {
-            for(i = 0; i < out.cols(); i++)
+            for (i = 0; i < out.cols(); i++)
             {
-                MC_AWAIT(OmJoin::applyRandPerm(out.mColumns[i].mData, temp, ole, 
+                MC_AWAIT(OmJoin::applyRandPerm(out.mColumns[i].mData, temp, ole,
                     prng, randPerm, sock, securePerm));
                 std::swap(out.mColumns[i].mData, temp);
             }
@@ -378,7 +379,7 @@ namespace secJoin {
 
         // MC_AWAIT(OmJoin::applyRandPerm(keys, temp, ole, prng, *randPerm, sock, securePerm));
         // std::swap(keys, temp);
-        
+
 
         MC_END();
     }
@@ -443,8 +444,7 @@ namespace secJoin {
         // {
         //     memcpy(sKeys.data(i + 1), keys.data(i), keyByteSize);
         // }
-        bin.init(n, cir);
-        bin.request(ole);
+        bin.init(n, cir, ole);
 
         bin.setInput(0, sKeys.subMatrix(0, n));
         bin.setInput(1, sKeys.subMatrix(1, n));
