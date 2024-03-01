@@ -51,7 +51,8 @@ namespace secJoin {
         avg.emplace_back(&ones);
 
         ret.resize(n0, (rowSize + sizeof(oc::u64)) * 8);
-        OmJoin::concatColumns(ret, avg);
+
+        concatColumns(ret, avg);
 
     }
 
@@ -128,8 +129,9 @@ namespace secJoin {
         keyOffsets = { OmJoin::Offset{0, offset * 8, "key"},
             OmJoin::Offset{offset * 8, 1, "ActFlag"} };
 
-        // key size will become of multiple of 8 after the concatColumn operation
-        OmJoin::concatColumns(ret, temp);
+        throw RTE_LOC; // add this back, need to define offsets
+        // key size will become of 8 after the concatColumn operation
+        //OmJoin::concatColumns(ret, temp);
 
         assert(keys.rows() == actFlagVec.size());
         for (u64 i = 0; i < keys.rows(); ++i)
@@ -200,47 +202,48 @@ namespace secJoin {
         temp.resize(data.numEntries(), data.bytesPerEntry() * 8);
 
         // Apply the sortin permutation to both keys & concat columns
-        MC_AWAIT(perm.apply<u8>(PermOp::Inverse, data, temp, sock));
-        std::swap(data, temp);
+        throw RTE_LOC;
+        // MC_AWAIT(perm.apply<u8>(PermOp::Inverse, data, temp, sock));
+        // std::swap(data, temp);
 
-        if (mInsecurePrint)
-            MC_AWAIT(OmJoin::print(data, controlBits, sock, ole.partyIdx(), "sort-data", offsets));
+        // if (mInsecurePrint)
+        //     MC_AWAIT(OmJoin::print(data, controlBits, sock, ole.partyIdx(), "sort-data", offsets));
 
-        temp.resize(keys.numEntries(), keys.bitsPerEntry());
-        MC_AWAIT(perm.apply<u8>(PermOp::Inverse, keys, temp, sock));
-        std::swap(keys, temp);
+        // temp.resize(keys.numEntries(), keys.bitsPerEntry());
+        // MC_AWAIT(perm.apply<u8>(PermOp::Inverse, keys, temp, sock));
+        // std::swap(keys, temp);
 
-        if (mInsecurePrint)
-            MC_AWAIT(OmJoin::print(keys, controlBits, sock, ole.partyIdx(), "sort-keys", keyOffsets));
+        // if (mInsecurePrint)
+        //     MC_AWAIT(OmJoin::print(keys, controlBits, sock, ole.partyIdx(), "sort-keys", keyOffsets));
 
-        // compare adjacent keys. controlBits[i] = 1 if k[i]==k[i-1].
-        MC_AWAIT(getControlBits(keys, sock, controlBits, ole));
-
-
-        if (mInsecurePrint)
-            MC_AWAIT(OmJoin::print(data, controlBits, sock, ole.partyIdx(), "control", offsets));
-        // MC_AWAIT(print(controlBits, sock, ole.partyIdx(), "controlbits"));
+        // // compare adjacent keys. controlBits[i] = 1 if k[i]==k[i-1].
+        // MC_AWAIT(getControlBits(keys, sock, controlBits, ole));
 
 
-        MC_AWAIT(aggTree.apply(data, controlBits, sock, prng, temp));
-        std::swap(data, temp);
+        // if (mInsecurePrint)
+        //     MC_AWAIT(OmJoin::print(data, controlBits, sock, ole.partyIdx(), "control", offsets));
+        // // MC_AWAIT(print(controlBits, sock, ole.partyIdx(), "controlbits"));
 
-        if (mInsecurePrint)
-            MC_AWAIT(OmJoin::print(data, controlBits, sock, ole.partyIdx(), "agg-data", offsets));
 
-        MC_AWAIT(updateActiveFlag(keys, controlBits, temp, ole, sock));
-        std::swap(keys, temp);
+        // MC_AWAIT(aggTree.apply(data, controlBits, sock, prng, temp));
+        // std::swap(data, temp);
 
-        if (mInsecurePrint)
-            MC_AWAIT(OmJoin::print(keys, controlBits, sock, ole.partyIdx(), "isActive", keyOffsets));
+        // if (mInsecurePrint)
+        //     MC_AWAIT(OmJoin::print(data, controlBits, sock, ole.partyIdx(), "agg-data", offsets));
 
-        if (remDummies)
-        {
-            MC_AWAIT(getOutput(out, avgCol, groupByCol, keys, data, offsets, keyOffsets,
-                ole, sock, prng, !mInsecureMockSubroutines, randPerm));
-        }
-        else
-            getOutput(out, avgCol, groupByCol, keys, data, controlBits, offsets, keyOffsets);
+        // MC_AWAIT(updateActiveFlag(keys, controlBits, temp, ole, sock));
+        // std::swap(keys, temp);
+
+        // if (mInsecurePrint)
+        //     MC_AWAIT(OmJoin::print(keys, controlBits, sock, ole.partyIdx(), "isActive", keyOffsets));
+
+        // if (remDummies)
+        // {
+        //     MC_AWAIT(getOutput(out, avgCol, groupByCol, keys, data, offsets, keyOffsets,
+        //         ole, sock, prng, !mInsecureMockSubroutines, randPerm));
+        // }
+        // else
+        //     getOutput(out, avgCol, groupByCol, keys, data, controlBits, offsets, keyOffsets);
 
         MC_END();
     }

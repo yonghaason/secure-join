@@ -1,5 +1,6 @@
 #include "CSVParser_Test.h"
 #include"cryptoTools/Common/TestCollection.h"
+#include "secure-join/config.h"
 using namespace secJoin;
 
 void secret_share_table_test()
@@ -75,7 +76,7 @@ void table_write_csv_test()
     std::vector<ColumnInfo> columnInfo;
     u64 rowCount = 0, colCount = 0;
     bool isBin;
-    
+
     std::string filename = "Visa Meta File";
     std::istream in(visa_meta_text.rdbuf());
     getFileInfo(filename, in, columnInfo, rowCount, colCount, isBin);
@@ -111,7 +112,7 @@ void table_write_bin_csv_test()
 
     std::string csvMetaFileNm1 = rootPath + "/tests/tables/joindata_meta.txt";
     std::string csvFileNm1 = rootPath + "/tests/tables/joindata.csv";
-    
+
     std::array<Table, 2> shareTables;
     shareTables[0].init(lRowCount, lColInfo);
     shareTables[1].init(lRowCount, lColInfo);
@@ -122,7 +123,7 @@ void table_write_bin_csv_test()
 
     writeFileInfo(csvMetaFileNm1, shareTables[0], true);
     writeFileData(csvFileNm1, shareTables[0], true);
-    
+
 
     // Testing whether the write was successful or not
     std::vector<ColumnInfo> columnInfo1;
@@ -133,6 +134,6 @@ void table_write_bin_csv_test()
     Table shtb(rowCount1, columnInfo1);
     populateTable(shtb, csvFileNm1, rowCount1, isBin1);
 
-    if(shareTables[0] != shtb)
+    if (shareTables[0] != shtb)
         throw RTE_LOC;
 }

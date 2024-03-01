@@ -187,7 +187,7 @@ namespace secJoin {
         cir.addGate(a.mWires[0], b.mWires[0], oc::GateType::And, c.mWires[0]);
         throw RTE_LOC;// not impl
         // gmw.init(actFlag.size(), cir);
-        gmw.request(ole);
+        //gmw.request(ole);
 
         temp.resize(actFlag.size(), 1);
 

@@ -27,7 +27,7 @@ namespace secJoin
         Silent,
         InsecureMock
     };
-    class Gmw : public oc::TimerAdapter
+    class Gmw final : public oc::TimerAdapter
     {
     public:
 
@@ -35,7 +35,7 @@ namespace secJoin
         {
             bool mDebug = false;
             std::vector<block> mA, mB, mC, mD;
-            std::list<std::array<std::vector<block>,2>> mU, mW;
+            std::list<std::array<std::vector<block>, 2>> mU, mW;
             oc::Matrix<int> mVals;
             oc::Matrix<block> mWords;
         };
@@ -58,7 +58,7 @@ namespace secJoin
         u64 mRole = -1;
 
         OtExtType mOtExtType;
-        
+
         // points to the i'th wire memory.
         std::vector<block*> mWords;
 
@@ -120,7 +120,7 @@ namespace secJoin
             oc::MatrixView<u8> ii((u8*)input.data(), input.rows(), input.cols() * sizeof(T));
             implSetInput(i, ii, sizeof(T));
         }
-        
+
         void setInput(u64 i, BinMatrix input)
         {
             setInput<u8>(i, input.mData);
@@ -130,7 +130,7 @@ namespace secJoin
         void setZeroInput(u64 i);
 
 
-        void mapInput(u64 i,  TBinMatrix& d)
+        void mapInput(u64 i, TBinMatrix& d)
         {
             if (mCir.mInputs.size() <= i)
                 throw std::runtime_error("GMW mapInput for an index that does not exist. " LOCATION);
@@ -248,9 +248,9 @@ namespace secJoin
 
         block* multRecvP1(block* x, block* z, oc::GateType gt,
             block* b, block* recvIter);
-        block* multRecvP2(block* x,  block* z,
+        block* multRecvP2(block* x, block* z,
             block* c,
-            block* d, 
+            block* d,
             block* recvIter);
 
 

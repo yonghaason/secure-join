@@ -8,9 +8,6 @@
 
 namespace secJoin
 {
-	using SharedTable = Table;
-	using SharedColumn = Column;
-
 	struct OmJoin : public oc::TimerAdapter
 	{
 		// we will pack columns into a matrix `data`.
@@ -38,6 +35,9 @@ namespace secJoin
 		// the subprotocol that will compute the control bits.
 		Gmw mControlBitGmw;
 
+		// the subprotocol that will compute which output rows are active.
+		Gmw mUpdateActiveFlagGmw;
+
 		// the number of bytes that will be stored per for of `data`.
 		u64 mDataBitsPerEntry = 0;
 
@@ -46,19 +46,22 @@ namespace secJoin
 
 		u64 mKeyIndex = -1;
 
+		u64 mPartyIdx = -1;
+
+		bool mRemoveDummies = false;
+
 		void init(
-			ColRef leftJoinCol,
-			ColRef rightJoinCol,
-			std::vector<ColRef> selects,
-			CorGenerator& ole);
+			JoinQuerySchema schema,
+			CorGenerator& ole,
+			bool removeDummies = false);
 
 
-		static macoro::task<> updateActiveFlag(
+		macoro::task<> updateActiveFlag(
 			BinMatrix& data,
 			BinMatrix& choice,
 			BinMatrix& out,
-			CorGenerator& ole,
-			PRNG&prng,
+			u64 flagBitIndex,
+			PRNG& prng,
 			coproto::Socket& sock);
 
 
@@ -90,7 +93,8 @@ namespace secJoin
 		// Then append `numDummies` empty rows to the end.
 		static void concatColumns(
 			BinMatrix& dst,
-			span<BinMatrix*> cols);
+			span<BinMatrix*> cols,
+			span<Offset> offsets);
 
 		// gather all of the columns from the left table and concatinate them
 		// together. Append dummy rows after that. Then add the column of keys
@@ -108,10 +112,9 @@ namespace secJoin
 
 		static void getOutput(
 			BinMatrix& data,
-			// oc::MatrixView<i64> revealBits,
 			span<ColRef> selects,
 			ColRef& left,
-			SharedTable& out,
+			Table& out,
 			std::vector<Offset>& offsets);
 
 		static AggTree::Operator getDupCircuit();
@@ -126,15 +129,10 @@ namespace secJoin
 
 		// leftJoinCol should be unique
 		macoro::task<> join(
-			ColRef leftJoinCol,
-			ColRef rightJoinCol,
-			std::vector<ColRef> selects,
-			SharedTable& out,
+			JoinQuery query,
+			Table& out,
 			PRNG& prng,
-			CorGenerator& ole,
-			coproto::Socket& sock,
-			bool remDummies = false, 
-			Perm randPerm = {});
+			coproto::Socket& sock);
 
 		static macoro::task<> applyRandPerm(
 			BinMatrix& data,
@@ -155,14 +153,14 @@ namespace secJoin
 			BinMatrix& data,
 			span<ColRef> selects,
 			ColRef& left,
-			SharedTable& out,
+			Table& out,
 			std::vector<Offset>& offsets,
 			CorGenerator& ole,
 			coproto::Socket& sock,
 			oc::PRNG& prng,
 			bool securePerm,
 			Perm& randPerm);
-    
+
 	};
 
 }
