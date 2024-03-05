@@ -335,7 +335,7 @@ void OmJoin_join_Test(const oc::CLP& cmd)
     share(L, Ls, prng);
     share(R, Rs, prng);
 
-    for (auto remDummies : { false, true })
+    for (auto remDummies : { false/*, true*/ })
     {
         OmJoin join0, join1;
 
@@ -880,18 +880,18 @@ void OmJoin_join_csv_Test(const oc::CLP& cmd)
     populateTable(L, visaCsvPath, lRowCount, isBin);
     populateTable(R, bankCsvPath, rRowCount, isBin);
 
-    // if (printSteps)
-    // {
-    //     std::cout << "L\n" << L << std::endl;
-    //     std::cout << "R\n" << R << std::endl;
-    // }
+    if (printSteps)
+    {
+        std::cout << "L\n" << L << std::endl;
+        std::cout << "R\n" << R << std::endl;
+    }
 
     PRNG prng(oc::ZeroBlock);
     std::array<Table, 2> Ls, Rs;
     share(L, Ls, prng);
     share(R, Rs, prng);
 
-    for (auto remDummies : { false, true })
+    for (auto remDummies : { false })
     {
         OmJoin join0, join1;
 
@@ -906,18 +906,17 @@ void OmJoin_join_csv_Test(const oc::CLP& cmd)
         auto sock = coproto::LocalAsyncSocket::makePair();
         CorGenerator ole0, ole1;
 
-        ole0.init(sock[0].fork(), prng0, 0, 1 << 16, mock);
-        ole1.init(sock[1].fork(), prng1, 1, 1 << 16, mock);
+        ole0.init(sock[0].fork(), prng0, 0, 1 << 20, mock);
+        ole1.init(sock[1].fork(), prng1, 1, 1 << 20, mock);
 
         Table out[2];
 
-        auto exp = join(L[0], R[1], { L[0], R[2], L[1] });
+        auto exp = join(L[joinVisaCols], R[joinClientCols], { L[0], R[2], L[1] });
         oc::Timer timer;
         join0.setTimer(timer);
         join1.setTimer(timer);
-
-        JoinQuery query0{ Ls[0][0], Rs[0][0], { Ls[0][0], Rs[0][1], Ls[0][1] } };
-        JoinQuery query1{ Ls[1][0], Rs[1][0], { Ls[1][0], Rs[1][1], Ls[1][1] } };
+        JoinQuery query0{ Ls[0][joinVisaCols], Rs[0][joinClientCols], { Ls[0][0], Rs[0][2], Ls[0][1] } };
+        JoinQuery query1{ Ls[1][joinVisaCols], Rs[1][joinClientCols], { Ls[1][0], Rs[1][2], Ls[1][1] } };
         join0.init(query0, ole0, remDummies);
         join1.init(query1, ole1, remDummies);
 

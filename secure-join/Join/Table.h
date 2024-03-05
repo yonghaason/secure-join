@@ -242,6 +242,9 @@ namespace secJoin
                     &c.mTable != &mRightKey.mTable)
                     throw RTE_LOC;
             }
+
+            if (mLeftKey.mCol.getBitCount() != mRightKey.mCol.getBitCount())
+                throw RTE_LOC;
         }
 
         operator JoinQuerySchema()

@@ -49,22 +49,22 @@ namespace secJoin
     void readBinFile(Table& tb, std::istream& in, oc::u64 rowCount)
     {
         u64 totalBytes = 0;
-        for(u64 i=0; i< tb.cols(); i++)
+        for (u64 i = 0; i < tb.cols(); i++)
             totalBytes += tb.mColumns[i].getByteCount();
 
-        std::vector<char> buffer (totalBytes * BATCH_READ_ENTRIES, 0);
+        std::vector<char> buffer(totalBytes * BATCH_READ_ENTRIES, 0);
         u64 rowPtr = 0;
-        while(!in.eof()) {
+        while (!in.eof()) {
             in.read(buffer.data(), buffer.size());
             std::streamsize readBytes = in.gcount();
 
             // Checking if the file has enough bytes
-            if(readBytes % totalBytes != 0)
+            if (readBytes % totalBytes != 0)
                 throw RTE_LOC;
-            
+
             u64 rows = readBytes / totalBytes;
 
-            if(rowPtr + rows > rowCount)
+            if (rowPtr + rows > rowCount)
                 throw RTE_LOC;
 
             u64 buffptr = 0;
@@ -73,7 +73,7 @@ namespace secJoin
                 for (oc::u64 colNum = 0; colNum < tb.cols(); colNum++)
                 {
                     u64 bytes = tb.mColumns[colNum].getByteCount();
-                    memcpy(tb.mColumns[colNum].mData.data(rowPtr), 
+                    memcpy(tb.mColumns[colNum].mData.data(rowPtr),
                         &buffer[buffptr],
                         bytes);
                     buffptr += bytes;
@@ -97,7 +97,7 @@ namespace secJoin
             std::stringstream str(line);
             while (getline(str, word, CSV_COL_DELIM))
             {
-                if(tb.mColumns[colNum].getTypeID() == TypeID::StringID)
+                if (tb.mColumns[colNum].getTypeID() == TypeID::StringID)
                 {
                     oc::u64 minSize = tb.mColumns[colNum].getByteCount() > word.size() ?
                         word.size() : tb.mColumns[colNum].getByteCount();
@@ -125,7 +125,7 @@ namespace secJoin
                     }
 
                 }
-                
+
                 colNum++;
             }
         }
@@ -133,7 +133,7 @@ namespace secJoin
 
     void populateTable(Table& tb, std::istream& in, oc::u64 rowCount, bool isBin)
     {
-        if(isBin)
+        if (isBin)
             readBinFile(tb, in, rowCount);
         else
             readTxtFile(tb, in, rowCount);
@@ -142,9 +142,9 @@ namespace secJoin
     void populateTable(Table& tb, std::string& fileName, oc::u64 rowCount, bool isBin)
     {
         std::ifstream file;
-        if(isBin)
+        if (isBin)
             file.open(fileName, std::ifstream::binary);
-        else 
+        else
             file.open(fileName, std::ios::in);
 
         if (!file.good())
@@ -180,8 +180,8 @@ namespace secJoin
         shares[1].mIsActive.resize(table.mIsActive.size());
 
         prng.get(shares[0].mIsActive.data(), shares[0].mIsActive.size());
-        for(u64 i = 0; i < table.mIsActive.size(); i++)
-                shares[1].mIsActive[i] = shares[0].mIsActive[i] ^ table.mIsActive[i];   
+        for (u64 i = 0; i < table.mIsActive.size(); i++)
+            shares[1].mIsActive[i] = shares[0].mIsActive[i] ^ table.mIsActive[i];
 
     }
 
@@ -220,7 +220,7 @@ namespace secJoin
     }
 
     Table average(ColRef groupByCol,
-                std::vector<ColRef> avgCol)
+        std::vector<ColRef> avgCol)
     {
         u64 m = avgCol.size();
         u64 n0 = groupByCol.mCol.rows();
@@ -230,16 +230,16 @@ namespace secJoin
 
 
         auto invPerm = PermOp::Regular;
-        BinMatrix temp; 
+        BinMatrix temp;
         temp.resize(groupByCol.mCol.mData.numEntries(), groupByCol.mCol.mData.bytesPerEntry() * 8);
         groupByPerm.apply<u8>(groupByCol.mCol.mData, temp, invPerm);
         std::swap(groupByCol.mCol.mData, temp);
 
 
         // Applying permutation to all the average cols
-        for(u64 i=0; i<m; i++)
+        for (u64 i = 0; i < m; i++)
         {
-            temp.resize(avgCol[i].mCol.mData.numEntries(), 
+            temp.resize(avgCol[i].mCol.mData.numEntries(),
                 avgCol[i].mCol.mData.bytesPerEntry() * 8);
             groupByPerm.apply<u8>(avgCol[i].mCol.mData, temp, invPerm);
             std::swap(avgCol[i].mCol.mData, temp);
@@ -248,91 +248,91 @@ namespace secJoin
 
         // Adding a Columns of 1's for calculating average
         BinMatrix ones(n0, sizeof(oc::u64) * 8);
-        for(oc::u64 i = 0; i < n0; i++)
-            ones(i,0) = 1;
+        for (oc::u64 i = 0; i < n0; i++)
+            ones(i, 0) = 1;
 
         Table out;
 
-        u64 nOutRows=0;
+        u64 nOutRows = 0;
 
         // Maybe implement a ControlBits logic
-        if(n0 > 0)
+        if (n0 > 0)
         {
-            nOutRows=1; // First region 
-            for(u64 row=1; row<n0; row++)
+            nOutRows = 1; // First region 
+            for (u64 row = 1; row < n0; row++)
             {
-                if( !eq(groupByCol.mCol.mData[row], groupByCol.mCol.mData[row-1]))
+                if (!eq(groupByCol.mCol.mData[row], groupByCol.mCol.mData[row - 1]))
                     nOutRows++;
             }
         }
 
         populateOutTable(out, avgCol, groupByCol, nOutRows);
-    
+
         // Creating a vector of inputs for Beta Curcuit evaluation
         std::vector<oc::BetaCircuit*> cir;
         cir.resize(m + 1);
         std::vector<oc::BitVector> inputs(2 * cir.size()), outputs(cir.size());
 
         oc::BetaLibrary lib;
-        for(u64 i=0; i<m; i++)
+        for (u64 i = 0; i < m; i++)
         {
             u64 size = avgCol[i].mCol.getByteCount() * 8;
             cir[i] = lib.int_int_add(size, size, size, oc::BetaLibrary::Optimized::Depth);
-            
+
             // Placing the first entry of the table for each column
             u64 rem = size - avgCol[i].mCol.getBitCount();
-            inputs[2*i].reset(rem);
-            inputs[2*i].append(avgCol[i].mCol.mData.data(0) , avgCol[i].mCol.getBitCount());
+            inputs[2 * i].reset(rem);
+            inputs[2 * i].append(avgCol[i].mCol.mData.data(0), avgCol[i].mCol.getBitCount());
 
             // Placing 0s as the first entry
-            inputs[2*i+1].reset(size);
+            inputs[2 * i + 1].reset(size);
             outputs[i].reset(size);
         }
 
         // Adding the ciruit for the BinMatrix of ones
         u64 size = ones.bytesPerEntry() * 8;
         cir[m] = lib.int_int_add(size, size, size, oc::BetaLibrary::Optimized::Depth);
-        inputs[2*m].append(ones.mData.data(0) , size);
-        inputs[2*m+1].reset(size);
+        inputs[2 * m].append(ones.mData.data(0), size);
+        inputs[2 * m + 1].reset(size);
         outputs[m].reset(size);
 
         // Base case
-        if(n0 == 0)
+        if (n0 == 0)
             return out;
-        else if(n0 == 1)
+        else if (n0 == 1)
         {
             copyTableEntry(out, groupByCol, avgCol, inputs, ones,
-                    0, nOutRows, 1);
+                0, nOutRows, 1);
         }
-        
+
 
         u64 curOutRow = 0;
         // We don't have to check the first entry
-        for(u64 row=1; row<n0; row++)
+        for (u64 row = 1; row < n0; row++)
         {
             // Checking groupby row with the previous entry
-            if( eq(groupByCol.mCol.mData[row], groupByCol.mCol.mData[row-1]))
+            if (eq(groupByCol.mCol.mData[row], groupByCol.mCol.mData[row - 1]))
             {
 
-                for(u64 col=0; col<m; col++)
+                for (u64 col = 0; col < m; col++)
                 {
-                    std::vector<oc::BitVector> tempInputs = 
-                                    {inputs[2*col], inputs[2*col+1]};
+                    std::vector<oc::BitVector> tempInputs =
+                    { inputs[2 * col], inputs[2 * col + 1] };
 
-                    inputs[2*col] = cirEval(cir[col], tempInputs,
-                        outputs[col], avgCol[col].mCol.mData.data(row), 
+                    inputs[2 * col] = cirEval(cir[col], tempInputs,
+                        outputs[col], avgCol[col].mCol.mData.data(row),
                         avgCol[col].mCol.getBitCount(),
                         avgCol[col].mCol.getByteCount()
                     );
                 }
 
                 // Run the circuit of ones:
-                std::vector<oc::BitVector> tempInputs = {inputs[2*m], inputs[2*m+1]};
-                inputs[2*m] = cirEval(cir[m], tempInputs,
-                        outputs[m], ones.mData.data(row), 
-                        ones.bitsPerEntry(),
-                        ones.bytesPerEntry()
-                    );
+                std::vector<oc::BitVector> tempInputs = { inputs[2 * m], inputs[2 * m + 1] };
+                inputs[2 * m] = cirEval(cir[m], tempInputs,
+                    outputs[m], ones.mData.data(row),
+                    ones.bitsPerEntry(),
+                    ones.bytesPerEntry()
+                );
             }
             else
             {
@@ -340,22 +340,22 @@ namespace secJoin
                     curOutRow, nOutRows, row);
 
                 // Putting the current row value in the first input
-                for(u64 i=0; i<m; i++)
+                for (u64 i = 0; i < m; i++)
                 {
                     auto size = avgCol[i].mCol.getByteCount() * 8;
                     auto bits = avgCol[i].mCol.getBitCount();
                     // Filling extra bits with zero
                     u64 rem = size - bits;
-                    inputs[2*i].reset(rem);
-                    inputs[2*i].append(avgCol[i].mCol.mData.data(row) , bits);
+                    inputs[2 * i].reset(rem);
+                    inputs[2 * i].append(avgCol[i].mCol.mData.data(row), bits);
                 }
-                inputs[2*m].reset(0);
-                inputs[2*m].append(ones.mData.data(row) , ones.bitsPerEntry());
+                inputs[2 * m].reset(0);
+                inputs[2 * m].append(ones.mData.data(row), ones.bitsPerEntry());
 
                 curOutRow++;
             }
 
-            if( row == n0 - 1)
+            if (row == n0 - 1)
             {
                 copyTableEntry(out, groupByCol, avgCol, inputs, ones,
                     curOutRow, nOutRows, row + 1);
@@ -370,7 +370,7 @@ namespace secJoin
 
 
     Table where(Table& T,
-        const std::vector<ArrGate>& gates, 
+        const std::vector<ArrGate>& gates,
         const std::vector<std::string>& literals,
         const std::vector<std::string>& literalsType,
         const u64 totalCol,
@@ -385,36 +385,36 @@ namespace secJoin
         outActFlags.resize(nT);
         u64 outRows = 0;
 
-        for(u64 j = 0; j < nT; j++)
+        for (u64 j = 0; j < nT; j++)
         {
             std::vector<oc::BitVector> inputs;
             inputs.reserve(wh.mGmwIn.size());
             oc::BitVector tmp(1);
-            std::vector<BitVector> outputs = {tmp};
-            for(u64 k=0; k < wh.mGmwIn.size(); k++)
+            std::vector<BitVector> outputs = { tmp };
+            for (u64 k = 0; k < wh.mGmwIn.size(); k++)
             {
                 BitVector bitVec(wh.mGmwIn[k].mData.data(j), wh.mGmwIn[k].bytesPerEntry() * 8);
                 inputs.emplace_back(bitVec);
             }
 
-            cd.evaluate( inputs, outputs );
+            cd.evaluate(inputs, outputs);
 
-            if(outputs[0][0] == 1)
+            if (outputs[0][0] == 1)
                 outRows++;
 
             outActFlags[j] = outputs[0][0];
         }
         Table out(outRows, T.getColumnInfo());
         u64 outRowPointer = 0;
-        for(u64 j = 0; j < nT; j++)
+        for (u64 j = 0; j < nT; j++)
         {
             assert(outRowPointer <= outRows);
-            if(outActFlags[j] == 1)
+            if (outActFlags[j] == 1)
             {
-                for(u64 k = 0; k < T.mColumns.size(); k++)
+                for (u64 k = 0; k < T.mColumns.size(); k++)
                 {
-                    memcpy(out.mColumns[k].mData.data(outRowPointer), 
-                        T.mColumns[k].mData.data(j), 
+                    memcpy(out.mColumns[k].mData.data(outRowPointer),
+                        T.mColumns[k].mData.data(j),
                         T.mColumns[k].getByteCount());
                 }
                 outRowPointer++;
@@ -429,37 +429,37 @@ namespace secJoin
 
 
     void copyTableEntry(Table& out, ColRef groupByCol, std::vector<ColRef> avgCol,
-                std::vector<oc::BitVector>& inputs, BinMatrix& ones,
-                u64 curOutRow, u64 nOutRows, u64 row)
+        std::vector<oc::BitVector>& inputs, BinMatrix& ones,
+        u64 curOutRow, u64 nOutRows, u64 row)
     {
         u64 m = avgCol.size();
         assert(curOutRow <= nOutRows);
         // Copying the groupby column
         assert(out.mColumns[0].mData.cols() == groupByCol.mCol.mData.cols());
-        memcpy(out.mColumns[0].mData.data(curOutRow),  
-                groupByCol.mCol.mData.data(row-1), 
-                groupByCol.mCol.mData.cols());
+        memcpy(out.mColumns[0].mData.data(curOutRow),
+            groupByCol.mCol.mData.data(row - 1),
+            groupByCol.mCol.mData.cols());
 
         // Copying the average column
-        for(u64 col=0; col<m; col++)
+        for (u64 col = 0; col < m; col++)
         {
-            assert(out.mColumns[col+1].mData.bytesPerEntry() == inputs[2*col].sizeBytes());
-            memcpy(out.mColumns[col+1].mData.data(curOutRow),
-                    inputs[2*col].data(), inputs[2*col].sizeBytes());
+            assert(out.mColumns[col + 1].mData.bytesPerEntry() == inputs[2 * col].sizeBytes());
+            memcpy(out.mColumns[col + 1].mData.data(curOutRow),
+                inputs[2 * col].data(), inputs[2 * col].sizeBytes());
         }
 
         // Copying the ones column 
-        memcpy(out.mColumns[m+1].mData.data(curOutRow),
-                    inputs[2*m].data(), inputs[2*m].sizeBytes());
+        memcpy(out.mColumns[m + 1].mData.data(curOutRow),
+            inputs[2 * m].data(), inputs[2 * m].sizeBytes());
 
         // Making the first input zero
-        for(u64 i=0; i<m; i++)
+        for (u64 i = 0; i < m; i++)
         {
             u64 size = avgCol[i].mCol.getByteCount() * 8;
-            inputs[2*i+1].reset(size);
+            inputs[2 * i + 1].reset(size);
         }
         u64 size = ones.bytesPerEntry() * 8;
-        inputs[2*m].reset(size);
+        inputs[2 * m].reset(size);
     }
 
     void populateOutTable(
@@ -481,45 +481,47 @@ namespace secJoin
         out.mColumns[0].mData.resize(nOutRows, bits);
 
         // Adding the average cols
-        for(u64 i=0; i < m; i++)
+        for (u64 i = 0; i < m; i++)
         {
-            out.mColumns[i+1].mName = avgCol[i].mCol.mName;
+            out.mColumns[i + 1].mName = avgCol[i].mCol.mName;
             auto bits = avgCol[i].mCol.getByteCount() * 8;
-            out.mColumns[i+1].mBitCount = bits;
-            out.mColumns[i+1].mType = avgCol[i].mCol.mType;
-            out.mColumns[i+1].mData.resize(nOutRows, bits);
+            out.mColumns[i + 1].mBitCount = bits;
+            out.mColumns[i + 1].mType = avgCol[i].mCol.mType;
+            out.mColumns[i + 1].mData.resize(nOutRows, bits);
         }
 
         // Adding the count col
-        out.mColumns[m+1].mName = "Count";
-        out.mColumns[m+1].mBitCount = sizeof(oc::u64) * 8;
-        out.mColumns[m+1].mType = TypeID::IntID;
-        out.mColumns[m+1].mData.resize(nOutRows, sizeof(oc::u64) * 8);
+        out.mColumns[m + 1].mName = "Count";
+        out.mColumns[m + 1].mBitCount = sizeof(oc::u64) * 8;
+        out.mColumns[m + 1].mType = TypeID::IntID;
+        out.mColumns[m + 1].mData.resize(nOutRows, sizeof(oc::u64) * 8);
 
     }
 
     oc::BitVector cirEval(oc::BetaCircuit* cir, std::vector<oc::BitVector>& inputs,
-             oc::BitVector& output, u8* data, u64 bits, u64 bytes)
+        oc::BitVector& output, u8* data, u64 bits, u64 bytes)
     {
 
         auto size = bytes * 8;
         // Filling extra bits with zero
         u64 rem = size - bits;
         inputs[1].reset(rem);
-        inputs[1].append(data , bits);
+        inputs[1].append(data, bits);
 
         // i64 cc = 0;
         // memcpy(&cc, inputs[0].data(), inputs[0].sizeBytes());  
         // std::cout << " input1: " << cc;                  
 
-        std::vector<oc::BitVector> tempOutputs = {output};
-        cir->evaluate( inputs, tempOutputs );
+        std::vector<oc::BitVector> tempOutputs = { output };
+        cir->evaluate(inputs, tempOutputs);
 
         return tempOutputs[0];
     }
 
     Table join(const ColRef& l, const ColRef& r, std::vector<ColRef> select)
     {
+        if (l.mCol.getBitCount() != r.mCol.getBitCount())
+            throw RTE_LOC;
         // std::unordered_map<oc::block, u64>
         auto LPerm = sort(l);
         auto RPerm = sort(r);
@@ -633,19 +635,19 @@ namespace secJoin
 
     }
 
-    Table applyPerm(Table& T, Perm &perm)
+    Table applyPerm(Table& T, Perm& perm)
     {
         Table permT = T;
 
-        for(u64 i = 0; i < T.cols(); i++)
+        for (u64 i = 0; i < T.cols(); i++)
         {
-            BinMatrix temp(permT.mColumns[i].mData.numEntries(), 
+            BinMatrix temp(permT.mColumns[i].mData.numEntries(),
                 permT.mColumns[i].mData.bitsPerEntry());
             perm.apply<u8>(permT.mColumns[i].mData, temp, PermOp::Regular);
             std::swap(permT.mColumns[i].mData, temp);
         }
 
-        if(permT.mIsActive.size() > 0)
+        if (permT.mIsActive.size() > 0)
         {
             std::vector<u8> temp = perm.apply<u8>(permT.mIsActive);
             std::swap(permT.mIsActive, temp);

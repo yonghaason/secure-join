@@ -7,6 +7,20 @@ namespace secJoin
         std::cout << str << std::endl;
     }
 
+    macoro::task<> start(WrapperState* cState, JoinQuery query)
+    {
+        MC_BEGIN(macoro::task<>, cState, query);
+
+        MC_AWAIT(
+            macoro::when_all_ready(
+                cState->mOle.start(),
+                cState->mJoin.join(query,
+                    cState->mJoinTb, cState->mPrng, cState->mSock)
+            ));
+
+        MC_END();
+    }
+
     WrapperState* initState(std::string& csvPath,
         std::string& visaMetaDataPath,
         std::string& clientMetaDataPath,
@@ -79,9 +93,7 @@ namespace secJoin
         JoinQuery query(lJoinColRef, rJoinColRef, selectColRefs);
         cState->mJoin.init(query, cState->mOle);
 
-        cState->mProtocol =
-            cState->mJoin.join(query,
-                cState->mJoinTb, cState->mPrng, cState->mSock) | macoro::make_eager();
+        cState->mProtocol = start(cState.get(), query) | macoro::make_eager();
 
 
         return cState.release();
