@@ -39,7 +39,7 @@ namespace secJoin
         }
         else
         {
-            PRNG prng(oc::ZeroBlock);
+            PRNG prng(oc::block(234234234,564356345));
             oc::LinearCode code;
             code.random(prng, bits, compressesSize);
 

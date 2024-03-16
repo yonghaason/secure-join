@@ -1147,6 +1147,12 @@ namespace secJoin
             pre = macoro::eager_task<>{}
         );
 
+        if(k.rows() != mSize)
+            throw RTE_LOC;
+        if(k.bitsPerEntry() != mBitCount)
+            throw RTE_LOC;
+            
+
         setTimePoint("genPerm begin");
 
         if (mInsecureMock)
@@ -1161,13 +1167,12 @@ namespace secJoin
         ll = oc::divCeil(k.bitsPerEntry(), mL);
         kIdx = 0;
         sk = extract(kIdx, mL, k); kIdx += mL;
-
+        
         if (mPrePermStarted == false)
             pre = genPrePerm(comm, prng) | macoro::make_eager();
 
         // generate the sorting permutation for the
         // first L bits of the key.
-
         MC_AWAIT(genBitPerm(mRounds[0], mL, sk, dst, comm));
         setTimePoint("genBitPerm");
 
@@ -1252,7 +1257,6 @@ namespace secJoin
         }
 
         setTimePoint("genPerm end");
-
 
         if (pre.handle())
         {

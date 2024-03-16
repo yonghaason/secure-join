@@ -4,16 +4,20 @@
 
 using namespace secJoin;
 
+
 void Average_concatColumns_Test()
 {
-    u64 n0 = 234;
+    u64 n0 = 2345;
     Table t0;
     t0.mColumns.emplace_back("c0", TypeID::IntID, 11);
     t0.mColumns.emplace_back("c1", TypeID::IntID, 31);
     t0.mColumns.emplace_back("c2", TypeID::IntID, 5);
+    t0.mIsActive.resize(n0);
     t0.resize(n0);
 
-    // Average avg;
+    auto sock = coproto::LocalAsyncSocket::makePair();
+
+    Average avg;
 
     PRNG prng(oc::ZeroBlock);
     for (u64 i = 0; i < t0.mColumns.size(); ++i)
@@ -21,32 +25,35 @@ void Average_concatColumns_Test()
         prng.get(t0[i].mCol.mData.data(), t0[i].mCol.mData.size());
         t0[i].mCol.mData.trim();
     }
-    BinMatrix y;
-    std::vector<OmJoin::Offset> offsets;
+    
+    for (u64 i = 0; i < t0.rows(); ++i)
+        t0.mIsActive[i] = 1;
 
-    std::vector<ColRef> averageCols;
-    averageCols.emplace_back(t0[0]);
-    averageCols.emplace_back(t0[1]);
-    averageCols.emplace_back(t0[2]);
-
-
+    ColRef groupByCol = t0[0];
+    std::vector<ColRef> avgCols = { t0[1], t0[2] };
+    BinMatrix compressKeys, y;
+    
     CorGenerator ole;
-    ole.init(coproto::Socket{}, prng, 1);
+    ole.init(sock[0].fork(), prng, 1);
 
-    Average::concatColumns(t0[0], averageCols, y, offsets, ole);
+    avg.init(groupByCol, avgCols, ole, false);    
+    avg.loadKeys(groupByCol, t0.mIsActive, prng, compressKeys);
+    avg.concatColumns(groupByCol, avgCols, t0.mIsActive, compressKeys, y);
+
     BinMatrix ones(n0, sizeof(oc::u64) * 8);
     for (oc::u64 i = 0; i < n0; i++)
         ones(i, 0) = 1;
 
-
+    // Validation logic
     for (u64 i = 0; i < n0; ++i)
     {
         auto iter = oc::BitIterator(y.mData[i].data());
-
-        for (u64 j = 0; j < t0.mColumns.size(); ++j)
+        
+        // Checking the Average Columns
+        for (u64 j = 0; j < avgCols.size(); ++j)
         {
-            auto expIter = oc::BitIterator(t0[j].mCol.mData[i].data());
-            for (u64 k = 0; k < t0[j].mCol.getBitCount(); ++k)
+            auto expIter = oc::BitIterator(avgCols[j].mCol.mData.data(i));
+            for (u64 k = 0; k < avgCols[j].mCol.getBitCount(); ++k)
             {
                 u8 exp = *expIter++;
                 u8 act = *iter++;
@@ -54,15 +61,13 @@ void Average_concatColumns_Test()
                     throw RTE_LOC;
             }
 
-            auto rem = t0[j].mCol.getBitCount() % 8;
+            auto rem = avgCols[j].mCol.getBitCount() % 8;
             if (rem)
-            {
                 iter = iter + (8 - rem);
-            }
         }
 
-
-        auto expIter = oc::BitIterator(ones.mData[i].data());
+        // Checking the ones column
+        auto expIter = oc::BitIterator(ones.data(i));
 
         for (u64 k = 0; k < ones.mBitCount; ++k)
         {
@@ -71,9 +76,45 @@ void Average_concatColumns_Test()
             if (exp != act)
                 throw RTE_LOC;
         }
+        auto rem = ones.bitsPerEntry() % 8;
+        if (rem)
+            iter = iter + (8 - rem);
+
+        // Checking the groupby column
+        expIter = oc::BitIterator(groupByCol.mCol.mData.data(i));
+
+        for (u64 k = 0; k < groupByCol.mCol.mBitCount; ++k)
+        {
+            u8 exp = *expIter++;
+            u8 act = *iter++;
+            if (exp != act)
+                throw RTE_LOC;
+        }
+        rem = groupByCol.mCol.getBitCount() % 8;
+        if (rem)
+            iter = iter + (8 - rem);
+
+        // Checking the compressKeys
+        expIter = oc::BitIterator(compressKeys.data(i));
+
+        for (u64 k = 0; k < compressKeys.bitsPerEntry(); ++k)
+        {
+            u8 exp = *expIter++;
+            u8 act = *iter++;
+            if (exp != act)
+                throw RTE_LOC;
+        }
+        rem = compressKeys.bitsPerEntry() % 8;
+        if (rem)
+            iter = iter + (8 - rem);
+
+        // Checking the active Flag
+        u8 exp = t0.mIsActive[i];
+        u8 act = *iter++;
+        if (exp != act)
+            throw RTE_LOC;
+
     }
-
-
 }
 
 
@@ -106,11 +147,16 @@ void Average_getControlBits_Test(const oc::CLP& cmd)
     ole0.init(sock[0].fork(), prng, 0, 1 << 16, mock);
     ole1.init(sock[1].fork(), prng, 1, 1 << 16, mock);
 
+    Average avg[2];
+
+    avg[0].mControlBitGmw.init(n, OmJoin::getControlBitsCircuit(keyBitCount), ole0);
+    avg[1].mControlBitGmw.init(n, OmJoin::getControlBitsCircuit(keyBitCount), ole1);
+
     auto r = macoro::sync_wait(macoro::when_all_ready(
         ole0.start(),
         ole1.start(),
-        Average::getControlBits(kk[0], sock[0], cc[0], ole0),
-        Average::getControlBits(kk[1], sock[1], cc[1], ole1)));
+        avg[0].getControlBits(kk[0], sock[0], cc[0]),
+        avg[1].getControlBits(kk[1], sock[1], cc[1])));
 
     std::get<0>(r).result();
     std::get<1>(r).result();
@@ -129,7 +175,7 @@ void Average_getControlBits_Test(const oc::CLP& cmd)
 
 void Average_avg_Test(const oc::CLP& cmd)
 {
-    u64 nT = 10;
+    u64 nT = cmd.getOr("nT", 10);
     Table T;
 
     bool printSteps = cmd.isSet("print");
@@ -149,14 +195,6 @@ void Average_avg_Test(const oc::CLP& cmd)
         T.mColumns[2].mData.mData(i, 0) = i % 4;
         T.mColumns[2].mData.mData(i, 1) = i % 4;
     }
-
-    Average avg1, avg2;
-
-    avg1.mInsecurePrint = printSteps;
-    avg2.mInsecurePrint = printSteps;
-
-    avg1.mInsecureMockSubroutines = mock;
-    avg2.mInsecureMockSubroutines = mock;
 
     auto sock = coproto::LocalAsyncSocket::makePair();
 
@@ -180,19 +218,31 @@ void Average_avg_Test(const oc::CLP& cmd)
     ole0.init(sock[0].fork(), prng0, 0, 1 << 16, mock);
     ole1.init(sock[1].fork(), prng1, 1, 1 << 16, mock);
 
-    for (auto remDummies : { false, true })
+    for (auto remDummies : { false })
     {
+        Average avg0, avg1; 
+
+        avg0.init(Ts[0][0], { Ts[0][1], Ts[0][2] }, ole0, remDummies, printSteps, mock);
+        avg1.init(Ts[1][0], { Ts[1][1], Ts[1][2] }, ole1, remDummies, printSteps, mock);
+
+
         Perm p0(exp.rows(), prng0);
         Perm p1(exp.rows(), prng1);
         Perm pi = p0.composeSwap(p1);
 
         Table out[2];
         auto r = macoro::sync_wait(macoro::when_all_ready(
-            avg1.avg(Ts[0][0], { Ts[0][1], Ts[0][2] }, out[0], prng0, ole0, sock[0], remDummies, p0),
-            avg2.avg(Ts[1][0], { Ts[1][1], Ts[1][2] }, out[1], prng1, ole1, sock[1], remDummies, p1)
-        ));
+            ole0.start(), ole1.start(),
+            avg0.avg(Ts[0][0], { Ts[0][1], Ts[0][2] }, out[0], prng0, ole0, sock[0], remDummies, p0),
+            avg1.avg(Ts[1][0], { Ts[1][1], Ts[1][2] }, out[1], prng1, ole1, sock[1], remDummies, p1)
+            
+             )
+        );
+
         std::get<0>(r).result();
         std::get<1>(r).result();
+        std::get<2>(r).result();
+        std::get<3>(r).result();
 
         Table res;
 
