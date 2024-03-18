@@ -386,7 +386,9 @@ namespace secJoin
                 else if (gate->mType == oc::GateType::na_And ||
                     gate->mType == oc::GateType::nb_And ||
                     gate->mType == oc::GateType::And ||
+                    gate->mType == oc::GateType::Nand ||
                     gate->mType == oc::GateType::Nor ||
+                    gate->mType == oc::GateType::nb_Or ||
                     gate->mType == oc::GateType::Or)
                 {
 

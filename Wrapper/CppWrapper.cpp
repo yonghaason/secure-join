@@ -178,11 +178,11 @@ namespace secJoin
 
         cState->mWh.mInsecureMockSubroutines = cState->mInsecureMockSubroutines;
 
-        cState->mProtocol = cState->mWh.where(cState->mJoinTb, cState->mGates, cState->mLiterals,
-            cState->mLiteralsType, cState->mTotCol, cState->mWhTb, cState->mMap, cState->mOle,
-            cState->mSock, cState->mInsecurePrint, cState->mPrng, cState->mRemDummies,
-            cState->mPerm)
-            | macoro::make_eager();
+        // cState->mProtocol = cState->mWh.where(cState->mJoinTb, cState->mGates, cState->mLiterals,
+        //     cState->mLiteralsType, cState->mTotCol, cState->mWhTb, cState->mMap, cState->mOle,
+        //     cState->mSock, cState->mInsecurePrint, cState->mPrng, cState->mRemDummies,
+        //     cState->mPerm)
+        //     | macoro::make_eager();
 
     }
 

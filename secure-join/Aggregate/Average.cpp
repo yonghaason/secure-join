@@ -178,6 +178,11 @@ namespace secJoin {
 
     oc::BetaCircuit updateActiveFlagCir(u64 aSize, u64 bSize, u64 cSize)
     {
+        // Current Assumption is Act flag & Control Bit is 1 bit
+        assert(aSize == 1);
+        assert(aSize == bSize);
+        assert(bSize == cSize);
+
         BetaCircuit cd;
 
         BetaBundle a(aSize);

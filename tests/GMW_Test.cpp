@@ -384,10 +384,11 @@ namespace secJoin_Tests
             oc::GateType::na_And,
             oc::GateType::nb_And,
             oc::GateType::Or,
-            //oc::GateType::Nand,
+            oc::GateType::Nand,
             oc::GateType::Nor,
             oc::GateType::Xor,
-            oc::GateType::Nxor
+            oc::GateType::Nxor,
+            oc::GateType::nb_Or
             })
         {
             BetaCircuit cir;
