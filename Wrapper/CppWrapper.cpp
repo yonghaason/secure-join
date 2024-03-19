@@ -7,16 +7,11 @@ namespace secJoin
         std::cout << str << std::endl;
     }
 
-    macoro::task<> start(WrapperState* cState, JoinQuery query)
+    macoro::task<> start(CorGenerator& ole, macoro::task<> task)
     {
-        MC_BEGIN(macoro::task<>, cState, query);
+        MC_BEGIN(macoro::task<>, &ole, task_ = std::move(task));
 
-        MC_AWAIT(
-            macoro::when_all_ready(
-                cState->mOle.start(),
-                cState->mJoin.join(query,
-                    cState->mJoinTb, cState->mPrng, cState->mSock)
-            ));
+        MC_AWAIT(macoro::when_all_ready( ole.start(), std::move(task_) ));
 
         MC_END();
     }
@@ -33,7 +28,6 @@ namespace secJoin
         bool remDummies,
         Perm randPerm)
     {
-        mock = true; // Remove this once Peter fixes the Join bug
         auto cState = std::make_unique<WrapperState>();
         cState->mLiterals = literals;
         cState->mLiteralsType = literalsType;
@@ -79,6 +73,7 @@ namespace secJoin
         cState->mInsecureMockSubroutines = mock;
         cState->mRemDummies = remDummies;
         cState->mPerm = randPerm;
+        cState->mIsUnique = isUnique;
 
 
         // Current assumption are that Visa always provides table with unique keys 
@@ -93,8 +88,10 @@ namespace secJoin
         JoinQuery query(lJoinColRef, rJoinColRef, selectColRefs);
         cState->mJoin.init(query, cState->mOle);
 
-        cState->mProtocol = start(cState.get(), query) | macoro::make_eager();
-
+        cState->mProtocol = 
+            start(cState->mOle, 
+            cState->mJoin.join(query, cState->mJoinTb, cState->mPrng, cState->mSock) ) 
+            | macoro::make_eager();
 
         return cState.release();
     }
@@ -136,7 +133,7 @@ namespace secJoin
         writeFileData(csvPath, table, true);
     }
 
-    void getOtherShare(WrapperState* cState, bool isUnique)
+    void getOtherShare(WrapperState* cState)
     {
         Table& table = cState->mJoinTb;
         if (cState->mAggTb.cols() > 0)
@@ -145,7 +142,7 @@ namespace secJoin
             table = cState->mWhTb;
 
         // Assuming Visa always receives the client's share
-        if (isUnique)
+        if (cState->mIsUnique)
         {
             cState->mProtocol = revealLocal(table, cState->mSock, cState->mOutTb)
                 | macoro::make_eager();
@@ -157,11 +154,11 @@ namespace secJoin
         }
     }
 
-    void getFinalTable(WrapperState* cState, std::string csvPath, std::string metaDataPath, bool isUnique)
+    void getFinalTable(WrapperState* cState, std::string csvPath, std::string metaDataPath)
     {
         // Only Visa can call this API 
         // Bcoz it has the final result
-        if (!isUnique)
+        if (!cState->mIsUnique)
             throw RTE_LOC;
         writeFileInfo(metaDataPath, cState->mOutTb);
         writeFileData(csvPath, cState->mOutTb);
@@ -176,13 +173,21 @@ namespace secJoin
             throw std::runtime_error(temp + LOCATION);
         }
 
-        cState->mWh.mInsecureMockSubroutines = cState->mInsecureMockSubroutines;
+        if (cState->mIsUnique)
+            cState->mOle.init(cState->mSock.fork(), cState->mPrng, 0, 1 << 18, cState->mInsecureMockSubroutines);
+        else
+            cState->mOle.init(cState->mSock.fork(), cState->mPrng, 1, 1 << 18, cState->mInsecureMockSubroutines);
 
-        // cState->mProtocol = cState->mWh.where(cState->mJoinTb, cState->mGates, cState->mLiterals,
-        //     cState->mLiteralsType, cState->mTotCol, cState->mWhTb, cState->mMap, cState->mOle,
-        //     cState->mSock, cState->mInsecurePrint, cState->mPrng, cState->mRemDummies,
-        //     cState->mPerm)
-        //     | macoro::make_eager();
+        cState->mWh.mInsecureMockSubroutines = cState->mInsecureMockSubroutines;
+        cState->mWh.init(cState->mJoinTb, cState->mGates, cState->mLiterals,  
+            cState->mLiteralsType, cState->mTotCol,
+            cState->mMap, cState->mOle, cState->mInsecurePrint, 
+            cState->mRemDummies);
+
+        cState->mProtocol = 
+            start(cState->mOle, 
+            cState->mWh.where(cState->mJoinTb, cState->mWhTb, cState->mSock, cState->mRemDummies) )
+            | macoro::make_eager();
 
     }
 
@@ -199,6 +204,11 @@ namespace secJoin
             if (cState->mWhTb.cols() > 0)
                 inTb = cState->mWhTb;
 
+            if (cState->mIsUnique)
+                cState->mOle.init(cState->mSock.fork(), cState->mPrng, 0, 1 << 18, cState->mInsecureMockSubroutines);
+            else
+                cState->mOle.init(cState->mSock.fork(), cState->mPrng, 1, 1 << 18, cState->mInsecureMockSubroutines);
+
             std::vector<secJoin::ColRef> avgCols =
                 getColRefFromMapping(cState->mMap, cState->mAvgCols, inTb);
 
@@ -206,12 +216,17 @@ namespace secJoin
             oc::u64 groupByColIndex = getMapVal(cState->mMap, cState->mGroupByCols[0]);
             secJoin::ColRef grpByCol = inTb[groupByColIndex];
 
-            cState->mAvg.mInsecurePrint = cState->mInsecurePrint;
-            cState->mAvg.mInsecureMockSubroutines = cState->mInsecureMockSubroutines;
+            
+            cState->mAvg.init(grpByCol, avgCols, cState->mOle, 
+                cState->mRemDummies, cState->mInsecurePrint,cState->mInsecureMockSubroutines);
+
 
             cState->mProtocol =
+                start(cState->mOle, 
                 cState->mAvg.avg(grpByCol, avgCols, cState->mAggTb, cState->mPrng,
-                    cState->mOle, cState->mSock, cState->mRemDummies, cState->mPerm) | macoro::make_eager();
+                    cState->mOle, cState->mSock, cState->mRemDummies) )
+                | macoro::make_eager();
+
 
         }
 

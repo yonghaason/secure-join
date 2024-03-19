@@ -104,7 +104,6 @@ void OmJoin_wrapper_join_test(const oc::CLP& cmd)
 {
     // std::string str("Hello World!");
     // testApi(str);
-    throw oc::UnitTestSkipped("known issue");
     std::string rootPath(SEC_JOIN_ROOT_DIRECTORY);
     std::string visaCsvPath = rootPath + "/tests/tables/visa.csv";
     std::string bankCsvPath = rootPath + "/tests/tables/bank.csv";
@@ -153,8 +152,8 @@ void OmJoin_wrapper_join_test(const oc::CLP& cmd)
     if(verbose)
         std::cout << "Join Protocol Completed" << std::endl;
 
-    secJoin::getOtherShare(visaState.get(), isUnique);
-    secJoin::getOtherShare(bankState.get(), !isUnique);
+    secJoin::getOtherShare(visaState.get());
+    secJoin::getOtherShare(bankState.get());
 
     runProtocol(visaState.get(), bankState.get(), verbose);
 
@@ -178,7 +177,6 @@ void OmJoin_wrapper_join_test(const oc::CLP& cmd)
 
 void OmJoin_wrapper_avg_test(const oc::CLP& cmd)
 {
-    throw oc::UnitTestSkipped("known issue");
     std::string rootPath(SEC_JOIN_ROOT_DIRECTORY);
     std::string visaCsvPath = rootPath + "/tests/tables/visa.csv";
     std::string bankCsvPath = rootPath + "/tests/tables/bank.csv";
@@ -226,8 +224,8 @@ void OmJoin_wrapper_avg_test(const oc::CLP& cmd)
     if(verbose)
         std::cout << "Join Protocol Completed" << std::endl;
 
-    secJoin::getOtherShare(visaState.get(), isUnique);
-    secJoin::getOtherShare(bankState.get(), !isUnique);
+    secJoin::getOtherShare(visaState.get());
+    secJoin::getOtherShare(bankState.get());
 
     runProtocol(visaState.get(), bankState.get(), verbose);
 
@@ -251,8 +249,8 @@ void OmJoin_wrapper_avg_test(const oc::CLP& cmd)
     if(verbose)
         std::cout << "Average Protocol Completed" << std::endl;
 
-    secJoin::getOtherShare(visaState.get(), isUnique);
-    secJoin::getOtherShare(bankState.get(), !isUnique);
+    secJoin::getOtherShare(visaState.get());
+    secJoin::getOtherShare(bankState.get());
 
     runProtocol(visaState.get(), bankState.get(), verbose);
     
@@ -300,7 +298,6 @@ void OmJoin_wrapper_avg_test(const oc::CLP& cmd)
 
 void OmJoin_wrapper_where_test(const oc::CLP& cmd)
 {
-    throw oc::UnitTestSkipped("known issue");
     std::string rootPath(SEC_JOIN_ROOT_DIRECTORY);
     std::string visaCsvPath = rootPath + "/tests/tables/visa.csv";
     std::string bankCsvPath = rootPath + "/tests/tables/bank.csv";
@@ -351,8 +348,8 @@ void OmJoin_wrapper_where_test(const oc::CLP& cmd)
     if(verbose)
         std::cout << "Join Protocol Completed" << std::endl;
 
-    secJoin::getOtherShare(visaState.get(), isUnique);
-    secJoin::getOtherShare(bankState.get(), !isUnique);
+    secJoin::getOtherShare(visaState.get());
+    secJoin::getOtherShare(bankState.get());
 
     runProtocol(visaState.get(), bankState.get(), verbose);
 
@@ -378,8 +375,8 @@ void OmJoin_wrapper_where_test(const oc::CLP& cmd)
     if(verbose)
         std::cout << "Where Protocol Completed" << std::endl;
 
-    secJoin::getOtherShare(visaState.get(), isUnique);
-    secJoin::getOtherShare(bankState.get(), !isUnique);
+    secJoin::getOtherShare(visaState.get());
+    secJoin::getOtherShare(bankState.get());
 
     runProtocol(visaState.get(), bankState.get(), verbose);
 
@@ -404,8 +401,8 @@ void OmJoin_wrapper_where_test(const oc::CLP& cmd)
     if(verbose)
         std::cout << "Average Protocol Completed" << std::endl;
 
-    secJoin::getOtherShare(visaState.get(), isUnique);
-    secJoin::getOtherShare(bankState.get(), !isUnique);
+    secJoin::getOtherShare(visaState.get());
+    secJoin::getOtherShare(bankState.get());
 
     runProtocol(visaState.get(), bankState.get(), verbose);
     

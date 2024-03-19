@@ -58,7 +58,7 @@ namespace secJoin
             CorGenerator& ole,
             const bool print,
             bool remDummies,
-            Perm randPerm);
+            Perm randPerm = {});
 
         macoro::task<> where(
             SharedTable& st,
