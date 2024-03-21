@@ -3,4 +3,6 @@
 out/
 tests/cmakeTests/
 CMakeSettings.json
+.idea/
+cmake-build-debug/
 ~/

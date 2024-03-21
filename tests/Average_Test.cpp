@@ -266,6 +266,99 @@ void Average_avg_Test(const oc::CLP& cmd)
 
 }
 
+void Average_avg_BigKey_Test(const oc::CLP& cmd)
+{
+    u64 nT = cmd.getOr("nT", 10);
+    Table T;
+
+    bool printSteps = cmd.isSet("print");
+    bool mock = cmd.getOr("mock", 1);
+
+    T.init(nT, { {
+        {"L1", TypeID::IntID, 100},
+        {"L2", TypeID::IntID, 16},
+        {"L3", TypeID::IntID, 16}
+    } });
+
+    for (u64 i = 0; i < nT; ++i)
+    {
+        T.mColumns[0].mData.mData(i, 0) = i % 5;
+        T.mColumns[1].mData.mData(i, 0) = i % 4;
+        T.mColumns[1].mData.mData(i, 1) = i % 4;
+        T.mColumns[2].mData.mData(i, 0) = i % 4;
+        T.mColumns[2].mData.mData(i, 1) = i % 4;
+    }
+
+    auto sock = coproto::LocalAsyncSocket::makePair();
+
+    PRNG prng0(oc::ZeroBlock);
+    PRNG prng1(oc::OneBlock);
+
+    std::array<Table, 2> Ts;
+    share(T, Ts, prng0);
+
+    Ts[0].mIsActive.resize(nT);
+    Ts[1].mIsActive.resize(nT);
+    for (u64 i = 0; i < nT; i++)
+    {
+        Ts[0].mIsActive[i] = 1;
+        Ts[1].mIsActive[i] = 0;
+    }
+
+    auto exp = average(T[0], { T[1], T[2] });
+
+    CorGenerator ole0, ole1;
+    ole0.init(sock[0].fork(), prng0, 0, 1 << 16, mock);
+    ole1.init(sock[1].fork(), prng1, 1, 1 << 16, mock);
+
+    for (auto remDummies : { false })
+    {
+        Average avg0, avg1; 
+
+        avg0.init(Ts[0][0], { Ts[0][1], Ts[0][2] }, ole0, remDummies, printSteps, mock);
+        avg1.init(Ts[1][0], { Ts[1][1], Ts[1][2] }, ole1, remDummies, printSteps, mock);
+
+
+        Perm p0(exp.rows(), prng0);
+        Perm p1(exp.rows(), prng1);
+        Perm pi = p0.composeSwap(p1);
+
+        Table out[2];
+        auto r = macoro::sync_wait(macoro::when_all_ready(
+            ole0.start(), ole1.start(),
+            avg0.avg(Ts[0][0], { Ts[0][1], Ts[0][2] }, out[0], prng0, ole0, sock[0], remDummies, p0),
+            avg1.avg(Ts[1][0], { Ts[1][1], Ts[1][2] }, out[1], prng1, ole1, sock[1], remDummies, p1)
+            
+             )
+        );
+
+        std::get<0>(r).result();
+        std::get<1>(r).result();
+        std::get<2>(r).result();
+        std::get<3>(r).result();
+
+        Table res;
+
+        res = reveal(out[0], out[1]);
+
+        if (remDummies)
+        {
+            Table tmp = applyPerm(exp, pi);
+            std::swap(exp, tmp);
+        }
+
+        if (res != exp)
+        {
+            std::cout << "remove dummies flag = " << remDummies << std::endl;
+            std::cout << "exp \n" << exp << std::endl;
+            std::cout << "act \n" << res << std::endl;
+            std::cout << "ful \n" << reveal(out[0], out[1], false) << std::endl;
+            throw RTE_LOC;
+        }
+    }
+
+}
+
 void Average_avg_csv_Test(const oc::CLP& cmd)
 {
     std::string rootPath(SEC_JOIN_ROOT_DIRECTORY);

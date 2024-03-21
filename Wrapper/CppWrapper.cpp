@@ -218,7 +218,7 @@ namespace secJoin
 
             
             cState->mAvg.init(grpByCol, avgCols, cState->mOle, 
-                cState->mRemDummies, cState->mInsecurePrint,cState->mInsecureMockSubroutines);
+                cState->mRemDummies, cState->mInsecurePrint, cState->mInsecureMockSubroutines);
 
 
             cState->mProtocol =

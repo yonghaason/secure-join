@@ -49,7 +49,7 @@ namespace secJoin {
         auto rows = grpByData.rows();
         auto grpByBits = grpByData.bitsPerEntry();
         auto grpByBytes = grpByData.bytesPerEntry();
-        auto compressedSize = mStatSecParam + log2(rows);
+        auto compressedSize = mStatSecParam + oc::log2ceil(rows);
 
         // Appending ActiveFlagBit to the key
         BinMatrix keys(rows, grpByBits + 1);
@@ -217,7 +217,7 @@ namespace secJoin {
 
         u64 compressKeySize = std::min<u64>(
             keySize, 
-            mStatSecParam + log2(rows));
+            mStatSecParam + oc::log2ceil(rows));
 
         mPartyIdx = ole.partyIdx();
 
@@ -328,7 +328,7 @@ namespace secJoin {
             tempOffsets = { OmJoin::Offset{ 0, compressKeys.bitsPerEntry(), "Compress Key*" } };
             MC_AWAIT(OmJoin::print(compressKeys, controlBits, sock, mPartyIdx, "Compress keys", tempOffsets));
         }
-        // mSort.mDebug = true;
+        mSort.mDebug = true;
         mSort.preprocess();
         prepro = mSort.genPrePerm(sock, prng) | macoro::make_eager();
 

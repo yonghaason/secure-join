@@ -116,6 +116,7 @@ namespace secJoin_Tests
             t.add("Average_concatColumns_Test                    ", Average_concatColumns_Test);
             t.add("Average_getControlBits_Test                   ", Average_getControlBits_Test);
             t.add("Average_avg_Test                              ", Average_avg_Test);
+            t.add("Average_avg_BigKey_Test                       ", Average_avg_BigKey_Test);
             t.add("Average_avg_csv_Test                          ", Average_avg_csv_Test);
 
             t.add("Where_genWhBundle_Test                        ", Where_genWhBundle_Test);
