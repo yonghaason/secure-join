@@ -267,20 +267,51 @@ namespace secJoin
     macoro::task<> revealLocal(const Table& share, coproto::Socket& sock, Table& out);
     macoro::task<> revealRemote(const Table& share, coproto::Socket& sock);
 
-    void share(Table& table, std::array<Table, 2>& shares,
+    void share(
+        Table& table,
+        std::array<Table, 2>& shares,
         PRNG& prng);
-    Table join(const ColRef& l, const ColRef& r, std::vector<ColRef> select);
-    oc::BitVector cirEval(oc::BetaCircuit* cir, std::vector<oc::BitVector>& inputs,
-        oc::BitVector& output, u8* data, u64 bits, u64 bytes);
-    void populateOutTable(Table& out, std::vector<ColRef> avgCol,
-        ColRef groupByCol, u64 nOutRows);
-    void copyTableEntry(Table& out, ColRef groupByCol, std::vector<ColRef> avgCol,
-        std::vector<oc::BitVector>& inputs, BinMatrix& ones,
-        u64 curOutRow, u64 nOutRows, u64 row);
-    Table average(ColRef groupByCol, std::vector<ColRef> avgCol);
-    Table where(Table& T, const std::vector<ArrGate>& gates, const std::vector<std::string>& literals,
-        const std::vector<std::string>& literalsType, const u64 totalCol,
-        const std::unordered_map<u64, u64>& map, bool print);
+
+    Table join(
+        const ColRef& l,
+        const ColRef& r,
+        std::vector<ColRef> select);
+
+    oc::BitVector cirEval(
+        oc::BetaCircuit* cir,
+        std::vector<oc::BitVector>& inputs,
+        oc::BitVector& output,
+        u8* data,
+        u64 bits,
+        u64 bytes);
+
+    void populateOutTable(
+        Table& out,
+        std::vector<ColRef> avgCol,
+        ColRef groupByCol,
+        u64 nOutRows);
+
+    void copyTableEntry(
+        Table& out,
+        ColRef groupByCol,
+        std::vector<ColRef> avgCol,
+        std::vector<oc::BitVector>& inputs,
+        BinMatrix& ones,
+        u64 row);
+
+    Table average(
+            ColRef groupByCol,
+            std::vector<ColRef> avgCol);
+
+    Table where(
+        Table& T,
+        const std::vector<ArrGate>& gates,
+        const std::vector<std::string>& literals,
+        const std::vector<std::string>& literalsType,
+        const u64 totalCol,
+        const std::unordered_map<u64, u64>& map,
+        bool print);
+
     Table applyPerm(Table& T, Perm& perm);
 
 }

@@ -37,7 +37,7 @@ void Average_concatColumns_Test()
     ole.init(sock[0].fork(), prng, 1);
 
     avg.init(groupByCol, avgCols, ole, false);    
-    avg.loadKeys(groupByCol, t0.mIsActive, prng, compressKeys);
+    avg.loadKeys(groupByCol, t0.mIsActive, compressKeys);
     avg.concatColumns(groupByCol, avgCols, t0.mIsActive, compressKeys, y);
 
     BinMatrix ones(n0, sizeof(oc::u64) * 8);
@@ -220,7 +220,7 @@ void Average_avg_Test(const oc::CLP& cmd)
 
     for (auto remDummies : { false })
     {
-        Average avg0, avg1; 
+        Average avg0, avg1;
 
         avg0.init(Ts[0][0], { Ts[0][1], Ts[0][2] }, ole0, remDummies, printSteps, mock);
         avg1.init(Ts[1][0], { Ts[1][1], Ts[1][2] }, ole1, remDummies, printSteps, mock);
@@ -233,9 +233,8 @@ void Average_avg_Test(const oc::CLP& cmd)
         Table out[2];
         auto r = macoro::sync_wait(macoro::when_all_ready(
             ole0.start(), ole1.start(),
-            avg0.avg(Ts[0][0], { Ts[0][1], Ts[0][2] }, out[0], prng0, ole0, sock[0], remDummies, p0),
-            avg1.avg(Ts[1][0], { Ts[1][1], Ts[1][2] }, out[1], prng1, ole1, sock[1], remDummies, p1)
-            
+            avg0.avg(Ts[0][0], { Ts[0][1], Ts[0][2] }, out[0], prng0, sock[0], remDummies, p0),
+            avg1.avg(Ts[1][0], { Ts[1][1], Ts[1][2] }, out[1], prng1, sock[1], remDummies, p1)
              )
         );
 
@@ -326,8 +325,8 @@ void Average_avg_BigKey_Test(const oc::CLP& cmd)
         Table out[2];
         auto r = macoro::sync_wait(macoro::when_all_ready(
             ole0.start(), ole1.start(),
-            avg0.avg(Ts[0][0], { Ts[0][1], Ts[0][2] }, out[0], prng0, ole0, sock[0], remDummies, p0),
-            avg1.avg(Ts[1][0], { Ts[1][1], Ts[1][2] }, out[1], prng1, ole1, sock[1], remDummies, p1)
+            avg0.avg(Ts[0][0], { Ts[0][1], Ts[0][2] }, out[0], prng0, sock[0], remDummies, p0),
+            avg1.avg(Ts[1][0], { Ts[1][1], Ts[1][2] }, out[1], prng1, sock[1], remDummies, p1)
             
              )
         );

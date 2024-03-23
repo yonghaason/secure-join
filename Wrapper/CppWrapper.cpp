@@ -224,7 +224,7 @@ namespace secJoin
             cState->mProtocol =
                 start(cState->mOle, 
                 cState->mAvg.avg(grpByCol, avgCols, cState->mAggTb, cState->mPrng,
-                    cState->mOle, cState->mSock, cState->mRemDummies) )
+                                 cState->mSock, cState->mRemDummies) )
                 | macoro::make_eager();
 
 

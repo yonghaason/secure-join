@@ -229,10 +229,10 @@ namespace secJoin
         auto groupByPerm = sort(groupByCol);
 
 
-        auto invPerm = PermOp::Regular;
+        auto permForward = PermOp::Regular;
         BinMatrix temp;
         temp.resize(groupByCol.mCol.mData.numEntries(), groupByCol.mCol.mData.bytesPerEntry() * 8);
-        groupByPerm.apply<u8>(groupByCol.mCol.mData, temp, invPerm);
+        groupByPerm.apply<u8>(groupByCol.mCol.mData, temp, permForward);
         std::swap(groupByCol.mCol.mData, temp);
 
 
@@ -241,7 +241,7 @@ namespace secJoin
         {
             temp.resize(avgCol[i].mCol.mData.numEntries(),
                 avgCol[i].mCol.mData.bytesPerEntry() * 8);
-            groupByPerm.apply<u8>(avgCol[i].mCol.mData, temp, invPerm);
+            groupByPerm.apply<u8>(avgCol[i].mCol.mData, temp, permForward);
             std::swap(avgCol[i].mCol.mData, temp);
         }
 
@@ -253,22 +253,10 @@ namespace secJoin
 
         Table out;
 
-        u64 nOutRows = 0;
+        populateOutTable(out, avgCol, groupByCol, n0);
+        out.mIsActive.resize(n0);
 
-        // Maybe implement a ControlBits logic
-        if (n0 > 0)
-        {
-            nOutRows = 1; // First region 
-            for (u64 row = 1; row < n0; row++)
-            {
-                if (!eq(groupByCol.mCol.mData[row], groupByCol.mCol.mData[row - 1]))
-                    nOutRows++;
-            }
-        }
-
-        populateOutTable(out, avgCol, groupByCol, nOutRows);
-
-        // Creating a vector of inputs for Beta Curcuit evaluation
+        // Creating a vector of inputs for Beta Circuit evaluation
         std::vector<oc::BetaCircuit*> cir;
         cir.resize(m + 1);
         std::vector<oc::BitVector> inputs(2 * cir.size()), outputs(cir.size());
@@ -301,12 +289,11 @@ namespace secJoin
             return out;
         else if (n0 == 1)
         {
-            copyTableEntry(out, groupByCol, avgCol, inputs, ones,
-                0, nOutRows, 1);
+            copyTableEntry(out, groupByCol, avgCol, inputs, ones, n0);
         }
 
 
-        u64 curOutRow = 0;
+//        u64 curOutRow = 0;
         // We don't have to check the first entry
         for (u64 row = 1; row < n0; row++)
         {
@@ -333,11 +320,15 @@ namespace secJoin
                     ones.bitsPerEntry(),
                     ones.bytesPerEntry()
                 );
+
+                copyTableEntry(out, groupByCol, avgCol, inputs, ones, row);
             }
             else
             {
-                copyTableEntry(out, groupByCol, avgCol, inputs, ones,
-                    curOutRow, nOutRows, row);
+                // Setting the active flag for the previous entry
+                out.mIsActive[row - 1] = 1;
+
+                copyTableEntry(out, groupByCol, avgCol, inputs, ones, row);
 
                 // Putting the current row value in the first input
                 for (u64 i = 0; i < m; i++)
@@ -351,18 +342,34 @@ namespace secJoin
                 }
                 inputs[2 * m].reset(0);
                 inputs[2 * m].append(ones.mData.data(row), ones.bitsPerEntry());
-
-                curOutRow++;
             }
 
-            if (row == n0 - 1)
-            {
-                copyTableEntry(out, groupByCol, avgCol, inputs, ones,
-                    curOutRow, nOutRows, row + 1);
-            }
+            if(row == n0 - 1)
+                out.mIsActive[row] = 1;
 
         }
 
+        // Applying inverse perm to all the columns
+        auto permBackward = PermOp::Inverse;
+
+
+        for (u64 i = 0; i < out.cols(); i++)
+        {
+            temp.resize(out[i].mCol.mData.numEntries(),
+                        out[i].mCol.mData.bytesPerEntry() * 8);
+            groupByPerm.apply<u8>(out[i].mCol.mData, temp, permBackward);
+            std::swap(out[i].mCol.mData, temp);
+        }
+
+        // Applying inverse perm to the active flag
+//        out.mIsActive = groupByPerm.applyInv<u8>(out.mIsActive); // For some reason this is not working
+
+        std::vector<u8> dst;
+        dst.resize(out.mIsActive.size());
+        oc::MatrixView<u8> in1(out.mIsActive.data(), out.mIsActive.size(), 1);
+        oc::MatrixView<u8> out1(dst.data(), dst.size(), 1);
+        groupByPerm.apply<u8>(in1, out1, permBackward);
+        std::swap(out.mIsActive, dst);
 
         return out;
     }
@@ -428,28 +435,33 @@ namespace secJoin
 
 
 
-    void copyTableEntry(Table& out, ColRef groupByCol, std::vector<ColRef> avgCol,
-        std::vector<oc::BitVector>& inputs, BinMatrix& ones,
-        u64 curOutRow, u64 nOutRows, u64 row)
+    void copyTableEntry(
+        Table& out,
+        ColRef groupByCol,
+        std::vector<ColRef> avgCol,
+        std::vector<oc::BitVector>& inputs,
+        BinMatrix& ones,
+        u64 row)
     {
         u64 m = avgCol.size();
-        assert(curOutRow <= nOutRows);
+        u64 totRows = out.rows();
+        assert(row < totRows);
         // Copying the groupby column
         assert(out.mColumns[0].mData.cols() == groupByCol.mCol.mData.cols());
-        memcpy(out.mColumns[0].mData.data(curOutRow),
-            groupByCol.mCol.mData.data(row - 1),
+        memcpy(out.mColumns[0].mData.data(row),
+            groupByCol.mCol.mData.data(row ),
             groupByCol.mCol.mData.cols());
 
         // Copying the average column
         for (u64 col = 0; col < m; col++)
         {
             assert(out.mColumns[col + 1].mData.bytesPerEntry() == inputs[2 * col].sizeBytes());
-            memcpy(out.mColumns[col + 1].mData.data(curOutRow),
+            memcpy(out.mColumns[col + 1].mData.data(row),
                 inputs[2 * col].data(), inputs[2 * col].sizeBytes());
         }
 
         // Copying the ones column 
-        memcpy(out.mColumns[m + 1].mData.data(curOutRow),
+        memcpy(out.mColumns[m + 1].mData.data(row),
             inputs[2 * m].data(), inputs[2 * m].sizeBytes());
 
         // Making the first input zero

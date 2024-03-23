@@ -32,13 +32,8 @@ namespace secJoin
 		// the subprotocol that will compute which output rows are active.
 		Gmw mUpdateActiveFlagGmw;
 
-		// the number of bytes that will be stored per for of `data`.
-		u64 mDataBitsPerEntry = 0;
-
 		// the offset of the columns in the data matrix.
 		std::vector<OmJoin::Offset> mOffsets;
-
-		u64 mKeyIndex = -1;
 
 		u64 mPartyIdx = -1;
 
@@ -55,7 +50,6 @@ namespace secJoin
         void loadKeys(
             ColRef groupByCol,
             std::vector<u8>& actFlagVec,
-            oc::PRNG& prng,
             BinMatrix& compressKeys);
 
         void init(
@@ -73,12 +67,17 @@ namespace secJoin
             BinMatrix& compressKeys,
             BinMatrix& ret);
 
+        void concatColumns(
+            BinMatrix& data,
+            BinMatrix& groupByData,
+            BinMatrix& actFlag,
+            BinMatrix& ret);
+
         macoro::task<> avg(
             ColRef groupByCol, 
             std::vector<ColRef> avgCol, 
             SharedTable& out,
             oc::PRNG& prng,
-            CorGenerator& ole,
             coproto::Socket& sock,
             bool remDummies = false,
             Perm randPerm = {});
@@ -93,13 +92,11 @@ namespace secJoin
             oc::BetaLibrary::Optimized op);
 
         void getOutput(
-            SharedTable& out,
-            std::vector<ColRef> avgCol,
-            ColRef groupByCol,
-            BinMatrix& data,
-            BinMatrix& sortedgroupByData,
-            BinMatrix& actFlag,
-            std::vector<OmJoin::Offset>& offsets);
+                SharedTable& out,
+                std::vector<ColRef> avgCol,
+                ColRef groupByCol,
+                BinMatrix& data,
+                std::vector<OmJoin::Offset>& offsets);
 
         static macoro::task<> getOutput(
             SharedTable& out,
