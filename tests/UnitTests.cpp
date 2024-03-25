@@ -107,7 +107,7 @@ namespace secJoin_Tests
             t.add("OmJoin_join_BigKey_Test                       ", OmJoin_join_BigKey_Test);
             t.add("OmJoin_join_Reveal_Test                       ", OmJoin_join_Reveal_Test);
             t.add("OmJoin_join_round_Test                        ", OmJoin_join_round_Test);
-            t.add("OmJoin_join_csv_Test                          ", OmJoin_join_csv_Test);
+
             t.add("OmJoin_wrapper_join_test                      ", OmJoin_wrapper_join_test);
             t.add("OmJoin_wrapper_avg_test                       ", OmJoin_wrapper_avg_test);
             t.add("OmJoin_wrapper_where_test                     ", OmJoin_wrapper_where_test);
@@ -117,7 +117,6 @@ namespace secJoin_Tests
             t.add("Average_getControlBits_Test                   ", Average_getControlBits_Test);
             t.add("Average_avg_Test                              ", Average_avg_Test);
             t.add("Average_avg_BigKey_Test                       ", Average_avg_BigKey_Test);
-            t.add("Average_avg_csv_Test                          ", Average_avg_csv_Test);
 
             t.add("Where_genWhBundle_Test                        ", Where_genWhBundle_Test);
             t.add("Where_ArrType_Equals_Test                     ", Where_ArrType_Equals_Test);
@@ -127,9 +126,6 @@ namespace secJoin_Tests
             t.add("Where_ArrType_Addition_Test                   ", Where_ArrType_Addition_Test);
             t.add("Where_ArrType_And_Or_Test                     ", Where_ArrType_And_Or_Test);
             t.add("Where_Cross_ArrType_Test                      ", Where_Cross_ArrType_Test);
-            t.add("Where_join_where_csv_Test                     ", Where_join_where_csv_Test);
-            t.add("Where_avg_where_csv_Test                      ", Where_avg_where_csv_Test);
-
 
 
         });

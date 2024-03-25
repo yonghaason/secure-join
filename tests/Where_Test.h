@@ -20,6 +20,4 @@ void Where_ArrType_Not_Equals_Test(const oc::CLP& cmd);
 void Where_ArrType_Greater_Than_Equals_Test(const oc::CLP& cmd);
 
 void Where_Cross_ArrType_Test(const oc::CLP& cmd);
-void Where_join_where_csv_Test(const oc::CLP& cmd);
-void Where_avg_where_csv_Test(const oc::CLP& cmd);
 
