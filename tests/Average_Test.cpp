@@ -1,8 +1,95 @@
 #include "Average_Test.h"
 
-//#include "nlohmann/json.hpp"
-
 using namespace secJoin;
+
+void evalAverage
+    ( Table& T,
+    const u64 grpByColIdx,
+    const std::vector<u64> avgColIdxs,
+    const bool printSteps,
+    const bool mock)
+{
+    auto sock = coproto::LocalAsyncSocket::makePair();
+
+    PRNG prng0(oc::ZeroBlock);
+    PRNG prng1(oc::OneBlock);
+
+    std::array<Table, 2> Ts;
+    share(T, Ts, prng0);
+
+    u64 rows = T.rows();
+
+    Ts[0].mIsActive.resize(rows);
+    Ts[1].mIsActive.resize(rows);
+    for (u64 i = 0; i < rows; i++)
+    {
+        Ts[0].mIsActive[i] = 1;
+        Ts[1].mIsActive[i] = 0;
+    }
+
+    std::vector<ColRef> plnAvgColRef, shAvgColRef0, shAvgColRef1;
+
+    for(u64 i = 0; i < avgColIdxs.size(); i++)
+    {
+        plnAvgColRef.emplace_back(T[avgColIdxs[i]]);
+        shAvgColRef0.emplace_back(Ts[0][avgColIdxs[i]]);
+        shAvgColRef1.emplace_back(Ts[1][avgColIdxs[i]]);
+    }
+
+    auto exp = average(T[0], { T[1], T[2] });
+
+    CorGenerator ole0, ole1;
+    ole0.init(sock[0].fork(), prng0, 0, 1 << 16, mock);
+    ole1.init(sock[1].fork(), prng1, 1, 1 << 16, mock);
+
+    for (auto remDummies : { false })
+    {
+        Average avg0, avg1;
+
+        avg0.init(Ts[0][grpByColIdx], shAvgColRef0, ole0, remDummies, printSteps, mock);
+        avg1.init(Ts[1][grpByColIdx], shAvgColRef1, ole1, remDummies, printSteps, mock);
+
+
+        Perm p0(exp.rows(), prng0);
+        Perm p1(exp.rows(), prng1);
+        Perm pi = p0.composeSwap(p1);
+
+        Table out[2];
+        auto r = macoro::sync_wait(macoro::when_all_ready(
+               ole0.start(), ole1.start(),
+               avg0.avg(Ts[0][grpByColIdx], shAvgColRef0, out[0], prng0, sock[0], remDummies, p0),
+               avg1.avg(Ts[1][grpByColIdx], shAvgColRef1, out[1], prng1, sock[1], remDummies, p1)
+           )
+        );
+
+        std::get<0>(r).result();
+        std::get<1>(r).result();
+        std::get<2>(r).result();
+        std::get<3>(r).result();
+
+        Table res;
+
+        res = reveal(out[0], out[1], remDummies);
+
+        if (remDummies)
+        {
+            Table tmp = applyPerm(exp, pi);
+            std::swap(exp, tmp);
+        }
+
+        if (res != exp)
+        {
+            std::cout << "remove dummies flag = " << remDummies << std::endl;
+            std::cout << "exp \n" << exp << std::endl;
+            std::cout << "act \n" << res << std::endl;
+            std::cout << "ful \n" << reveal(out[0], out[1], false) << std::endl;
+            throw RTE_LOC;
+        }
+    }
+
+
+
+}
 
 
 void Average_concatColumns_Test()
@@ -196,73 +283,7 @@ void Average_avg_Test(const oc::CLP& cmd)
         T.mColumns[2].mData.mData(i, 1) = i % 4;
     }
 
-    auto sock = coproto::LocalAsyncSocket::makePair();
-
-    PRNG prng0(oc::ZeroBlock);
-    PRNG prng1(oc::OneBlock);
-
-    std::array<Table, 2> Ts;
-    share(T, Ts, prng0);
-
-    Ts[0].mIsActive.resize(nT);
-    Ts[1].mIsActive.resize(nT);
-    for (u64 i = 0; i < nT; i++)
-    {
-        Ts[0].mIsActive[i] = 1;
-        Ts[1].mIsActive[i] = 0;
-    }
-//    std::cout << "OG\n" << T << std::endl;
-    auto exp = average(T[0], { T[1], T[2] });
-//    std::cout << "exp\n" << exp << std::endl;
-
-    CorGenerator ole0, ole1;
-    ole0.init(sock[0].fork(), prng0, 0, 1 << 16, mock);
-    ole1.init(sock[1].fork(), prng1, 1, 1 << 16, mock);
-
-    for (auto remDummies : { false })
-    {
-        Average avg0, avg1;
-
-        avg0.init(Ts[0][0], { Ts[0][1], Ts[0][2] }, ole0, remDummies, printSteps, mock);
-        avg1.init(Ts[1][0], { Ts[1][1], Ts[1][2] }, ole1, remDummies, printSteps, mock);
-
-
-        Perm p0(exp.rows(), prng0);
-        Perm p1(exp.rows(), prng1);
-        Perm pi = p0.composeSwap(p1);
-
-        Table out[2];
-        auto r = macoro::sync_wait(macoro::when_all_ready(
-            ole0.start(), ole1.start(),
-            avg0.avg(Ts[0][0], { Ts[0][1], Ts[0][2] }, out[0], prng0, sock[0], remDummies, p0),
-            avg1.avg(Ts[1][0], { Ts[1][1], Ts[1][2] }, out[1], prng1, sock[1], remDummies, p1)
-             )
-        );
-
-        std::get<0>(r).result();
-        std::get<1>(r).result();
-        std::get<2>(r).result();
-        std::get<3>(r).result();
-
-        Table res;
-
-        res = reveal(out[0], out[1], remDummies);
-
-        if (remDummies)
-        {
-            Table tmp = applyPerm(exp, pi);
-            std::swap(exp, tmp);
-        }
-
-        if (res != exp)
-        {
-            std::cout << "remove dummies flag = " << remDummies << std::endl;
-            std::cout << "exp \n" << exp << std::endl;
-            std::cout << "act \n" << res << std::endl;
-            std::cout << "ful \n" << reveal(out[0], out[1], false) << std::endl;
-            throw RTE_LOC;
-        }
-    }
+    evalAverage( T, 0, {1 ,2} , printSteps, mock);
 
 }
 
@@ -289,73 +310,7 @@ void Average_avg_BigKey_Test(const oc::CLP& cmd)
         T.mColumns[2].mData.mData(i, 1) = i % 4;
     }
 
-    auto sock = coproto::LocalAsyncSocket::makePair();
-
-    PRNG prng0(oc::ZeroBlock);
-    PRNG prng1(oc::OneBlock);
-
-    std::array<Table, 2> Ts;
-    share(T, Ts, prng0);
-
-    Ts[0].mIsActive.resize(nT);
-    Ts[1].mIsActive.resize(nT);
-    for (u64 i = 0; i < nT; i++)
-    {
-        Ts[0].mIsActive[i] = 1;
-        Ts[1].mIsActive[i] = 0;
-    }
-
-    auto exp = average(T[0], { T[1], T[2] });
-
-    CorGenerator ole0, ole1;
-    ole0.init(sock[0].fork(), prng0, 0, 1 << 16, mock);
-    ole1.init(sock[1].fork(), prng1, 1, 1 << 16, mock);
-
-    for (auto remDummies : { false })
-    {
-        Average avg0, avg1; 
-
-        avg0.init(Ts[0][0], { Ts[0][1], Ts[0][2] }, ole0, remDummies, printSteps, mock);
-        avg1.init(Ts[1][0], { Ts[1][1], Ts[1][2] }, ole1, remDummies, printSteps, mock);
-
-
-        Perm p0(exp.rows(), prng0);
-        Perm p1(exp.rows(), prng1);
-        Perm pi = p0.composeSwap(p1);
-
-        Table out[2];
-        auto r = macoro::sync_wait(macoro::when_all_ready(
-            ole0.start(), ole1.start(),
-            avg0.avg(Ts[0][0], { Ts[0][1], Ts[0][2] }, out[0], prng0, sock[0], remDummies, p0),
-            avg1.avg(Ts[1][0], { Ts[1][1], Ts[1][2] }, out[1], prng1, sock[1], remDummies, p1)
-            
-             )
-        );
-
-        std::get<0>(r).result();
-        std::get<1>(r).result();
-        std::get<2>(r).result();
-        std::get<3>(r).result();
-
-        Table res;
-
-        res = reveal(out[0], out[1], remDummies);
-
-        if (remDummies)
-        {
-            Table tmp = applyPerm(exp, pi);
-            std::swap(exp, tmp);
-        }
-
-        if (res != exp)
-        {
-            std::cout << "remove dummies flag = " << remDummies << std::endl;
-            std::cout << "exp \n" << exp << std::endl;
-            std::cout << "act \n" << res << std::endl;
-            std::cout << "ful \n" << reveal(out[0], out[1], false) << std::endl;
-            throw RTE_LOC;
-        }
-    }
+    evalAverage( T, 0, {1 ,2} , printSteps, mock);
 
 }
 
