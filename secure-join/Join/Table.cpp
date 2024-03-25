@@ -256,6 +256,10 @@ namespace secJoin
         populateOutTable(out, avgCol, groupByCol, n0);
         out.mIsActive.resize(n0);
 
+        // Base Case
+        if(n0 == 0)
+            return out;
+
         // Creating a vector of inputs for Beta Circuit evaluation
         std::vector<oc::BetaCircuit*> cir;
         cir.resize(m + 1);
@@ -266,86 +270,63 @@ namespace secJoin
         {
             u64 size = avgCol[i].mCol.getByteCount() * 8;
             cir[i] = lib.int_int_add(size, size, size, oc::BetaLibrary::Optimized::Depth);
-
-            // Placing the first entry of the table for each column
-            u64 rem = size - avgCol[i].mCol.getBitCount();
-            inputs[2 * i].reset(rem);
-            inputs[2 * i].append(avgCol[i].mCol.mData.data(0), avgCol[i].mCol.getBitCount());
-
-            // Placing 0s as the first entry
-            inputs[2 * i + 1].reset(size);
+            inputs[2 * i].reset(size);
             outputs[i].reset(size);
+
         }
 
         // Adding the ciruit for the BinMatrix of ones
         u64 size = ones.bytesPerEntry() * 8;
         cir[m] = lib.int_int_add(size, size, size, oc::BetaLibrary::Optimized::Depth);
-        inputs[2 * m].append(ones.mData.data(0), size);
-        inputs[2 * m + 1].reset(size);
+        inputs[2 * m].reset(size);
         outputs[m].reset(size);
 
-        // Base case
-        if (n0 == 0)
-            return out;
-        else if (n0 == 1)
+        for (i64 row = n0 - 1; row >= 0; row--)
         {
-            copyTableEntry(out, groupByCol, avgCol, inputs, ones, n0);
-        }
 
-
-//        u64 curOutRow = 0;
-        // We don't have to check the first entry
-        for (u64 row = 1; row < n0; row++)
-        {
-            // Checking groupby row with the previous entry
-            if (eq(groupByCol.mCol.mData[row], groupByCol.mCol.mData[row - 1]))
+            if( (row < n0 - 1) && !eq(groupByCol.mCol.mData[row], groupByCol.mCol.mData[row + 1]))
             {
+                out.mIsActive[row + 1] = 1;
+                copyTableEntry(out, groupByCol, avgCol, inputs, ones, row + 1);
 
-                for (u64 col = 0; col < m; col++)
-                {
-                    std::vector<oc::BitVector> tempInputs =
-                    { inputs[2 * col], inputs[2 * col + 1] };
-
-                    inputs[2 * col] = cirEval(cir[col], tempInputs,
-                        outputs[col], avgCol[col].mCol.mData.data(row),
-                        avgCol[col].mCol.getBitCount(),
-                        avgCol[col].mCol.getByteCount()
-                    );
-                }
-
-                // Run the circuit of ones:
-                std::vector<oc::BitVector> tempInputs = { inputs[2 * m], inputs[2 * m + 1] };
-                inputs[2 * m] = cirEval(cir[m], tempInputs,
-                    outputs[m], ones.mData.data(row),
-                    ones.bitsPerEntry(),
-                    ones.bytesPerEntry()
-                );
-
-                copyTableEntry(out, groupByCol, avgCol, inputs, ones, row);
-            }
-            else
-            {
-                // Setting the active flag for the previous entry
-                out.mIsActive[row - 1] = 1;
-
-                copyTableEntry(out, groupByCol, avgCol, inputs, ones, row);
-
-                // Putting the current row value in the first input
+                // reset the 2 * i location for input
                 for (u64 i = 0; i < m; i++)
                 {
-                    auto size = avgCol[i].mCol.getByteCount() * 8;
-                    auto bits = avgCol[i].mCol.getBitCount();
-                    // Filling extra bits with zero
-                    u64 rem = size - bits;
-                    inputs[2 * i].reset(rem);
-                    inputs[2 * i].append(avgCol[i].mCol.mData.data(row), bits);
+                    u64 size = avgCol[i].mCol.getByteCount() * 8;
+                    inputs[2 * i].reset(size);
                 }
-                inputs[2 * m].reset(0);
-                inputs[2 * m].append(ones.mData.data(row), ones.bitsPerEntry());
+                u64 size = ones.bytesPerEntry() * 8;
+                inputs[2 * m].reset(size);
             }
 
-            if(row == n0 - 1)
+
+            // Running Circuit for each cols
+            for (u64 col = 0; col < m; col++)
+            {
+                std::vector<oc::BitVector> tempInputs =
+                        { inputs[2 * col], inputs[2 * col + 1] };
+
+                inputs[2 * col] = cirEval(cir[col], tempInputs,
+                                          outputs[col], avgCol[col].mCol.mData.data(row),
+                                          avgCol[col].mCol.getBitCount(),
+                                          avgCol[col].mCol.getByteCount()
+                                            );
+            }
+
+            // Run the circuit of ones:
+            std::vector<oc::BitVector> tempInputs = { inputs[2 * m], inputs[2 * m + 1] };
+            inputs[2 * m] = cirEval(cir[m], tempInputs,
+                                    outputs[m], ones.mData.data(row),
+                                    ones.bitsPerEntry(),
+                                    ones.bytesPerEntry()
+                                    );
+
+            if(row == 0)
+            {
+                copyTableEntry(out, groupByCol, avgCol, inputs, ones, row);
                 out.mIsActive[row] = 1;
+            }
+
 
         }
 
@@ -362,14 +343,7 @@ namespace secJoin
         }
 
         // Applying inverse perm to the active flag
-//        out.mIsActive = groupByPerm.applyInv<u8>(out.mIsActive); // For some reason this is not working
-
-        std::vector<u8> dst;
-        dst.resize(out.mIsActive.size());
-        oc::MatrixView<u8> in1(out.mIsActive.data(), out.mIsActive.size(), 1);
-        oc::MatrixView<u8> out1(dst.data(), dst.size(), 1);
-        groupByPerm.apply<u8>(in1, out1, permBackward);
-        std::swap(out.mIsActive, dst);
+        out.mIsActive = groupByPerm.applyInv<u8>(out.mIsActive);
 
         return out;
     }
@@ -433,8 +407,6 @@ namespace secJoin
 
     }
 
-
-
     void copyTableEntry(
         Table& out,
         ColRef groupByCol,
@@ -465,13 +437,13 @@ namespace secJoin
             inputs[2 * m].data(), inputs[2 * m].sizeBytes());
 
         // Making the first input zero
-        for (u64 i = 0; i < m; i++)
-        {
-            u64 size = avgCol[i].mCol.getByteCount() * 8;
-            inputs[2 * i + 1].reset(size);
-        }
-        u64 size = ones.bytesPerEntry() * 8;
-        inputs[2 * m].reset(size);
+//        for (u64 i = 0; i < m; i++)
+//        {
+//            u64 size = avgCol[i].mCol.getByteCount() * 8;
+//            inputs[2 * i + 1].reset(size);
+//        }
+//        u64 size = ones.bytesPerEntry() * 8;
+//        inputs[2 * m].reset(size);
     }
 
     void populateOutTable(

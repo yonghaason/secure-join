@@ -247,7 +247,7 @@ namespace secJoin
 		template <typename T>
 		void applyInv(oc::MatrixView<const T> src, oc::MatrixView<T> dst) const
 		{
-			apply<T>(src, dst, true);
+			apply<T>(src, dst, PermOp::Inverse);
 		}
 
 		template <typename T>

@@ -211,8 +211,9 @@ void Average_avg_Test(const oc::CLP& cmd)
         Ts[0].mIsActive[i] = 1;
         Ts[1].mIsActive[i] = 0;
     }
-
+//    std::cout << "OG\n" << T << std::endl;
     auto exp = average(T[0], { T[1], T[2] });
+//    std::cout << "exp\n" << exp << std::endl;
 
     CorGenerator ole0, ole1;
     ole0.init(sock[0].fork(), prng0, 0, 1 << 16, mock);
@@ -245,7 +246,7 @@ void Average_avg_Test(const oc::CLP& cmd)
 
         Table res;
 
-        res = reveal(out[0], out[1]);
+        res = reveal(out[0], out[1], remDummies);
 
         if (remDummies)
         {
@@ -338,7 +339,7 @@ void Average_avg_BigKey_Test(const oc::CLP& cmd)
 
         Table res;
 
-        res = reveal(out[0], out[1]);
+        res = reveal(out[0], out[1], remDummies);
 
         if (remDummies)
         {
