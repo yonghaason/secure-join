@@ -149,8 +149,12 @@ namespace secJoin {
 
         // Adding the ActFlag 
         for(u64 i = 0; i < ret.rows(); i++)
-            ret(i, rowByteSize) = actFlagVec[i];
-//            *oc::BitIterator((u8*)ret.data(i), rowByteSize * 8) = actFlagVec[i];
+        {
+                ret(i, rowByteSize) = actFlagVec[i];
+//            *oc::BitIterator((u8*)ret.data(i), rowByteSize) =
+//                    *oc::BitIterator((u8*)&actFlagVec[0] + i, 0);
+        }
+
 
 
 
@@ -199,12 +203,6 @@ namespace secJoin {
         coproto::Socket& sock)
     {
         MC_BEGIN(macoro::task<>, &actFlag, &choice, &out, &sock, this);
-
-//
-//        temp.resize(actFlag.rows(), 1);
-//        assert(actFlag.bitsPerEntry() == 8);
-//        for(u64 i = 0; i < actFlag.rows(); i++)
-//            temp(i,0) = *oc::BitIterator(actFlag.data(i), 0);
 
         mUpdateActiveFlagGmw.setInput(0, choice);
         mUpdateActiveFlagGmw.setInput(1, actFlag);
@@ -255,9 +253,7 @@ namespace secJoin {
         bool mock)
     {
         u64 rows = groupByCol.mCol.rows();
-        // u64 rows = groupByCol.mCol.cols();
-        // keySize = groupByKeySize + one bit of activeflag
-        u64 keySize = groupByCol.mCol.getBitCount() + 1; // Maybe I need to initialize with grpBits + 1
+        u64 keySize = groupByCol.mCol.getBitCount() + 1;
 
         u64 compressKeySize = std::min<u64>(
             keySize, 
@@ -522,7 +518,7 @@ namespace secJoin {
 
 
             // Adding Active Flag
-            out.mIsActive[i] = *oc::BitIterator(data.data(i), offsets[offsets.size() - 1].mStart);
+            out.mIsActive[i] = data(i, offsets[offsets.size() - 1].mStart / 8);
         }
 
     }

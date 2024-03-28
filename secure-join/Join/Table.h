@@ -296,7 +296,7 @@ namespace secJoin
         ColRef groupByCol,
         std::vector<ColRef> avgCol,
         std::vector<oc::BitVector>& inputs,
-        BinMatrix& ones,
+        std::vector<u8>& oldActFlag,
         u64 row);
 
     Table average(

@@ -225,7 +225,6 @@ namespace secJoin
         u64 m = avgCol.size();
         u64 n0 = groupByCol.mCol.rows();
         std::vector<u8> actFlag = groupByCol.mTable.mIsActive;
-        assert(actFlag.size() > 0);
 
         // Generating the permutation
         auto groupByPerm = sort(groupByCol);
@@ -236,6 +235,8 @@ namespace secJoin
         temp.resize(groupByCol.mCol.mData.numEntries(), groupByCol.mCol.mData.bytesPerEntry() * 8);
         groupByPerm.apply<u8>(groupByCol.mCol.mData, temp, permForward);
         std::swap(groupByCol.mCol.mData, temp);
+
+        actFlag = groupByPerm.apply<u8>(actFlag);
 
 
         // Applying permutation to all the average cols
@@ -288,8 +289,7 @@ namespace secJoin
 
             if( (row < n0 - 1) && !eq(groupByCol.mCol.mData[row], groupByCol.mCol.mData[row + 1]))
             {
-                out.mIsActive[row + 1] = 1;
-                copyTableEntry(out, groupByCol, avgCol, inputs, ones, row + 1);
+                copyTableEntry(out, groupByCol, avgCol, inputs, actFlag, row + 1);
 
                 // reset the 2 * i location for input
                 for (u64 i = 0; i < m; i++)
@@ -324,12 +324,7 @@ namespace secJoin
                                     );
 
             if(row == 0)
-            {
-                out.mIsActive[row] = actFlag.size() > 0 ? actFlag[row] : 1;
-                if(out.mIsActive[row] == 1)
-                    copyTableEntry(out, groupByCol, avgCol, inputs, ones, row);
-            }
-
+                    copyTableEntry(out, groupByCol, avgCol, inputs, actFlag, row);
 
         }
 
@@ -408,9 +403,15 @@ namespace secJoin
         ColRef groupByCol,
         std::vector<ColRef> avgCol,
         std::vector<oc::BitVector>& inputs,
-        BinMatrix& ones,
+        std::vector<u8>& oldActFlag,
         u64 row)
     {
+
+        out.mIsActive[row] = oldActFlag.size() > 0 ? oldActFlag[row] : 1;
+
+        if(out.mIsActive[row] == 0)
+            return;
+
         u64 m = avgCol.size();
         u64 totRows = out.rows();
         assert(row < totRows);
@@ -432,14 +433,6 @@ namespace secJoin
         memcpy(out.mColumns[m + 1].mData.data(row),
             inputs[2 * m].data(), inputs[2 * m].sizeBytes());
 
-        // Making the first input zero
-//        for (u64 i = 0; i < m; i++)
-//        {
-//            u64 size = avgCol[i].mCol.getByteCount() * 8;
-//            inputs[2 * i + 1].reset(size);
-//        }
-//        u64 size = ones.bytesPerEntry() * 8;
-//        inputs[2 * m].reset(size);
     }
 
     void populateOutTable(
