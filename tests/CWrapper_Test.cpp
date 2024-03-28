@@ -240,6 +240,8 @@ void OmJoin_wrapper_avg_test(const oc::CLP& cmd)
         secJoin::releaseState(bankState.release());
         throw RTE_LOC;
     }
+    std::cout << " Join is complete & outtable" << std::endl;
+    std::cout << "act \n" << visaState->mOutTb << std::endl;
 
     secJoin::aggFunc(visaState.get());
     secJoin::aggFunc(bankState.get());
@@ -433,8 +435,6 @@ void OmJoin_wrapper_where_test(const oc::CLP& cmd)
 
     if (visaState->mOutTb != exp)
     {
-        std::cout << "L \n" << visaState->mLTb << std::endl;
-        std::cout << "R \n" << bankState->mRTb << std::endl;
         std::cout << "exp \n" << exp << std::endl;
         std::cout << "act \n" << visaState->mOutTb << std::endl;
         secJoin::releaseState(visaState.release());

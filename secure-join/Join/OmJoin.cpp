@@ -333,130 +333,130 @@ namespace secJoin
     }
 
     // Call this to remove dummies
-    macoro::task<> OmJoin::getOutput(
-        BinMatrix& data,
-        span<ColRef> selects,
-        ColRef& left,
-        Table& out,
-        std::vector<Offset>& offsets,
-        CorGenerator& ole,
-        coproto::Socket& sock,
-        oc::PRNG& prng,
-        bool securePerm,
-        Perm& randPerm)
-    {
-
-        MC_BEGIN(macoro::task<>, &data, selects, left, &out, &offsets, &ole, &sock, &prng,
-            securePerm, &randPerm,
-            actFlag = BinMatrix{},
-            temp = BinMatrix{},
-            revealedActFlag = BinMatrix{},
-            actOffSet = u64{},
-            curOutRow = u64{},
-            nOutRows = u64{},
-            tempPerm = Perm{},
-            i = u64(),
-            nL = u64(),
-            nR = u64(),
-            offsetPointer = u64()
-        );
-
-        if (data.bitsPerEntry() % 8 != 1)
-        {
-            std::cout << "logic error, need to fix. " << LOCATION << std::endl;
-            throw RTE_LOC;
-        }
-        actOffSet = data.bitsPerEntry() / 8;
-
-        actFlag.resize(data.rows(), 1);
-        for (u64 i = 0; i < data.rows(); ++i)
-            actFlag(i) = data(i, actOffSet);
-
-        // Revealing the active flag
-        MC_AWAIT(revealActFlag(actFlag, revealedActFlag, sock, ole.partyIdx()));
-
-        nOutRows = 0;
-        nL = left.mCol.rows();
-        nR = data.rows() - nL;
-        for (u64 i = nL; i < revealedActFlag.size(); i++)
-        {
-            if (revealedActFlag(i, 0) == 1)
-                nOutRows++;
-        }
-
-        out.mColumns.resize(selects.size());
-
-        for (u64 i = 0; i < selects.size(); ++i)
-        {
-            out[i].mCol.mName = selects[i].mCol.mName;
-            out[i].mCol.mBitCount = selects[i].mCol.mBitCount;
-            out[i].mCol.mType = selects[i].mCol.mType;
-            out[i].mCol.mData.resize(nOutRows, selects[i].mCol.getBitCount());
-        }
-
-        out.mIsActive.resize(nOutRows);
-
-        curOutRow = 0;
-        // TODO: Find a cleaner way to write this, very difficult read
-        for (u64 i = 0; i < nR; i++)
-        {
-            // assert(curOutRow <= nOutRows);
-            offsetPointer = 0;
-            if (revealedActFlag(i + nL, 0) == 1)
-            {
-                for (u64 j = 0; j < selects.size(); j++)
-                {
-
-                    if (&left.mTable == &selects[j].mTable)
-                    {
-                        assert(selects[j].mCol.mBitCount == offsets[offsetPointer].mSize);
-                        memcpy(out.mColumns[j].mData.data(curOutRow),
-                            &data(i + nL, offsets[offsetPointer].mStart / 8),
-                            oc::divCeil(offsets[offsetPointer].mSize, 8));
-
-                        offsetPointer++;
-                    }
-                    else
-                    {
-                        assert(selects[j].mCol.mBitCount == out[j].mCol.mBitCount);
-                        memcpy(out.mColumns[j].mData.data(curOutRow),
-                            selects[j].mCol.mData.data(i),
-                            out.mColumns[j].getByteCount());
-                    }
-
-
-                }
-                out.mIsActive[curOutRow] = data(i + nL, actOffSet);
-                curOutRow++;
-            }
-
-            // We got all our entries
-            if (curOutRow == nOutRows)
-                break;
-        }
-
-        if (randPerm.size() == 0 && nOutRows > 1)
-        {
-            tempPerm.randomize(nOutRows, prng);
-            randPerm = tempPerm;
-        }
-
-        // A Better way could have been to permute the keys & data
-        // But since we want to compare it expected result in the test
-        // We need to permute only the final remaining rows
-        // We don't need to permute the active flag bcoz all the rows are active
-        if (nOutRows > 1)
-        {
-            for (i = 0; i < out.cols(); i++)
-            {
-                MC_AWAIT(applyRandPerm(out.mColumns[i].mData, temp, ole,
-                    prng, randPerm, sock, securePerm));
-                std::swap(out.mColumns[i].mData, temp);
-            }
-        }
-
-        MC_END();
-    }
+//    macoro::task<> OmJoin::getOutput(
+//        BinMatrix& data,
+//        span<ColRef> selects,
+//        ColRef& left,
+//        Table& out,
+//        std::vector<Offset>& offsets,
+//        CorGenerator& ole,
+//        coproto::Socket& sock,
+//        oc::PRNG& prng,
+//        bool securePerm,
+//        Perm& randPerm)
+//    {
+//
+//        MC_BEGIN(macoro::task<>, &data, selects, left, &out, &offsets, &ole, &sock, &prng,
+//            securePerm, &randPerm,
+//            actFlag = BinMatrix{},
+//            temp = BinMatrix{},
+//            revealedActFlag = BinMatrix{},
+//            actOffSet = u64{},
+//            curOutRow = u64{},
+//            nOutRows = u64{},
+//            tempPerm = Perm{},
+//            i = u64(),
+//            nL = u64(),
+//            nR = u64(),
+//            offsetPointer = u64()
+//        );
+//
+//        if (data.bitsPerEntry() % 8 != 1)
+//        {
+//            std::cout << "logic error, need to fix. " << LOCATION << std::endl;
+//            throw RTE_LOC;
+//        }
+//        actOffSet = data.bitsPerEntry() / 8;
+//
+//        actFlag.resize(data.rows(), 1);
+//        for (u64 i = 0; i < data.rows(); ++i)
+//            actFlag(i) = data(i, actOffSet);
+//
+//        // Revealing the active flag
+////        MC_AWAIT(revealActFlag(actFlag, revealedActFlag, sock, ole.partyIdx()));
+//
+//        nOutRows = 0;
+//        nL = left.mCol.rows();
+//        nR = data.rows() - nL;
+//        for (u64 i = nL; i < revealedActFlag.size(); i++)
+//        {
+//            if (revealedActFlag(i, 0) == 1)
+//                nOutRows++;
+//        }
+//
+//        out.mColumns.resize(selects.size());
+//
+//        for (u64 i = 0; i < selects.size(); ++i)
+//        {
+//            out[i].mCol.mName = selects[i].mCol.mName;
+//            out[i].mCol.mBitCount = selects[i].mCol.mBitCount;
+//            out[i].mCol.mType = selects[i].mCol.mType;
+//            out[i].mCol.mData.resize(nOutRows, selects[i].mCol.getBitCount());
+//        }
+//
+//        out.mIsActive.resize(nOutRows);
+//
+//        curOutRow = 0;
+//        // TODO: Find a cleaner way to write this, very difficult read
+//        for (u64 i = 0; i < nR; i++)
+//        {
+//            // assert(curOutRow <= nOutRows);
+//            offsetPointer = 0;
+//            if (revealedActFlag(i + nL, 0) == 1)
+//            {
+//                for (u64 j = 0; j < selects.size(); j++)
+//                {
+//
+//                    if (&left.mTable == &selects[j].mTable)
+//                    {
+//                        assert(selects[j].mCol.mBitCount == offsets[offsetPointer].mSize);
+//                        memcpy(out.mColumns[j].mData.data(curOutRow),
+//                            &data(i + nL, offsets[offsetPointer].mStart / 8),
+//                            oc::divCeil(offsets[offsetPointer].mSize, 8));
+//
+//                        offsetPointer++;
+//                    }
+//                    else
+//                    {
+//                        assert(selects[j].mCol.mBitCount == out[j].mCol.mBitCount);
+//                        memcpy(out.mColumns[j].mData.data(curOutRow),
+//                            selects[j].mCol.mData.data(i),
+//                            out.mColumns[j].getByteCount());
+//                    }
+//
+//
+//                }
+//                out.mIsActive[curOutRow] = data(i + nL, actOffSet);
+//                curOutRow++;
+//            }
+//
+//            // We got all our entries
+//            if (curOutRow == nOutRows)
+//                break;
+//        }
+//
+//        if (randPerm.size() == 0 && nOutRows > 1)
+//        {
+//            tempPerm.randomize(nOutRows, prng);
+//            randPerm = tempPerm;
+//        }
+//
+//        // A Better way could have been to permute the keys & data
+//        // But since we want to compare it expected result in the test
+//        // We need to permute only the final remaining rows
+//        // We don't need to permute the active flag bcoz all the rows are active
+//        if (nOutRows > 1)
+//        {
+//            for (i = 0; i < out.cols(); i++)
+//            {
+//                MC_AWAIT(applyRandPerm(out.mColumns[i].mData, temp, ole,
+//                    prng, randPerm, sock, securePerm));
+//                std::swap(out.mColumns[i].mData, temp);
+//            }
+//        }
+//
+//        MC_END();
+//    }
 
     AggTree::Operator OmJoin::getDupCircuit()
     {
@@ -797,74 +797,4 @@ namespace secJoin
         MC_END();
     }
 
-    macoro::task<> OmJoin::revealActFlag(
-        BinMatrix& actFlag,
-        BinMatrix& out,
-        coproto::Socket& sock,
-        u64 partyIdx
-    )
-    {
-        MC_BEGIN(macoro::task<>, &actFlag, &out, partyIdx, &sock);
-
-        // Revealing the active flag
-        if (partyIdx == 0)
-        {
-            out.resize(actFlag.numEntries(), actFlag.bitsPerEntry());
-            MC_AWAIT(sock.recv(out.mData));
-            out = reveal(out, actFlag);
-            MC_AWAIT(sock.send(coproto::copy(out.mData)));
-        }
-        else
-        {
-            MC_AWAIT(sock.send(coproto::copy(actFlag.mData)));
-            out.resize(actFlag.numEntries(), actFlag.bitsPerEntry());
-            MC_AWAIT(sock.recv(out.mData));
-        }
-
-        MC_END();
-    }
-
-
-    macoro::task<> OmJoin::applyRandPerm(
-        BinMatrix& data,
-        BinMatrix& out,
-        CorGenerator& ole,
-        PRNG& prng,
-        Perm& randPerm,
-        coproto::Socket& sock,
-        bool securePerm)
-    {
-        MC_BEGIN(macoro::task<>, &data, &out, &ole, &sock, &prng, &randPerm, securePerm,
-            perm = ComposedPerm{},
-            kk = AltModPrf::KeyType{},
-            rk = std::vector<oc::block>{},
-            sk = std::vector<std::array<oc::block, 2>>{}
-        );
-
-        throw RTE_LOC;// not impl
-        // perm.init2(ole.partyIdx(), data.rows(), data.bytesPerEntry());
-        //perm.mSender.setPermutation(randPerm);
-        //perm.mIsSecure = securePerm;
-
-        // Setuping up the OT Keys
-        // kk = prng.get();
-        // rk.resize(AltModPrf::KeySize);
-        // sk.resize(AltModPrf::KeySize);
-        // for (u64 i = 0; i < AltModPrf::KeySize; ++i)
-        // {
-        //     sk[i][0] = oc::block(i, 0);
-        //     sk[i][1] = oc::block(i, 1);
-        //     rk[i] = oc::block(i, *oc::BitIterator((u8*)&kk, i));
-        // }
-        // perm.setKeyOts(kk, rk, sk);
-
-        // perm.request(ole);
-
-        // MC_AWAIT(perm.setup(sock, prng));
-
-        // out.resize(data.numEntries(), data.bytesPerEntry() * 8);
-        // MC_AWAIT(perm.apply<u8>(PermOp::Regular, data.mData, out.mData, sock, prng));
-
-        MC_END();
-    }
 }

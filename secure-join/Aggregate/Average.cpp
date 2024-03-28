@@ -16,19 +16,18 @@ namespace secJoin {
         u64 groupBySize = offsets[0].mSize;
         u64 compressKeySize = offsets[1].mSize;
         u64 actFlagSize = offsets[2].mSize;
-        assert(actFlagSize == 1);
-        
 
         grpByData.resize(n, groupBySize);
         compressKeys.resize(n, compressKeySize);
         actFlag.resize(n, actFlagSize);
 
-
         for (u64 i = 0; i < n; ++i)
         {
             memcpy(grpByData.data(i), data.data(i) + (offsets[0].mStart/8), grpByData.bytesPerEntry());
             memcpy(compressKeys.data(i), data.data(i) + (offsets[1].mStart/8), compressKeys.bytesPerEntry());
-            memcpy(actFlag.data(i), data.data(i) + (offsets[2].mStart/8), actFlag.bytesPerEntry());
+//            memcpy(actFlag.data(i), data.data(i) + (offsets[2].mStart/8), actFlag.bytesPerEntry());
+            *oc::BitIterator((u8*)actFlag.data(i), 0) =
+                    *oc::BitIterator((u8*)data.data(i), offsets[2].mStart);
         }
 
         // Discarding the key information
@@ -56,7 +55,8 @@ namespace secJoin {
         for (u64 i = 0; i < keys.rows(); ++i)
         {
             memcpy(keys.data(i), grpByData.data(i), grpByBytes);
-            *oc::BitIterator((u8*)keys.data(i), grpByBits) = actFlagVec[i];
+            *oc::BitIterator((u8*)keys.data(i), grpByBits) =
+            *oc::BitIterator((u8*)&actFlagVec[0] + i, 0);
         }
         
         if (keys.bitsPerEntry() <= compressedSize)
@@ -142,13 +142,17 @@ namespace secJoin {
         data.emplace_back(&compressKeys);
         rowByteSize += compressKeys.bytesPerEntry();
 
+
         // All columns size + ActFlag Size
-        ret.resize(n0, (rowByteSize * 8) + 1);
+        ret.resize(n0, (rowByteSize + 1) * 8 );
         OmJoin::concatColumns(ret, data, mOffsets);
 
         // Adding the ActFlag 
         for(u64 i = 0; i < ret.rows(); i++)
-            *oc::BitIterator((u8*)ret.data(i), rowByteSize * 8) = actFlagVec[i];        
+            ret(i, rowByteSize) = actFlagVec[i];
+//            *oc::BitIterator((u8*)ret.data(i), rowByteSize * 8) = actFlagVec[i];
+
+
 
     }
 
@@ -195,8 +199,12 @@ namespace secJoin {
         coproto::Socket& sock)
     {
         MC_BEGIN(macoro::task<>, &actFlag, &choice, &out, &sock, this);
-        
-        assert(actFlag.bitsPerEntry() == 1);
+
+//
+//        temp.resize(actFlag.rows(), 1);
+//        assert(actFlag.bitsPerEntry() == 8);
+//        for(u64 i = 0; i < actFlag.rows(); i++)
+//            temp(i,0) = *oc::BitIterator(actFlag.data(i), 0);
 
         mUpdateActiveFlagGmw.setInput(0, choice);
         mUpdateActiveFlagGmw.setInput(1, actFlag);
@@ -232,7 +240,8 @@ namespace secJoin {
         cd.addInputBundle(b);
         cd.addOutputBundle(c);
 
-        cd.addGate(a.mWires[0], b.mWires[0], oc::GateType::na_And, c.mWires[0]);
+        for(u64 i = 0; i < aSize; i++)
+            cd.addGate(a.mWires[i], b.mWires[i], oc::GateType::na_And, c.mWires[i]);
 
         return cd;
     }
@@ -288,8 +297,9 @@ namespace secJoin {
         aggTreeBitCount += sizeof(oc::u64) * 8;
 
         // Initialize the AggTree before adding the keys info to the offsets
-        auto addCir = getAddCircuit(mOffsets, oc::BetaLibrary::Optimized::Depth);
-        mAggTree.init(rows, aggTreeBitCount, AggTreeType::Suffix, addCir, ole);
+        std::vector<OmJoin::Offset> aggTreeOffsets;
+        for(u64 i = 0; i < mOffsets.size(); i++)
+            aggTreeOffsets.push_back(mOffsets[i]);
 
         mOffsets.emplace_back(OmJoin::Offset{ dataBitsPerEntry, groupByCol.mCol.getBitCount(), "GroupBy" });
         dataBitsPerEntry += groupByCol.mCol.getByteCount() * 8;
@@ -299,23 +309,23 @@ namespace secJoin {
 
         mOffsets.emplace_back(OmJoin::Offset{ dataBitsPerEntry, 1, "ActFlag" });
         dataBitsPerEntry += 8;
-
-
         
         mSort.init(mPartyIdx, rows, compressKeySize, ole);
 
-        // ////////// Need to edit permForwards & permBackwards
         // in the forward direction we will permute the group col, a flag,
         // compress keys and all of the average columns. In the
         // backwards direction, we will unpermute the all the above
         // columns except the compress keys. Therefore, in total we will permute:
         u64 permForward = oc::divCeil(dataBitsPerEntry, 8) + sizeof(u32);
-        u64 permBackward = (removeDummies == false) * oc::divCeil(dataBitsPerEntry - compressKeySize, 8);
-
+        u64 permBackward = ( (removeDummies == false) * oc::divCeil(dataBitsPerEntry - compressKeySize, 8) )
+                          + (mInsecurePrint == true) * 1; // Permuting the control Bits
 
         mPerm.init(mPartyIdx, rows, permForward + permBackward, ole);
 
         mControlBitGmw.init(rows, OmJoin::getControlBitsCircuit(compressKeySize), ole);
+
+        auto addCir = getAddCircuit(aggTreeOffsets, oc::BetaLibrary::Optimized::Depth);
+        mAggTree.init(rows, aggTreeBitCount, AggTreeType::Suffix, addCir, ole);
 
         auto cir = updateActiveFlagCir(1, 1, 1);
         mUpdateActiveFlagGmw.init(rows, cir, ole);
@@ -362,7 +372,6 @@ namespace secJoin {
             tempOffsets = { OmJoin::Offset{ 0, compressKeys.bitsPerEntry(), "Compress Key*" } };
             MC_AWAIT(OmJoin::print(compressKeys, controlBits, sock, mPartyIdx, "Compress keys", tempOffsets));
         }
-//        mSort.mDebug = true;
         mSort.preprocess();
         prepro = mSort.genPrePerm(sock, prng) | macoro::make_eager();
 
@@ -378,6 +387,7 @@ namespace secJoin {
         concatColumns(groupByCol, avgCol, groupByCol.mTable.mIsActive, compressKeys, data);
         if (mInsecurePrint)
             MC_AWAIT(OmJoin::print(data, controlBits, sock, mPartyIdx, "preSort", mOffsets));
+
 
         // Apply the sortin permutation.
         temp.resize(data.numEntries(), data.bitsPerEntry());
@@ -455,7 +465,13 @@ namespace secJoin {
             std::swap(data, temp);
 
             if (mInsecurePrint)
+            {
+                temp.resize(controlBits.numEntries(), controlBits.bitsPerEntry());
+                MC_AWAIT(perm.apply<u8>(PermOp::Regular, controlBits, temp, sock));
+                std::swap(controlBits, temp);
                 MC_AWAIT(OmJoin::print(data, controlBits, sock, mPartyIdx, "unsort", dataOffsets));
+            }
+
 
         }
 
@@ -512,104 +528,104 @@ namespace secJoin {
     }
 
     // Call this getOutput for removing Dummies
-    macoro::task<> Average::getOutput(
-        SharedTable& out,
-        std::vector<ColRef> avgCol,
-        ColRef groupByCol,
-        BinMatrix& keys,
-        BinMatrix& data,
-        std::vector<OmJoin::Offset>& offsets,
-        std::vector<OmJoin::Offset>& keyOffsets,
-        CorGenerator& ole,
-        coproto::Socket& sock,
-        oc::PRNG& prng,
-        bool securePerm,
-        Perm& randPerm)
-    {
-        MC_BEGIN(macoro::task<>, &out, avgCol, groupByCol, &keys, &data, &offsets,
-            &keyOffsets, &ole, &sock, &prng, securePerm, &randPerm,
-            temp = BinMatrix{},
-            actFlag = BinMatrix{},
-            curOutRow = u64{},
-            nOutRows = u64{},
-            tempPerm = Perm{},
-            i = u64()
-        );
-
-        assert(data.numEntries() == keys.numEntries());
-
-        actFlag.resize(keys.rows(), 1);
-
-        // Extracting Active Flag
-        for (u64 i = 0; i < keys.rows(); ++i)
-            actFlag(i) = *oc::BitIterator(keys.data(i), keyOffsets[1].mStart);
-
-        // Revealing the active flag
-        MC_AWAIT(OmJoin::revealActFlag(actFlag, temp, sock, ole.partyIdx()));
-        std::swap(actFlag, temp);
-
-        nOutRows = 0;
-        for (u64 i = 0; i < actFlag.numEntries(); i++)
-        {
-            if (actFlag.mData(i, 0) == 1)
-                nOutRows++;
-        }
-
-        populateOutTable(out, avgCol, groupByCol, nOutRows);
-        // out.mIsActive.resize(nOutRows);
-
-        curOutRow = 0;
-        for (u64 i = 0; i < data.numEntries(); i++)
-        {
-            // assert(curOutRow <= nOutRows);
-            if (actFlag.mData(i, 0) == 1)
-            {
-                // Storing the Group By Column
-                memcpy(out.mColumns[0].mData.data(curOutRow), keys.data(i),
-                    out.mColumns[0].mData.bytesPerEntry());
-
-                // Copying the average columns
-                for (u64 j = 0; j < offsets.size(); j++)
-                {
-                    memcpy(out.mColumns[j + 1].mData.data(curOutRow),
-                        &data(i, offsets[j].mStart / 8),
-                        out.mColumns[j + 1].getByteCount());
-
-                }
-                // out.mIsActive[curOutRow] = *oc::BitIterator(keys.data(i), keyOffsets[1].mStart);
-                curOutRow++;
-            }
-
-            // We got all our entries
-            if (curOutRow == nOutRows)
-                break;
-        }
-
-        if (randPerm.size() == 0 && nOutRows > 1)
-        {
-            tempPerm.randomize(nOutRows, prng);
-            randPerm = tempPerm;
-        }
-
-        // A Better way could have been to permute the keys & data
-        // But since we want to compare it expected result in the test
-        // We need to permute only the final remaining rows
-        if (nOutRows > 1)
-        {
-            for (i = 0; i < out.cols(); i++)
-            {
-                MC_AWAIT(OmJoin::applyRandPerm(out.mColumns[i].mData, temp, ole,
-                    prng, randPerm, sock, securePerm));
-                std::swap(out.mColumns[i].mData, temp);
-            }
-        }
-
-        // MC_AWAIT(OmJoin::applyRandPerm(keys, temp, ole, prng, *randPerm, sock, securePerm));
-        // std::swap(keys, temp);
-
-
-        MC_END();
-    }
+//    macoro::task<> Average::getOutput(
+//        SharedTable& out,
+//        std::vector<ColRef> avgCol,
+//        ColRef groupByCol,
+//        BinMatrix& keys,
+//        BinMatrix& data,
+//        std::vector<OmJoin::Offset>& offsets,
+//        std::vector<OmJoin::Offset>& keyOffsets,
+//        CorGenerator& ole,
+//        coproto::Socket& sock,
+//        oc::PRNG& prng,
+//        bool securePerm,
+//        Perm& randPerm)
+//    {
+//        MC_BEGIN(macoro::task<>, &out, avgCol, groupByCol, &keys, &data, &offsets,
+//            &keyOffsets, &ole, &sock, &prng, securePerm, &randPerm,
+//            temp = BinMatrix{},
+//            actFlag = BinMatrix{},
+//            curOutRow = u64{},
+//            nOutRows = u64{},
+//            tempPerm = Perm{},
+//            i = u64()
+//        );
+//
+//        assert(data.numEntries() == keys.numEntries());
+//
+//        actFlag.resize(keys.rows(), 1);
+//
+//        // Extracting Active Flag
+//        for (u64 i = 0; i < keys.rows(); ++i)
+//            actFlag(i) = *oc::BitIterator(keys.data(i), keyOffsets[1].mStart);
+//
+//        // Revealing the active flag
+////        MC_AWAIT(OmJoin::revealActFlag(actFlag, temp, sock, ole.partyIdx()));
+////        std::swap(actFlag, temp);
+//
+//        nOutRows = 0;
+//        for (u64 i = 0; i < actFlag.numEntries(); i++)
+//        {
+//            if (actFlag.mData(i, 0) == 1)
+//                nOutRows++;
+//        }
+//
+//        populateOutTable(out, avgCol, groupByCol, nOutRows);
+//        // out.mIsActive.resize(nOutRows);
+//
+//        curOutRow = 0;
+//        for (u64 i = 0; i < data.numEntries(); i++)
+//        {
+//            // assert(curOutRow <= nOutRows);
+//            if (actFlag.mData(i, 0) == 1)
+//            {
+//                // Storing the Group By Column
+//                memcpy(out.mColumns[0].mData.data(curOutRow), keys.data(i),
+//                    out.mColumns[0].mData.bytesPerEntry());
+//
+//                // Copying the average columns
+//                for (u64 j = 0; j < offsets.size(); j++)
+//                {
+//                    memcpy(out.mColumns[j + 1].mData.data(curOutRow),
+//                        &data(i, offsets[j].mStart / 8),
+//                        out.mColumns[j + 1].getByteCount());
+//
+//                }
+//                // out.mIsActive[curOutRow] = *oc::BitIterator(keys.data(i), keyOffsets[1].mStart);
+//                curOutRow++;
+//            }
+//
+//            // We got all our entries
+//            if (curOutRow == nOutRows)
+//                break;
+//        }
+//
+//        if (randPerm.size() == 0 && nOutRows > 1)
+//        {
+//            tempPerm.randomize(nOutRows, prng);
+//            randPerm = tempPerm;
+//        }
+//
+//        // A Better way could have been to permute the keys & data
+//        // But since we want to compare it expected result in the test
+//        // We need to permute only the final remaining rows
+//        if (nOutRows > 1)
+//        {
+//            for (i = 0; i < out.cols(); i++)
+//            {
+//                MC_AWAIT(OmJoin::applyRandPerm(out.mColumns[i].mData, temp, ole,
+//                    prng, randPerm, sock, securePerm));
+//                std::swap(out.mColumns[i].mData, temp);
+//            }
+//        }
+//
+//        // MC_AWAIT(OmJoin::applyRandPerm(keys, temp, ole, prng, *randPerm, sock, securePerm));
+//        // std::swap(keys, temp);
+//
+//
+//        MC_END();
+//    }
 
     AggTree::Operator Average::getAddCircuit(std::vector<OmJoin::Offset>& offsets,
         oc::BetaLibrary::Optimized op)

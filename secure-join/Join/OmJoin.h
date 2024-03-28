@@ -134,20 +134,6 @@ namespace secJoin
 			PRNG& prng,
 			coproto::Socket& sock);
 
-		static macoro::task<> applyRandPerm(
-			BinMatrix& data,
-			BinMatrix& out,
-			CorGenerator& ole,
-			PRNG& prng,
-			Perm& randPerm,
-			coproto::Socket& sock,
-			bool securePerm = true);
-
-		static macoro::task<> revealActFlag(
-			BinMatrix& actFlag,
-			BinMatrix& out,
-			coproto::Socket& sock,
-			u64 partyIdx);
 
 		static  macoro::task<> getOutput(
 			BinMatrix& data,

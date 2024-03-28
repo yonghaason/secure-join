@@ -50,7 +50,7 @@ void evalWhGate(
         std::get<2>(r).result();
         std::get<3>(r).result();
 
-        auto act = reveal(out0, out1);
+        auto act = reveal(out0, out1, false);
 
         if (remDummies)
         {

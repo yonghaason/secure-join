@@ -36,6 +36,7 @@ set(SRCS
     "AggTree/PlainAggTree.cpp"
     "Aggregate/Average.cpp"
     "Aggregate/Where.cpp"
+#    "Aggregate/RemDummies.cpp"
     
     "Util/Trim.cpp"
     "Util/CSVParser.cpp"
@@ -45,7 +46,8 @@ set(SRCS
     )
 
 if(SECUREJOIN_ENABLE_PAILLIER)
-    set(SRCS ${SRCS})
+    set(SRCS ${SRCS}
+            Aggregate/RemDummies.h)
 endif()
 
 add_library(secureJoin STATIC ${SRCS})

@@ -91,7 +91,7 @@ namespace secJoin {
             actFlag(i) = in.mIsActive[i];
 
         // Revealing the active flag
-        MC_AWAIT(OmJoin::revealActFlag(actFlag, revealedActFlag, sock, ole.partyIdx()));
+//        MC_AWAIT(OmJoin::revealActFlag(actFlag, revealedActFlag, sock, ole.partyIdx()));
 
 
         nOutRows = 0;
@@ -136,15 +136,15 @@ namespace secJoin {
         // But since we want to compare it expected result in the test
         // We need to permute only the final remaining rows
         // We don't need to permute the active flag bcoz all the rows are active
-        if (nOutRows > 1)
-        {
-            for (i = 0; i < out.cols(); i++)
-            {
-                MC_AWAIT(OmJoin::applyRandPerm(out.mColumns[i].mData, temp, ole,
-                    prng, randPerm, sock, securePerm));
-                std::swap(out.mColumns[i].mData, temp);
-            }
-        }
+//        if (nOutRows > 1)
+//        {
+//            for (i = 0; i < out.cols(); i++)
+//            {
+//                MC_AWAIT(OmJoin::applyRandPerm(out.mColumns[i].mData, temp, ole,
+//                    prng, randPerm, sock, securePerm));
+//                std::swap(out.mColumns[i].mData, temp);
+//            }
+//        }
 
         MC_END();
     }

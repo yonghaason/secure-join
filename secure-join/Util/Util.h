@@ -271,6 +271,8 @@ namespace secJoin
         ret.init(size, t0.getColumnInfo());
         if (removeNulls == false)
             ret.mIsActive.resize(size);
+
+        u64 outPtr = 0;
         for (u64 i = 0, j = 0; i < t0.rows(); ++i)
         {
             bool isActive = true;
@@ -281,19 +283,30 @@ namespace secJoin
                 ret.mIsActive[j] = isActive;
             }
 
-            if (isActive)
+            if(isActive == false)
+                continue;
+            else if(isActive && removeNulls)
             {
-                for (u64 k = 0; k < t0.mColumns.size(); ++k)
-                {
-                    for (u64 l = 0;l < ret.mColumns[k].mData.cols(); ++l)
-                    {
-                        ret.mColumns[k].mData(j, l) =
-                            t0.mColumns[k].mData(i, l) ^
-                            t1.mColumns[k].mData(i, l);
-                    }
-                }
-                ++j;
+                outPtr = j;
+                j++;
             }
+            else if(isActive)
+                outPtr = i;
+            else
+                throw RTE_LOC;
+
+
+            for (u64 k = 0; k < t0.mColumns.size(); ++k)
+            {
+                for (u64 l = 0;l < ret.mColumns[k].mData.cols(); ++l)
+                {
+                    ret.mColumns[k].mData(outPtr, l) =
+                        t0.mColumns[k].mData(i, l) ^
+                        t1.mColumns[k].mData(i, l);
+                }
+            }
+
+
         }
 
         return ret;

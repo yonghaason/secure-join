@@ -23,7 +23,7 @@ namespace secJoin
             remoteShare.mIsActive.resize(share.mIsActive.size());
             MC_AWAIT(sock.recv(remoteShare.mIsActive));
         }
-        out = reveal(share, remoteShare);
+        out = reveal(share, remoteShare, false);
 
         MC_END();
     }
@@ -224,6 +224,8 @@ namespace secJoin
     {
         u64 m = avgCol.size();
         u64 n0 = groupByCol.mCol.rows();
+        std::vector<u8> actFlag = groupByCol.mTable.mIsActive;
+        assert(actFlag.size() > 0);
 
         // Generating the permutation
         auto groupByPerm = sort(groupByCol);
@@ -323,8 +325,9 @@ namespace secJoin
 
             if(row == 0)
             {
-                copyTableEntry(out, groupByCol, avgCol, inputs, ones, row);
-                out.mIsActive[row] = 1;
+                out.mIsActive[row] = actFlag.size() > 0 ? actFlag[row] : 1;
+                if(out.mIsActive[row] == 1)
+                    copyTableEntry(out, groupByCol, avgCol, inputs, ones, row);
             }
 
 
@@ -364,7 +367,6 @@ namespace secJoin
 
         std::vector<u8> outActFlags;
         outActFlags.resize(nT);
-        u64 outRows = 0;
 
         for (u64 j = 0; j < nT; j++)
         {
@@ -379,28 +381,22 @@ namespace secJoin
             }
 
             cd.evaluate(inputs, outputs);
-
-            if (outputs[0][0] == 1)
-                outRows++;
-
             outActFlags[j] = outputs[0][0];
         }
-        Table out(outRows, T.getColumnInfo());
-        u64 outRowPointer = 0;
+        Table out(nT, T.getColumnInfo());
+        out.mIsActive.resize(nT);
         for (u64 j = 0; j < nT; j++)
         {
-            assert(outRowPointer <= outRows);
             if (outActFlags[j] == 1)
             {
                 for (u64 k = 0; k < T.mColumns.size(); k++)
                 {
-                    memcpy(out.mColumns[k].mData.data(outRowPointer),
+                    memcpy(out.mColumns[k].mData.data(j),
                         T.mColumns[k].mData.data(j),
                         T.mColumns[k].getByteCount());
                 }
-                outRowPointer++;
+                out.mIsActive[j] = 1;
             }
-
         }
 
         return out;
