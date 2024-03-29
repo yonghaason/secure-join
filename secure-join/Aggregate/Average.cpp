@@ -248,7 +248,8 @@ namespace secJoin {
         ColRef groupByCol,
         std::vector<ColRef> avgCol,
         CorGenerator& ole,
-        bool removeDummies,
+        bool remDummiesFlag,
+        bool cachePerm,
         bool printSteps,
         bool mock)
     {
@@ -262,7 +263,6 @@ namespace secJoin {
         mPartyIdx = ole.partyIdx();
 
         u64 dataBitsPerEntry = 0;
-        mRemoveDummies = removeDummies;
         mInsecurePrint = printSteps;
         mInsecureMockSubroutines = mock;
 
@@ -271,9 +271,7 @@ namespace secJoin {
         mOffsets.reserve(avgCol.size() + 1);
         u64 aggTreeBitCount = 0;
 
-
         mSort.mInsecureMock = mInsecureMockSubroutines;
-        // sPerm.mInsecureMock = mInsecureMockSubroutines;
 
         for (u64 i = 0; i < avgCol.size(); ++i)
         {
@@ -313,7 +311,7 @@ namespace secJoin {
         // backwards direction, we will unpermute the all the above
         // columns except the compress keys. Therefore, in total we will permute:
         u64 permForward = oc::divCeil(dataBitsPerEntry, 8) + sizeof(u32);
-        u64 permBackward = ( (removeDummies == false) * oc::divCeil(dataBitsPerEntry - compressKeySize, 8) )
+        u64 permBackward = ( (remDummiesFlag == false) * oc::divCeil(dataBitsPerEntry - compressKeySize, 8) )
                           + (mInsecurePrint == true) * 1; // Permuting the control Bits
 
         mPerm.init(mPartyIdx, rows, permForward + permBackward, ole);
@@ -325,7 +323,15 @@ namespace secJoin {
 
         auto cir = updateActiveFlagCir(1, 1, 1);
         mUpdateActiveFlagGmw.init(rows, cir, ole);
-    
+
+        if(remDummiesFlag)
+        {
+            u64 permRand = oc::divCeil(dataBitsPerEntry - compressKeySize, 8)
+                       + (mInsecurePrint == true) * 1; // Permuting the control Bits
+            mRemDummies.init(rows, permRand, ole, cachePerm || mInsecurePrint);
+        }
+
+
     }
 
 
@@ -339,12 +345,10 @@ namespace secJoin {
         SharedTable& out,
         oc::PRNG& prng,
         coproto::Socket& sock,
-        bool remDummies,
-        Perm randPerm)
+        bool remDummiesFlag)
     {
 
-        MC_BEGIN(macoro::task<>, this, groupByCol, avgCol, &out, &prng, &sock, remDummies,
-            randPerm,
+        MC_BEGIN(macoro::task<>, this, groupByCol, avgCol, &out, &prng, &sock, remDummiesFlag,
             compressKeys = BinMatrix{},
             sortedgroupByData = BinMatrix{},
             data = BinMatrix{},
@@ -449,13 +453,27 @@ namespace secJoin {
                 OmJoin::Offset{ (tempNum + sortedgroupByData.bytesPerEntry()) * 8, actFlag.bitsPerEntry(), "Act Flag" } );
 
 
-        if(remDummies)
+        if(remDummiesFlag)
         {
-            // Call the Rem Dummies Function
+            // Permuting the data
+            MC_AWAIT(mRemDummies.remDummies( data, temp,
+                        dataOffsets[dataOffsets.size() - 1].mStart / 8, sock, prng));
+            std::swap(data, temp);
+
+            // Can't apply Perm to controlBits bcoz controBits & data will be of different sizes
+            if (mInsecurePrint)
+            {
+                temp.resize(controlBits.rows(), controlBits.bitsPerEntry());
+                MC_AWAIT(mRemDummies.mPermutation.apply<u8>(mRemDummies.mPermOp, controlBits, temp, sock));
+                std::swap(controlBits, temp);
+                MC_AWAIT(OmJoin::print(data, controlBits, sock, mPartyIdx, "Rand Perm", dataOffsets));
+            }
+
+
         }
         else
         {
-
+            // Permuting the data
             temp.resize(data.numEntries(), data.bitsPerEntry());
             MC_AWAIT(perm.apply<u8>(PermOp::Regular, data, temp, sock));
             std::swap(data, temp);
@@ -467,20 +485,10 @@ namespace secJoin {
                 std::swap(controlBits, temp);
                 MC_AWAIT(OmJoin::print(data, controlBits, sock, mPartyIdx, "unsort", dataOffsets));
             }
-
-
         }
-
 
         getOutput(out, avgCol, groupByCol, data, dataOffsets);
 
-        // if (remDummies)
-        // {
-        //     MC_AWAIT(getOutput(out, avgCol, groupByCol, keys, data, offsets, keyOffsets,
-        //         ole, sock, prng, !mInsecureMockSubroutines, randPerm));
-        // }
-        // else
-        //     getOutput(out, avgCol, groupByCol, keys, data, controlBits, offsets, keyOffsets);
 
         MC_END();
     }

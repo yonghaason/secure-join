@@ -5,6 +5,7 @@
 #include "cryptoTools/Circuit/BetaLibrary.h"
 #include "secure-join/Util/Util.h"
 #include "libOTe/Tools/LinearCode.h"
+#include "RemDummies.h"
 
 namespace secJoin
 {
@@ -37,7 +38,7 @@ namespace secJoin
 
 		u64 mPartyIdx = -1;
 
-		bool mRemoveDummies = false;
+        RemDummies mRemDummies;
 
 
         void extractKeyInfo(
@@ -56,7 +57,8 @@ namespace secJoin
             ColRef groupByCol,
             std::vector<ColRef> avgCol,
             CorGenerator& ole,
-            bool removeDummies,
+            bool remDummiesFlag = false,
+            bool cachePerm = false,
             bool printSteps = false,
             bool mock = false);
 
@@ -79,8 +81,7 @@ namespace secJoin
             SharedTable& out,
             oc::PRNG& prng,
             coproto::Socket& sock,
-            bool remDummies = false,
-            Perm randPerm = {});
+            bool remDummiesFlag = false);
 
         macoro::task<> getControlBits(
             BinMatrix& keys,
@@ -92,78 +93,18 @@ namespace secJoin
             oc::BetaLibrary::Optimized op);
 
         void getOutput(
-                SharedTable& out,
-                std::vector<ColRef> avgCol,
-                ColRef groupByCol,
-                BinMatrix& data,
-                std::vector<OmJoin::Offset>& offsets);
-
-        static macoro::task<> getOutput(
             SharedTable& out,
             std::vector<ColRef> avgCol,
             ColRef groupByCol,
-            BinMatrix& keys,
             BinMatrix& data,
-            std::vector<OmJoin::Offset>& offsets,
-            std::vector<OmJoin::Offset>& keyOffsets,
-            CorGenerator& ole,
-            coproto::Socket& sock,
-            oc::PRNG& prng,
-            bool securePerm,
-            Perm& randPerm);
+            std::vector<OmJoin::Offset>& offsets);
+
 
         macoro::task<> updateActiveFlag(
             BinMatrix& actFlag,
             BinMatrix& choice,
             BinMatrix& out,
             coproto::Socket& sock);
-
-
-
-        static void concatColumns(
-            BinMatrix& dst,
-            span<BinMatrix*> cols)
-        {
-            auto m = cols.size();
-            //auto n = cols[0]->rows();
-            //auto d0 = dst.data();
-            auto e0 = dst.data() + dst.size();
-
-            std::vector<u64>
-                offsets(m),
-                sizes(m),
-                srcSteps(m);
-            std::vector<u8*> srcs(m);
-            u64 rem = dst.cols();
-            for (u64 i = 0; i < m; ++i)
-            {
-                sizes[i] = oc::divCeil(cols[i]->bitsPerEntry(), 8);
-                if (i)
-                    offsets[i] = offsets[i - 1] + sizes[i - 1];
-
-                srcs[i] = cols[i]->data();
-                srcSteps[i] = cols[i]->mData.cols();
-            }
-
-            for (u64 j = 0; j < m; ++j)
-            {
-                auto n = cols[j]->rows();
-                assert(n <= dst.rows());
-                auto d0 = dst.data() + offsets[j];
-
-                auto src = srcs[j];
-                auto size = sizes[j];
-                auto step = srcSteps[j];
-                for (u64 i = 0; i < n; ++i)
-                {
-                    assert(d0 + size <= e0);
-                    memcpy(d0, src, size);
-
-                    src += step;
-                    d0 += rem;
-                }
-            }
-        }
 
 
     };

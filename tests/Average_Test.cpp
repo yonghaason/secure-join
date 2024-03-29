@@ -36,29 +36,30 @@ void evalAverage
         shAvgColRef1.emplace_back(Ts[1][avgColIdxs[i]]);
     }
 
-    auto exp = average(T[0], { T[1], T[2] });
-
     CorGenerator ole0, ole1;
-    ole0.init(sock[0].fork(), prng0, 0, 1 << 16, mock);
-    ole1.init(sock[1].fork(), prng1, 1, 1 << 16, mock);
 
-    for (auto remDummies : { false })
+    for (auto remDummies : { false, true })
     {
+        ole0.init(sock[0].fork(), prng0, 0, 1 << 16, mock);
+        ole1.init(sock[1].fork(), prng1, 1, 1 << 16, mock);
+
         Average avg0, avg1;
 
-        avg0.init(Ts[0][grpByColIdx], shAvgColRef0, ole0, remDummies, printSteps, mock);
-        avg1.init(Ts[1][grpByColIdx], shAvgColRef1, ole1, remDummies, printSteps, mock);
+        avg0.init(Ts[0][grpByColIdx], shAvgColRef0, ole0, remDummies, remDummies, printSteps, mock);
+        avg1.init(Ts[1][grpByColIdx], shAvgColRef1, ole1, remDummies, remDummies, printSteps, mock);
 
 
-        Perm p0(exp.rows(), prng0);
-        Perm p1(exp.rows(), prng1);
-        Perm pi = p0.composeSwap(p1);
+        if(remDummies)
+        {
+            avg0.mRemDummies.mCachePerm = true;
+            avg1.mRemDummies.mCachePerm = true;
+        }
 
         Table out[2];
         auto r = macoro::sync_wait(macoro::when_all_ready(
                ole0.start(), ole1.start(),
-               avg0.avg(Ts[0][grpByColIdx], shAvgColRef0, out[0], prng0, sock[0], remDummies, p0),
-               avg1.avg(Ts[1][grpByColIdx], shAvgColRef1, out[1], prng1, sock[1], remDummies, p1)
+               avg0.avg(Ts[0][grpByColIdx], shAvgColRef0, out[0], prng0, sock[0], remDummies),
+               avg1.avg(Ts[1][grpByColIdx], shAvgColRef1, out[1], prng1, sock[1], remDummies)
            )
         );
 
@@ -69,13 +70,19 @@ void evalAverage
 
         Table res;
 
-        res = reveal(out[0], out[1], remDummies);
+        res = reveal(out[0], out[1], false);
 
+        Perm pi;
         if (remDummies)
         {
-            Table tmp = applyPerm(exp, pi);
-            std::swap(exp, tmp);
+            ComposedPerm p0 = avg0.mRemDummies.mPermutation;
+            ComposedPerm p1 = avg1.mRemDummies.mPermutation;
+
+            pi = p1.permShare().compose(p0.permShare());
         }
+
+
+        auto exp = average(T[0], { T[1], T[2] }, remDummies, pi);
 
         if (res != exp)
         {
@@ -85,6 +92,9 @@ void evalAverage
             std::cout << "ful \n" << reveal(out[0], out[1], false) << std::endl;
             throw RTE_LOC;
         }
+
+        if(printSteps)
+            std::cout << "Rem Dummies Flag = " << remDummies << " Complete" << std::endl;
     }
 
 

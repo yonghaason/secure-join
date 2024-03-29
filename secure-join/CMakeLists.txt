@@ -36,7 +36,7 @@ set(SRCS
     "AggTree/PlainAggTree.cpp"
     "Aggregate/Average.cpp"
     "Aggregate/Where.cpp"
-#    "Aggregate/RemDummies.cpp"
+    "Aggregate/RemDummies.cpp"
     
     "Util/Trim.cpp"
     "Util/CSVParser.cpp"

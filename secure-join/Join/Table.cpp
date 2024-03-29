@@ -220,7 +220,9 @@ namespace secJoin
     }
 
     Table average(ColRef groupByCol,
-        std::vector<ColRef> avgCol)
+        std::vector<ColRef> avgCol,
+        bool remDummies,
+        Perm randPerm)
     {
         u64 m = avgCol.size();
         u64 n0 = groupByCol.mCol.rows();
@@ -236,7 +238,8 @@ namespace secJoin
         groupByPerm.apply<u8>(groupByCol.mCol.mData, temp, permForward);
         std::swap(groupByCol.mCol.mData, temp);
 
-        actFlag = groupByPerm.apply<u8>(actFlag);
+        if(actFlag.size() > 0)
+            actFlag = groupByPerm.apply<u8>(actFlag);
 
 
         // Applying permutation to all the average cols
@@ -331,22 +334,68 @@ namespace secJoin
         // Applying inverse perm to all the columns
         auto permBackward = PermOp::Inverse;
 
+        auto backPerm = remDummies && randPerm.size() > 0
+                        ? randPerm : groupByPerm;
+
 
         for (u64 i = 0; i < out.cols(); i++)
         {
             temp.resize(out[i].mCol.mData.numEntries(),
                         out[i].mCol.mData.bytesPerEntry() * 8);
-            groupByPerm.apply<u8>(out[i].mCol.mData, temp, permBackward);
+            backPerm.apply<u8>(out[i].mCol.mData, temp, permBackward);
             std::swap(out[i].mCol.mData, temp);
         }
 
         // Applying inverse perm to the active flag
-        out.mIsActive = groupByPerm.applyInv<u8>(out.mIsActive);
+        out.mIsActive = backPerm.applyInv<u8>(out.mIsActive);
+
+        if(remDummies)
+        {
+            Table temp = removeDummies(out);
+            std::swap(temp, out);;
+        }
 
         return out;
     }
 
 
+    Table removeDummies(Table& T)
+    {
+        if(T.mIsActive.size() == 0)
+            return T;
+
+        u64 nOutRows = 0;
+        for(u64 i = 0; i < T.mIsActive.size(); i++)
+        {
+            assert(T.mIsActive[i] == 0 || T.mIsActive[i] == 1);
+            nOutRows += T.mIsActive[i];
+        }
+
+        Table out(nOutRows, T.getColumnInfo());
+        out.mIsActive.resize(nOutRows);
+
+        u64 curPtr = 0;
+        for(u64 i = 0; i < T.rows(); i++)
+        {
+            if(T.mIsActive[i] == 1)
+            {
+                for(u64 j = 0; j < T.cols(); j++)
+                {
+                    memcpy( out.mColumns[j].mData.data(curPtr) ,
+                            T.mColumns[j].mData.data(i),
+                            T.mColumns[j].getByteCount());
+                }
+                out.mIsActive[curPtr] = T.mIsActive[i];
+                curPtr++;
+            }
+
+            if(curPtr >=  nOutRows)
+                break;
+        }
+
+        return out;
+
+    }
 
     Table where(Table& T,
         const std::vector<ArrGate>& gates,

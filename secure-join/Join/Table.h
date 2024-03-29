@@ -301,7 +301,11 @@ namespace secJoin
 
     Table average(
             ColRef groupByCol,
-            std::vector<ColRef> avgCol);
+            std::vector<ColRef> avgCol,
+            bool remDummies = false,
+            Perm randPerm = {});
+
+    Table removeDummies(Table& T);
 
     Table where(
         Table& T,
