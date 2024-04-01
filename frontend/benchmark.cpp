@@ -2,6 +2,7 @@
 #include "secure-join/Prf/AltModPrf.h"
 #include "secure-join/Sort/RadixSort.h"
 #include "secure-join/Join/OmJoin.h"
+#include "secure-join/Perm/PprfPermGen.h"
 
 namespace secJoin
 {
@@ -17,7 +18,7 @@ namespace secJoin
         u64 ot = cmd.getOr("ot", 32);
 
         // batch size
-        u64 batch = 1ull<< cmd.getOr("b", 18);
+        u64 batch = 1ull << cmd.getOr("b", 18);
 
         u64 trials = cmd.getOr("trials", 1);
 
@@ -184,22 +185,30 @@ namespace secJoin
 
         CorGenerator g[2];
 
-        g[0].init(sock[0].fork(), prng0, 0, 1 << batch, !gen);
-        g[1].init(sock[1].fork(), prng1, 1, 1 << batch, !gen);
+        //g[0].init(sock[0].fork(), prng0, 0, 1 << batch, !gen);
+        //g[1].init(sock[1].fork(), prng1, 1, 1 << batch, !gen);
 
         auto begin = timer.setTimePoint("begin");
         for (u64 t = 0; t < trials; ++t)
         {
+
+            g[0].init(sock[0].fork(), prng0, 0, 1 << batch, !gen);
+            g[1].init(sock[1].fork(), prng1, 1, 1 << batch, !gen);
+
             s0.init(0, n, m, g[0]);
             s1.init(1, n, m, g[1]);
 
             auto r = coproto::sync_wait(coproto::when_all_ready(
+                g[0].start(),
+                g[1].start(),
                 s0.genPerm(k[0], d[0], sock[0], prng0),
                 s1.genPerm(k[1], d[1], sock[1], prng1)
             ));
 
             std::get<0>(r).result();
             std::get<1>(r).result();
+            std::get<2>(r).result();
+            std::get<3>(r).result();
         }
         auto end = timer.setTimePoint("end");
 
@@ -223,7 +232,7 @@ namespace secJoin
         u64 dL = cmd.getOr("Ld", cmd.getOr("d", 10));
         u64 dR = cmd.getOr("Rd", cmd.getOr("d", 10));
 
-        auto b = cmd.getOr("b", 18);
+        auto b = cmd.getOr("b", 16);
         u64 keySize = cmd.getOr("m", 32);
         bool mock = cmd.getOr("mock", 1);
 
@@ -260,7 +269,7 @@ namespace secJoin
         join0.setTimer(timer);
 
 
-        JoinQuery 
+        JoinQuery
             query0(Ls[0][0], Rs[0][0], { Ls[0][0], Rs[0][1], Ls[0][1] }),
             query1(Ls[1][0], Rs[1][0], { Ls[1][0], Rs[1][1], Ls[1][1] });
 
@@ -269,6 +278,8 @@ namespace secJoin
 
         auto begin = timer.setTimePoint("begin");
         auto r = macoro::sync_wait(macoro::when_all_ready(
+            ole0.start(),
+            ole1.start(),
             join0.join(query0, out[0], prng0, sock[0]),
             join1.join(query1, out[1], prng1, sock[1])
         ));
@@ -336,11 +347,15 @@ namespace secJoin
             recver.init(n, ole1);
 
             auto r = coproto::sync_wait(coproto::when_all_ready(
+                ole0.start(),
+                ole1.start(),
                 sender.evaluate(y0, sock[0], prng0),
                 recver.evaluate(x, y1, sock[1], prng1)
             ));
             std::get<0>(r).result();
             std::get<1>(r).result();
+            std::get<2>(r).result();
+            std::get<3>(r).result();
         }
         auto end = timer.setTimePoint("end");
 
@@ -355,6 +370,127 @@ namespace secJoin
             std::cout << sock[0].bytesReceived() / 1000.0 << " " << sock[0].bytesSent() / 1000.0 << " kB " << std::endl;
         }
     }
+
+    void OT_benchmark(const oc::CLP& cmd)
+    {
+#ifdef ENABLE_SILENTOT
+        using namespace oc;
+        try
+        {
+
+            SilentOtExtSender sender;
+            SilentOtExtReceiver recver;
+
+            u64 trials = cmd.getOr("t", 10);
+
+            u64 n = cmd.getOr("n", 1ull << cmd.getOr("nn", 20));
+            MultType multType = (MultType)cmd.getOr("m", (int)MultType::Tungsten);
+            std::cout << multType << std::endl;
+
+            recver.mMultType = multType;
+            sender.mMultType = multType;
+
+            PRNG prng0(ZeroBlock), prng1(ZeroBlock);
+            block delta = prng0.get();
+
+            auto sock = coproto::LocalAsyncSocket::makePair();
+
+            Timer sTimer;
+            Timer rTimer;
+            auto s = rTimer.setTimePoint("start");
+            sender.setTimer(rTimer);
+            recver.setTimer(rTimer);
+            for (u64 t = 0; t < trials; ++t)
+            {
+                sender.configure(n);
+                recver.configure(n);
+
+                auto choice = recver.sampleBaseChoiceBits(prng0);
+                std::vector<std::array<block, 2>> sendBase(sender.silentBaseOtCount());
+                std::vector<block> recvBase(recver.silentBaseOtCount());
+                sender.setSilentBaseOts(sendBase);
+                recver.setSilentBaseOts(recvBase);
+
+                auto p0 = sender.silentSendInplace(delta, n, prng0, sock[0]);
+                auto p1 = recver.silentReceiveInplace(n, prng1, sock[1], oc::ChoiceBitPacking::True);
+
+                rTimer.setTimePoint("r start");
+                coproto::sync_wait(macoro::when_all_ready(
+                    std::move(p0), std::move(p1)));
+                rTimer.setTimePoint("r done");
+
+            }
+            auto e = rTimer.setTimePoint("end");
+
+            auto time = std::chrono::duration_cast<std::chrono::milliseconds>(e - s).count();
+            auto avgTime = time / double(trials);
+            auto timePer512 = avgTime / n * 512;
+            std::cout << "OT n:" << n << ", " <<
+                avgTime << "ms/batch, " << timePer512 << "ms/512ot" << std::endl;
+
+            std::cout << rTimer << std::endl;
+
+            std::cout << sock[0].bytesReceived() / trials << " " << sock[1].bytesReceived() / trials << " bytes per " << std::endl;
+        }
+        catch (std::exception& e)
+        {
+            std::cout << e.what() << std::endl;
+        }
+#else
+        std::cout << "ENABLE_SILENTOT = false" << std::endl;
+#endif
+        }
+
+    void AltModPerm_benchmark(const oc::CLP& cmd)
+    {
+
+        u64 n = cmd.getOr("n", 1ull << cmd.getOr("nn", 10));
+        u64 rowSize = cmd.getOr("m", 16);
+        u64 b = cmd.getOr("b", 16);
+        bool debug = cmd.isSet("debug");
+        // bool invPerm = false;
+
+        PRNG prng0(oc::ZeroBlock);
+        PRNG prng1(oc::OneBlock);
+
+        AltModPermGenSender AltModPerm0;
+        AltModPermGenReceiver AltModPerm1;
+
+        oc::Matrix<oc::block>
+            aExp(n, oc::divCeil(rowSize, 16));
+
+        auto sock = coproto::LocalAsyncSocket::makePair();
+        Perm pi(n, prng0);
+        CorGenerator ole0, ole1;
+
+
+        ole0.init(sock[0].fork(), prng0, 0, 1 << b, cmd.getOr("mock", 1));
+        ole1.init(sock[1].fork(), prng1, 1, 1 << b, cmd.getOr("mock", 1));
+
+        AltModPerm0.init(n, rowSize, ole0);
+        AltModPerm1.init(n, rowSize, ole1);
+
+        PermCorSender perm0;
+        PermCorReceiver perm1;
+        oc::Timer timer;
+        auto begin = timer.setTimePoint("b");
+        auto r = macoro::sync_wait(macoro::when_all_ready(
+            AltModPerm0.generate(pi, prng0, sock[0], perm0),
+            AltModPerm1.generate(prng1, sock[1], perm1),
+            ole0.start(), ole1.start()
+        ));
+        auto end = timer.setTimePoint("b");
+
+        std::get<0>(r).result();
+        std::get<1>(r).result();
+
+
+        std::cout << "AltModPerm:" << n << ", " <<
+            std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << "ms " <<
+            sock[0].bytesSent() / double(n) << "+" << sock[0].bytesReceived() / double(n) << "=" <<
+            (sock[0].bytesSent() + sock[0].bytesReceived()) / double(n) << " bytes/eval " << std::endl;
+    }
+
     void AltMod_compressB_benchmark(const oc::CLP& cmd)
     {
         u64 n = cmd.getOr("n", 1ull << cmd.getOr("nn", 20));
@@ -437,30 +573,114 @@ namespace secJoin
     void AltMod_sampleMod3_benchmark(const oc::CLP& cmd)
     {
         u64 n = cmd.getOr("n", 1ull << cmd.getOr("nn", 16));
+        u64 t = cmd.getOr("t", 1);
 
         oc::AlignedUnVector<block> msb(n), lsb(n);
         PRNG prng(oc::ZeroBlock);
 
+        if (cmd.isSet("old"))
         {
 
             oc::Timer timer;
             auto b = timer.setTimePoint("begin");
-            sampleMod3Lookup(prng, msb, lsb);
+            for (u64 k = 0; k < t; ++k)
+                sampleMod3Lookup(prng, msb, lsb);
             auto e = timer.setTimePoint("end");
 
             std::cout << "mod3lookup n:" << n << ", " <<
                 std::chrono::duration_cast<std::chrono::milliseconds>(e - b).count() << "ms " << std::endl;;
         }
-        if (cmd.isSet("old"))
+        //if(0)
+        //{
+
+        //    oc::Timer timer;
+        //    auto b = timer.setTimePoint("begin");
+
+        //    for (u64 k = 0; k < t; ++k)
+        //        sampleMod3Lookup2(prng, msb, lsb);
+        //    auto e = timer.setTimePoint("end");
+
+        //    std::cout << "mod3lookup2 n:" << n << ", " <<
+        //        std::chrono::duration_cast<std::chrono::milliseconds>(e - b).count() << "ms " << std::endl;;
+        //}
         {
-            oc::AlignedUnVector<u8> bb;
+
             oc::Timer timer;
             auto b = timer.setTimePoint("begin");
-            sampleMod3(prng, msb, lsb, bb);
+
+            for (u64 k = 0; k < t; ++k)
+                sampleMod3Lookup3(prng, msb, lsb);
             auto e = timer.setTimePoint("end");
 
-            std::cout << "mod3 old n:" << n << ", " <<
+            std::cout << "mod3lookup3 n:" << n << ", " <<
                 std::chrono::duration_cast<std::chrono::milliseconds>(e - b).count() << "ms " << std::endl;;
+        }
+
+        if (0)
+        {
+
+            oc::Timer timer;
+            auto b = timer.setTimePoint("begin");
+
+            for (u64 k = 0; k < t; ++k)
+                sampleMod3Lookup4(prng, msb, lsb);
+            auto e = timer.setTimePoint("end");
+
+            std::cout << "mod3lookup4 n:" << n << ", " <<
+                std::chrono::duration_cast<std::chrono::milliseconds>(e - b).count() << "ms " << std::endl;;
+        }
+    }
+
+    void PprfPerm_benchmark(const oc::CLP& cmd)
+    {
+
+
+        // we want N items permuted.
+        u64 N = cmd.getOr("n", 1ull << cmd.getOr("nn", 10));
+
+        // we permute in batches of t items.
+        u64 T = cmd.getOr("t", 256);
+
+        // 
+        u64 batches = N / T;
+        u64 depth = oc::log2ceil(batches);
+        u64 n_ = N * depth;
+        u64 trials = cmd.getOr("trials", 1);
+
+        oc::Timer timer;
+
+        PprfPermGenSender sender;
+        PprfPermGenReceiver recver;
+
+        auto sock = coproto::LocalAsyncSocket::makePair();
+
+        PRNG prng0(oc::ZeroBlock);
+        PRNG prng1(oc::OneBlock);
+
+        auto begin = timer.setTimePoint("begin");
+        for (u64 t = 0; t < trials; ++t)
+        {
+            sender.init(n_, T);
+            recver.init(n_, T);
+
+            auto r = coproto::sync_wait(coproto::when_all_ready(
+                sender.gen(sock[0], prng0),
+                recver.gen(sock[1])
+            ));
+            std::get<0>(r).result();
+            std::get<1>(r).result();
+        }
+        auto end = timer.setTimePoint("end");
+
+        std::cout << "PprfPerm n:" << N << ", #ots/per " << (recver.mBaseCount / N) << " depth " << depth << " " <<
+            std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << "ms " <<
+            (sock[0].bytesSent() + sock[0].bytesReceived() + 2 * 16 * n_) / double(N) << " bytes/eval " << std::endl;
+
+        //std::cout << ole0.mNumBinOle / double(n) << " " << ole1.mNumBinOle / double(n) << " binOle/per" << std::endl;;
+        if (cmd.isSet("v"))
+        {
+            std::cout << timer << std::endl;
+            std::cout << sock[0].bytesReceived() / 1000.0 << " " << sock[0].bytesSent() / 1000.0 << " kB " << std::endl;
         }
     }
 
@@ -481,4 +701,4 @@ namespace secJoin
             std::chrono::duration_cast<std::chrono::milliseconds>(e - b).count() << "ms " << std::endl;;
 
     }
-}
+    }

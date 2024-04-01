@@ -2,6 +2,7 @@
 #include "secure-join/Prf/DarkMatter22Prf.h"
 #include "secure-join/Prf/DarkMatter32Prf.h"
 #include "secure-join/Prf/AltModPrf.h"
+#include "secure-join/Prf/mod3.h"
 #include "cryptoTools/Crypto/PRNG.h"
 #include "cryptoTools/Common/Matrix.h"
 
@@ -476,23 +477,142 @@ void AltModPrf_mod3BitDecompostion_test()
 
 void AltModPrf_sampleMod3_test(const oc::CLP& cmd)
 {
-    u64 n = 1ull << cmd.getOr("nn", 16);
-    PRNG prng(oc::ZeroBlock);
-
-    oc::AlignedUnVector<block> lsb(n), msb(n);
-    sampleMod3Lookup(prng, msb, lsb);
-    for (u64 i = 0;i < n;++i)
+    for (u64 n : {1ull, 4ull, 123ull, 1ull << cmd.getOr("nn", 16)})
     {
-        for (u64 j = 0;j < 128; ++j)
-        {
-            auto lsbj = bit(lsb[i], j);
-            auto msbj = bit(msb[i], j);
 
-            if ((lsbj + 2 * msbj) > 2)
-                throw RTE_LOC;
+        u64 t = cmd.getOr("t", 1);
+        PRNG prng(block(22132, cmd.getOr("s", 1)));
+
+        bool failed = false;
+
+        for (u64 i = 0; i < 256; ++i)
+        {
+            auto vals = mod3TableFull[i];
+            auto lsb = mod3TableLsb[i];
+            auto msb = mod3TableMsb[i];
+            if (i < 243)
+            {
+                if (mod3TableV[i] != 5)
+                    throw RTE_LOC;
+
+
+                for (u64 j = 0; j < 5; ++j)
+                {
+                    if ((vals[j] & 1) != ((lsb >> j) & 1))
+                        throw RTE_LOC;
+
+                    if (((vals[j] >> 1) & 1) != ((msb >> j) & 1))
+                        throw RTE_LOC;
+                }
+            }
+            else
+            {
+                if (mod3TableV[i] != 0)
+                    throw RTE_LOC;
+
+                for (u64 j = 0; j < 5; ++j)
+                    if (vals[j] != 0)
+                        throw RTE_LOC;
+
+                if (lsb)
+                    throw RTE_LOC;
+                if (msb)
+                    throw RTE_LOC;
+            }
         }
+
+        //for (u64 tt = 0; tt < t; ++tt)
+        //{
+        //    std::array<int, 3> counts{ 0,0,0 };
+
+        //    for (u64 i = 0;i < n * 128;++i)
+        //    {
+        //        ++counts[prng.get<u64>() % 3];
+        //    }
+
+        //    u64 N = n * 128;
+        //    u64 exp = N / 3;
+        //    u64 eps = 2 * std::sqrt(N);
+        //    for (auto c : counts)
+        //        if (c < exp - eps || c > exp + eps)
+        //        {
+        //            std::cout << "{ " << counts[0] << ", " << counts[1] << ", " << counts[2] << "}" << std::endl;
+        //            std::cout << "exp = " << exp << " eps = " << eps << std::endl;
+        //            failed = true;
+        //        }
+
+        //    std::cout << "basic { " << counts[0] << ", " << counts[1] << ", " << counts[2] << "}" << std::endl;
+        //}
+
+        for (u64 tt = 0; tt < t; ++tt)
+        {
+            oc::AlignedUnVector<block> lsb(n), msb(n);
+            sampleMod3Lookup(prng, msb, lsb);
+            std::array<int, 3> counts{ 0,0,0 };
+            for (u64 i = 0;i < n;++i)
+            {
+                for (u64 j = 0;j < 128; ++j)
+                {
+                    auto lsbj = bit(lsb[i], j);
+                    auto msbj = bit(msb[i], j);
+                    u64 v = lsbj + 2 * msbj;
+
+                    if (v > 2)
+                        throw RTE_LOC;
+
+                    ++counts[v];
+                }
+            }
+
+            u64 N = n * 128;
+            u64 exp = N / 3;
+            u64 eps = std::sqrt(N);
+            for (auto c : counts)
+                if ((c < exp - eps || c > exp + eps) && n > 200)
+                {
+                    failed = true;
+                }
+            std::cout << "lookup1 { " << counts[0] << ", " << counts[1] << ", " << counts[2] << "}" << std::endl;
+        }
+
+        for (u64 tt = 0; tt < t; ++tt)
+        {
+            oc::AlignedUnVector<block> lsb(n), msb(n);
+            sampleMod3Lookup3(prng, msb, lsb);
+            std::array<int, 3> counts{ 0,0,0 };
+
+            for (u64 i = 0;i < n;++i)
+            {
+                for (u64 j = 0;j < 128; ++j)
+                {
+                    auto lsbj = bit(lsb[i], j);
+                    auto msbj = bit(msb[i], j);
+                    u64 v = lsbj + 2 * msbj;
+
+                    if (v > 2)
+                        throw RTE_LOC;
+
+                    ++counts[v];
+                }
+            }
+
+            u64 N = n * 128;
+            u64 exp = N / 3;
+            u64 eps = 2 * std::sqrt(N);
+            for (auto c : counts)
+                if ((c < exp - eps || c > exp + eps) && n > 200)
+                {
+                    //std::cout << "{ " << counts[0] << ", " << counts[1] << ", " << counts[2] << "}" << std::endl;
+                    //std::cout << "exp = " << exp << " eps = " << eps << std::endl;
+                    failed = true;
+                }
+
+            std::cout << "lookup3 { " << counts[0] << ", " << counts[1] << ", " << counts[2] << "}" << std::endl;
+
+        }
+        if (failed)
+            throw RTE_LOC;
     }
-    //sampleMod3(prng, buff);
 }
 
 void AltModPrf_AMult_test(const oc::CLP& cmd)

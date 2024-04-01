@@ -2,6 +2,7 @@
 
 
 set(SRCS
+    "Prf/mod3.cpp"
     "Prf/AltModPrf.cpp"
     "Prf/F2LinearCode.cpp"
     "Prf/F3LinearCode.cpp"
@@ -23,6 +24,7 @@ set(SRCS
     "Perm/AltModComposedPerm.cpp"
     "Perm/AltModPerm.cpp"
     
+    "Perm/PprfPermGen.cpp"
     "Perm/PaillierPerm.cpp"
 
     "GMW/Circuit.cpp"

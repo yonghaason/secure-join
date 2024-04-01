@@ -1207,7 +1207,7 @@ namespace secJoin
 
         for (i = 1; i < ll; ++i)
         {
-            std::cout << "genPerm " << i <<" / " <<ll << std::endl;
+            //std::cout << "genPerm " << i <<" / " <<ll << std::endl;
 
             // get the next L bits of the key.
             sk = extract(kIdx, mL, k); kIdx += mL;

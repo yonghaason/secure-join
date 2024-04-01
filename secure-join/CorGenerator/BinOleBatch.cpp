@@ -253,6 +253,7 @@ namespace secJoin
 
             assert(mSender.mGen.hasBaseOts());
             mSender.mMultType = oc::MultType::Tungsten;
+            
             MC_AWAIT(mSender.silentSendInplace(prng.get(), mSender.mRequestNumOts, prng, sock));
             compressSender(mSender.mDelta, mSender.mB, add, mult);
             mSender.clear();

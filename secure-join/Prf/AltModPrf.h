@@ -54,6 +54,12 @@ namespace secJoin
     //void mod3Add(span<oc::block> a, span<oc::block> b, span<oc::block> c);
     void sampleMod3(PRNG& prng, span<block> msb, span<block> lsb, oc::AlignedUnVector<u8>& b);
     void sampleMod3Lookup(PRNG& prng, span<block> msb, span<block> lsb);
+    void sampleMod3Lookup2(PRNG& prng, span<block> msb, span<block> lsb);
+    void sampleMod3Lookup3(PRNG& prng, span<block> msbVec, span<block> lsbVec);
+    void sampleMod3Lookup4(PRNG& prng, span<block> msbVec, span<block> lsbVec);
+
+    void buildMod3Table4();
+
     void mod3Add(
         span<oc::block> z1, span<oc::block> z0,
         span<oc::block> x1, span<oc::block> x0,
