@@ -5,6 +5,8 @@
 #include "secure-join/AggTree/AggTree.h"
 #include "secure-join/Sort/RadixSort.h"
 #include "secure-join/Util/Util.h"
+#include "secure-join/Aggregate/RemDummies.h"
+
 
 namespace secJoin
 {
@@ -44,16 +46,16 @@ namespace secJoin
 		// the offset of the columns in the data matrix.
 		std::vector<Offset> mOffsets;
 
-		u64 mKeyIndex = -1;
-
 		u64 mPartyIdx = -1;
 
-		bool mRemoveDummies = false;
+        bool mRemDummiesFlag;
+
+        RemDummies mRemDummies;
 
 		void init(
 			JoinQuerySchema schema,
 			CorGenerator& ole,
-			bool removeDummies = false);
+			bool remDummiesFlag = false);
 
 
 		macoro::task<> updateActiveFlag(
@@ -61,7 +63,6 @@ namespace secJoin
 			BinMatrix& choice,
 			BinMatrix& out,
 			u64 flagBitIndex,
-			PRNG& prng,
 			coproto::Socket& sock);
 
 
@@ -86,8 +87,7 @@ namespace secJoin
 			u64 keyByteOffset,
 			u64 keyBitCount,
 			coproto::Socket& sock,
-			BinMatrix& out,
-			PRNG& prng);
+			BinMatrix& out);
 
 		// concatinate all the columns
 		// Then append `numDummies` empty rows to the end.

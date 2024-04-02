@@ -30,14 +30,20 @@ void evalWhGate(
         Where wh0, wh1;
         SharedTable out0, out1;
 
-        wh0.init(Ts[0], gates, literals, literalsType, totalCol, map, ole0, printSteps, remDummies, remDummies);
-        wh1.init(Ts[1], gates, literals, literalsType, totalCol, map, ole1, printSteps, remDummies, remDummies);
+        wh0.mInsecurePrint = printSteps;
+        wh1.mInsecurePrint = printSteps;
+
+        wh0.init(Ts[0], gates, literals, literalsType, totalCol, map, ole0, remDummies);
+        wh1.init(Ts[1], gates, literals, literalsType, totalCol, map, ole1, remDummies);
+
+        wh0.mRemDummies.mCachePerm = remDummies;
+        wh1.mRemDummies.mCachePerm = remDummies;
 
         auto r = macoro::sync_wait(macoro::when_all_ready(
             ole0.start(),
             ole1.start(),
-            wh0.where(Ts[0], out0, sock[0], prng0, remDummies),
-            wh1.where(Ts[1], out1, sock[1], prng1, remDummies)
+            wh0.where(Ts[0], out0, sock[0], prng0),
+            wh1.where(Ts[1], out1, sock[1], prng1)
         ));
 
         std::get<0>(r).result();
@@ -91,8 +97,8 @@ void Where_genWhBundle_Test(const oc::CLP& cmd)
         map[i] = i;
 
     Where wh;
-
-    wh.genWhBundle(literals, literalsType, totalCol, T, map, printSteps);
+    wh.mInsecurePrint = printSteps;
+    wh.genWhBundle(literals, literalsType, totalCol, T, map);
 
     for (u64 i = 0; i < wh.mWhBundle.size(); i++)
     {

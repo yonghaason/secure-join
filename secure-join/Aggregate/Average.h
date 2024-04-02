@@ -38,6 +38,8 @@ namespace secJoin
 
 		u64 mPartyIdx = -1;
 
+        bool mRemDummiesFlag;
+
         RemDummies mRemDummies;
 
 
@@ -57,10 +59,7 @@ namespace secJoin
             ColRef groupByCol,
             std::vector<ColRef> avgCol,
             CorGenerator& ole,
-            bool remDummiesFlag = false,
-            bool cachePerm = false,
-            bool printSteps = false,
-            bool mock = false);
+            bool remDummiesFlag = false);
 
         void concatColumns(
             ColRef groupByCol,
@@ -80,8 +79,7 @@ namespace secJoin
             std::vector<ColRef> avgCol, 
             SharedTable& out,
             oc::PRNG& prng,
-            coproto::Socket& sock,
-            bool remDummiesFlag = false);
+            coproto::Socket& sock);
 
         macoro::task<> getControlBits(
             BinMatrix& keys,

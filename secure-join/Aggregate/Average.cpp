@@ -248,10 +248,7 @@ namespace secJoin {
         ColRef groupByCol,
         std::vector<ColRef> avgCol,
         CorGenerator& ole,
-        bool remDummiesFlag,
-        bool cachePerm,
-        bool printSteps,
-        bool mock)
+        bool remDummiesFlag)
     {
         u64 rows = groupByCol.mCol.rows();
         u64 keySize = groupByCol.mCol.getBitCount() + 1;
@@ -263,15 +260,10 @@ namespace secJoin {
         mPartyIdx = ole.partyIdx();
 
         u64 dataBitsPerEntry = 0;
-        mInsecurePrint = printSteps;
-        mInsecureMockSubroutines = mock;
-
 
         mOffsets.clear();
         mOffsets.reserve(avgCol.size() + 1);
         u64 aggTreeBitCount = 0;
-
-        mSort.mInsecureMock = mInsecureMockSubroutines;
 
         for (u64 i = 0; i < avgCol.size(); ++i)
         {
@@ -324,11 +316,13 @@ namespace secJoin {
         auto cir = updateActiveFlagCir(1, 1, 1);
         mUpdateActiveFlagGmw.init(rows, cir, ole);
 
+        mRemDummiesFlag = remDummiesFlag;
+
         if(remDummiesFlag)
         {
             u64 permRand = oc::divCeil(dataBitsPerEntry - compressKeySize, 8)
                        + (mInsecurePrint == true) * 1; // Permuting the control Bits
-            mRemDummies.init(rows, permRand, ole, cachePerm || mInsecurePrint);
+            mRemDummies.init(rows, permRand, ole, mInsecurePrint);
         }
 
 
@@ -344,11 +338,10 @@ namespace secJoin {
         std::vector<ColRef> avgCol,
         SharedTable& out,
         oc::PRNG& prng,
-        coproto::Socket& sock,
-        bool remDummiesFlag)
+        coproto::Socket& sock)
     {
 
-        MC_BEGIN(macoro::task<>, this, groupByCol, avgCol, &out, &prng, &sock, remDummiesFlag,
+        MC_BEGIN(macoro::task<>, this, groupByCol, avgCol, &out, &prng, &sock,
             compressKeys = BinMatrix{},
             sortedgroupByData = BinMatrix{},
             data = BinMatrix{},
@@ -372,6 +365,8 @@ namespace secJoin {
             tempOffsets = { OmJoin::Offset{ 0, compressKeys.bitsPerEntry(), "Compress Key*" } };
             MC_AWAIT(OmJoin::print(compressKeys, controlBits, sock, mPartyIdx, "Compress keys", tempOffsets));
         }
+
+        mSort.mInsecureMock = mInsecureMockSubroutines;
         mSort.preprocess();
         prepro = mSort.genPrePerm(sock, prng) | macoro::make_eager();
 
@@ -453,7 +448,7 @@ namespace secJoin {
                 OmJoin::Offset{ (tempNum + sortedgroupByData.bytesPerEntry()) * 8, actFlag.bitsPerEntry(), "Act Flag" } );
 
 
-        if(remDummiesFlag)
+        if(mRemDummiesFlag)
         {
             // Permuting the data
             MC_AWAIT(mRemDummies.remDummies( data, temp,
@@ -488,8 +483,6 @@ namespace secJoin {
         }
 
         getOutput(out, avgCol, groupByCol, data, dataOffsets);
-
-
 
         MC_END();
     }

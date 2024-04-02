@@ -120,10 +120,9 @@ namespace secJoin
         u64 keyByteOffset,
         u64 keyBitCount,
         coproto::Socket& sock,
-        BinMatrix& out,
-        PRNG& prng)
+        BinMatrix& out)
     {
-        MC_BEGIN(macoro::task<>, this, &data, &sock, &out, keyByteOffset, keyBitCount, &prng,
+        MC_BEGIN(macoro::task<>, this, &data, &sock, &out, keyByteOffset, keyBitCount,
             cir = oc::BetaCircuit{},
             sKeys = BinMatrix{},
             n = u64{},
@@ -332,131 +331,6 @@ namespace secJoin
         // std::cout << out << std::endl;
     }
 
-    // Call this to remove dummies
-//    macoro::task<> OmJoin::getOutput(
-//        BinMatrix& data,
-//        span<ColRef> selects,
-//        ColRef& left,
-//        Table& out,
-//        std::vector<Offset>& offsets,
-//        CorGenerator& ole,
-//        coproto::Socket& sock,
-//        oc::PRNG& prng,
-//        bool securePerm,
-//        Perm& randPerm)
-//    {
-//
-//        MC_BEGIN(macoro::task<>, &data, selects, left, &out, &offsets, &ole, &sock, &prng,
-//            securePerm, &randPerm,
-//            actFlag = BinMatrix{},
-//            temp = BinMatrix{},
-//            revealedActFlag = BinMatrix{},
-//            actOffSet = u64{},
-//            curOutRow = u64{},
-//            nOutRows = u64{},
-//            tempPerm = Perm{},
-//            i = u64(),
-//            nL = u64(),
-//            nR = u64(),
-//            offsetPointer = u64()
-//        );
-//
-//        if (data.bitsPerEntry() % 8 != 1)
-//        {
-//            std::cout << "logic error, need to fix. " << LOCATION << std::endl;
-//            throw RTE_LOC;
-//        }
-//        actOffSet = data.bitsPerEntry() / 8;
-//
-//        actFlag.resize(data.rows(), 1);
-//        for (u64 i = 0; i < data.rows(); ++i)
-//            actFlag(i) = data(i, actOffSet);
-//
-//        // Revealing the active flag
-////        MC_AWAIT(revealActFlag(actFlag, revealedActFlag, sock, ole.partyIdx()));
-//
-//        nOutRows = 0;
-//        nL = left.mCol.rows();
-//        nR = data.rows() - nL;
-//        for (u64 i = nL; i < revealedActFlag.size(); i++)
-//        {
-//            if (revealedActFlag(i, 0) == 1)
-//                nOutRows++;
-//        }
-//
-//        out.mColumns.resize(selects.size());
-//
-//        for (u64 i = 0; i < selects.size(); ++i)
-//        {
-//            out[i].mCol.mName = selects[i].mCol.mName;
-//            out[i].mCol.mBitCount = selects[i].mCol.mBitCount;
-//            out[i].mCol.mType = selects[i].mCol.mType;
-//            out[i].mCol.mData.resize(nOutRows, selects[i].mCol.getBitCount());
-//        }
-//
-//        out.mIsActive.resize(nOutRows);
-//
-//        curOutRow = 0;
-//        // TODO: Find a cleaner way to write this, very difficult read
-//        for (u64 i = 0; i < nR; i++)
-//        {
-//            // assert(curOutRow <= nOutRows);
-//            offsetPointer = 0;
-//            if (revealedActFlag(i + nL, 0) == 1)
-//            {
-//                for (u64 j = 0; j < selects.size(); j++)
-//                {
-//
-//                    if (&left.mTable == &selects[j].mTable)
-//                    {
-//                        assert(selects[j].mCol.mBitCount == offsets[offsetPointer].mSize);
-//                        memcpy(out.mColumns[j].mData.data(curOutRow),
-//                            &data(i + nL, offsets[offsetPointer].mStart / 8),
-//                            oc::divCeil(offsets[offsetPointer].mSize, 8));
-//
-//                        offsetPointer++;
-//                    }
-//                    else
-//                    {
-//                        assert(selects[j].mCol.mBitCount == out[j].mCol.mBitCount);
-//                        memcpy(out.mColumns[j].mData.data(curOutRow),
-//                            selects[j].mCol.mData.data(i),
-//                            out.mColumns[j].getByteCount());
-//                    }
-//
-//
-//                }
-//                out.mIsActive[curOutRow] = data(i + nL, actOffSet);
-//                curOutRow++;
-//            }
-//
-//            // We got all our entries
-//            if (curOutRow == nOutRows)
-//                break;
-//        }
-//
-//        if (randPerm.size() == 0 && nOutRows > 1)
-//        {
-//            tempPerm.randomize(nOutRows, prng);
-//            randPerm = tempPerm;
-//        }
-//
-//        // A Better way could have been to permute the keys & data
-//        // But since we want to compare it expected result in the test
-//        // We need to permute only the final remaining rows
-//        // We don't need to permute the active flag bcoz all the rows are active
-//        if (nOutRows > 1)
-//        {
-//            for (i = 0; i < out.cols(); i++)
-//            {
-//                MC_AWAIT(applyRandPerm(out.mColumns[i].mData, temp, ole,
-//                    prng, randPerm, sock, securePerm));
-//                std::swap(out.mColumns[i].mData, temp);
-//            }
-//        }
-//
-//        MC_END();
-//    }
 
     AggTree::Operator OmJoin::getDupCircuit()
     {
@@ -535,10 +409,9 @@ namespace secJoin
         BinMatrix& choice,
         BinMatrix& out,
         u64 flagBitIndex,
-        PRNG& prng,
         coproto::Socket& sock)
     {
-        MC_BEGIN(macoro::task<>, this, &data, &choice, &out, &sock, &prng, flagBitIndex,
+        MC_BEGIN(macoro::task<>, this, &data, &choice, &out, &sock, flagBitIndex,
             temp = BinMatrix{},
             offsets = std::vector<Offset>{},
             offset = u64{});
@@ -596,7 +469,7 @@ namespace secJoin
     void OmJoin::init(
         JoinQuerySchema schema,
         CorGenerator& ole,
-        bool removeDummies)
+        bool remDummiesFlag)
     {
         u64 rows = schema.mLeftSize + schema.mRightSize;
 
@@ -605,9 +478,8 @@ namespace secJoin
             mStatSecParam + log2(schema.mLeftSize) + log2(schema.mRightSize));
 
         mPartyIdx = ole.partyIdx();
-        mKeyIndex = -1;
         mDataBitsPerEntry = 0;
-        mRemoveDummies = removeDummies;
+        mRemDummiesFlag = remDummiesFlag;
 
         mOffsets.clear();
         mOffsets.reserve(schema.mSelect.size() + 1);
@@ -642,7 +514,7 @@ namespace secJoin
         // backwards direction, we will unpermute the left table select
         // columns. Therefore, in total we will permute:
         u64 permForward = oc::divCeil(mDataBitsPerEntry, 8) + sizeof(u32);
-        u64 permBackward = (removeDummies == false) * oc::divCeil(mDataBitsPerEntry - 1 - keySize, 8);
+        u64 permBackward = (remDummiesFlag == false) * oc::divCeil(mDataBitsPerEntry - 1 - keySize, 8);
 
         mPerm.init(mPartyIdx, rows, permForward + permBackward, ole);
 
@@ -654,8 +526,19 @@ namespace secJoin
         auto cir = *oc::BetaLibrary{}.int_int_bitwiseAnd(1, 1, 1);
         mUpdateActiveFlagGmw.init(rows, cir, ole);
 
-        if (removeDummies)
-            throw RTE_LOC;// not impl
+        if(remDummiesFlag)
+        {
+            u64 dateBytesPerEntry = 0;
+            // Setting up the offset for OmJoin::concatColumns
+            for (u64 i = 0; i < schema.mSelect.size(); ++i)
+            {
+                auto bytes = schema.mSelect[i].getBitCount();
+                dateBytesPerEntry += bytes;
+            }
+            // Adding Active Flag
+            dateBytesPerEntry += 1;
+            mRemDummies.init(rows, dateBytesPerEntry, ole, false);
+        }
 
     }
 
@@ -674,7 +557,7 @@ namespace secJoin
             controlBits = BinMatrix{},
             data = BinMatrix{},
             temp = BinMatrix{},
-
+            tempTb = Table{},
             offsets_ = std::vector<Offset>{},
             prepro = macoro::eager_task<>{});
 
@@ -739,7 +622,7 @@ namespace secJoin
         // compare adjacent keys. controlBits[i] = 1 if k[i]==k[i-1].
         // put another way, controlBits[i] = 1 if keys[i] is from the
         // right table and has a matching key from the left table.
-        MC_AWAIT(getControlBits(data, mOffsets[mOffsets.size() - 1].mStart / 8, keys.bitsPerEntry(), sock, controlBits, prng));
+        MC_AWAIT(getControlBits(data, mOffsets[mOffsets.size() - 1].mStart / 8, keys.bitsPerEntry(), sock, controlBits));
         setTimePoint("control");
 
         if (mInsecurePrint)
@@ -759,39 +642,35 @@ namespace secJoin
         if (mInsecurePrint)
             MC_AWAIT(print(data, controlBits, sock, mPartyIdx, "agg", mOffsets));
 
-        MC_AWAIT(updateActiveFlag(data, controlBits, temp, mOffsets.back().mStart, prng, sock));
+        MC_AWAIT(updateActiveFlag(data, controlBits, temp, mOffsets.back().mStart, sock));
         std::swap(data, temp);
 
         if (mInsecurePrint)
             MC_AWAIT(print(data, controlBits, sock, mPartyIdx, "isActive", mOffsets));
 
+        // unpermute `data`. What we are left with is
+        //     L
+        //     L'
+        // where L' are the matching rows from L for each row of R.
+        // That is, L' || R is the result we want.
+        //data.resize(data.numEntries(), data.cols() * 8);
+        temp.resize(data.numEntries(), data.bitsPerEntry());
+        temp.reshape(data.bitsPerEntry());
+        temp.setZero();
+        MC_AWAIT(perm.apply<u8>(PermOp::Regular, data, temp, sock));//, ole
+        std::swap(data, temp);
+        setTimePoint("apply-sort");
 
-        if (mRemoveDummies)
+        if (mInsecurePrint)
+            MC_AWAIT(print(data, controlBits, sock, mPartyIdx, "unsort", mOffsets));
+
+        // unpack L' in `data` and write the result to `out`.
+        getOutput(data, query.mSelect, query.mLeftKey, out, mOffsets);
+
+        if (mRemDummiesFlag)
         {
-            throw RTE_LOC;
-            // MC_AWAIT(getOutput(data, selects, leftJoinCol, out, offsets, ole,
-            //     sock, prng, !mInsecureMockSubroutines, randPerm));
-        }
-        else
-        {
-            // unpermute `data`. What we are left with is
-            //     L
-            //     L'
-            // where L' are the matching rows from L for each row of R.
-            // That is, L' || R is the result we want.
-            //data.resize(data.numEntries(), data.cols() * 8);
-            temp.resize(data.numEntries(), data.bitsPerEntry());
-            temp.reshape(data.bitsPerEntry());
-            temp.setZero();
-            MC_AWAIT(perm.apply<u8>(PermOp::Regular, data, temp, sock));//, ole
-            std::swap(data, temp);
-            setTimePoint("apply-sort");
-
-            if (mInsecurePrint)
-                MC_AWAIT(print(data, controlBits, sock, mPartyIdx, "unsort", mOffsets));
-
-            // unpack L' in `data` and write the result to `out`.
-            getOutput(data, query.mSelect, query.mLeftKey, out, mOffsets);
+            MC_AWAIT(mRemDummies.remDummies(out, tempTb, sock, prng));
+            std::swap(tempTb, out);
         }
 
         MC_END();

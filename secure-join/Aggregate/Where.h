@@ -42,11 +42,13 @@ namespace secJoin
     struct Where{
 
         bool mInsecureMockSubroutines = false;
+        bool mInsecurePrint = false;
         std::vector<WhBundle> mWhBundle;
         std::vector<BinMatrix> mGmwIn;
         Gmw mWhGmw;
         Gmw mUpdateActiveFlagGmw;
         Optimized mOp = Optimized::Depth;
+        bool mRemDummiesFlag;
         RemDummies mRemDummies;
 
 
@@ -58,16 +60,13 @@ namespace secJoin
             const u64 totalCol,
             const std::unordered_map<u64, u64>& map,
             CorGenerator& ole,
-            const bool print,
-            bool remDummiesFlag = false,
-            bool cachePerm = false);
+            bool remDummiesFlag = false);
 
         macoro::task<> where(
             SharedTable& st,
             SharedTable& out,
             coproto::Socket& sock,
-            PRNG& prng,
-            bool remDummiesFlag);
+            PRNG& prng);
 
         oc::BetaCircuit genWhCir(
             SharedTable& st, 
@@ -75,16 +74,14 @@ namespace secJoin
             const std::vector<std::string>& literals,
             const std::vector<std::string>& literalsType,
             const u64 totalCol,
-            const std::unordered_map<u64, u64>& map,
-            const bool print);
+            const std::unordered_map<u64, u64>& map);
 
 
         void genWhBundle(
             const std::vector<std::string>& literals, 
             const std::vector<std::string>& literalsType, 
             const u64 totalCol, SharedTable& st, 
-            const std::unordered_map<u64, u64>& map, 
-            const bool print);            
+            const std::unordered_map<u64, u64>& map);
 
         u64 getInputColSize(
             SharedTable& st, 

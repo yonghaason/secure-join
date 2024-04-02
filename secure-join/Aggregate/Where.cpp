@@ -10,17 +10,17 @@ namespace secJoin {
         const u64 totalCol,
         const std::unordered_map<u64, u64>& map,
         CorGenerator& ole,
-        const bool print,
-        bool remDummiesFlag,
-        bool cachePerm)
+        bool remDummiesFlag)
     {
-        auto cd = genWhCir(st, gates, literals, literalsType, totalCol, map, print);
+        auto cd = genWhCir(st, gates, literals, literalsType, totalCol, map);
         u64 rows = st.rows();
 
         mWhGmw.init(rows, cd, ole);
 
         auto cir = updateActiveFlagCir(1, 1, 1);
         mUpdateActiveFlagGmw.init(rows, cir, ole);
+
+        mRemDummiesFlag = remDummiesFlag;
 
         if(remDummiesFlag)
         {
@@ -36,7 +36,7 @@ namespace secJoin {
             // Adding Active Flag
             dateBytesPerEntry += 1;
 
-            mRemDummies.init(rows, dateBytesPerEntry, ole, cachePerm || print);
+            mRemDummies.init(rows, dateBytesPerEntry, ole, false);
         }
     }
 
@@ -46,10 +46,9 @@ namespace secJoin {
         SharedTable& st,
         SharedTable& out,
         coproto::Socket& sock,
-        PRNG& prng,
-        bool remDummiesFlag)
+        PRNG& prng)
     {
-        MC_BEGIN(macoro::task<>, this, &st, &out, &sock, remDummiesFlag, &prng,
+        MC_BEGIN(macoro::task<>, this, &st, &out, &sock, &prng,
             tempOut = BinMatrix{},
             tempTb = Table{},
             rows = u64{});
@@ -71,7 +70,7 @@ namespace secJoin {
 
         MC_AWAIT(updateActiveFlag(out.mIsActive, tempOut, sock));
 
-         if (remDummiesFlag)
+         if (mRemDummiesFlag)
          {
              MC_AWAIT(mRemDummies.remDummies(out, tempTb, sock, prng));
              std::swap(tempTb, out);
@@ -226,12 +225,11 @@ namespace secJoin {
         const std::vector<std::string>& literals,
         const std::vector<std::string>& literalsType,
         const u64 totalCol,
-        const std::unordered_map<u64, u64>& map,
-        const bool print)
+        const std::unordered_map<u64, u64>& map)
     {
         BetaCircuit cd;
         BetaBundle outBundle(1);
-        genWhBundle(literals, literalsType, totalCol, st, map, print);
+        genWhBundle(literals, literalsType, totalCol, st, map);
 
         // Adding Inputbundles
         for (u64 i = 0; i < gates.size(); i++)
@@ -332,7 +330,7 @@ namespace secJoin {
 
     void Where::genWhBundle(const std::vector<std::string>& literals,
         const std::vector<std::string>& literalsType, const u64 totalCol,
-        SharedTable& st, const std::unordered_map<u64, u64>& map, const bool print)
+        SharedTable& st, const std::unordered_map<u64, u64>& map)
     {
         assert(literals.size() == literalsType.size());
         // Adding all the columns
@@ -376,7 +374,7 @@ namespace secJoin {
             else
                 throw RTE_LOC;
         }
-        if (print)
+        if (mInsecurePrint)
         {
             for (u64 i = 0; i < mWhBundle.size(); i++)
             {

@@ -496,11 +496,12 @@ namespace secJoin
         const u64 totalCol,
         const std::unordered_map<u64, u64>& map,
         bool print,
-        bool remDummies,
+        bool remDummiesFlag,
         Perm randPerm)
     {
         Where wh;
-        BetaCircuit cd = wh.genWhCir(T, gates, literals, literalsType, totalCol, map, print);
+        wh.mInsecurePrint = print;
+        BetaCircuit cd = wh.genWhCir(T, gates, literals, literalsType, totalCol, map);
         u64 nT = T.rows();
 
         std::vector<u8> outActFlags;
@@ -537,28 +538,20 @@ namespace secJoin
             }
         }
 
-        if(remDummies)
+        if(remDummiesFlag)
         {
-            // Applying rand perm to all the columns
-            auto permBackward = PermOp::Inverse;
+            auto permBackward = RemDummies::mPermOp;
 
-            if(randPerm.size() <= 1)
-                return out;
-
-            for (u64 i = 0; i < out.cols(); i++)
+            // Applying rand perm to the Table
+            if(randPerm.size() > 1)
             {
-                BinMatrix temp(out[i].mCol.mData.numEntries(),
-                            out[i].mCol.mData.bytesPerEntry() * 8);
-                randPerm.apply<u8>(out[i].mCol.mData, temp, permBackward);
-                std::swap(out[i].mCol.mData, temp);
+                Table temp = applyPerm(out, randPerm, permBackward);
+                std::swap(temp, out);
             }
-            // Applying rand perm to the active flag
-            out.mIsActive = randPerm.applyInv<u8>(out.mIsActive);
 
             Table temp = removeDummies(out);
             std::swap(temp, out);;
         }
-
 
         return out;
 
@@ -657,7 +650,7 @@ namespace secJoin
         return tempOutputs[0];
     }
 
-    Table join(const ColRef& l, const ColRef& r, std::vector<ColRef> select)
+    Table join(const ColRef& l, const ColRef& r, std::vector<ColRef> select, bool remDummiesFlag, Perm randPerm)
     {
         if (l.mCol.getBitCount() != r.mCol.getBitCount())
             throw RTE_LOC;
@@ -733,6 +726,21 @@ namespace secJoin
             }
         }
 
+        if(remDummiesFlag)
+        {
+            auto permBackward = RemDummies::mPermOp;
+
+            // Applying rand perm to the Table
+            if(randPerm.size() > 1)
+            {
+                Table temp = applyPerm(ret, randPerm, permBackward);
+                std::swap(temp, ret);
+            }
+
+            Table temp = removeDummies(ret);
+            std::swap(temp, ret);;
+        }
+
         return ret;
     }
 
@@ -774,7 +782,7 @@ namespace secJoin
 
     }
 
-    Table applyPerm(Table& T, Perm& perm)
+    Table applyPerm(Table& T, Perm& perm, PermOp op)
     {
         Table permT = T;
 
@@ -782,13 +790,18 @@ namespace secJoin
         {
             BinMatrix temp(permT.mColumns[i].mData.numEntries(),
                 permT.mColumns[i].mData.bitsPerEntry());
-            perm.apply<u8>(permT.mColumns[i].mData, temp, PermOp::Regular);
+            perm.apply<u8>(permT.mColumns[i].mData, temp, op);
             std::swap(permT.mColumns[i].mData, temp);
         }
 
         if (permT.mIsActive.size() > 0)
         {
-            std::vector<u8> temp = perm.apply<u8>(permT.mIsActive);
+            std::vector<u8> temp;
+            if(op == PermOp::Regular)
+                temp = perm.apply<u8>(permT.mIsActive);
+            else
+                temp = perm.applyInv<u8>(permT.mIsActive);
+
             std::swap(permT.mIsActive, temp);
         }
 

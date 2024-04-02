@@ -45,15 +45,23 @@ void evalAverage
 
         Average avg0, avg1;
 
-        avg0.init(Ts[0][grpByColIdx], shAvgColRef0, ole0, remDummies, remDummies, printSteps, mock);
-        avg1.init(Ts[1][grpByColIdx], shAvgColRef1, ole1, remDummies, remDummies, printSteps, mock);
+        avg0.mInsecurePrint = printSteps;
+        avg1.mInsecurePrint = printSteps;
 
+        avg0.mInsecureMockSubroutines = mock;
+        avg1.mInsecureMockSubroutines = mock;
+
+        avg0.init(Ts[0][grpByColIdx], shAvgColRef0, ole0, remDummies);
+        avg1.init(Ts[1][grpByColIdx], shAvgColRef1, ole1, remDummies);
+
+        avg0.mRemDummies.mCachePerm = remDummies;
+        avg1.mRemDummies.mCachePerm = remDummies;
 
         Table out[2];
         auto r = macoro::sync_wait(macoro::when_all_ready(
                ole0.start(), ole1.start(),
-               avg0.avg(Ts[0][grpByColIdx], shAvgColRef0, out[0], prng0, sock[0], remDummies),
-               avg1.avg(Ts[1][grpByColIdx], shAvgColRef1, out[1], prng1, sock[1], remDummies)
+               avg0.avg(Ts[0][grpByColIdx], shAvgColRef0, out[0], prng0, sock[0]),
+               avg1.avg(Ts[1][grpByColIdx], shAvgColRef1, out[1], prng1, sock[1])
            )
         );
 
@@ -74,7 +82,6 @@ void evalAverage
             pi = p1.permShare().compose(p0.permShare());
         }
 
-
         auto exp = average(T[0], { T[1], T[2] }, remDummies, pi);
 
         if (res != exp)
@@ -89,8 +96,6 @@ void evalAverage
         if(printSteps)
             std::cout << "Rem Dummies Flag = " << remDummies << " Complete" << std::endl;
     }
-
-
 
 }
 

@@ -16,7 +16,7 @@ namespace secJoin {
 
         u64 mPartyIdx;
         AltModComposedPerm mPerm;
-        PermOp mPermOp = PermOp::Inverse;
+        static const PermOp mPermOp = PermOp::Inverse;
 
         void init(
                 u64 rows,

@@ -181,12 +181,11 @@ namespace secJoin
         cState->mWh.mInsecureMockSubroutines = cState->mInsecureMockSubroutines;
         cState->mWh.init(cState->mJoinTb, cState->mGates, cState->mLiterals,  
             cState->mLiteralsType, cState->mTotCol,
-            cState->mMap, cState->mOle, cState->mInsecurePrint, 
-            cState->mRemDummies);
+            cState->mMap, cState->mOle, cState->mRemDummies);
 
         cState->mProtocol = 
             start(cState->mOle, 
-            cState->mWh.where(cState->mJoinTb, cState->mWhTb, cState->mSock, cState->mPrng, cState->mRemDummies) )
+            cState->mWh.where(cState->mJoinTb, cState->mWhTb, cState->mSock, cState->mPrng) )
             | macoro::make_eager();
 
     }
@@ -215,16 +214,14 @@ namespace secJoin
             // Current Assumption we only have 
             oc::u64 groupByColIndex = getMapVal(cState->mMap, cState->mGroupByCols[0]);
             secJoin::ColRef grpByCol = inTb[groupByColIndex];
-
             
-            cState->mAvg.init(grpByCol, avgCols, cState->mOle, 
-                cState->mRemDummies, cState->mInsecurePrint, cState->mInsecureMockSubroutines);
+            cState->mAvg.init(grpByCol, avgCols, cState->mOle,cState->mRemDummies);
 
 
             cState->mProtocol =
                 start(cState->mOle, 
                 cState->mAvg.avg(grpByCol, avgCols, cState->mAggTb, cState->mPrng,
-                                 cState->mSock, cState->mRemDummies) )
+                                 cState->mSock) )
                 | macoro::make_eager();
 
 

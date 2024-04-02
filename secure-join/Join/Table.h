@@ -275,7 +275,9 @@ namespace secJoin
     Table join(
         const ColRef& l,
         const ColRef& r,
-        std::vector<ColRef> select);
+        std::vector<ColRef> select,
+        bool remDummiesFlag = false,
+        Perm randPerm = {});
 
     oc::BitVector cirEval(
         oc::BetaCircuit* cir,
@@ -309,7 +311,7 @@ namespace secJoin
     Table average(
             ColRef groupByCol,
             std::vector<ColRef> avgCol,
-            bool remDummies = false,
+            bool remDummiesFlag = false,
             Perm randPerm = {});
 
     Table removeDummies(Table& T);
@@ -322,11 +324,11 @@ namespace secJoin
         const u64 totalCol,
         const std::unordered_map<u64, u64>& map,
         bool print,
-        bool remDummies = false,
+        bool remDummiesFlag = false,
         Perm randPerm = {});
 
     // Call this applyPerm when Table is in plaintext
-    Table applyPerm(Table& T, Perm& perm);
+    Table applyPerm(Table& T, Perm& perm, PermOp op);
 
     void concatTable(Table& T, BinMatrix& out);
 

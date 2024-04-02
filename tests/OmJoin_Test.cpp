@@ -88,8 +88,8 @@ void OmJoin_getControlBits_Test(const oc::CLP& cmd)
     auto r = macoro::sync_wait(macoro::when_all_ready(
         ole0.start(),
         ole1.start(),
-        j[0].getControlBits(kk[0], offset, keyBitCount, sock[0], cc[0], prng),
-        j[1].getControlBits(kk[1], offset, keyBitCount, sock[1], cc[1], prng)));
+        j[0].getControlBits(kk[0], offset, keyBitCount, sock[0], cc[0]),
+        j[1].getControlBits(kk[1], offset, keyBitCount, sock[1], cc[1])));
 
     std::get<0>(r).result();
     std::get<1>(r).result();
@@ -288,7 +288,6 @@ void OmJoin_join_Test(const oc::CLP& cmd)
     u64 keySize = cmd.getOr("keySize", 21);
     bool printSteps = cmd.isSet("print");
     bool mock = cmd.getOr("mock", 1);
-    bool debug = cmd.getOr("debug", 1);
 
     auto mod = 1ull << keySize;
     Table L, R;
@@ -328,14 +327,12 @@ void OmJoin_join_Test(const oc::CLP& cmd)
         std::cout << "R\n" << R << std::endl;
     }
 
-    auto exp = join(L[0], R[0], { L[0], R[1], L[1] });
-
     PRNG prng(oc::ZeroBlock);
     std::array<Table, 2> Ls, Rs;
     share(L, Ls, prng);
     share(R, Rs, prng);
 
-    for (auto remDummies : { false/*, true*/ })
+    for (auto remDummies : { true})
     {
         OmJoin join0, join1;
 
@@ -355,15 +352,18 @@ void OmJoin_join_Test(const oc::CLP& cmd)
 
         Table out[2];
 
-        auto exp = join(L[0], R[0], { L[0], R[1], L[1] });
         oc::Timer timer;
         join0.setTimer(timer);
         join1.setTimer(timer);
 
         JoinQuery query0{ Ls[0][0], Rs[0][0], { Ls[0][0], Rs[0][1], Ls[0][1] } };
         JoinQuery query1{ Ls[1][0], Rs[1][0], { Ls[1][0], Rs[1][1], Ls[1][1] } };
+
         join0.init(query0, ole0, remDummies);
         join1.init(query1, ole1, remDummies);
+
+        join0.mRemDummies.mCachePerm = remDummies;
+        join1.mRemDummies.mCachePerm = remDummies;
 
         auto r = macoro::sync_wait(macoro::when_all_ready(
             ole0.start(),
@@ -371,28 +371,28 @@ void OmJoin_join_Test(const oc::CLP& cmd)
             join0.join(query0, out[0], prng0, sock[0]),
             join1.join(query1, out[1], prng1, sock[1])
         ));
+
         std::get<0>(r).result();
         std::get<1>(r).result();
         std::get<2>(r).result();
         std::get<3>(r).result();
-        // // std::cout << "out0" << std::endl;
-        // // std::cout << out[0] << std::endl;
-        // // std::cout << "out1" << std::endl;
-        // // std::cout << out[1] << std::endl;
 
+        Perm pi;
+        if (remDummies)
+        {
+            ComposedPerm p0 = join0.mRemDummies.mPermutation;
+            ComposedPerm p1 = join1.mRemDummies.mPermutation;
+            pi = p1.permShare().compose(p0.permShare());
+        }
 
-        // if (remDummies)
-        // {
-        //     Table tmp = applyPerm(exp, pi);
-        //     std::swap(exp, tmp);
-        // }
+        auto exp = join(L[0], R[0], { L[0], R[1], L[1] }, remDummies, pi);
 
         auto res = reveal(out[0], out[1]);
+
         if (res != exp)
         {
             if (printSteps)
             {
-
                 std::cout << "exp \n" << exp << std::endl;
                 std::cout << "act \n" << res << std::endl;
                 std::cout << "ful \n" << reveal(out[0], out[1], false) << std::endl;
