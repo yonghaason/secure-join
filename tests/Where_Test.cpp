@@ -21,9 +21,7 @@ void evalWhGate(
 
     u64 totalCol = T.cols();
 
-    Table exp = where(T, gates, literals, literalsType, totalCol, map, printSteps);
-
-    for (auto remDummies : { false })
+    for (auto remDummies : { false, true })
     {
         CorGenerator ole0, ole1;
         ole0.init(sock[0].fork(), prng0, 0, 1 << 16, mock);
@@ -31,18 +29,15 @@ void evalWhGate(
 
         Where wh0, wh1;
         SharedTable out0, out1;
-        Perm p0(exp.rows(), prng0);
-        Perm p1(exp.rows(), prng1);
-        Perm pi = p0.composeSwap(p1);
 
-        wh0.init(Ts[0], gates, literals, literalsType, totalCol, map, ole0, false, remDummies, p0);
-        wh1.init(Ts[1], gates, literals, literalsType, totalCol, map, ole1, false, remDummies, p1);
+        wh0.init(Ts[0], gates, literals, literalsType, totalCol, map, ole0, printSteps, remDummies, remDummies);
+        wh1.init(Ts[1], gates, literals, literalsType, totalCol, map, ole1, printSteps, remDummies, remDummies);
 
         auto r = macoro::sync_wait(macoro::when_all_ready(
             ole0.start(),
             ole1.start(),
-            wh0.where(Ts[0], out0, sock[0], remDummies, p0),
-            wh1.where(Ts[1], out1, sock[1], remDummies, p1)
+            wh0.where(Ts[0], out0, sock[0], prng0, remDummies),
+            wh1.where(Ts[1], out1, sock[1], prng1, remDummies)
         ));
 
         std::get<0>(r).result();
@@ -52,14 +47,24 @@ void evalWhGate(
 
         auto act = reveal(out0, out1, false);
 
+        Perm pi;
         if (remDummies)
         {
-            Table tmp = applyPerm(exp, pi);
-            std::swap(exp, tmp);
+            ComposedPerm p0 = wh0.mRemDummies.mPermutation;
+            ComposedPerm p1 = wh1.mRemDummies.mPermutation;
+            pi = p1.permShare().compose(p0.permShare());
         }
 
+        Table exp = where(T, gates, literals, literalsType, totalCol, map, printSteps, remDummies, pi);
+
         if (exp != act)
+        {
+            std::cout << "remove dummies flag = " << remDummies << std::endl;
+            std::cout << "exp \n" << exp << std::endl;
+            std::cout << "act \n" << act << std::endl;
             throw RTE_LOC;
+        }
+
     }
 }
 
@@ -180,8 +185,9 @@ void Where_ArrType_Greater_Than_Equals_Test(const oc::CLP& cmd)
     {
         u64 inIdx1 = inIdxs[i][0], inIdx2 = inIdxs[i][1];
         ArrGate gate(ArrGateType::GREATER_THAN_EQUALS, inIdx1, inIdx2, literals.size());
-        
+
         evalWhGate(T, {gate}, literals, literalsType, map, printSteps, mock);
+
     }
 }
 
@@ -399,9 +405,7 @@ void Where_ArrType_Equals_Test(const oc::CLP& cmd)
     {
         u64 inIdx1 = inIdxs[i][0], inIdx2 = inIdxs[i][1];
         ArrGate gate(ArrGateType::EQUALS, inIdx1, inIdx2, literals.size());
-        
         evalWhGate(T, {gate}, literals, literalsType, map, printSteps, mock);
-
     }
 }
 

@@ -2,10 +2,107 @@
 #include "secure-join/Util/Util.h"
 #include "secure-join/Sort/RadixSort.h"
 #include "secure-join/Aggregate/Where.h"
-
+#include "secure-join/Join/OmJoin.h"
 
 namespace secJoin
 {
+
+    void populateOutTable(Table& out, BinMatrix& actFlag, BinMatrix& data)
+    {
+        if(out.getColumnInfo().size() == 0)
+            throw std::runtime_error("out table not initialzied with column info " LOCATION);
+
+        if(actFlag.numEntries() == 0)
+            throw std::runtime_error("ActFlag is empty " LOCATION);
+
+        u64 nOutRows = out.rows();
+
+        u64 curPtr = 0;
+        for(u64 i = 0; i < actFlag.numEntries(); i++)
+        {
+            u64 byteStartIdx = 0;
+            if(actFlag(i, 0) == 1)
+            {
+                // dump data into the out
+                for(u64 j = 0; j < out.cols(); j++)
+                {
+                    auto bytes = out.mColumns[j].getByteCount();
+                    memcpy(out.mColumns[j].mData.data(curPtr), &data.mData(i, byteStartIdx) ,bytes);
+                    byteStartIdx += bytes;
+                }
+                curPtr++;
+            }
+
+            if(curPtr >=  nOutRows)
+                break;
+        }
+    }
+
+
+
+    u64 countActiveRows(Table& T)
+    {
+        return countActiveRows(T.mIsActive);
+    }
+
+    u64 countActiveRows(std::vector<u8>& actFlag)
+    {
+        oc::MatrixView<u8> oo(actFlag.data(), actFlag.size(), 1);
+        return countActiveRows( oo);
+    }
+
+    u64 countActiveRows(oc::MatrixView<u8> actFlag)
+    {
+        u64 nOutRows = 0;
+        for(u64 i = 0; i < actFlag.rows(); i++)
+        {
+            assert(actFlag(i, 0) == 1 || actFlag(i, 0) == 0);
+//            if( *oc::BitIterator((u8*)actFlag.data(i), 0) == 1)
+            nOutRows += actFlag(i,0);
+
+
+        }
+        return nOutRows;
+    }
+
+    void concatTable(Table& T, BinMatrix& out)
+    {
+        std::vector<OmJoin::Offset> offsets;
+        std::vector<BinMatrix*> data;
+
+        u64 cols = T.cols();
+        offsets.reserve(cols);
+        data.reserve(cols);
+
+        u64 dateBitsPerEntry = 0;
+
+        // Setting up the offset for OmJoin::concatColumns
+        for(u64 i = 0; i < cols; i++)
+        {
+            auto name  = T.mColumns[i].mName;
+            auto bytes = T.mColumns[i].getByteCount();
+            auto bits = T.mColumns[i].getBitCount();
+            offsets.emplace_back( OmJoin::Offset{ dateBitsPerEntry, bits, name } );
+            dateBitsPerEntry += bytes * 8;
+
+            data.emplace_back(&T.mColumns[i].mData);
+        }
+
+        u64 actFlagSize = T.mIsActive.size() > 0 ? 8 : 0;
+
+        out.resize(T.rows(), dateBitsPerEntry + actFlagSize);
+        OmJoin::concatColumns(out, data, offsets);
+
+        // Appending the ActFlag
+        if(actFlagSize)
+        {
+            for(u64 i = 0; i < T.rows(); i++)
+                out(i , dateBitsPerEntry/8) = T.mIsActive[i];
+        }
+
+    }
+
+
     macoro::task<> revealLocal(const Table& share, coproto::Socket& sock, Table& out)
     {
         MC_BEGIN(macoro::task<>, &share, &sock, &out,
@@ -364,12 +461,7 @@ namespace secJoin
         if(T.mIsActive.size() == 0)
             return T;
 
-        u64 nOutRows = 0;
-        for(u64 i = 0; i < T.mIsActive.size(); i++)
-        {
-            assert(T.mIsActive[i] == 0 || T.mIsActive[i] == 1);
-            nOutRows += T.mIsActive[i];
-        }
+        u64 nOutRows = countActiveRows(T);
 
         Table out(nOutRows, T.getColumnInfo());
         out.mIsActive.resize(nOutRows);
@@ -403,7 +495,9 @@ namespace secJoin
         const std::vector<std::string>& literalsType,
         const u64 totalCol,
         const std::unordered_map<u64, u64>& map,
-        bool print)
+        bool print,
+        bool remDummies,
+        Perm randPerm)
     {
         Where wh;
         BetaCircuit cd = wh.genWhCir(T, gates, literals, literalsType, totalCol, map, print);
@@ -442,6 +536,29 @@ namespace secJoin
                 out.mIsActive[j] = 1;
             }
         }
+
+        if(remDummies)
+        {
+            // Applying rand perm to all the columns
+            auto permBackward = PermOp::Inverse;
+
+            if(randPerm.size() <= 1)
+                return out;
+
+            for (u64 i = 0; i < out.cols(); i++)
+            {
+                BinMatrix temp(out[i].mCol.mData.numEntries(),
+                            out[i].mCol.mData.bytesPerEntry() * 8);
+                randPerm.apply<u8>(out[i].mCol.mData, temp, permBackward);
+                std::swap(out[i].mCol.mData, temp);
+            }
+            // Applying rand perm to the active flag
+            out.mIsActive = randPerm.applyInv<u8>(out.mIsActive);
+
+            Table temp = removeDummies(out);
+            std::swap(temp, out);;
+        }
+
 
         return out;
 

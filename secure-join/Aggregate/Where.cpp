@@ -11,8 +11,8 @@ namespace secJoin {
         const std::unordered_map<u64, u64>& map,
         CorGenerator& ole,
         const bool print,
-        bool remDummies,
-        Perm randPerm)
+        bool remDummiesFlag,
+        bool cachePerm)
     {
         auto cd = genWhCir(st, gates, literals, literalsType, totalCol, map, print);
         u64 rows = st.rows();
@@ -21,6 +21,23 @@ namespace secJoin {
 
         auto cir = updateActiveFlagCir(1, 1, 1);
         mUpdateActiveFlagGmw.init(rows, cir, ole);
+
+        if(remDummiesFlag)
+        {
+            u64 dateBytesPerEntry = 0;
+
+            // Setting up the offset for OmJoin::concatColumns
+            for(u64 i = 0; i < st.cols(); i++)
+            {
+                auto bytes = st.mColumns[i].getByteCount();
+                dateBytesPerEntry += bytes;
+            }
+
+            // Adding Active Flag
+            dateBytesPerEntry += 1;
+
+            mRemDummies.init(rows, dateBytesPerEntry, ole, cachePerm || print);
+        }
     }
 
 
@@ -29,12 +46,12 @@ namespace secJoin {
         SharedTable& st,
         SharedTable& out,
         coproto::Socket& sock,
-        bool remDummies,
-        Perm randPerm)
+        PRNG& prng,
+        bool remDummiesFlag)
     {
-        MC_BEGIN(macoro::task<>, this, &st, &out, &sock,
+        MC_BEGIN(macoro::task<>, this, &st, &out, &sock, remDummiesFlag, &prng,
             tempOut = BinMatrix{},
-            tempTable = Table{},
+            tempTb = Table{},
             rows = u64{});
 
         rows = st.rows();
@@ -54,100 +71,99 @@ namespace secJoin {
 
         MC_AWAIT(updateActiveFlag(out.mIsActive, tempOut, sock));
 
-        // if (remDummies)
-        // {
-        //     MC_AWAIT(getOutput(out, tempTable, ole, sock, prng,
-        //         !mInsecureMockSubroutines, randPerm));
-        //     std::swap(tempTable, out);
-        // }
+         if (remDummiesFlag)
+         {
+             MC_AWAIT(mRemDummies.remDummies(out, tempTb, sock, prng));
+             std::swap(tempTb, out);
+         }
 
         MC_END();
     }
 
     // Call this getOutput for removing Dummies
-    macoro::task<> Where::getOutput(
-        SharedTable& in,
-        SharedTable& out,
-        CorGenerator& ole,
-        coproto::Socket& sock,
-        oc::PRNG& prng,
-        bool securePerm,
-        Perm& randPerm)
-    {
-        MC_BEGIN(macoro::task<>, &in, &out, &ole, &sock, &prng, securePerm, &randPerm,
-            temp = BinMatrix{},
-            revealedActFlag = BinMatrix{},
-            actFlag = BinMatrix{},
-            curOutRow = u64{},
-            nOutRows = u64{},
-            tempPerm = Perm{},
-            i = u64()
-        );
-
-        actFlag.resize(in.mIsActive.size(), 1);
-
-        // Extracting Active Flag
-        for (u64 i = 0; i < in.mIsActive.size(); ++i)
-            actFlag(i) = in.mIsActive[i];
-
-        // Revealing the active flag
-//        MC_AWAIT(OmJoin::revealActFlag(actFlag, revealedActFlag, sock, ole.partyIdx()));
-
-
-        nOutRows = 0;
-        for (u64 i = 0; i < revealedActFlag.size(); i++)
-        {
-            if (revealedActFlag(i, 0) == 1)
-                nOutRows++;
-        }
-
-        out.init(nOutRows, in.getColumnInfo());
-        out.mIsActive.resize(nOutRows);
-
-        curOutRow = 0;
-        for (u64 i = 0; i < in.rows(); i++)
-        {
-            // assert(curOutRow <= nOutRows);
-            if (revealedActFlag(i, 0) == 1)
-            {
-                for (u64 j = 0; j < in.cols(); j++)
-                {
-                    memcpy(out.mColumns[j].mData.data(curOutRow),
-                        in.mColumns[j].mData.data(i),
-                        in.mColumns[j].getByteCount());
-
-                }
-                out.mIsActive[curOutRow] = in.mIsActive[i];
-                curOutRow++;
-            }
-
-            // We got all our entries
-            if (curOutRow == nOutRows)
-                break;
-        }
-
-        if (randPerm.size() == 0 && nOutRows > 1)
-        {
-            tempPerm.randomize(nOutRows, prng);
-            randPerm = tempPerm;
-        }
-
-        // A Better way could have been to permute the keys & data
-        // But since we want to compare it expected result in the test
-        // We need to permute only the final remaining rows
-        // We don't need to permute the active flag bcoz all the rows are active
-//        if (nOutRows > 1)
+//    macoro::task<> Where::getOutput(
+//        SharedTable& in,
+//        SharedTable& out,
+//        CorGenerator& ole,
+//        coproto::Socket& sock,
+//        oc::PRNG& prng,
+//        bool securePerm,
+//        Perm& randPerm)
+//    {
+//        MC_BEGIN(macoro::task<>, &in, &out, &ole, &sock, &prng, securePerm, &randPerm,
+//            temp = BinMatrix{},
+//            revealedActFlag = BinMatrix{},
+//            actFlag = BinMatrix{},
+//            curOutRow = u64{},
+//            nOutRows = u64{},
+//            tempPerm = Perm{},
+//            i = u64()
+//        );
+//
+//        actFlag.resize(in.mIsActive.size(), 1);
+//
+//        // Extracting Active Flag
+//        for (u64 i = 0; i < in.mIsActive.size(); ++i)
+//            actFlag(i) = in.mIsActive[i];
+//
+//        // Revealing the active flag
+////        MC_AWAIT(OmJoin::revealActFlag(actFlag, revealedActFlag, sock, ole.partyIdx()));
+//
+//
+//        nOutRows = 0;
+//        for (u64 i = 0; i < revealedActFlag.size(); i++)
 //        {
-//            for (i = 0; i < out.cols(); i++)
-//            {
-//                MC_AWAIT(OmJoin::applyRandPerm(out.mColumns[i].mData, temp, ole,
-//                    prng, randPerm, sock, securePerm));
-//                std::swap(out.mColumns[i].mData, temp);
-//            }
+//            if (revealedActFlag(i, 0) == 1)
+//                nOutRows++;
 //        }
-
-        MC_END();
-    }
+//
+//        out.init(nOutRows, in.getColumnInfo());
+//        out.mIsActive.resize(nOutRows);
+//
+//        curOutRow = 0;
+//        for (u64 i = 0; i < in.rows(); i++)
+//        {
+//            // assert(curOutRow <= nOutRows);
+//            if (revealedActFlag(i, 0) == 1)
+//            {
+//                for (u64 j = 0; j < in.cols(); j++)
+//                {
+//                    memcpy(out.mColumns[j].mData.data(curOutRow),
+//                        in.mColumns[j].mData.data(i),
+//                        in.mColumns[j].getByteCount());
+//
+//                }
+//                out.mIsActive[curOutRow] = in.mIsActive[i];
+//                curOutRow++;
+//            }
+//
+//            // We got all our entries
+//            if (curOutRow == nOutRows)
+//                break;
+//        }
+//
+//        if (randPerm.size() == 0 && nOutRows > 1)
+//        {
+//            tempPerm.randomize(nOutRows, prng);
+//            randPerm = tempPerm;
+//        }
+//
+//        // A Better way could have been to permute the keys & data
+//        // But since we want to compare it expected result in the test
+//        // We need to permute only the final remaining rows
+//        // We don't need to permute the active flag bcoz all the rows are active
+////        if (nOutRows > 1)
+////        {
+////            for (i = 0; i < out.cols(); i++)
+////            {
+////                MC_AWAIT(OmJoin::applyRandPerm(out.mColumns[i].mData, temp, ole,
+////                    prng, randPerm, sock, securePerm));
+////                std::swap(out.mColumns[i].mData, temp);
+////            }
+////        }
+//
+//        MC_END();
+//    }
 
     // Active Flag = previous Active flag & Active Flag from where
     oc::BetaCircuit Where::updateActiveFlagCir(const u64 aSize, const u64 bSize, const u64 cSize)

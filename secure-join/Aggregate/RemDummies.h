@@ -30,11 +30,22 @@ namespace secJoin {
                 PRNG &prng,
                 coproto::Socket &sock);
 
+        // Given the data Matrix and a offset
+        // this function extracts the act flag byte
+        // & then returns the revealed Act Flag
+        macoro::task<> revealActFlag(
+                BinMatrix& data,
+                u64 actFlagOffSet,
+                BinMatrix& out,
+                coproto::Socket& sock);
+
+        // Given the ActFlag, it returns the revealed Act Flag
         macoro::task<> revealActFlag(
                 BinMatrix& actFlag,
                 BinMatrix& out,
                 coproto::Socket& sock);
 
+        // Call this to remove Dummies for Average
         macoro::task<> remDummies(
                 BinMatrix& data,
                 BinMatrix& out,
@@ -42,6 +53,12 @@ namespace secJoin {
                 coproto::Socket& sock,
                 PRNG &prng);
 
+        // Call this to remove Dummies for Where
+        macoro::task<> remDummies(
+                Table& in,
+                Table& out,
+                coproto::Socket& sock,
+                PRNG &prng);
     };
 
 

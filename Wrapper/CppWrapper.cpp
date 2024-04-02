@@ -186,7 +186,7 @@ namespace secJoin
 
         cState->mProtocol = 
             start(cState->mOle, 
-            cState->mWh.where(cState->mJoinTb, cState->mWhTb, cState->mSock, cState->mRemDummies) )
+            cState->mWh.where(cState->mJoinTb, cState->mWhTb, cState->mSock, cState->mPrng, cState->mRemDummies) )
             | macoro::make_eager();
 
     }

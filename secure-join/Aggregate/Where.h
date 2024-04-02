@@ -11,6 +11,7 @@
 #include "secure-join/Perm/ComposedPerm.h"
 #include "secure-join/Util/Util.h"
 #include "secure-join/Join/OmJoin.h"
+#include "RemDummies.h"
 
 namespace secJoin
 {
@@ -46,6 +47,7 @@ namespace secJoin
         Gmw mWhGmw;
         Gmw mUpdateActiveFlagGmw;
         Optimized mOp = Optimized::Depth;
+        RemDummies mRemDummies;
 
 
         void init(
@@ -57,15 +59,15 @@ namespace secJoin
             const std::unordered_map<u64, u64>& map,
             CorGenerator& ole,
             const bool print,
-            bool remDummies,
-            Perm randPerm = {});
+            bool remDummiesFlag = false,
+            bool cachePerm = false);
 
         macoro::task<> where(
             SharedTable& st,
             SharedTable& out,
             coproto::Socket& sock,
-            bool remDummies,
-            Perm randPerm = {});
+            PRNG& prng,
+            bool remDummiesFlag);
 
         oc::BetaCircuit genWhCir(
             SharedTable& st, 

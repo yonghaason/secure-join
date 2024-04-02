@@ -49,12 +49,6 @@ void evalAverage
         avg1.init(Ts[1][grpByColIdx], shAvgColRef1, ole1, remDummies, remDummies, printSteps, mock);
 
 
-        if(remDummies)
-        {
-            avg0.mRemDummies.mCachePerm = true;
-            avg1.mRemDummies.mCachePerm = true;
-        }
-
         Table out[2];
         auto r = macoro::sync_wait(macoro::when_all_ready(
                ole0.start(), ole1.start(),
@@ -77,7 +71,6 @@ void evalAverage
         {
             ComposedPerm p0 = avg0.mRemDummies.mPermutation;
             ComposedPerm p1 = avg1.mRemDummies.mPermutation;
-
             pi = p1.permShare().compose(p0.permShare());
         }
 

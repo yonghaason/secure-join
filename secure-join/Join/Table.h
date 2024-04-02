@@ -285,11 +285,18 @@ namespace secJoin
         u64 bits,
         u64 bytes);
 
+    // Given the groupbyCol & avgCols it updates the meta data info in the out table
+    // Note this function doesn't add any actual data
     void populateOutTable(
         Table& out,
         std::vector<ColRef> avgCol,
         ColRef groupByCol,
         u64 nOutRows);
+
+    // Given the actFlag matrix, it populates the out table at the location
+    // where actflag is 1 using the data Matrix
+    void populateOutTable(Table& out, BinMatrix& actFlag, BinMatrix& data);
+
 
     void copyTableEntry(
         Table& out,
@@ -314,8 +321,17 @@ namespace secJoin
         const std::vector<std::string>& literalsType,
         const u64 totalCol,
         const std::unordered_map<u64, u64>& map,
-        bool print);
+        bool print,
+        bool remDummies = false,
+        Perm randPerm = {});
 
+    // Call this applyPerm when Table is in plaintext
     Table applyPerm(Table& T, Perm& perm);
+
+    void concatTable(Table& T, BinMatrix& out);
+
+    u64 countActiveRows(Table& T);
+    u64 countActiveRows(std::vector<u8>& actFlag);
+    u64 countActiveRows(oc::MatrixView<u8> actFlag);
 
 }

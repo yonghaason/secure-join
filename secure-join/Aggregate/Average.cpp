@@ -490,6 +490,7 @@ namespace secJoin {
         getOutput(out, avgCol, groupByCol, data, dataOffsets);
 
 
+
         MC_END();
     }
 
