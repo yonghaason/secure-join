@@ -332,7 +332,7 @@ void OmJoin_join_Test(const oc::CLP& cmd)
     share(L, Ls, prng);
     share(R, Rs, prng);
 
-    for (auto remDummies : { true})
+    for (auto remDummies : { true, false})
     {
         OmJoin join0, join1;
 
@@ -387,7 +387,7 @@ void OmJoin_join_Test(const oc::CLP& cmd)
 
         auto exp = join(L[0], R[0], { L[0], R[1], L[1] }, remDummies, pi);
 
-        auto res = reveal(out[0], out[1]);
+        auto res = reveal(out[0], out[1], remDummies);
 
         if (res != exp)
         {

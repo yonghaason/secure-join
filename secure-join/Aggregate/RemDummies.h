@@ -53,7 +53,7 @@ namespace secJoin {
                 coproto::Socket& sock,
                 PRNG &prng);
 
-        // Call this to remove Dummies for Where
+        // Call this to remove Dummies for Join & Where
         macoro::task<> remDummies(
                 Table& in,
                 Table& out,

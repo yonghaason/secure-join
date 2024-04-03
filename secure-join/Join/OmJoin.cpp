@@ -514,10 +514,9 @@ namespace secJoin
         // backwards direction, we will unpermute the left table select
         // columns. Therefore, in total we will permute:
         u64 permForward = oc::divCeil(mDataBitsPerEntry, 8) + sizeof(u32);
-        u64 permBackward = (remDummiesFlag == false) * oc::divCeil(mDataBitsPerEntry - 1 - keySize, 8);
+        u64 permBackward = oc::divCeil(mDataBitsPerEntry - 1 - keySize, 8);
 
         mPerm.init(mPartyIdx, rows, permForward + permBackward, ole);
-
 
         mControlBitGmw.init(rows, getControlBitsCircuit(keySize), ole);
 
@@ -532,12 +531,15 @@ namespace secJoin
             // Setting up the offset for OmJoin::concatColumns
             for (u64 i = 0; i < schema.mSelect.size(); ++i)
             {
-                auto bytes = schema.mSelect[i].getBitCount();
+                auto bytes = schema.mSelect[i].getByteCount();
                 dateBytesPerEntry += bytes;
             }
             // Adding Active Flag
             dateBytesPerEntry += 1;
-            mRemDummies.init(rows, dateBytesPerEntry, ole, false);
+
+            // Here rows would be only elements in right table bcoz
+            // after the unsort entries from the left table are removed
+            mRemDummies.init(schema.mRightSize, dateBytesPerEntry, ole, false);
         }
 
     }

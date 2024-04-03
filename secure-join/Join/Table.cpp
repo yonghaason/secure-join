@@ -664,8 +664,8 @@ namespace secJoin
         //     std::cout << i << ": " << hex(l.mCol.mData[LPerm[i]]) << std::endl;
         // }
 
-        std::vector<std::array<u64, 2>> I;
-        std::vector<u64> rIdx(r.mCol.rows());
+        std::vector<std::array<u64, 3>> I;
+//        std::vector<u64> rIdx(r.mCol.rows());
         I.reserve(r.mCol.rows());
 
         u64 lIdx = 0;
@@ -687,18 +687,18 @@ namespace secJoin
             {
                 if (eq(l.mCol.mData[LPerm[lIdx]], r.mCol.mData[RPerm[i]]))
                 {
-                    I.push_back({ LPerm[lIdx], RPerm[i] });
-                    rIdx[RPerm[i]] = 1;
+                    I.push_back({ LPerm[lIdx], RPerm[i], i });
+//                    rIdx[RPerm[i]] = 1;
                 }
             }
         }
 
-        for (u64 i = 1; i < rIdx.size(); ++i)
-        {
-            rIdx[i] += rIdx[i - 1];
-        }
-        if (rIdx.back() != I.size())
-            throw RTE_LOC;
+//        for (u64 i = 1; i < rIdx.size(); ++i)
+//        {
+//            rIdx[i] += rIdx[i - 1];
+//        }
+//        if (rIdx.back() != I.size())
+//            throw RTE_LOC;
 
         std::vector<ColumnInfo> colInfo(select.size());
         for (u64 i = 0; i < colInfo.size(); ++i)
@@ -709,14 +709,16 @@ namespace secJoin
 
             colInfo[i] = select[i].mCol.getColumnInfo();
         }
-        Table ret(I.size(), colInfo);
+        Table ret(r.mCol.rows(), colInfo);
+        ret.mIsActive.resize(r.mCol.rows());
 
         for (u64 i = 0; i < I.size(); ++i)
         {
-
+//           auto d = rIdx[I[i][1]] - 1;
+            auto d = I[i][2];
             for (u64 j = 0; j < colInfo.size(); ++j)
             {
-                auto d = rIdx[I[i][1]] - 1;
+
                 auto lr = (&select[j].mTable == &r.mTable) ? 1 : 0;
                 auto src = select[j].mCol.mData.data(I[i][lr]);
                 auto dst = ret.mColumns[j].mData.data(d);
@@ -724,6 +726,8 @@ namespace secJoin
 
                 memcpy(dst, src, size);
             }
+            ret.mIsActive[d] = 1;
+
         }
 
         if(remDummiesFlag)
