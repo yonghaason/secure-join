@@ -15,10 +15,10 @@ namespace secJoin
         u64 ole = cmd.getOr("ole", 32);
 
         // number of ot requests
-        u64 ot = cmd.getOr("ot", 32);
+        u64 ot = cmd.getOr("ot", 0);
 
         // batch size
-        u64 batch = 1ull << cmd.getOr("b", 18);
+        u64 batch = 1ull << cmd.getOr("b", 16);
 
         u64 trials = cmd.getOr("trials", 1);
 
@@ -29,9 +29,15 @@ namespace secJoin
 
         u64 nt = cmd.getOr("nt", 1);
 
-        macoro::thread_pool pool;
-        auto e = pool.make_work();
-        pool.create_threads(nt);
+        macoro::thread_pool pool0;
+        auto e0 = pool0.make_work();
+        pool0.create_threads(nt);
+        macoro::thread_pool pool1;
+        auto e1 = pool1.make_work();
+        pool1.create_threads(nt);
+        auto sock = coproto::LocalAsyncSocket::makePair();
+        sock[0].setExecutor(pool0);
+        sock[1].setExecutor(pool1);
 
         oc::Timer timer;
 
@@ -39,10 +45,6 @@ namespace secJoin
         std::vector<oc::block> x(n);
         std::vector<oc::block> y0(n), y1(n);
 
-        auto sock = coproto::LocalAsyncSocket::makePair();
-
-        sock[0].setExecutor(pool);
-        sock[1].setExecutor(pool);
 
         PRNG prng0(oc::ZeroBlock);
         PRNG prng1(oc::OneBlock);
@@ -52,13 +54,19 @@ namespace secJoin
             //timer.setTimePoint("begin");
 
             CorGenerator g[2];
+            auto begin = timer.setTimePoint("begin trial ------------- ");
+            g[0].init(std::move(sock[0]), prng0, 0, nt, batch, false);
+            g[1].init(std::move(sock[1]), prng1, 1, nt, batch, false); 
 
-            g[0].init(std::move(sock[0]), prng0, 0, batch);
-            g[1].init(std::move(sock[1]), prng1, 1, batch);
+            g[0].mGenState->mPool = &pool0;
+            g[1].mGenState->mPool = &pool1;
+            g[0].mGenState->setTimer(timer);
+            g[1].mGenState->setTimer(timer);
 
             std::vector<std::array<BinOleRequest, 2>> oleReqs(ole);
             std::vector<OtRecvRequest> otRecvReqs(ot);
             std::vector<OtSendRequest> otSendReqs(ot);
+
 
             for (u64 i = 0; i < std::max<u64>(ole, ot); ++i)
             {
@@ -73,25 +81,29 @@ namespace secJoin
                     otSendReqs[i] = g[1].sendOtRequest(n);
                 }
             }
+
+            auto t0 = g[0].start() | macoro::start_on(pool0);
+            auto t1 = g[1].start() | macoro::start_on(pool1);
+
             //std::cout << "request done \n\n" << std::endl;
             for (u64 i = 0; i < std::max<u64>(ole, ot); )
             {
                 //std::cout << "\ni = "<<i<<" \n\n" << std::endl;
 
                 std::vector<macoro::eager_task<>> tasks;
+                timer.setTimePoint("start batches " + std::to_string(i) + " ... " + std::to_string(i + chunk));
 
                 for (u64 b = 0; b < chunk; ++b, ++i)
                 {
                     if (i < ole)
                     {
-                        throw RTE_LOC;
-                        //tasks.push_back(oleReqs[i][0].start() | macoro::start_on(pool));
-                        //tasks.push_back(oleReqs[i][1].start() | macoro::start_on(pool));
+                        oleReqs[i][0].start();
+                        oleReqs[i][1].start();
                     }
                     if (i < ot)
                     {
-                        //tasks.push_back(otRecvReqs[i].start() | macoro::start_on(pool));
-                        //tasks.push_back(otSendReqs[i].start() | macoro::start_on(pool));
+                        otRecvReqs[i].start();
+                        otSendReqs[i].start();
                     }
                 }
 
@@ -130,15 +142,21 @@ namespace secJoin
                         }
                     }
                 }
-
-                for (auto& tt : tasks)
-                    macoro::sync_wait(tt);
+                timer.setTimePoint("done batches " + std::to_string(i) + " ... " + std::to_string(i + chunk));
 
             }
-            //timer.setTimePoint("end");
 
+            macoro::sync_wait(macoro::when_all_ready(std::move(t0), std::move(t1)));
+            auto end = timer.setTimePoint("done trial ");
+            auto time = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count();
+            if (cmd.isSet("quiet") == false)
+            {
+                std::cout << double(n * ole) / time << " OLE/ms " << std::endl;
+                std::cout << double(n * ot) / time << " OT/ms " << std::endl;
+            }
         }
 
+        timer.setTimePoint("done");
         if (cmd.isSet("v"))
         {
             std::cout << timer << std::endl;
@@ -153,12 +171,14 @@ namespace secJoin
         u64 m = cmd.getOr("m", 32);
         u64 batch = cmd.getOr("b", 16);
         u64 trials = cmd.getOr("trials", 1);
-        u64 nt = cmd.getOr("nt", std::thread::hardware_concurrency());
-        bool gen = cmd.isSet("gen");
+        u64 nt = cmd.getOr("nt", 1);
+        bool mock = cmd.getOr("mock", 0);
 
-        macoro::thread_pool pool;
-        auto w = pool.make_work();
-        pool.create_threads(nt);
+        macoro::thread_pool pool0, pool1;
+        auto w0 = pool0.make_work();
+        auto w1 = pool1.make_work();
+        pool0.create_threads(nt);
+        pool1.create_threads(nt);
 
         oc::Timer timer;
 
@@ -171,8 +191,12 @@ namespace secJoin
         std::vector<oc::block> y0(n), y1(n);
 
         auto sock = coproto::LocalAsyncSocket::makePair();
-        sock[0].setExecutor(pool);
-        sock[1].setExecutor(pool);
+        sock[0].setExecutor(pool0);
+        sock[1].setExecutor(pool1);
+        auto sock2 = coproto::LocalAsyncSocket::makePair();
+        sock2[0].setExecutor(pool0);
+        sock2[1].setExecutor(pool1);
+
 
         PRNG prng0(oc::ZeroBlock);
         PRNG prng1(oc::OneBlock);
@@ -192,8 +216,10 @@ namespace secJoin
         for (u64 t = 0; t < trials; ++t)
         {
 
-            g[0].init(sock[0].fork(), prng0, 0, 1 << batch, !gen);
-            g[1].init(sock[1].fork(), prng1, 1, 1 << batch, !gen);
+            g[0].init(sock2[0].fork(), prng0, 0, nt, 1 << batch, mock);
+            g[1].init(sock2[1].fork(), prng1, 1, nt, 1 << batch, mock);
+            g[0].mGenState->mPool = &pool0;
+            g[1].mGenState->mPool = &pool1;
 
             s0.init(0, n, m, g[0]);
             s1.init(1, n, m, g[1]);
@@ -235,6 +261,7 @@ namespace secJoin
         auto b = cmd.getOr("b", 16);
         u64 keySize = cmd.getOr("m", 32);
         bool mock = cmd.getOr("mock", 1);
+        u64 nt = cmd.getOr("nt", 1);
 
         Table L, R;
 
@@ -252,12 +279,27 @@ namespace secJoin
         share(L, Ls, prng);
         share(R, Rs, prng);
 
-        OmJoin join0, join1;
 
         auto sock = coproto::LocalAsyncSocket::makePair();
+        auto sock2 = coproto::LocalAsyncSocket::makePair();
+        macoro::thread_pool pool0;
+        auto e0 = pool0.make_work();
+        pool0.create_threads(nt);
+        macoro::thread_pool pool1;
+        auto e1 = pool1.make_work();
+        pool1.create_threads(nt);
+        sock[0].setExecutor(pool0);
+        sock[1].setExecutor(pool1);
+        sock2[0].setExecutor(pool0);
+        sock2[1].setExecutor(pool1);
+
+        OmJoin join0, join1;
+
         CorGenerator ole0, ole1;
-        ole0.init(sock[0].fork(), prng, 0, 1 << b, mock);
-        ole1.init(sock[1].fork(), prng, 1, 1 << b, mock);
+        ole0.init(sock2[0].fork(), prng, 0, nt, 1 << b, mock);
+        ole1.init(sock2[1].fork(), prng, 1, nt, 1 << b, mock);
+        ole0.mGenState->mPool = &pool0;
+        ole1.mGenState->mPool = &pool1;
 
         PRNG prng0(oc::ZeroBlock);
         PRNG prng1(oc::OneBlock);
@@ -285,7 +327,7 @@ namespace secJoin
         ));
         auto end = timer.setTimePoint("end");
 
-        std::cout << "radix Ln:" << nL << ", Rn:" << nR << " m:" << keySize << "  Ld: " << dL << ", Rd:" << dR << "  ~ " <<
+        std::cout << "OmJoin Ln:" << nL << ", Rn:" << nR << " m:" << keySize << "  Ld: " << dL << ", Rd:" << dR << "  ~ " <<
             std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << "ms " <<
             sock[0].bytesSent() / double(nL + nR) << "+" << sock[0].bytesReceived() / double(nL + nR) << "=" <<
             (sock[0].bytesSent() + sock[0].bytesReceived()) / double(nL + nR) << " bytes/elem " << std::endl;
@@ -293,6 +335,7 @@ namespace secJoin
         if (cmd.isSet("timing"))
             std::cout << timer << std::endl;
     }
+
     void AltMod_benchmark(const oc::CLP& cmd)
     {
 
@@ -300,6 +343,7 @@ namespace secJoin
 
         u64 n = cmd.getOr("n", 1ull << cmd.getOr("nn", 10));
         u64 trials = cmd.getOr("trials", 1);
+        bool nt = cmd.getOr("nt", 1);
 
         oc::Timer timer;
 
@@ -324,8 +368,8 @@ namespace secJoin
         //sender.setKey(kk);
 
         CorGenerator ole0, ole1;
-        ole0.init(sock[0].fork(), prng0, 0, 1 << 18, cmd.getOr("mock", 1));
-        ole1.init(sock[1].fork(), prng1, 1, 1 << 18, cmd.getOr("mock", 1));
+        ole0.init(sock[0].fork(), prng0, 0, nt, 1 << 18, cmd.getOr("mock", 1));
+        ole1.init(sock[1].fork(), prng1, 1, nt, 1 << 18, cmd.getOr("mock", 1));
 
 
         prng0.get(x.data(), x.size());
@@ -346,6 +390,9 @@ namespace secJoin
             sender.init(n, ole0);
             recver.init(n, ole1);
 
+            std::cout << ole0.mGenState->mNumOle << " ole " << std::endl;
+            std::cout << ole0.mGenState->mNumOt << " ot " << std::endl;
+
             auto r = coproto::sync_wait(coproto::when_all_ready(
                 ole0.start(),
                 ole1.start(),
@@ -363,7 +410,7 @@ namespace secJoin
             std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << "ms " <<
             sock[0].bytesSent() / double(n) << "+" << sock[0].bytesReceived() / double(n) << "=" <<
             (sock[0].bytesSent() + sock[0].bytesReceived()) / double(n) << " bytes/eval " << std::endl;
-        //std::cout << ole0.mNumBinOle / double(n) << " " << ole1.mNumBinOle / double(n) << " binOle/per" << std::endl;;
+
         if (cmd.isSet("v"))
         {
             std::cout << timer << std::endl;
@@ -439,7 +486,7 @@ namespace secJoin
 #else
         std::cout << "ENABLE_SILENTOT = false" << std::endl;
 #endif
-        }
+    }
 
     void AltModPerm_benchmark(const oc::CLP& cmd)
     {
@@ -448,7 +495,21 @@ namespace secJoin
         u64 rowSize = cmd.getOr("m", 16);
         u64 b = cmd.getOr("b", 16);
         bool debug = cmd.isSet("debug");
+        u64 nt = cmd.getOr("nt", 1);
         // bool invPerm = false;
+
+        macoro::thread_pool pool0;
+        auto e0 = pool0.make_work();
+        pool0.create_threads(nt);
+        macoro::thread_pool pool1;
+        auto e1 = pool1.make_work();
+        pool1.create_threads(nt);
+        auto sock = coproto::LocalAsyncSocket::makePair();
+        sock[0].setExecutor(pool0);
+        sock[1].setExecutor(pool1);
+        auto sock2 = coproto::LocalAsyncSocket::makePair();
+        sock2[0].setExecutor(pool0);
+        sock2[1].setExecutor(pool1);
 
         PRNG prng0(oc::ZeroBlock);
         PRNG prng1(oc::OneBlock);
@@ -459,13 +520,14 @@ namespace secJoin
         oc::Matrix<oc::block>
             aExp(n, oc::divCeil(rowSize, 16));
 
-        auto sock = coproto::LocalAsyncSocket::makePair();
         Perm pi(n, prng0);
         CorGenerator ole0, ole1;
 
 
-        ole0.init(sock[0].fork(), prng0, 0, 1 << b, cmd.getOr("mock", 1));
-        ole1.init(sock[1].fork(), prng1, 1, 1 << b, cmd.getOr("mock", 1));
+        ole0.init(std::move(sock2[0]), prng0, 0, nt, 1 << b, cmd.getOr("mock", 1));
+        ole1.init(std::move(sock2[1]), prng1, 1, nt, 1 << b, cmd.getOr("mock", 1));
+        ole0.mGenState->mPool = &pool0;
+        ole1.mGenState->mPool = &pool1;
 
         AltModPerm0.init(n, rowSize, ole0);
         AltModPerm1.init(n, rowSize, ole1);
@@ -475,9 +537,9 @@ namespace secJoin
         oc::Timer timer;
         auto begin = timer.setTimePoint("b");
         auto r = macoro::sync_wait(macoro::when_all_ready(
+            ole0.start(), ole1.start(),
             AltModPerm0.generate(pi, prng0, sock[0], perm0),
-            AltModPerm1.generate(prng1, sock[1], perm1),
-            ole0.start(), ole1.start()
+            AltModPerm1.generate(prng1, sock[1], perm1)
         ));
         auto end = timer.setTimePoint("b");
 
@@ -485,7 +547,7 @@ namespace secJoin
         std::get<1>(r).result();
 
 
-        std::cout << "AltModPerm:" << n << ", " <<
+        std::cout << "AltModPerm: n " << n << ", nt " << nt << ", " <<
             std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << "ms " <<
             sock[0].bytesSent() / double(n) << "+" << sock[0].bytesReceived() / double(n) << "=" <<
             (sock[0].bytesSent() + sock[0].bytesReceived()) / double(n) << " bytes/eval " << std::endl;
@@ -616,19 +678,19 @@ namespace secJoin
                 std::chrono::duration_cast<std::chrono::milliseconds>(e - b).count() << "ms " << std::endl;;
         }
 
-        if (0)
-        {
+        //if (0)
+        //{
 
-            oc::Timer timer;
-            auto b = timer.setTimePoint("begin");
+        //    oc::Timer timer;
+        //    auto b = timer.setTimePoint("begin");
 
-            for (u64 k = 0; k < t; ++k)
-                sampleMod3Lookup4(prng, msb, lsb);
-            auto e = timer.setTimePoint("end");
+        //    for (u64 k = 0; k < t; ++k)
+        //        sampleMod3Lookup4(prng, msb, lsb);
+        //    auto e = timer.setTimePoint("end");
 
-            std::cout << "mod3lookup4 n:" << n << ", " <<
-                std::chrono::duration_cast<std::chrono::milliseconds>(e - b).count() << "ms " << std::endl;;
-        }
+        //    std::cout << "mod3lookup4 n:" << n << ", " <<
+        //        std::chrono::duration_cast<std::chrono::milliseconds>(e - b).count() << "ms " << std::endl;;
+        //}
     }
 
     void PprfPerm_benchmark(const oc::CLP& cmd)
@@ -701,4 +763,37 @@ namespace secJoin
             std::chrono::duration_cast<std::chrono::milliseconds>(e - b).count() << "ms " << std::endl;;
 
     }
+
+#ifdef _WIN32
+#include <intrin.h>
+#else
+#include <x86intrin.h>
+#endif
+
+
+    void aes_benchmark(const oc::CLP& cmd)
+    {
+        u64 n = cmd.getOr("n", 256);
+        u64 t  = cmd.getOr("t", 256);
+
+        oc::AlignedUnVector<block> buff(n);
+        oc::Timer timer;
+        auto b = timer.setTimePoint("b");
+        auto cBegin = __rdtsc();
+
+        for (u64 tt = 0; tt < t; ++tt)
+        {
+            oc::mAesFixedKey.ecbEncCounterMode(0, n, buff.data());
+        }
+        auto cEnd = __rdtsc();
+        auto e = timer.setTimePoint("b");
+
+        auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(e - b).count();
+        ms = std::max<u64>(ms, 1);
+
+        std::cout << "aes n:" << n << ", " << ms << "ms " << std::endl <<
+            n * t * 16 / ms << "KB/second " << std::endl
+            << "cycles/byte: " << double(cEnd - cBegin) / t / n / 16 << std::endl;
+
     }
+}

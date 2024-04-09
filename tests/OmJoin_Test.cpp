@@ -76,8 +76,8 @@ void OmJoin_getControlBits_Test(const oc::CLP& cmd)
     share(k, kk[0], kk[1], prng);
 
     CorGenerator ole0, ole1;
-    ole0.init(sock[0].fork(), prng, 0, 1 << 18, cmd.getOr("mock", 1));
-    ole1.init(sock[1].fork(), prng, 1, 1 << 18, cmd.getOr("mock", 1));
+    ole0.init(sock[0].fork(), prng, 0, 1, 1 << 18, cmd.getOr("mock", 1));
+    ole1.init(sock[1].fork(), prng, 1, 1, 1 << 18, cmd.getOr("mock", 1));
 
     OmJoin j[2];
 
@@ -150,7 +150,7 @@ void OmJoin_concatColumns_Test()
     OmJoin j{};
     CorGenerator ole;
     auto sock = coproto::LocalAsyncSocket::makePair();
-    ole.init(std::move(sock[0]), prng, 0);
+    ole.init(std::move(sock[0]), prng, 0, 1, 1<<16, true);
 
     JoinQuery query{ t0[0], t1[0], select };
 
@@ -344,8 +344,8 @@ void OmJoin_join_Test(const oc::CLP& cmd)
 
         auto sock = coproto::LocalAsyncSocket::makePair();
         CorGenerator ole0, ole1;
-        ole0.init(sock[0].fork(), prng, 0, 1 << 18, mock);
-        ole1.init(sock[1].fork(), prng, 1, 1 << 18, mock);
+        ole0.init(sock[0].fork(), prng, 0, 1, 1 << 18, mock);
+        ole1.init(sock[1].fork(), prng, 1, 1, 1 << 18, mock);
 
         PRNG prng0(oc::ZeroBlock);
         PRNG prng1(oc::OneBlock);
@@ -467,10 +467,10 @@ void OmJoin_join_BigKey_Test(const oc::CLP& cmd)
         join0.mInsecureMockSubroutines = mock;
         join1.mInsecureMockSubroutines = mock;
 
-        CorGenerator ole0, ole1;
-        auto sock = coproto::LocalAsyncSocket::makePair();
-        ole0.init(sock[0].fork(), prng, 0, 1 << 18, mock);
-        ole1.init(sock[1].fork(), prng, 1, 1 << 18, mock);
+    CorGenerator ole0, ole1;
+    auto sock = coproto::LocalAsyncSocket::makePair();
+    ole0.init(sock[0].fork(), prng, 0, 1,  1 << 18, mock);
+    ole1.init(sock[1].fork(), prng, 1, 1,  1 << 18, mock);
 
         join0.mRemDummies.mCachePerm = remDummies;
         join1.mRemDummies.mCachePerm = remDummies;
@@ -587,8 +587,8 @@ void OmJoin_join_Reveal_Test(const oc::CLP& cmd)
 
     CorGenerator ole0, ole1;
     auto sock = coproto::LocalAsyncSocket::makePair();
-    ole0.init(sock[0].fork(), prng, 0, 1 << 18, mock);
-    ole1.init(sock[1].fork(), prng, 1, 1 << 18, mock);
+    ole0.init(sock[0].fork(), prng, 0,1,  1 << 18, mock);
+    ole1.init(sock[1].fork(), prng, 1,1,  1 << 18, mock);
 
 
     PRNG prng0(oc::ZeroBlock);
@@ -801,8 +801,8 @@ void OmJoin_join_round_Test(const oc::CLP& cmd)
     std::array<coproto::BufferingSocket, 2> sock;
 
     auto ss = coproto::LocalAsyncSocket::makePair();
-    ole0.init(ss[0].fork(), prng, 0, 1 << 18, mock);
-    ole1.init(ss[1].fork(), prng, 1, 1 << 18, mock);
+    ole0.init(ss[0].fork(), prng, 0, 1, 1 << 18, mock);
+    ole1.init(ss[1].fork(), prng, 1, 1, 1 << 18, mock);
 
 
     PRNG prng0(oc::ZeroBlock);
@@ -856,4 +856,108 @@ void OmJoin_join_round_Test(const oc::CLP& cmd)
 
     if (cmd.isSet("timing"))
         std::cout << timer << std::endl;
+}
+
+
+
+void OmJoin_join_csv_Test(const oc::CLP& cmd)
+{
+
+    std::string rootPath(SEC_JOIN_ROOT_DIRECTORY);
+    std::string visaCsvPath = rootPath + "/tests/tables/visa.csv";
+    std::string bankCsvPath = rootPath + "/tests/tables/bank.csv";
+    std::string visaMetaDataPath = rootPath + "/tests/tables/visa_meta.txt";
+    std::string clientMetaDataPath = rootPath + "/tests/tables/bank_meta.txt";
+    std::string joinVisaCols("PAN");
+    std::string joinClientCols("PAN");
+    std::string selectVisaCols("Risk_Score,PAN");
+    std::string selectClientCols("Balance");
+    std::string joinCsvPath = rootPath + "/tests/tables/joindata.csv";
+    std::string joinMetaPath = rootPath + "/tests/tables/joindata_meta.txt";
+    // bool isUnique = true;
+    // bool isAgg = false;
+    // bool verbose = cmd.isSet("v");
+    bool printSteps = cmd.isSet("print");
+    bool mock = !cmd.isSet("noMock");
+
+    oc::u64 lRowCount = 0, rRowCount = 0, lColCount = 0, rColCount = 0;
+    bool isBin;
+
+    std::vector<ColumnInfo> lColInfo, rColInfo;
+    getFileInfo(visaMetaDataPath, lColInfo, lRowCount, lColCount, isBin);
+    getFileInfo(clientMetaDataPath, rColInfo, rRowCount, rColCount, isBin);
+
+    Table L, R;
+
+    L.init(lRowCount, lColInfo);
+    R.init(rRowCount, rColInfo);
+
+    populateTable(L, visaCsvPath, lRowCount, isBin);
+    populateTable(R, bankCsvPath, rRowCount, isBin);
+
+    if (printSteps)
+    {
+        std::cout << "L\n" << L << std::endl;
+        std::cout << "R\n" << R << std::endl;
+    }
+
+    PRNG prng(oc::ZeroBlock);
+    std::array<Table, 2> Ls, Rs;
+    share(L, Ls, prng);
+    share(R, Rs, prng);
+
+    for (auto remDummies : { false })
+    {
+        OmJoin join0, join1;
+
+        join0.mInsecurePrint = printSteps;
+        join1.mInsecurePrint = printSteps;
+
+        join0.mInsecureMockSubroutines = mock;
+        join1.mInsecureMockSubroutines = mock;
+
+        PRNG prng0(oc::ZeroBlock);
+        PRNG prng1(oc::OneBlock);
+        auto sock = coproto::LocalAsyncSocket::makePair();
+        CorGenerator ole0, ole1;
+
+        ole0.init(sock[0].fork(), prng0, 0, 1, 1 << 20, mock);
+        ole1.init(sock[1].fork(), prng1, 1, 1, 1 << 20, mock);
+
+        Table out[2];
+
+        auto exp = join(L[joinVisaCols], R[joinClientCols], { L[0], R[2], L[1] });
+        oc::Timer timer;
+        join0.setTimer(timer);
+        join1.setTimer(timer);
+        JoinQuery query0{ Ls[0][joinVisaCols], Rs[0][joinClientCols], { Ls[0][0], Rs[0][2], Ls[0][1] } };
+        JoinQuery query1{ Ls[1][joinVisaCols], Rs[1][joinClientCols], { Ls[1][0], Rs[1][2], Ls[1][1] } };
+        join0.init(query0, ole0, remDummies);
+        join1.init(query1, ole1, remDummies);
+
+        auto r = macoro::sync_wait(macoro::when_all_ready(
+            ole0.start(),
+            ole1.start(),
+            join0.join(query0, out[0], prng0, sock[0]),
+            join1.join(query1, out[1], prng1, sock[1])
+        ));
+        std::get<0>(r).result();
+        std::get<1>(r).result();
+        std::get<2>(r).result();
+        std::get<3>(r).result();
+
+        auto res = reveal(out[0], out[1]);
+
+        if (res != exp)
+        {
+            std::cout << "exp \n" << exp << std::endl;
+            std::cout << "act \n" << res << std::endl;
+            // std::cout << "ful \n" << reveal(out[0], out[1], false) << std::endl;
+            throw RTE_LOC;
+        }
+
+        if (cmd.isSet("timing"))
+            std::cout << timer << std::endl;
+    }
+
 }

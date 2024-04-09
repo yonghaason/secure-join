@@ -24,8 +24,8 @@ void CorGenerator_Ot_Test(const oc::CLP&cmd)
         auto sock = coproto::LocalAsyncSocket::makePair();
         CorGenerator send;
         CorGenerator recv;
-        send.init(std::move(sock[0]), prng, 0, 1<<18, mock);
-        recv.init(std::move(sock[1]), prng, 1, 1<<18, mock);
+        send.init(std::move(sock[0]), prng, 0, 2, 1<<18, mock);
+        recv.init(std::move(sock[1]), prng, 1, 2, 1<<18, mock);
 
         send.mGenState->mDebug = cmd.isSet("debug");
         recv.mGenState->mDebug = cmd.isSet("debug");
@@ -104,8 +104,8 @@ void CorGenerator_BinOle_Test(const oc::CLP&cmd)
         CorGenerator  send;
         CorGenerator  recv;
 
-        send.init(std::move(sock[0]), prng, 0, 1<<18, mock);
-        recv.init(std::move(sock[1]), prng, 1, 1<<18, mock);
+        send.init(std::move(sock[0]), prng, 0, 1, 1<<18, mock);
+        recv.init(std::move(sock[1]), prng, 1, 1, 1<<18, mock);
         send.mGenState->mDebug = cmd.isSet("debug");
         recv.mGenState->mDebug = cmd.isSet("debug");
 
@@ -160,8 +160,8 @@ void CorGenerator_mixed_Test(const oc::CLP&cmd)
         auto sock = coproto::LocalAsyncSocket::makePair();
         CorGenerator  ole[2];
 
-        ole[0].init(std::move(sock[0]), prng, 0, 1<<18, mock);
-        ole[1].init(std::move(sock[1]), prng, 1, 1<<18, mock);
+        ole[0].init(std::move(sock[0]), prng, 0, 1, 1<<18, mock);
+        ole[1].init(std::move(sock[1]), prng, 1, 1, 1<<18, mock);
         ole[0].mGenState->mDebug = cmd.isSet("debug");
         ole[1].mGenState->mDebug = cmd.isSet("debug");
 

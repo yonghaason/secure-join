@@ -19,12 +19,13 @@ namespace secJoin
     struct RequestState;
 
 
-    struct GenState : std::enable_shared_from_this<GenState>
+    struct GenState : std::enable_shared_from_this<GenState>, oc::TimerAdapter
     {
         GenState() = delete;
-        GenState(u64 partyIdx, PRNG&& prng, oc::Socket s, u64 batchSize, bool mock)
+        GenState(u64 partyIdx, PRNG&& prng, oc::Socket s, u64 numConcurrent, u64 batchSize, bool mock)
             : mPrng(std::move(prng))
             , mSock(std::move(s))
+            , mNumConcurrent(numConcurrent)
             , mBatchSize(batchSize)
             , mMock(mock)
             , mPartyIdx(partyIdx)
@@ -34,17 +35,29 @@ namespace secJoin
 
             if (batchSize > (1ull << 26))
                 throw std::runtime_error("too large of batch size." LOCATION);
+
+            if (numConcurrent == 0)
+                throw std::runtime_error("numConcurrent can not be zero." LOCATION);
+
+            if (numConcurrent > (1ull << 10))
+                throw std::runtime_error("numConcurrent too large." LOCATION);
         }
 
         GenState(const GenState&) = delete;
         GenState(GenState&&) = delete;
 
+
         oc::SoftSpokenShOtSender<> mSendBase;
         oc::SoftSpokenShOtReceiver<> mRecvBase;
+
+
+        macoro::thread_pool* mPool = nullptr;
 
         // next request index
         u64 mReqIndex = 0;
 
+        u64 mNumOle = 0;
+        u64 mNumOt = 0;
 
         struct ReqInfo
         {
@@ -75,6 +88,9 @@ namespace secJoin
 
         // the base socket that each subprotocol is forked from.
         coproto::Socket mSock;
+
+        // the number of concurrent correlations that should be generated.
+        u64 mNumConcurrent = 0;
 
         // the size that a batch of OT/OLEs should be generated in.
         u64 mBatchSize = 0;
@@ -107,7 +123,7 @@ namespace secJoin
             u64 idx = mBatchStartIdx;
             //assert(b->mIndex < mBatches.size());
             //assert(mBatches[b->mIndex].get() == b);
-            
+
             while (b->mIndex >= idx)
             {
                 bool s = mBatchStartIdx.compare_exchange_strong(idx, idx + 1);
@@ -146,15 +162,28 @@ namespace secJoin
             coproto::Socket&& sock,
             PRNG& prng,
             u64 partyIdx,
-            u64 batchSize = 1 << 16,
-            bool mock = false)
+            u64 numConcurrent,
+            u64 batchSize,
+            bool mock)
         {
-            mGenState = std::make_shared<GenState>(partyIdx, prng.fork(), std::move(sock), batchSize, mock);
+            mGenState = std::make_shared<GenState>(partyIdx, prng.fork(), std::move(sock), numConcurrent, batchSize, mock);
         }
 
-        Request<OtRecv> recvOtRequest(u64 n) { return Request<OtRecv>{request(CorType::Ot, 0, oc::roundUpTo(n, 128))}; }
-        Request<OtSend> sendOtRequest(u64 n) { return Request<OtSend>{request(CorType::Ot, 1, oc::roundUpTo(n, 128))}; }
-        Request<BinOle> binOleRequest(u64 n) { return Request<BinOle>{request(CorType::Ole, mGenState->mPartyIdx, oc::roundUpTo(n, 128))}; }
+        Request<OtRecv> recvOtRequest(u64 n) {
+            if (initialized() == false)
+                throw std::runtime_error(LOCATION);
+            return Request<OtRecv>{request(CorType::Ot, 0, oc::roundUpTo(n, 128))};
+        }
+        Request<OtSend> sendOtRequest(u64 n) {
+            if (initialized() == false)
+                throw std::runtime_error(LOCATION);
+            return Request<OtSend>{request(CorType::Ot, 1, oc::roundUpTo(n, 128))};
+        }
+        Request<BinOle> binOleRequest(u64 n) {
+            if (initialized() == false)
+                throw std::runtime_error(LOCATION);
+            return Request<BinOle>{request(CorType::Ole, mGenState->mPartyIdx, oc::roundUpTo(n, 128))};
+        }
 
         void setBaseOts(SendBase& sb, RecvBase& rb)
         {
@@ -187,8 +216,8 @@ namespace secJoin
 
         void abort()
         {
-            for(auto& s : mStarted)
-                if(auto genState = s.lock())
+            for (auto& s : mStarted)
+                if (auto genState = s.lock())
                     genState->abort();
         }
 

@@ -86,8 +86,8 @@ void RadixSort_hadamardSum_test(const oc::CLP& cmd)
 
     CorGenerator g0, g1;
 
-    g0.init(comm[0].fork(), prng, 0, 1 << 18, cmd.getOr("mock", 1));
-    g1.init(comm[1].fork(), prng, 1, 1 << 18, cmd.getOr("mock", 1));
+    g0.init(comm[0].fork(), prng, 0, 1, 1 << 18, cmd.getOr("mock", 1));
+    g1.init(comm[1].fork(), prng, 1, 1, 1 << 18, cmd.getOr("mock", 1));
     s0.mDebug = cmd.isSet("debug");
     s1.mDebug = cmd.isSet("debug");
 
@@ -144,8 +144,8 @@ void RadixSort_oneHot_test(const oc::CLP& cmd)
     std::array<std::future<void>, 2> f;
     std::array<CorGenerator, 2> g;
     PRNG prng(oc::ZeroBlock);
-    g[0].init(comm[0].fork(), prng, 0, 1 << 18, cmd.getOr("mock", 1));
-    g[1].init(comm[1].fork(), prng, 1, 1 << 18, cmd.getOr("mock", 1));
+    g[0].init(comm[0].fork(), prng, 0, 1, 1 << 18, cmd.getOr("mock", 1));
+    g[1].init(comm[1].fork(), prng, 1, 1, 1 << 18, cmd.getOr("mock", 1));
 
     Matrix<u8> kk(n, 1);
     for (u64 i = 0; i < n; ++i)
@@ -217,8 +217,8 @@ void RadixSort_bitInjection_test(const oc::CLP& cmd)
 
     }
     CorGenerator g0, g1;
-    g0.init(comm[0].fork(), prng, 0, 1 << 18, cmd.getOr("mock", 1));
-    g1.init(comm[1].fork(), prng, 1, 1 << 18, cmd.getOr("mock", 1));
+    g0.init(comm[0].fork(), prng, 0, 1, 1 << 18, cmd.getOr("mock", 1));
+    g1.init(comm[1].fork(), prng, 1, 1, 1 << 18, cmd.getOr("mock", 1));
 
     share(k, L, k0, k1, prng);
 
@@ -286,8 +286,8 @@ void RadixSort_genValMasks2_test(const oc::CLP& cmd)
             }
 
             CorGenerator g0, g1;
-            g0.init(comm[0].fork(), prng, 0, 1 << 18, cmd.getOr("mock", 1));
-            g1.init(comm[1].fork(), prng, 1, 1 << 18, cmd.getOr("mock", 1));
+            g0.init(comm[0].fork(), prng, 0, 1, 1 << 18, cmd.getOr("mock", 1));
+            g1.init(comm[1].fork(), prng, 1, 1, 1 << 18, cmd.getOr("mock", 1));
 
             share(k, k0, k1, prng);
             s0.mL = L;
@@ -448,8 +448,8 @@ void RadixSort_genBitPerm_test(const oc::CLP& cmd)
                     BinMatrix sk[2];
                     CorGenerator g[2];
 
-                    g[0].init(comm[0].fork(), prng, 0, 1 << 18, cmd.getOr("mock", 1));
-                    g[1].init(comm[1].fork(), prng, 1, 1 << 18, cmd.getOr("mock", 1));
+                    g[0].init(comm[0].fork(), prng, 0, 1, 1 << 18, cmd.getOr("mock", 1));
+                    g[1].init(comm[1].fork(), prng, 1, 1, 1 << 18, cmd.getOr("mock", 1));
 
                     g[0].mGenState->mDebug = cmd.isSet("debug");
                     g[1].mGenState->mDebug = cmd.isSet("debug");
@@ -651,8 +651,8 @@ void RadixSort_genPerm_test(const oc::CLP& cmd)
                     CorGenerator g0, g1;
 
                     PRNG prng(block(0, 0));
-                    g0.init(comm[0].fork(), prng, 0, 1 << 18, cmd.getOr("mock", 1));
-                    g1.init(comm[1].fork(), prng, 1, 1 << 18, cmd.getOr("mock", 1));
+                    g0.init(comm[0].fork(), prng, 0,1,  1 << 18, cmd.getOr("mock", 1));
+                    g1.init(comm[1].fork(), prng, 1,1,  1 << 18, cmd.getOr("mock", 1));
 
                     g0.mGenState->mDebug = cmd.isSet("debug");
                     g1.mGenState->mDebug = cmd.isSet("debug");
@@ -737,8 +737,8 @@ void RadixSort_mock_test(const oc::CLP& cmd)
             {
                 PRNG prng(block(0, 0));
                 CorGenerator g0, g1;
-                g0.init(comm[0].fork(), prng, 0, 1 << 18, cmd.getOr("mock", 1));
-                g1.init(comm[1].fork(), prng, 1, 1 << 18, cmd.getOr("mock", 1));
+                g0.init(comm[0].fork(), prng, 0, 1, 1 << 18, cmd.getOr("mock", 1));
+                g1.init(comm[1].fork(), prng, 1, 1, 1 << 18, cmd.getOr("mock", 1));
 
                 RadixSort s0, s1;
                 s0.mInsecureMock = true;

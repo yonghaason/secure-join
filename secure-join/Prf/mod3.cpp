@@ -4,6 +4,7 @@
 #include "cryptoTools/Common/BitVector.h"
 #include "cryptoTools/Common/Aligned.h"
 
+#include <immintrin.h>
 namespace secJoin
 {
 
@@ -412,8 +413,8 @@ namespace secJoin
     void buildMod3Table()
     {
         std::array<u32, 256> ret;
-        auto m = 243;
-        auto s = 5;
+        u64 m = 243;
+        u64 s = 5;
         u32 vals[5];
         for (u64 j = 0; j < s; ++j)
             vals[j] = 0;
@@ -460,8 +461,8 @@ namespace secJoin
     void buildMod3Table2()
     {
         std::array<u32, 256> ret;
-        auto m = 243;
-        auto s = 5;
+       u64 m = 243;
+       u64 s = 5;
         u32 vals[5];
         for (u64 j = 0; j < s; ++j)
             vals[j] = 0;
@@ -489,7 +490,7 @@ namespace secJoin
             else
                 std::cout << "const std::array<std::array<u8, 5>, 256> mod3TableFull {{ \n";
 
-            char delim = ' ';
+            //char delim = ' ';
             for (u64 i = 0; i < 256; ++i)
             {
                 if (i < m)
@@ -562,66 +563,66 @@ namespace secJoin
     };
 
 
-    void buildMod3Table4()
-    {
-        //std::array<u32, 256> ret;
-        auto m = 27;
-        auto s = 3;
-        u32 vals[3];
-        for (u64 j = 0; j < s; ++j)
-            vals[j] = 0;
+    //void buildMod3Table4()
+    //{
+    //    //std::array<u32, 256> ret;
+    //    auto m = 27;
+    //    auto s = 3;
+    //    u32 vals[3];
+    //    for (u64 j = 0; j < s; ++j)
+    //        vals[j] = 0;
 
-        u64 sum[2];
-        sum[0] = 0;
-        sum[1] = 0;
+    //    u64 sum[2];
+    //    sum[0] = 0;
+    //    sum[1] = 0;
 
-        for (u64 i = 0; i < m; ++i)
-        {
-            sum[i / 16] += 3ull << (i * 4);
-        }
-        std::cout << "block validTable( " << sum[1] << "," << sum[0] << ");" << std::endl;
+    //    for (u64 i = 0; i < m; ++i)
+    //    {
+    //        sum[i / 16] += 3ull << (i * 4);
+    //    }
+    //    std::cout << "block validTable( " << sum[1] << "," << sum[0] << ");" << std::endl;
 
-        for (u64 l = 0; l < 2; ++l)
-        {
+    //    for (u64 l = 0; l < 2; ++l)
+    //    {
 
-            sum[0] = 0;
-            sum[1] = 0;
-            for (u64 i = 0; i < m; ++i)
-            {
-                u64 lsb = 0;
-                u64 msb = 0;
+    //        sum[0] = 0;
+    //        sum[1] = 0;
+    //        for (u64 i = 0; i < m; ++i)
+    //        {
+    //            u64 lsb = 0;
+    //            u64 msb = 0;
 
-                for (u64 j = 0; j < s; ++j)
-                {
-                    auto lsbj = vals[j] & 1;
-                    auto msbj = (vals[j] >> 1) & 1;
-                    lsb |= lsbj << j;
-                    msb |= msbj << j;
-                    //std::cout << vals[j] << "(" <<msbj<<"" << lsbj << "), ";
-                }
-                if (l == 0)
-                    sum[i / 16] += lsb << (i * 4);
-                else
-                    sum[i / 16] += msb << (i * 4);
+    //            for (u64 j = 0; j < s; ++j)
+    //            {
+    //                auto lsbj = vals[j] & 1;
+    //                auto msbj = (vals[j] >> 1) & 1;
+    //                lsb |= lsbj << j;
+    //                msb |= msbj << j;
+    //                //std::cout << vals[j] << "(" <<msbj<<"" << lsbj << "), ";
+    //            }
+    //            if (l == 0)
+    //                sum[i / 16] += lsb << (i * 4);
+    //            else
+    //                sum[i / 16] += msb << (i * 4);
 
 
-                ++vals[0];
-                for (u64 j = 0; j < s; ++j)
-                {
-                    if (vals[j] == 3 && j != s - 1)
-                        vals[j + 1]++;
-                    vals[j] = vals[j] % 3;
-                }
-            }
+    //            ++vals[0];
+    //            for (u64 j = 0; j < s; ++j)
+    //            {
+    //                if (vals[j] == 3 && j != s - 1)
+    //                    vals[j + 1]++;
+    //                vals[j] = vals[j] % 3;
+    //            }
+    //        }
 
-            if (l == 0)
-                std::cout << "block lsbTable(";
-            else
-                std::cout << "block msbTable(";
-            std::cout << sum[1] << "," << sum[0] << ");" << std::endl;
-        }
-        //return ret;
-    };
+    //        if (l == 0)
+    //            std::cout << "block lsbTable(";
+    //        else
+    //            std::cout << "block msbTable(";
+    //        std::cout << sum[1] << "," << sum[0] << ");" << std::endl;
+    //    }
+    //    //return ret;
+    //};
 
 
 
@@ -968,10 +969,13 @@ namespace secJoin
 
                 for (u64 k = 0; k < 8; ++k)
                 {
+                    u32* lsbSum32 = (u32*)&lsbSum[j];
+                    u32* msbSum32 = (u32*)&msbSum[j];
+                    u32* size32 = (u32*)&size[j];
 
-                    auto& lsbk = lsbSum[j].m256i_u32[k];
-                    auto& msbk = msbSum[j].m256i_u32[k];
-                    auto& sizek = size[j].m256i_u32[k];
+                    auto& lsbk = lsbSum32[k];
+                    auto& msbk = msbSum32[k];
+                    auto& sizek = size32[k];
 
                     while (sizek < 32)
                     {
@@ -1120,9 +1124,16 @@ namespace secJoin
                 for (u64 k = 0; k < 8; ++k)
                 {
 
-                    auto& lsbk = lsb[j].m256i_u32[k];
-                    auto& msbk = msb[j].m256i_u32[k];
-                    auto& sizek = size[j].m256i_u32[k];
+                    u32* lsbSum32 = (u32*)&lsb[j];
+                    u32* msbSum32 = (u32*)&msb[j];
+                    u32* size32 = (u32*)&size[j];
+
+                    auto& lsbk = lsbSum32[k];
+                    auto& msbk = msbSum32[k];
+                    auto& sizek = size32[k];
+                    //auto& lsbk = lsb[j].m256i_u32[k];
+                    //auto& msbk = msb[j].m256i_u32[k];
+                    //auto& sizek = size[j].m256i_u32[k];
                     while (sizek < 32)
                     {
                         if (randsPtr == e)
@@ -1200,350 +1211,358 @@ namespace secJoin
         return ss.str();
     }
 
-    void sampleMod3Lookup4(PRNG& prng, span<block> msbVec, span<block> lsbVec)
-    {
-
-        if (msbVec.size() & 1)
-            throw RTE_LOC;// must have even size.
-        if ((u64)msbVec.data() % 32)
-            throw RTE_LOC;// must be aligned.
-        if ((u64)lsbVec.data() % 32)
-            throw RTE_LOC;// must be aligned.
-#define SIMD(X)for (u64 X = 0; X< 8; ++X)
-
-
-        u64 n = msbVec.size();
-        auto msbIter = (__m128i*)msbVec.data();
-        auto lsbIter = (__m128i*)lsbVec.data();
-
-        oc::AlignedArray<block, 128> rands, rands2;
-        prng.mAes.ecbEncCounterMode(prng.mBlockIdx, rands.size(), rands.data());
-        prng.mBlockIdx += rands.size();
-        prng.mAes.ecbEncCounterMode(prng.mBlockIdx, rands2.size(), rands2.data());
-        prng.mBlockIdx += rands2.size();
-
-        auto randsPtr = rands.data();
-        auto rands2Ptr = (u8*)rands.data();
-        auto e = (rands.data() + rands.size());
-        auto e2 = (u8*)(rands2.data() + rands2.size());
-
-        // each byte containst two 3 bit samples. One in the lower
-        // nibble and one in the upper nibble. valid denotes if 
-        // there us a sample and takes n the value zero or three. 
-        // If a sample is valid (idx < 27), then either the lower or upper
-        // nibble is used to store the lsb and msb based on the parity of idx
-        block validTable(3518437208883, 3689348814741910323);
-        block lsbTable(69308780613, 5077321771357773840);
-        block msbTable(8136081884210, 2377918208894042368);
-        __m128i shifts[4];
-        shifts[0] = _mm_set1_epi32(0);
-        shifts[1] = _mm_set1_epi32(8);
-        shifts[2] = _mm_set1_epi32(16);
-        shifts[3] = _mm_set1_epi32(24);
-
-        for (u64 i = 0; i < 32; ++i)
-        {
-            auto vp = (u8*)&validTable;
-            auto lp = (u8*)&lsbTable;
-            auto mp = (u8*)&msbTable;
-
-            auto v = vp[i / 2] >> (4 * (i % 2));
-            auto l = lp[i / 2] >> (4 * (i % 2));
-            auto m = mp[i / 2] >> (4 * (i % 2));
-
-            if (i < 27)
-            {
-                assert(v);
-            }
-            std::array<int, 4> vals;
-            for (u64 j = 0; j < 4; ++j)
-            {
-                vals[j] = (l >> j) & 1 + ((m >> j) & 1) * 2;
-                assert(vals[j] < 3);
-            }
-        }
-
-        for (u64 i = 0; i < n; i += 8)
-        {
-
-            __m128i counts[8];// = _mm_setzero_si128();
-            __m128i lsbs[8];//= _mm_setzero_si128();
-            __m128i msbs[8];//= _mm_setzero_si128();
-
-            memset(counts, 0, sizeof(counts));
-            memset(lsbs, 0, sizeof(lsbs));
-            memset(msbs, 0, sizeof(msbs));
-
-            for (u64 tt = 0; tt < 3; ++tt)
-            {
-
-                if (randsPtr + 2 > e)
-                {
-                    prng.mAes.ecbEncCounterMode(prng.mBlockIdx, rands.size(), rands.data());
-                    prng.mBlockIdx += rands.size();
-                    randsPtr = rands.data();
-                }
-
-
-                //__m128i r_[8], b_[8];
-                //SIMD(j) r_[j] = _mm_load_si128((__m128i*)randsPtr++);
-                //SIMD(j) b_[j] = _mm_load_si128((__m128i*)randsPtr++);
-
-                //for (u64 t = 0; t < 2; ++t)
-                {
-                    __m128i bits[8], shft[8];
-                    //__m128i msb[8];
-                    __m128i vlds[8];
-                    __m128i vldsX[4][8];
-                    __m128i r[8], b[8];
-
-                    // the top and bottom 4 bits of each byte are used 
-                    // to sampled an mod 16 index.
-                    // we pack two samples in each byte. b is used to 
-                    // select which sample to use.
-                    //if (t)
-                    //{
-                    //    SIMD(j) r[j] = _mm_and_si128(r_[j], _mm_set1_epi8(0xF));
-                    //    SIMD(j) b[j] = b_[j];
-                    //}
-                    //else
-                    //{
-                    //    SIMD(j) r[j] = _mm_srli_epi16(r_[j], 4);
-                    //    SIMD(j) r[j] = _mm_and_si128(r_[j], _mm_set1_epi8(0xF));
-                    //    SIMD(j) b[j] = _mm_slli_epi16(b_[j], 1);
-                    //}
-
-                    SIMD(j) r[j] = _mm_load_si128((__m128i*)randsPtr++);
-                    SIMD(j) b[j] = _mm_load_si128((__m128i*)randsPtr++);
-
-                    SIMD(j) r[j] = _mm_and_si128(r[j], _mm_set1_epi8(31));
-                    SIMD(j) b[j] = _mm_and_si128(b[j], _mm_set1_epi8(31));
-
-                    //std::cout << "r0 " << v8(r[0]) << std::endl;
-                    //std::cout << "r1 " << v8(b[0]) << std::endl;
-
-                    // if r < 27, we take r, else we take b.
-                    SIMD(j) shft[j] = _mm_sub_epi8(r[j], _mm_set1_epi8(27));
-                    SIMD(j) r[j] = _mm_blendv_epi8(b[j], r[j], shft[j]);
-
-                    //std::cout << "s  " << vi8(shft[0]) << std::endl;
-                    //std::cout << "r  " << v8(r[0]) << std::endl;
-
-
-                    // b is the lsb of the index.
-                    // r is the rest.
-                    SIMD(j) b[j] = _mm_and_si128(r[j], _mm_set1_epi8(1));
-                    SIMD(j) r[j] = _mm_srli_epi16(r[j], 1);
-                    SIMD(j) r[j] = _mm_and_si128(r[j], _mm_set1_epi8(15));
-
-
-
-                    // use the index to sample the lsb, msb, and valid flag.
-                    SIMD(k) vlds[k] = _mm_shuffle_epi8(validTable, r[k]);
-                    SIMD(k) shft[k] = _mm_slli_epi16(vlds[k], 4);
-                    SIMD(k) vlds[k] = _mm_blendv_epi8(vlds[k], shft[k], b[k]);
-                    SIMD(k) vlds[k] = _mm_and_si128(vlds[k], _mm_set1_epi8(0xF));
-
-                    //std::cout << "vlds: " << v8(vlds[0]) << std::endl;
-
-                    // use the index to sample the lsb, msb, and valid flag.
-                    SIMD(k) bits[k] = _mm_shuffle_epi8(lsbTable, r[k]);
-                    SIMD(k) shft[k] = _mm_slli_epi16(bits[k], 4);
-                    SIMD(k) bits[k] = _mm_blendv_epi8(bits[k], shft[k], b[k]);
-                    //std::cout << "lsb: " << nibbles(bits[0]) << std::endl;
-
-                    for (u64 h = 0; h < 4; ++h)
-                    {
-
-                        SIMD(k) vldsX[h][k] = _mm_srav_epi32(vlds[k], shifts[h]);
-                        SIMD(k) vldsX[h][k] = _mm_and_epi32(vldsX[h][k], _mm_set1_epi32(255));
-
-                        SIMD(k) counts[k] = _mm_add_epi32(counts[k], vldsX[h][k]);
-                        //std::cout << "vlds "<<h<<": " << v32(vldsX[h][0]) << std::endl;
-
-                        SIMD(k) shft[k] = _mm_srav_epi32(bits[k], shifts[h]);
-                        SIMD(k) shft[k] = _mm_and_epi32(bits[k], _mm_set1_epi32(255));
-
-                        SIMD(k) lsbs[k] = _mm_srlv_epi32(lsbs[k], vldsX[h][k]);
-                        SIMD(k) lsbs[k] = _mm_or_si128(lsbs[k], shft[k]);
-
-
-                    }
-
-
-                    // use the index to sample the lsb, msb, and valid flag.
-                    SIMD(k) bits[k] = _mm_shuffle_epi8(msbTable, r[k]);
-                    SIMD(k) shft[k] = _mm_slli_epi16(bits[k], 4);
-                    SIMD(k) bits[k] = _mm_blendv_epi8(bits[k], shft[k], b[k]);
-                    //std::cout << "msb: " << nibbles(bits[0]) << std::endl;
-
-                    for (u64 h = 0; h < 4; ++h)
-                    {
-                        SIMD(k) shft[k] = _mm_srav_epi32(bits[k], shifts[h]);
-                        SIMD(k) shft[k] = _mm_and_epi32(bits[k], _mm_set1_epi32(255));
-
-                        SIMD(k) msbs[k] = _mm_srlv_epi32(msbs[k], vldsX[h][k]);
-                        SIMD(k) msbs[k] = _mm_or_si128(msbs[k], shft[k]);
-
-
-
-                        //{
-                        //    u32 sizes[4 * 8];
-                        //    static_assert(sizeof(sizes) == sizeof(counts), "expecting sizes to be the same size as counts");
-                        //    memcpy(sizes, &counts, sizeof(sizes));
-                        //    for(u64 w = 0; w < 4 * 8; ++w)
-                        //        assert(sizes[w] <= 3 * 12);
-
-                        //}
-                    }
-
-                    if (0)
-                    {
-                        // byte 0 for lsb and valid
-                        SIMD(k) vldsX[0][k] = _mm_and_epi32(vlds[k], _mm_set1_epi32(255));
-                        SIMD(k) shft[k] = _mm_and_epi32(bits[k], _mm_set1_epi32(255));
-                        SIMD(k) lsbs[k] = _mm_srlv_epi32(lsbs[k], vldsX[0][k]);
-                        SIMD(k) lsbs[k] = _mm_or_si128(lsbs[k], shft[k]);
-
-                        // byte 1 
-                        SIMD(k) vldsX[1][k] = _mm_srli_si128(vlds[k], 1);
-                        SIMD(k) vldsX[1][k] = _mm_and_epi32(vldsX[1][k], _mm_set1_epi32(255));
-
-                        SIMD(k) shft[k] = _mm_srli_si128(bits[k], 1);
-                        SIMD(k) shft[k] = _mm_and_epi32(bits[k], _mm_set1_epi32(255));
-
-                        SIMD(k) lsbs[k] = _mm_srlv_epi32(lsbs[k], vldsX[1][k]);
-                        SIMD(k) lsbs[k] = _mm_or_si128(lsbs[k], shft[k]);
-
-                        // byte 2
-                        SIMD(k) vldsX[2][k] = _mm_srli_si128(vlds[k], 2);
-                        SIMD(k) vldsX[2][k] = _mm_and_epi32(vldsX[2][k], _mm_set1_epi32(255));
-
-                        SIMD(k) shft[k] = _mm_srli_si128(bits[k], 2);
-                        SIMD(k) shft[k] = _mm_and_epi32(bits[k], _mm_set1_epi32(255));
-
-                        SIMD(k) lsbs[k] = _mm_srlv_epi32(lsbs[k], vldsX[2][k]);
-                        SIMD(k) lsbs[k] = _mm_or_si128(lsbs[k], shft[k]);
-
-                        // byte 3
-                        SIMD(k) vldsX[3][k] = _mm_srli_si128(vlds[k], 3);
-                        SIMD(k) vldsX[3][k] = _mm_and_epi32(vldsX[3][k], _mm_set1_epi32(255));
-
-                        SIMD(k) shft[k] = _mm_srli_si128(bits[k], 3);
-                        SIMD(k) shft[k] = _mm_and_epi32(bits[k], _mm_set1_epi32(255));
-
-                        SIMD(k) lsbs[k] = _mm_srlv_epi32(lsbs[k], vldsX[3][k]);
-                        SIMD(k) lsbs[k] = _mm_or_si128(lsbs[k], shft[k]);
-
-                        // msb
-
-                        // use the index to sample the lsb, msb, and valid flag.
-                        SIMD(k) bits[k] = _mm_shuffle_epi8(msbTable, r[k]);
-                        SIMD(k) shft[k] = _mm_slli_epi16(bits[k], 4);
-                        SIMD(k) bits[k] = _mm_blendv_epi8(bits[k], shft[k], b[k]);
-
-                        //byte 0 for msb
-                        SIMD(k) shft[k] = _mm_and_epi32(bits[k], _mm_set1_epi32(255));
-                        SIMD(k) msbs[k] = _mm_srlv_epi32(msbs[k], vldsX[0][k]);
-                        SIMD(k) msbs[k] = _mm_or_si128(msbs[k], shft[k]);
-
-
-                        // byte 1 
-                        SIMD(k) shft[k] = _mm_srli_si128(bits[k], 1);
-                        SIMD(k) shft[k] = _mm_and_epi32(bits[k], _mm_set1_epi32(255));
-
-                        SIMD(k) msbs[k] = _mm_srlv_epi32(msbs[k], vldsX[1][k]);
-                        SIMD(k) msbs[k] = _mm_or_si128(msbs[k], shft[k]);
-
-                        // byte 2 
-                        SIMD(k) shft[k] = _mm_srli_si128(bits[k], 2);
-                        SIMD(k) shft[k] = _mm_and_epi32(bits[k], _mm_set1_epi32(255));
-
-                        SIMD(k) msbs[k] = _mm_srlv_epi32(msbs[k], vldsX[2][k]);
-                        SIMD(k) msbs[k] = _mm_or_si128(msbs[k], shft[k]);
-
-                        // byte 3 
-                        SIMD(k) shft[k] = _mm_srli_si128(bits[k], 3);
-                        SIMD(k) shft[k] = _mm_and_epi32(bits[k], _mm_set1_epi32(255));
-
-                        SIMD(k) msbs[k] = _mm_srlv_epi32(msbs[k], vldsX[3][k]);
-                        SIMD(k) msbs[k] = _mm_or_si128(msbs[k], shft[k]);
-
-                        // counts
-                        SIMD(k) counts[k] = _mm_add_epi32(counts[k], vldsX[0][k]);
-                        SIMD(k) counts[k] = _mm_add_epi32(counts[k], vldsX[1][k]);
-                        SIMD(k) counts[k] = _mm_add_epi32(counts[k], vldsX[2][k]);
-                        SIMD(k) counts[k] = _mm_add_epi32(counts[k], vldsX[3][k]);
-                    }
-
-                    //// we accumulate the valid samples in 32 bits.
-                    //// but right now we have 3 bit samples in each byte.
-                    //// we need to shift the bytes and accumulate.
-                    //for (u64 j = 0; j < 4; ++j)
-                    //{
-
-                    //    // mask to only get the lower byte.
-                    //    auto lj = _mm_and_epi32(lsb[k], _mm_set1_epi32(255));
-                    //    auto mj = _mm_and_epi32(msb[k], _mm_set1_epi32(255));
-                    //    auto vj = _mm_and_epi32(valid[k], _mm_set1_epi32(255));
-
-                    //    // downshift the remaining bytes.
-                    //    lsb[k] = _mm_srli_si128(lsb[k], 1);
-                    //    msb[k] = _mm_srli_si128(msb[k], 1);
-                    //    valid[k] = _mm_srli_si128(valid[k], 1);
-
-                    //    // if the sample is valid, shift up the
-                    //    // accumulated samples and add the new sample.
-                    //    lsbs[k][j] = _mm_srlv_epi32(lsbs[k][j], vj);
-                    //    lsbs[k][j] = _mm_or_si128(lsbs[k][j], lj);
-
-                    //    msbs[k][j] = _mm_srlv_epi32(msbs[k][j], vj);
-                    //    msbs[k][j] = _mm_or_si128(msbs[k][j], mj);
-
-                    //    // increment the count if the sample is valid.
-                    //    counts[k][j] = _mm_add_epi8(counts[k][j], vj);
-                    //}
-
-                }
-
-            }
-#undef SIMD
-            //oc::AlignedArray<u32, 4> sizes;
-            //static_assert(sizeof(sizes) == sizeof(counts), "expecting sizes to be the same size as counts");
-            //memcpy(&sizes, &counts, sizeof(sizes));
-            for (u64 j = 0; j < 8; ++j)
-            {
-                for (u64 w = 0; w < 4; ++w)
-                {
-                    auto& lsbk = lsbs[j].m128i_u32[w];
-                    auto& msbk = msbs[j].m128i_u32[w];
-                    assert(counts[j].m128i_i32[w] <= 3 * 12);
-
-                    while (counts[j].m128i_i32[w] < 32)
-                    {
-                        if (rands2Ptr == e2)
-                        {
-                            prng.mAes.ecbEncCounterMode(prng.mBlockIdx, rands2.size(), rands.data());
-                            prng.mBlockIdx += rands2.size();
-                            rands2Ptr = (u8*)rands2.data();
-                        }
-
-                        auto b = *rands2Ptr++;
-                        auto v = mod3Table[b];
-                        auto lsbj = v & 255ull;
-                        auto msbj = (v >> 8) & 255ull;
-                        auto flag = 3 * (v >> 16);
-                        lsbk = lsbk << flag | lsbj;
-                        msbk = msbk << flag | msbj;
-
-                        counts[j].m128i_i32[w] += flag;
-                    }
-                }
-                msbIter[i + j] = msbs[j];
-                lsbIter[i + j] = lsbs[j];
-            }
-        }
-    }
+//    void sampleMod3Lookup4(PRNG& prng, span<block> msbVec, span<block> lsbVec)
+//    {
+//
+//        if (msbVec.size() & 1)
+//            throw RTE_LOC;// must have even size.
+//        if ((u64)msbVec.data() % 32)
+//            throw RTE_LOC;// must be aligned.
+//        if ((u64)lsbVec.data() % 32)
+//            throw RTE_LOC;// must be aligned.
+//#define SIMD(X)for (u64 X = 0; X< 8; ++X)
+//
+//
+//        u64 n = msbVec.size();
+//        auto msbIter = (__m128i*)msbVec.data();
+//        auto lsbIter = (__m128i*)lsbVec.data();
+//
+//        oc::AlignedArray<block, 128> rands, rands2;
+//        prng.mAes.ecbEncCounterMode(prng.mBlockIdx, rands.size(), rands.data());
+//        prng.mBlockIdx += rands.size();
+//        prng.mAes.ecbEncCounterMode(prng.mBlockIdx, rands2.size(), rands2.data());
+//        prng.mBlockIdx += rands2.size();
+//
+//        auto randsPtr = rands.data();
+//        auto rands2Ptr = (u8*)rands.data();
+//        auto e = (rands.data() + rands.size());
+//        auto e2 = (u8*)(rands2.data() + rands2.size());
+//
+//        // each byte containst two 3 bit samples. One in the lower
+//        // nibble and one in the upper nibble. valid denotes if 
+//        // there us a sample and takes n the value zero or three. 
+//        // If a sample is valid (idx < 27), then either the lower or upper
+//        // nibble is used to store the lsb and msb based on the parity of idx
+//        block validTable(3518437208883, 3689348814741910323);
+//        block lsbTable(69308780613, 5077321771357773840);
+//        block msbTable(8136081884210, 2377918208894042368);
+//        __m128i shifts[4];
+//        shifts[0] = _mm_set1_epi32(0);
+//        shifts[1] = _mm_set1_epi32(8);
+//        shifts[2] = _mm_set1_epi32(16);
+//        shifts[3] = _mm_set1_epi32(24);
+//
+//        for (u64 i = 0; i < 32; ++i)
+//        {
+//            auto vp = (u8*)&validTable;
+//            auto lp = (u8*)&lsbTable;
+//            auto mp = (u8*)&msbTable;
+//
+//            auto v = vp[i / 2] >> (4 * (i % 2));
+//            auto l = lp[i / 2] >> (4 * (i % 2));
+//            auto m = mp[i / 2] >> (4 * (i % 2));
+//
+//            if (i < 27)
+//            {
+//                assert(v);
+//            }
+//            std::array<int, 4> vals;
+//            for (u64 j = 0; j < 4; ++j)
+//            {
+//                vals[j] = (l >> j) & 1 + ((m >> j) & 1) * 2;
+//                assert(vals[j] < 3);
+//            }
+//        }
+//
+//        for (u64 i = 0; i < n; i += 8)
+//        {
+//
+//            __m128i counts[8];// = _mm_setzero_si128();
+//            __m128i lsbs[8];//= _mm_setzero_si128();
+//            __m128i msbs[8];//= _mm_setzero_si128();
+//
+//            memset(counts, 0, sizeof(counts));
+//            memset(lsbs, 0, sizeof(lsbs));
+//            memset(msbs, 0, sizeof(msbs));
+//
+//            for (u64 tt = 0; tt < 3; ++tt)
+//            {
+//
+//                if (randsPtr + 2 > e)
+//                {
+//                    prng.mAes.ecbEncCounterMode(prng.mBlockIdx, rands.size(), rands.data());
+//                    prng.mBlockIdx += rands.size();
+//                    randsPtr = rands.data();
+//                }
+//
+//
+//                //__m128i r_[8], b_[8];
+//                //SIMD(j) r_[j] = _mm_load_si128((__m128i*)randsPtr++);
+//                //SIMD(j) b_[j] = _mm_load_si128((__m128i*)randsPtr++);
+//
+//                //for (u64 t = 0; t < 2; ++t)
+//                {
+//                    __m128i bits[8], shft[8];
+//                    //__m128i msb[8];
+//                    __m128i vlds[8];
+//                    __m128i vldsX[4][8];
+//                    __m128i r[8], b[8];
+//
+//                    // the top and bottom 4 bits of each byte are used 
+//                    // to sampled an mod 16 index.
+//                    // we pack two samples in each byte. b is used to 
+//                    // select which sample to use.
+//                    //if (t)
+//                    //{
+//                    //    SIMD(j) r[j] = _mm_and_si128(r_[j], _mm_set1_epi8(0xF));
+//                    //    SIMD(j) b[j] = b_[j];
+//                    //}
+//                    //else
+//                    //{
+//                    //    SIMD(j) r[j] = _mm_srli_epi16(r_[j], 4);
+//                    //    SIMD(j) r[j] = _mm_and_si128(r_[j], _mm_set1_epi8(0xF));
+//                    //    SIMD(j) b[j] = _mm_slli_epi16(b_[j], 1);
+//                    //}
+//
+//                    SIMD(j) r[j] = _mm_load_si128((__m128i*)randsPtr++);
+//                    SIMD(j) b[j] = _mm_load_si128((__m128i*)randsPtr++);
+//
+//                    SIMD(j) r[j] = _mm_and_si128(r[j], _mm_set1_epi8(31));
+//                    SIMD(j) b[j] = _mm_and_si128(b[j], _mm_set1_epi8(31));
+//
+//                    //std::cout << "r0 " << v8(r[0]) << std::endl;
+//                    //std::cout << "r1 " << v8(b[0]) << std::endl;
+//
+//                    // if r < 27, we take r, else we take b.
+//                    SIMD(j) shft[j] = _mm_sub_epi8(r[j], _mm_set1_epi8(27));
+//                    SIMD(j) r[j] = _mm_blendv_epi8(b[j], r[j], shft[j]);
+//
+//                    //std::cout << "s  " << vi8(shft[0]) << std::endl;
+//                    //std::cout << "r  " << v8(r[0]) << std::endl;
+//
+//
+//                    // b is the lsb of the index.
+//                    // r is the rest.
+//                    SIMD(j) b[j] = _mm_and_si128(r[j], _mm_set1_epi8(1));
+//                    SIMD(j) r[j] = _mm_srli_epi16(r[j], 1);
+//                    SIMD(j) r[j] = _mm_and_si128(r[j], _mm_set1_epi8(15));
+//
+//
+//
+//                    // use the index to sample the lsb, msb, and valid flag.
+//                    SIMD(k) vlds[k] = _mm_shuffle_epi8(validTable, r[k]);
+//                    SIMD(k) shft[k] = _mm_slli_epi16(vlds[k], 4);
+//                    SIMD(k) vlds[k] = _mm_blendv_epi8(vlds[k], shft[k], b[k]);
+//                    SIMD(k) vlds[k] = _mm_and_si128(vlds[k], _mm_set1_epi8(0xF));
+//
+//                    //std::cout << "vlds: " << v8(vlds[0]) << std::endl;
+//
+//                    // use the index to sample the lsb, msb, and valid flag.
+//                    SIMD(k) bits[k] = _mm_shuffle_epi8(lsbTable, r[k]);
+//                    SIMD(k) shft[k] = _mm_slli_epi16(bits[k], 4);
+//                    SIMD(k) bits[k] = _mm_blendv_epi8(bits[k], shft[k], b[k]);
+//                    //std::cout << "lsb: " << nibbles(bits[0]) << std::endl;
+//
+//                    for (u64 h = 0; h < 4; ++h)
+//                    {
+//
+//                        SIMD(k) vldsX[h][k] = _mm_srav_epi32(vlds[k], shifts[h]);
+//                        SIMD(k) vldsX[h][k] = _mm_and_si128(vldsX[h][k], _mm_set1_epi32(255));
+//
+//                        SIMD(k) counts[k] = _mm_add_epi32(counts[k], vldsX[h][k]);
+//                        //std::cout << "vlds "<<h<<": " << v32(vldsX[h][0]) << std::endl;
+//
+//                        SIMD(k) shft[k] = _mm_srav_epi32(bits[k], shifts[h]);
+//                        SIMD(k) shft[k] = _mm_and_si128(bits[k], _mm_set1_epi32(255));
+//
+//                        SIMD(k) lsbs[k] = _mm_srlv_epi32(lsbs[k], vldsX[h][k]);
+//                        SIMD(k) lsbs[k] = _mm_or_si128(lsbs[k], shft[k]);
+//
+//
+//                    }
+//
+//
+//                    // use the index to sample the lsb, msb, and valid flag.
+//                    SIMD(k) bits[k] = _mm_shuffle_epi8(msbTable, r[k]);
+//                    SIMD(k) shft[k] = _mm_slli_epi16(bits[k], 4);
+//                    SIMD(k) bits[k] = _mm_blendv_epi8(bits[k], shft[k], b[k]);
+//                    //std::cout << "msb: " << nibbles(bits[0]) << std::endl;
+//
+//                    for (u64 h = 0; h < 4; ++h)
+//                    {
+//                        SIMD(k) shft[k] = _mm_srav_epi32(bits[k], shifts[h]);
+//                        SIMD(k) shft[k] = _mm_and_si128 (bits[k], _mm_set1_epi32(255));
+//
+//                        SIMD(k) msbs[k] = _mm_srlv_epi32(msbs[k], vldsX[h][k]);
+//                        SIMD(k) msbs[k] = _mm_or_si128(msbs[k], shft[k]);
+//
+//
+//
+//                        //{
+//                        //    u32 sizes[4 * 8];
+//                        //    static_assert(sizeof(sizes) == sizeof(counts), "expecting sizes to be the same size as counts");
+//                        //    memcpy(sizes, &counts, sizeof(sizes));
+//                        //    for(u64 w = 0; w < 4 * 8; ++w)
+//                        //        assert(sizes[w] <= 3 * 12);
+//
+//                        //}
+//                    }
+//
+//                    if (0)
+//                    {
+//                        // byte 0 for lsb and valid
+//                        SIMD(k) vldsX[0][k] = _mm_and_si128 (vlds[k], _mm_set1_epi32(255));
+//                        SIMD(k) shft[k] = _mm_and_si128 (bits[k], _mm_set1_epi32(255));
+//                        SIMD(k) lsbs[k] = _mm_srlv_epi32(lsbs[k], vldsX[0][k]);
+//                        SIMD(k) lsbs[k] = _mm_or_si128(lsbs[k], shft[k]);
+//
+//                        // byte 1 
+//                        SIMD(k) vldsX[1][k] = _mm_srli_si128(vlds[k], 1);
+//                        SIMD(k) vldsX[1][k] = _mm_and_si128 (vldsX[1][k], _mm_set1_epi32(255));
+//
+//                        SIMD(k) shft[k] = _mm_srli_si128(bits[k], 1);
+//                        SIMD(k) shft[k] = _mm_and_si128 (bits[k], _mm_set1_epi32(255));
+//
+//                        SIMD(k) lsbs[k] = _mm_srlv_epi32(lsbs[k], vldsX[1][k]);
+//                        SIMD(k) lsbs[k] = _mm_or_si128(lsbs[k], shft[k]);
+//
+//                        // byte 2
+//                        SIMD(k) vldsX[2][k] = _mm_srli_si128(vlds[k], 2);
+//                        SIMD(k) vldsX[2][k] = _mm_and_si128 (vldsX[2][k], _mm_set1_epi32(255));
+//
+//                        SIMD(k) shft[k] = _mm_srli_si128(bits[k], 2);
+//                        SIMD(k) shft[k] = _mm_and_si128 (bits[k], _mm_set1_epi32(255));
+//
+//                        SIMD(k) lsbs[k] = _mm_srlv_epi32(lsbs[k], vldsX[2][k]);
+//                        SIMD(k) lsbs[k] = _mm_or_si128(lsbs[k], shft[k]);
+//
+//                        // byte 3
+//                        SIMD(k) vldsX[3][k] = _mm_srli_si128(vlds[k], 3);
+//                        SIMD(k) vldsX[3][k] = _mm_and_si128 (vldsX[3][k], _mm_set1_epi32(255));
+//
+//                        SIMD(k) shft[k] = _mm_srli_si128(bits[k], 3);
+//                        SIMD(k) shft[k] = _mm_and_si128 (bits[k], _mm_set1_epi32(255));
+//
+//                        SIMD(k) lsbs[k] = _mm_srlv_epi32(lsbs[k], vldsX[3][k]);
+//                        SIMD(k) lsbs[k] = _mm_or_si128(lsbs[k], shft[k]);
+//
+//                        // msb
+//
+//                        // use the index to sample the lsb, msb, and valid flag.
+//                        SIMD(k) bits[k] = _mm_shuffle_epi8(msbTable, r[k]);
+//                        SIMD(k) shft[k] = _mm_slli_epi16(bits[k], 4);
+//                        SIMD(k) bits[k] = _mm_blendv_epi8(bits[k], shft[k], b[k]);
+//
+//                        //byte 0 for msb
+//                        SIMD(k) shft[k] = _mm_and_si128 (bits[k], _mm_set1_epi32(255));
+//                        SIMD(k) msbs[k] = _mm_srlv_epi32(msbs[k], vldsX[0][k]);
+//                        SIMD(k) msbs[k] = _mm_or_si128(msbs[k], shft[k]);
+//
+//
+//                        // byte 1 
+//                        SIMD(k) shft[k] = _mm_srli_si128(bits[k], 1);
+//                        SIMD(k) shft[k] = _mm_and_si128 (bits[k], _mm_set1_epi32(255));
+//
+//                        SIMD(k) msbs[k] = _mm_srlv_epi32(msbs[k], vldsX[1][k]);
+//                        SIMD(k) msbs[k] = _mm_or_si128(msbs[k], shft[k]);
+//
+//                        // byte 2 
+//                        SIMD(k) shft[k] = _mm_srli_si128(bits[k], 2);
+//                        SIMD(k) shft[k] = _mm_and_si128 (bits[k], _mm_set1_epi32(255));
+//
+//                        SIMD(k) msbs[k] = _mm_srlv_epi32(msbs[k], vldsX[2][k]);
+//                        SIMD(k) msbs[k] = _mm_or_si128(msbs[k], shft[k]);
+//
+//                        // byte 3 
+//                        SIMD(k) shft[k] = _mm_srli_si128(bits[k], 3);
+//                        SIMD(k) shft[k] = _mm_and_si128 (bits[k], _mm_set1_epi32(255));
+//
+//                        SIMD(k) msbs[k] = _mm_srlv_epi32(msbs[k], vldsX[3][k]);
+//                        SIMD(k) msbs[k] = _mm_or_si128(msbs[k], shft[k]);
+//
+//                        // counts
+//                        SIMD(k) counts[k] = _mm_add_epi32(counts[k], vldsX[0][k]);
+//                        SIMD(k) counts[k] = _mm_add_epi32(counts[k], vldsX[1][k]);
+//                        SIMD(k) counts[k] = _mm_add_epi32(counts[k], vldsX[2][k]);
+//                        SIMD(k) counts[k] = _mm_add_epi32(counts[k], vldsX[3][k]);
+//                    }
+//
+//                    //// we accumulate the valid samples in 32 bits.
+//                    //// but right now we have 3 bit samples in each byte.
+//                    //// we need to shift the bytes and accumulate.
+//                    //for (u64 j = 0; j < 4; ++j)
+//                    //{
+//
+//                    //    // mask to only get the lower byte.
+//                    //    auto lj = _mm_and_si128 (lsb[k], _mm_set1_epi32(255));
+//                    //    auto mj = _mm_and_si128 (msb[k], _mm_set1_epi32(255));
+//                    //    auto vj = _mm_and_si128 (valid[k], _mm_set1_epi32(255));
+//
+//                    //    // downshift the remaining bytes.
+//                    //    lsb[k] = _mm_srli_si128(lsb[k], 1);
+//                    //    msb[k] = _mm_srli_si128(msb[k], 1);
+//                    //    valid[k] = _mm_srli_si128(valid[k], 1);
+//
+//                    //    // if the sample is valid, shift up the
+//                    //    // accumulated samples and add the new sample.
+//                    //    lsbs[k][j] = _mm_srlv_epi32(lsbs[k][j], vj);
+//                    //    lsbs[k][j] = _mm_or_si128(lsbs[k][j], lj);
+//
+//                    //    msbs[k][j] = _mm_srlv_epi32(msbs[k][j], vj);
+//                    //    msbs[k][j] = _mm_or_si128(msbs[k][j], mj);
+//
+//                    //    // increment the count if the sample is valid.
+//                    //    counts[k][j] = _mm_add_epi8(counts[k][j], vj);
+//                    //}
+//
+//                }
+//
+//            }
+//#undef SIMD
+//            //oc::AlignedArray<u32, 4> sizes;
+//            //static_assert(sizeof(sizes) == sizeof(counts), "expecting sizes to be the same size as counts");
+//            //memcpy(&sizes, &counts, sizeof(sizes));
+//            for (u64 j = 0; j < 8; ++j)
+//            {
+//                for (u64 w = 0; w < 4; ++w)
+//                {
+//
+//                    u32* lsbSum32 = (u32*)&lsbs[j];
+//                    u32* msbSum32 = (u32*)&msbs[j];
+//                    u32* size32 = (u32*)&size[j];
+//
+//                    auto& lsbk = lsbSum32[w];
+//                    auto& msbk = msbSum32[w];
+//
+//                    auto& lsbk = lsbs[j].m128i_u32[w];
+//                    auto& msbk = msbs[j].m128i_u32[w];
+//                    assert(counts[j].m128i_i32[w] <= 3 * 12);
+//
+//                    while (counts[j].m128i_i32[w] < 32)
+//                    {
+//                        if (rands2Ptr == e2)
+//                        {
+//                            prng.mAes.ecbEncCounterMode(prng.mBlockIdx, rands2.size(), rands.data());
+//                            prng.mBlockIdx += rands2.size();
+//                            rands2Ptr = (u8*)rands2.data();
+//                        }
+//
+//                        auto b = *rands2Ptr++;
+//                        auto v = mod3Table[b];
+//                        auto lsbj = v & 255ull;
+//                        auto msbj = (v >> 8) & 255ull;
+//                        auto flag = 3 * (v >> 16);
+//                        lsbk = lsbk << flag | lsbj;
+//                        msbk = msbk << flag | msbj;
+//
+//                        counts[j].m128i_i32[w] += flag;
+//                    }
+//                }
+//                msbIter[i + j] = msbs[j];
+//                lsbIter[i + j] = lsbs[j];
+//            }
+//        }
+//    }
 
 
 }

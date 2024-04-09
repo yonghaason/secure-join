@@ -129,11 +129,7 @@ void Average_concatColumns_Test()
     BinMatrix compressKeys, y;
     
     CorGenerator ole;
-    ole.init(sock[0].fork(), prng, 1);
-
-    avg.init(groupByCol, avgCols, ole, false);    
-    avg.loadKeys(groupByCol, t0.mIsActive, compressKeys);
-    avg.concatColumns(groupByCol, avgCols, t0.mIsActive, compressKeys, y);
+    ole.init(coproto::Socket{}, prng, 1, 1, 1<<16, true);
 
     BinMatrix ones(n0, sizeof(oc::u64) * 8);
     for (oc::u64 i = 0; i < n0; i++)
@@ -239,8 +235,8 @@ void Average_getControlBits_Test(const oc::CLP& cmd)
     share(keys, kk[0], kk[1], prng);
 
     CorGenerator ole0, ole1;
-    ole0.init(sock[0].fork(), prng, 0, 1 << 16, mock);
-    ole1.init(sock[1].fork(), prng, 1, 1 << 16, mock);
+    ole0.init(sock[0].fork(), prng, 0, 1, 1 << 16, mock);
+    ole1.init(sock[1].fork(), prng, 1, 1, 1 << 16, mock);
 
     Average avg[2];
 
@@ -291,7 +287,69 @@ void Average_avg_Test(const oc::CLP& cmd)
         T.mColumns[2].mData.mData(i, 1) = i % 4;
     }
 
-    evalAverage( T, 0, {1 ,2} , printSteps, mock);
+    Average avg1, avg2;
+
+    avg1.mInsecurePrint = printSteps;
+    avg2.mInsecurePrint = printSteps;
+
+    avg1.mInsecureMockSubroutines = mock;
+    avg2.mInsecureMockSubroutines = mock;
+
+    auto sock = coproto::LocalAsyncSocket::makePair();
+
+    PRNG prng0(oc::ZeroBlock);
+    PRNG prng1(oc::OneBlock);
+
+    std::array<Table, 2> Ts;
+    share(T, Ts, prng0);
+
+    Ts[0].mIsActive.resize(nT);
+    Ts[1].mIsActive.resize(nT);
+    for (u64 i = 0; i < nT; i++)
+    {
+        Ts[0].mIsActive[i] = 1;
+        Ts[1].mIsActive[i] = 0;
+    }
+
+    auto exp = average(T[0], { T[1], T[2] });
+
+    CorGenerator ole0, ole1;
+    ole0.init(sock[0].fork(), prng0, 0, 1, 1 << 16, mock);
+    ole1.init(sock[1].fork(), prng1, 1, 1, 1 << 16, mock);
+
+    for (auto remDummies : { false, true })
+    {
+        Perm p0(exp.rows(), prng0);
+        Perm p1(exp.rows(), prng1);
+        Perm pi = p0.composeSwap(p1);
+
+        Table out[2];
+        auto r = macoro::sync_wait(macoro::when_all_ready(
+            avg1.avg(Ts[0][0], { Ts[0][1], Ts[0][2] }, out[0], prng0, ole0, sock[0], remDummies, p0),
+            avg2.avg(Ts[1][0], { Ts[1][1], Ts[1][2] }, out[1], prng1, ole1, sock[1], remDummies, p1)
+        ));
+        std::get<0>(r).result();
+        std::get<1>(r).result();
+
+        Table res;
+
+        res = reveal(out[0], out[1]);
+
+        if (remDummies)
+        {
+            Table tmp = applyPerm(exp, pi);
+            std::swap(exp, tmp);
+        }
+
+        if (res != exp)
+        {
+            std::cout << "remove dummies flag = " << remDummies << std::endl;
+            std::cout << "exp \n" << exp << std::endl;
+            std::cout << "act \n" << res << std::endl;
+            std::cout << "ful \n" << reveal(out[0], out[1], false) << std::endl;
+            throw RTE_LOC;
+        }
+    }
 
 }
 
@@ -303,11 +361,46 @@ void Average_avg_BigKey_Test(const oc::CLP& cmd)
     bool printSteps = cmd.isSet("print");
     bool mock = cmd.getOr("mock", 1);
 
-    T.init(nT, { {
-        {"L1", TypeID::IntID, 100},
-        {"L2", TypeID::IntID, 16},
-        {"L3", TypeID::IntID, 16}
-    } });
+    std::vector<oc::u64> joinCols, selectCols, groupByCols, avgCols;
+    u64 startIndex = 0;
+    parseColsArray(joinCols, selectCols, groupByCols, avgCols, opInfo, startIndex, printSteps);
+    updateSelectCols(selectCols, groupByCols, avgCols, printSteps);
+
+    oc::u64 lRowCount = 0, rRowCount = 0, lColCount = 0, rColCount = 0;
+    bool isBin;
+
+    std::vector<ColumnInfo> lColInfo, rColInfo;
+    getFileInfo(visaMetaDataPath, lColInfo, lRowCount, lColCount, isBin);
+    getFileInfo(clientMetaDataPath, rColInfo, rRowCount, rColCount, isBin);
+
+    Table L, R;
+
+    L.init(lRowCount, lColInfo);
+    R.init(rRowCount, rColInfo);
+
+    populateTable(L, visaCsvPath, lRowCount, isBin);
+    populateTable(R, bankCsvPath, rRowCount, isBin);
+
+    // Get Select Col Refs
+    std::vector<secJoin::ColRef> selectColRefs = getSelectColRef(selectCols, L, R);
+
+    // if (printSteps)
+    // {
+    //     std::cout << "L\n" << L << std::endl;
+    //     std::cout << "R\n" << R << std::endl;
+    // }
+
+    PRNG prng(oc::ZeroBlock);
+    std::array<Table, 2> Ls, Rs;
+    share(L, Ls, prng);
+    share(R, Rs, prng);
+
+    CorGenerator ole0, ole1;
+    PRNG prng0(oc::ZeroBlock);
+    PRNG prng1(oc::OneBlock);
+    auto sock = coproto::LocalAsyncSocket::makePair();
+    ole0.init(sock[0].fork(), prng0, 0,1,  1 << 16, mock);
+    ole1.init(sock[1].fork(), prng1, 1,1,  1 << 16, mock);
 
     for (u64 i = 0; i < nT; ++i)
     {

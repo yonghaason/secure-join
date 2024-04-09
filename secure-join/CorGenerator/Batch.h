@@ -14,6 +14,15 @@
 namespace secJoin
 {
     struct GenState;
+
+    struct BatchThreadState
+    {
+        oc::AlignedUnVector<block> mA, mB, mEncodeTemp, mPprfTemp;
+        //oc::BitVector mChoice;
+        macoro::eager_task<> mTask;
+    };
+
+
     struct Batch
     {
 
@@ -58,7 +67,7 @@ namespace secJoin
 
         // Get the task associated with this batch. If the task
         // has already been retrieved, this will be empty.
-        virtual macoro::task<> getTask() = 0;
+        virtual macoro::task<> getTask(BatchThreadState&) = 0;
 
         //virtual void mock(u64 batchIdx) = 0;
 

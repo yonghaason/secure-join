@@ -74,6 +74,10 @@ int main(int argc, char** argv)
         {
             AltMod_sampleMod3_benchmark(clp);
         }
+        if (clp.isSet("aes"))
+        {
+            aes_benchmark(clp);
+        }
         return 0;
     }
 

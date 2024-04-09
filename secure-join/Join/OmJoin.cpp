@@ -506,7 +506,7 @@ namespace secJoin
         mOffsets.emplace_back(Offset{ mDataBitsPerEntry, keySize, "key*" });
         mDataBitsPerEntry += schema.mKey.getByteCount() * 8;
 
-
+        std::cout << "sort " << rows << " rows " << keySize << " bits " << std::endl;
         mSort.init(mPartyIdx, rows, keySize, ole);
 
         // in the forward direction we will permute the keys, a flag, 
@@ -582,7 +582,7 @@ namespace secJoin
         MC_AWAIT(mSort.genPerm(keys, sPerm, sock, prng));
         setTimePoint("sort");
 
-        MC_AWAIT(sPerm.validate(sock));
+        //MC_AWAIT(sPerm.validate(sock));
 
         mPerm.preprocess();
         MC_AWAIT(prepro);

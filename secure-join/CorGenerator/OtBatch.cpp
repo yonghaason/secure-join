@@ -139,8 +139,8 @@ namespace secJoin
         };
     }
 
-    macoro::task<> OtBatch::getTask() {
-        MC_BEGIN(macoro::task<>, this,
+    macoro::task<> OtBatch::getTask(BatchThreadState& threadState) {
+        MC_BEGIN(macoro::task<>, this,&threadState,
             t = macoro::task<>{},
             msg = std::vector<std::array<block, 2>>{}
         );
@@ -187,17 +187,39 @@ namespace secJoin
                     }
                 }
             }
-
-
             t = mSendRecv | match{
                 [&](SendOtBatch& send) {
+
+                    send.mSender.mB = std::move(threadState.mB);
+                    send.mSender.mEncodeTemp = std::move(threadState.mEncodeTemp);
+                    //send.mMsg2 = std::move(threadState.mMsg2);
                     return send.sendTask(mPrng, mSock);
                 },
                 [&](RecvOtBatch& recv) {
+                    recv.mReceiver.mA = std::move(threadState.mA);
+                    recv.mReceiver.mEncodeTemp = std::move(threadState.mEncodeTemp);
+                    //recv.mChoice = std::move(threadState.mChoice);
+                    //recv.mMsg = std::move(threadState.mMsg);
                     return recv.recvTask(mPrng, mSock);
                 }
             };
+
             MC_AWAIT(t);
+
+
+            mSendRecv | match{
+                [&](SendOtBatch& send) {
+                    threadState.mB = std::move(send.mSender.mB);
+                    threadState.mEncodeTemp = std::move(send.mSender.mEncodeTemp);
+                    //threadState.mMsg2 = std::move(send.mMsg2);
+                },
+                [&](RecvOtBatch& recv) {
+                    threadState.mA = std::move(recv.mReceiver.mA);
+                    threadState.mEncodeTemp = std::move(recv.mReceiver.mEncodeTemp);
+                    //threadState.mChoice = std::move(recv.mChoice);
+                    //threadState.mMsg = std::move(recv.mMsg);
+                }
+            };
         }
 
 

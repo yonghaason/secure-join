@@ -848,8 +848,8 @@ void AltModPrf_mod2_test(const oc::CLP& cmd)
 
     CorGenerator ole0, ole1;
     auto chls = coproto::LocalAsyncSocket::makePair();
-    ole0.init(chls[0].fork(), prng0, 0, 1 << 18, cmd.getOr("mock", 1));
-    ole1.init(chls[1].fork(), prng1, 1, 1 << 18, cmd.getOr("mock", 1));
+    ole0.init(chls[0].fork(), prng0, 0, 1, 1 << 18, cmd.getOr("mock", 1));
+    ole1.init(chls[1].fork(), prng1, 1, 1, 1 << 18, cmd.getOr("mock", 1));
 
 
     //sender.init(n, ole0);
@@ -1185,8 +1185,8 @@ void AltModPrf_proto_test(const oc::CLP& cmd)
     AltModPrf dm(prng0.get());
 
     CorGenerator ole0, ole1;
-    ole0.init(sock[0].fork(), prng0, 0, 1 << 18, cmd.getOr("mock", 1));
-    ole1.init(sock[1].fork(), prng1, 1, 1 << 18, cmd.getOr("mock", 1));
+    ole0.init(sock[0].fork(), prng0, 0, 1, 1 << 18, cmd.getOr("mock", 1));
+    ole1.init(sock[1].fork(), prng1, 1, 1, 1 << 18, cmd.getOr("mock", 1));
 
     prng0.get(x.data(), x.size());
 

@@ -12,7 +12,9 @@ namespace secJoin
     void AltMod_compressB_benchmark(const oc::CLP& cmd);
     void AltMod_expandA_benchmark(const oc::CLP& cmd);
     void AltMod_sampleMod3_benchmark(const oc::CLP& cmd);
+
     void PprfPerm_benchmark(const oc::CLP& cmd);
     void transpose_benchmark(const oc::CLP& cmd);
-    
+    void aes_benchmark(const oc::CLP& cmd);
+
 }

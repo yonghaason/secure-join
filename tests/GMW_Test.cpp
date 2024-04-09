@@ -42,8 +42,8 @@ namespace secJoin_Tests
         //        u64 eqSize = cmd.getOr("e", n / 2);
 
         CorGenerator gen0, gen1;
-        gen0.init(oc::Socket{}, prng, 0, 1 << 18, cmd.getOr("mock", 1));
-        gen1.init(oc::Socket{}, prng, 1, 1 << 18, cmd.getOr("mock", 1));
+        gen0.init(oc::Socket{}, prng, 0, 1, 1 << 18, cmd.getOr("mock", 1));
+        gen1.init(oc::Socket{}, prng, 1, 1, 1 << 18, cmd.getOr("mock", 1));
 
         std::vector<block> input0(n), input1(n), z0(n), z1(n);
 
@@ -271,7 +271,7 @@ namespace secJoin_Tests
 
         PRNG prng(block(0, 0));
         CorGenerator ole;
-        ole.init(oc::Socket{}, prng, 0, 1 << 18, cmd.getOr("mock", 1));
+        ole.init(oc::Socket{}, prng, 0, 1, 1 << 18, cmd.getOr("mock", 1));
 
         Gmw gmw;
         gmw.init(n, cir, ole);
@@ -299,8 +299,8 @@ namespace secJoin_Tests
         PRNG prng(block(0, 0));
 
         CorGenerator ole0, ole1;
-        ole0.init(chls[0].fork(), prng, 0, 1 << 18, mock);
-        ole1.init(chls[1].fork(), prng, 1, 1 << 18, mock);
+        ole0.init(chls[0].fork(), prng, 0, 1, 1 << 18, mock);
+        ole1.init(chls[1].fork(), prng, 1, 1, 1 << 18, mock);
 
         Gmw gmw0, gmw1;
         gmw0.init(n, cir, ole0);
@@ -516,8 +516,8 @@ namespace secJoin_Tests
 
 
         CorGenerator ole0, ole1;
-        ole0.init(sockets[0].fork(), prng, 0, 1 << 18, cmd.getOr("mock", 1));
-        ole1.init(sockets[1].fork(), prng, 1, 1 << 18, cmd.getOr("mock", 1));
+        ole0.init(sockets[0].fork(), prng, 0, 1, 1 << 18, cmd.getOr("mock", 1));
+        ole1.init(sockets[1].fork(), prng, 1, 1, 1 << 18, cmd.getOr("mock", 1));
 
         gmw0.init(n, cir, ole0);
         gmw1.init(n, cir, ole1);

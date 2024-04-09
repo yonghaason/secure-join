@@ -16,13 +16,20 @@ namespace secJoin
         {
             mGenState->mReqs.push_back({ t, role, n });
         }
-        //std::cout << mGenState->mPartyIdx << " req " << (t==CorType::Ole? "ole" : "ot") << " " << role << " " << n << std::endl;
-
-        //        if (mGenState->mSession->mBaseStarted)
-        //            throw std::runtime_error("correlations can not be requested while another batch is in progress. " LOCATION);
         auto r = std::make_shared<RequestState>(t, role, n, mGenState, mGenState->mReqIndex++);
-        //mGenState->mRequests.push_back(r);
 
+
+        switch (r->mType)
+        {
+        case CorType::Ot:
+            mGenState->mNumOt += n;
+            break;
+        case CorType::Ole:
+            mGenState->mNumOle += n;
+            break;
+        default:
+            std::terminate();
+        }
 
         for (u64 j = 0;j < r->mSize;)
         {
@@ -42,12 +49,6 @@ namespace secJoin
                 if (batch == nullptr)
                 {
                     auto ss = mGenState->mSock.fork();
-                    //for (auto& slot : ss.mImpl->mSlots_)
-                    //    if (slot.mSessionID == ss.mId)
-                    //        slot.mName = std::string("gen_") + std::to_string(mBatches.size());
-
-                    //oc::PRNG prng;prng.SetSeed(mPrng.get(), 8);
-                    //mBatches.push_back(makeBatch(r->mSender, r->mType, std::move(ss), std::move(prng)));
                     mGenState->mBatches.push_back(makeBatch(mGenState.get(), r->mSender, r->mType, std::move(ss), mGenState->mPrng.fork()));
                     mGenState->mBatches.back()->mIndex = mGenState->mBatches.size() - 1;
                     batch = mGenState->mBatches.back();
@@ -60,7 +61,6 @@ namespace secJoin
                 assert(size <= remAvb);
 
                 batch->mSize += size;
-                //std::cout << "batch " << begin << " " << size << std::endl;
                 r->addBatch(BatchSegment{ batch, begin, size });
                 j += size;
 
@@ -93,17 +93,16 @@ namespace secJoin
             sPrng = PRNG{},
             rPrng = PRNG{},
             socks = std::array<oc::Socket, 2>{},
-
-            //batches = std::vector<std::shared_ptr<Batch>>{},
-
             req = BaseRequest{},
             reqs = std::vector<BaseRequest>{},
             temp = std::vector<u8>{},
             res = macoro::result<void>{},
             reqChecks = std::map<CorType, oc::RandomOracle>{},
-            theirReq = std::vector<ReqInfo>{}
+            theirReq = std::vector<ReqInfo>{},
+            threadState = std::vector<BatchThreadState>{}
         );
 
+        setTimePoint("GenState::start");
         mOtBatch = {};
         mOleBatch = {};
 
@@ -168,6 +167,8 @@ namespace secJoin
                 }
                 throw RTE_LOC;
             }
+            setTimePoint("GenState::debug");
+
         }
 
         req = BaseRequest(reqs);
@@ -208,31 +209,63 @@ namespace secJoin
             MC_AWAIT(rProto);
         }
 
+        setTimePoint("GenState::base");
 
-        //std::cout << (u64)this << " setting base " << std::endl;
-        for (i = 0, r = 0, s = 0; i < mBatches.size(); ++i)
+        threadState.resize(mNumConcurrent);
+
+
+
+        for (i = 0, r = 0, s = 0, j = -mNumConcurrent + 1; j != mBatches.size(); ++i, ++j)
         {
+            if (i < mBatches.size())
             {
-                auto& batch = *mBatches[i];
-                auto rBase = rMsg.subspan(r, reqs[i].mChoice.size());
-                r += reqs[i].mChoice.size();
+                MC_AWAIT(mBatches[i]->mStart);
 
-                auto sBase = sMsg.subspan(s, reqs[i].mSendSize);
-                s += reqs[i].mSendSize;
+                if (mBatches[i]->mAbort == false)
+                {
 
-                batch.setBase(rBase, sBase);
+                    auto& batch = *mBatches[i];
+                    auto rBase = rMsg.subspan(r, reqs[i].mChoice.size());
+                    r += reqs[i].mChoice.size();
+
+                    auto sBase = sMsg.subspan(s, reqs[i].mSendSize);
+                    s += reqs[i].mSendSize;
+
+                    batch.setBase(rBase, sBase);
+
+                    setTimePoint("GenState::batch.begin " + std::to_string(i));
+
+                    if (mPool)
+                    {
+                        // launch the next batch
+                        threadState[i % mNumConcurrent].mTask =
+                            mBatches[i]->getTask(threadState[i % mNumConcurrent]) |
+                            macoro::start_on(*mPool);
+                    }
+                    else
+                    {
+                        // launch the next batch
+                        threadState[i % mNumConcurrent].mTask =
+                            mBatches[i]->getTask(threadState[i % mNumConcurrent]) |
+                            macoro::make_eager();
+                    }
+                }
             }
 
-            MC_AWAIT(mBatches[i]->mStart);
 
-            if(mBatches[i]->mAbort == false)
-                MC_AWAIT(mBatches[i]->getTask());
+            // join the previous batch
+            if (j < mBatches.size())
+            {
+                if(threadState[j % mNumConcurrent].mTask.handle())
+                    MC_AWAIT(threadState[j % mNumConcurrent].mTask);
 
-            mBatches[i] = {};
+                setTimePoint("GenState::batch.end " + std::to_string(j));
+                mBatches[j] = {};
+            }
         }
 
-
         mBatches = {};
+        setTimePoint("GenState::done ");
 
         MC_END();
     }

@@ -51,7 +51,8 @@ namespace secJoin
                 oc::Socket& sock,
                 oc::AlignedUnVector<oc::block>& add,
                 oc::AlignedUnVector<oc::block>& mult,
-                macoro::async_manual_reset_event& corReady);
+                macoro::async_manual_reset_event& corReady,
+                BatchThreadState& threadState);
 
             // The routine that compresses the sender's OT messages
             // into OLEs. Basically, it just tasks the LSB of the OTs.
@@ -83,7 +84,8 @@ namespace secJoin
                 oc::Socket& sock,
                 oc::AlignedUnVector<oc::block>& add,
                 oc::AlignedUnVector<oc::block>& mult,
-                macoro::async_manual_reset_event& corReady);
+                macoro::async_manual_reset_event& corReady,
+                BatchThreadState& threadState);
 
             // The routine that compresses the sender's OT messages
             // into OLEs. Basically, it just tasks the LSB of the OTs.
@@ -104,7 +106,7 @@ namespace secJoin
         void setBase(span<oc::block> rMsg, span<std::array<oc::block, 2>> sMsg) override;
 
         // Get the task associated with this batch.
-        macoro::task<> getTask() override;
+        macoro::task<> getTask(BatchThreadState&) override;
 
         //void mock(u64 batchIdx) override;
 

@@ -32,8 +32,8 @@ void LowMC_eval_test(const oc::CLP& cmd)
 
     auto chls = coproto::LocalAsyncSocket::makePair();
     CorGenerator ole0, ole1;
-    ole0.init(chls[0].fork(), prng0, 0, 1<<18, cmd.getOr("mock", 1));
-    ole1.init(chls[1].fork(), prng1, 1, 1<<18, cmd.getOr("mock", 1));
+    ole0.init(chls[0].fork(), prng0, 0, 1, 1<<18, cmd.getOr("mock", 1));
+    ole1.init(chls[1].fork(), prng1, 1, 1, 1<<18, cmd.getOr("mock", 1));
     Gmw gmw0, gmw1;
     gmw0.init(n, cir, ole0);
     gmw1.init(n, cir, ole1);
@@ -88,8 +88,8 @@ void LowMCPerm_perm_test(const oc::CLP& cmd)
     for(auto invPerm : {PermOp::Regular,PermOp::Inverse})
     {
 
-        ole0.init(chls[0].fork(), prng, 0, 1 << 18, cmd.getOr("mock", 1));
-        ole1.init(chls[1].fork(), prng, 1, 1 << 18, cmd.getOr("mock", 1));
+        ole0.init(chls[0].fork(), prng, 0, 1, 1 << 18, cmd.getOr("mock", 1));
+        ole1.init(chls[1].fork(), prng, 1, 1, 1 << 18, cmd.getOr("mock", 1));
         pi.apply<u8>(x, yExp, invPerm);
 
         std::array<oc::Matrix<u8>, 2> sout;
@@ -146,8 +146,8 @@ void LowMCPerm_secret_shared_input_perm_test(const oc::CLP& cmd)
         sout[0].resize(n, rowSize);
         sout[1].resize(n, rowSize);
 
-        ole0.init(chls[0].fork(), prng, 0, 1 << 18, cmd.getOr("mock", 1));
-        ole1.init(chls[1].fork(), prng, 1, 1 << 18, cmd.getOr("mock", 1));
+        ole0.init(chls[0].fork(), prng, 0, 1, 1 << 18, cmd.getOr("mock", 1));
+        ole1.init(chls[1].fork(), prng, 1, 1, 1 << 18, cmd.getOr("mock", 1));
         throw oc::UnitTestSkipped("needs updating for new CorGen");
         //m1.init(n, rowSize, ole0);
         //m2.init(n, rowSize, ole1);

@@ -1,6 +1,6 @@
 #pragma once
 #include "cryptoTools/Common/Defines.h"
-#include "cryptoTools/Common/Block.h"
+#include "cryptoTools/Common/block.h"
 #include "cryptoTools/Crypto/PRNG.h"
 #include <iostream>
 #include <sstream>

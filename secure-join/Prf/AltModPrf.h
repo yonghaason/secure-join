@@ -56,7 +56,7 @@ namespace secJoin
     void sampleMod3Lookup(PRNG& prng, span<block> msb, span<block> lsb);
     void sampleMod3Lookup2(PRNG& prng, span<block> msb, span<block> lsb);
     void sampleMod3Lookup3(PRNG& prng, span<block> msbVec, span<block> lsbVec);
-    void sampleMod3Lookup4(PRNG& prng, span<block> msbVec, span<block> lsbVec);
+    //void sampleMod3Lookup4(PRNG& prng, span<block> msbVec, span<block> lsbVec);
 
     void buildMod3Table4();
 

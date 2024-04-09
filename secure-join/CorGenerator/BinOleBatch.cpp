@@ -68,14 +68,14 @@ namespace secJoin
         };
     }
 
-    macoro::task<> OleBatch::getTask()
+    macoro::task<> OleBatch::getTask(BatchThreadState& threadState)
     {
         return mSendRecv | match{
             [&](SendBatch& send) {
-                   return send.sendTask(mGenState, mIndex, mSize, mPrng, mSock, mAdd, mMult, mCorReady);
+                   return send.sendTask(mGenState, mIndex, mSize, mPrng, mSock, mAdd, mMult, mCorReady, threadState);
             },
             [&](RecvBatch& recv) {
-                  return  recv.recvTask(mGenState,mIndex, mSize, mPrng, mSock, mAdd, mMult, mCorReady);
+                  return  recv.recvTask(mGenState,mIndex, mSize, mPrng, mSock, mAdd, mMult, mCorReady, threadState);
             }
         };
     }
@@ -182,9 +182,11 @@ namespace secJoin
         oc::Socket& sock,
         oc::AlignedUnVector<oc::block>& add,
         oc::AlignedUnVector<oc::block>& mult,
-        macoro::async_manual_reset_event& corReady)
+        macoro::async_manual_reset_event& corReady,
+        BatchThreadState& threadState)
     {
-        MC_BEGIN(macoro::task<>, this, state, batchIdx, size, &prng, &sock, &add, &mult, &corReady,
+        MC_BEGIN(macoro::task<>, this, state, batchIdx, size, &prng,
+            &sock, &add, &mult, &corReady,&threadState,
             baseSend = std::vector<std::array<block, 2>>{});
 
         add.resize(oc::divCeil(size, 128));
@@ -215,9 +217,18 @@ namespace secJoin
 
             assert(mReceiver.mGen.hasBaseOts());
             mReceiver.mMultType = oc::MultType::Tungsten;
+            mReceiver.mA = std::move(threadState.mA);
+            mReceiver.mEncodeTemp = std::move(threadState.mEncodeTemp);
+            mReceiver.mGen.mTempBuffer = std::move(threadState.mPprfTemp);
+            mReceiver.mGen.mEagerSend = false;
+
             MC_AWAIT(mReceiver.silentReceiveInplace(mReceiver.mRequestNumOts, prng, sock, oc::ChoiceBitPacking::True));
             compressRecver(mReceiver.mA, add, mult);
-            mReceiver.clear();
+
+            threadState.mA = std::move(mReceiver.mA);
+            threadState.mEncodeTemp = std::move(mReceiver.mEncodeTemp);
+            threadState.mPprfTemp = std::move(mReceiver.mGen.mTempBuffer);
+
         }
 
         corReady.set();
@@ -232,9 +243,11 @@ namespace secJoin
         oc::Socket& sock,
         oc::AlignedUnVector<oc::block>& add,
         oc::AlignedUnVector<oc::block>& mult,
-        macoro::async_manual_reset_event& corReady)
+        macoro::async_manual_reset_event& corReady,
+        BatchThreadState& threadState)
     {
-        MC_BEGIN(macoro::task<>, this, state, batchIdx, size, &prng, &sock, &add, &mult, &corReady);
+        MC_BEGIN(macoro::task<>, this, state, batchIdx, size, &prng, 
+            &sock, &add, &mult, &corReady, &threadState);
 
 
         add.resize(oc::divCeil(size, 128));
@@ -254,9 +267,18 @@ namespace secJoin
             assert(mSender.mGen.hasBaseOts());
             mSender.mMultType = oc::MultType::Tungsten;
             
+
+            mSender.mB = std::move(threadState.mB);
+            mSender.mEncodeTemp = std::move(threadState.mEncodeTemp);
+            mSender.mGen.mTempBuffer = std::move(threadState.mPprfTemp);
+            mSender.mGen.mEagerSend = false;
+
             MC_AWAIT(mSender.silentSendInplace(prng.get(), mSender.mRequestNumOts, prng, sock));
             compressSender(mSender.mDelta, mSender.mB, add, mult);
-            mSender.clear();
+
+            threadState.mB = std::move(mSender.mB);
+            threadState.mEncodeTemp = std::move(mSender.mEncodeTemp);
+            threadState.mPprfTemp = std::move(mSender.mGen.mTempBuffer);
         }
 
 
