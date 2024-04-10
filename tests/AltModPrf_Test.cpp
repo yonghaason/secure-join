@@ -572,7 +572,7 @@ void AltModPrf_sampleMod3_test(const oc::CLP& cmd)
                 {
                     failed = true;
                 }
-            std::cout << "lookup1 { " << counts[0] << ", " << counts[1] << ", " << counts[2] << "}" << std::endl;
+            //std::cout << "lookup1 { " << counts[0] << ", " << counts[1] << ", " << counts[2] << "}" << std::endl;
         }
 
         for (u64 tt = 0; tt < t; ++tt)
@@ -607,7 +607,7 @@ void AltModPrf_sampleMod3_test(const oc::CLP& cmd)
                     failed = true;
                 }
 
-            std::cout << "lookup3 { " << counts[0] << ", " << counts[1] << ", " << counts[2] << "}" << std::endl;
+            //std::cout << "lookup3 { " << counts[0] << ", " << counts[1] << ", " << counts[2] << "}" << std::endl;
 
         }
         if (failed)

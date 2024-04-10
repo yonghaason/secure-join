@@ -174,9 +174,9 @@ namespace secJoin
         }
 
         if (cState->mIsUnique)
-            cState->mOle.init(cState->mSock.fork(), cState->mPrng, 0, 1 << 18, cState->mInsecureMockSubroutines);
+            cState->mOle.init(cState->mSock.fork(), cState->mPrng, 0, 1, 1 << 18, cState->mInsecureMockSubroutines);
         else
-            cState->mOle.init(cState->mSock.fork(), cState->mPrng, 1, 1 << 18, cState->mInsecureMockSubroutines);
+            cState->mOle.init(cState->mSock.fork(), cState->mPrng, 1, 1, 1 << 18, cState->mInsecureMockSubroutines);
 
         cState->mWh.mInsecureMockSubroutines = cState->mInsecureMockSubroutines;
         cState->mWh.init(cState->mJoinTb, cState->mGates, cState->mLiterals,  
@@ -204,9 +204,9 @@ namespace secJoin
                 inTb = cState->mWhTb;
 
             if (cState->mIsUnique)
-                cState->mOle.init(cState->mSock.fork(), cState->mPrng, 0, 1 << 18, cState->mInsecureMockSubroutines);
+                cState->mOle.init(cState->mSock.fork(), cState->mPrng, 0, 1, 1 << 18, cState->mInsecureMockSubroutines);
             else
-                cState->mOle.init(cState->mSock.fork(), cState->mPrng, 1, 1 << 18, cState->mInsecureMockSubroutines);
+                cState->mOle.init(cState->mSock.fork(), cState->mPrng, 1, 1, 1 << 18, cState->mInsecureMockSubroutines);
 
             std::vector<secJoin::ColRef> avgCols =
                 getColRefFromMapping(cState->mMap, cState->mAvgCols, inTb);

@@ -40,8 +40,8 @@ void evalAverage
 
     for (auto remDummies : { false, true })
     {
-        ole0.init(sock[0].fork(), prng0, 0, 1 << 16, mock);
-        ole1.init(sock[1].fork(), prng1, 1, 1 << 16, mock);
+        ole0.init(sock[0].fork(), prng0, 0, 1, 1 << 16, mock);
+        ole1.init(sock[1].fork(), prng1, 1, 1, 1 << 16, mock);
 
         Average avg0, avg1;
 
@@ -74,15 +74,7 @@ void evalAverage
 
         res = reveal(out[0], out[1], false);
 
-        Perm pi;
-        if (remDummies)
-        {
-            ComposedPerm p0 = avg0.mRemDummies.mPermutation;
-            ComposedPerm p1 = avg1.mRemDummies.mPermutation;
-            pi = p1.permShare().compose(p0.permShare());
-        }
-
-        auto exp = average(T[0], { T[1], T[2] }, remDummies, pi);
+        auto exp = average(T[0], { T[1], T[2] });
 
         if (res != exp)
         {
@@ -325,8 +317,8 @@ void Average_avg_Test(const oc::CLP& cmd)
 
         Table out[2];
         auto r = macoro::sync_wait(macoro::when_all_ready(
-            avg1.avg(Ts[0][0], { Ts[0][1], Ts[0][2] }, out[0], prng0, ole0, sock[0], remDummies, p0),
-            avg2.avg(Ts[1][0], { Ts[1][1], Ts[1][2] }, out[1], prng1, ole1, sock[1], remDummies, p1)
+            avg1.avg(Ts[0][0], { Ts[0][1], Ts[0][2] }, out[0], prng0, sock[0]),
+            avg2.avg(Ts[1][0], { Ts[1][1], Ts[1][2] }, out[1], prng1, sock[1])
         ));
         std::get<0>(r).result();
         std::get<1>(r).result();
@@ -337,8 +329,9 @@ void Average_avg_Test(const oc::CLP& cmd)
 
         if (remDummies)
         {
-            Table tmp = applyPerm(exp, pi);
-            std::swap(exp, tmp);
+            throw RTE_LOC;
+            //Table tmp = applyPerm(exp, pi);
+            //std::swap(exp, tmp);
         }
 
         if (res != exp)
@@ -363,54 +356,55 @@ void Average_avg_BigKey_Test(const oc::CLP& cmd)
 
     std::vector<oc::u64> joinCols, selectCols, groupByCols, avgCols;
     u64 startIndex = 0;
-    parseColsArray(joinCols, selectCols, groupByCols, avgCols, opInfo, startIndex, printSteps);
-    updateSelectCols(selectCols, groupByCols, avgCols, printSteps);
+    throw RTE_LOC;
+    //parseColsArray(joinCols, selectCols, groupByCols, avgCols, opInfo, startIndex, printSteps);
+    //updateSelectCols(selectCols, groupByCols, avgCols, printSteps);
 
-    oc::u64 lRowCount = 0, rRowCount = 0, lColCount = 0, rColCount = 0;
-    bool isBin;
+    //oc::u64 lRowCount = 0, rRowCount = 0, lColCount = 0, rColCount = 0;
+    //bool isBin;
 
-    std::vector<ColumnInfo> lColInfo, rColInfo;
-    getFileInfo(visaMetaDataPath, lColInfo, lRowCount, lColCount, isBin);
-    getFileInfo(clientMetaDataPath, rColInfo, rRowCount, rColCount, isBin);
+    //std::vector<ColumnInfo> lColInfo, rColInfo;
+    //getFileInfo(visaMetaDataPath, lColInfo, lRowCount, lColCount, isBin);
+    //getFileInfo(clientMetaDataPath, rColInfo, rRowCount, rColCount, isBin);
 
-    Table L, R;
+    //Table L, R;
 
-    L.init(lRowCount, lColInfo);
-    R.init(rRowCount, rColInfo);
+    //L.init(lRowCount, lColInfo);
+    //R.init(rRowCount, rColInfo);
 
-    populateTable(L, visaCsvPath, lRowCount, isBin);
-    populateTable(R, bankCsvPath, rRowCount, isBin);
+    //populateTable(L, visaCsvPath, lRowCount, isBin);
+    //populateTable(R, bankCsvPath, rRowCount, isBin);
 
-    // Get Select Col Refs
-    std::vector<secJoin::ColRef> selectColRefs = getSelectColRef(selectCols, L, R);
+    //// Get Select Col Refs
+    //std::vector<secJoin::ColRef> selectColRefs = getSelectColRef(selectCols, L, R);
 
-    // if (printSteps)
-    // {
-    //     std::cout << "L\n" << L << std::endl;
-    //     std::cout << "R\n" << R << std::endl;
-    // }
+    //// if (printSteps)
+    //// {
+    ////     std::cout << "L\n" << L << std::endl;
+    ////     std::cout << "R\n" << R << std::endl;
+    //// }
 
-    PRNG prng(oc::ZeroBlock);
-    std::array<Table, 2> Ls, Rs;
-    share(L, Ls, prng);
-    share(R, Rs, prng);
+    //PRNG prng(oc::ZeroBlock);
+    //std::array<Table, 2> Ls, Rs;
+    //share(L, Ls, prng);
+    //share(R, Rs, prng);
 
-    CorGenerator ole0, ole1;
-    PRNG prng0(oc::ZeroBlock);
-    PRNG prng1(oc::OneBlock);
-    auto sock = coproto::LocalAsyncSocket::makePair();
-    ole0.init(sock[0].fork(), prng0, 0,1,  1 << 16, mock);
-    ole1.init(sock[1].fork(), prng1, 1,1,  1 << 16, mock);
+    //CorGenerator ole0, ole1;
+    //PRNG prng0(oc::ZeroBlock);
+    //PRNG prng1(oc::OneBlock);
+    //auto sock = coproto::LocalAsyncSocket::makePair();
+    //ole0.init(sock[0].fork(), prng0, 0,1,  1 << 16, mock);
+    //ole1.init(sock[1].fork(), prng1, 1,1,  1 << 16, mock);
 
-    for (u64 i = 0; i < nT; ++i)
-    {
-        T.mColumns[0].mData.mData(i, 0) = i % 5;
-        T.mColumns[1].mData.mData(i, 0) = i % 4;
-        T.mColumns[1].mData.mData(i, 1) = i % 4;
-        T.mColumns[2].mData.mData(i, 0) = i % 4;
-        T.mColumns[2].mData.mData(i, 1) = i % 4;
-    }
+    //for (u64 i = 0; i < nT; ++i)
+    //{
+    //    T.mColumns[0].mData.mData(i, 0) = i % 5;
+    //    T.mColumns[1].mData.mData(i, 0) = i % 4;
+    //    T.mColumns[1].mData.mData(i, 1) = i % 4;
+    //    T.mColumns[2].mData.mData(i, 0) = i % 4;
+    //    T.mColumns[2].mData.mData(i, 1) = i % 4;
+    //}
 
-    evalAverage( T, 0, {1 ,2} , printSteps, mock);
+    //evalAverage( T, 0, {1 ,2} , printSteps, mock);
 
 }
