@@ -14,20 +14,20 @@
 #include "macoro/manual_reset_event.h"
 #include "macoro/variant.h"
 
-#include "libOTe/TwoChooseOne/Silent/SilentOtExtSender.h"
-#include "libOTe/TwoChooseOne/Silent/SilentOtExtReceiver.h"
 
 #include "Batch.h"
 #include "Correlations.h"
+#include "secure-join/CorGenerator/F4Vole/SilentF4VoleSender.h"
+#include "secure-join/CorGenerator/F4Vole/SilentF4VoleReceiver.h"
 
 namespace secJoin
 {
 
 
-
-    struct OleBatch : Batch
+    // 1 out of 3 OT of bit strings
+    struct F4BitOtBatch : Batch
     {
-        OleBatch(GenState* state, bool sender, oc::Socket&& s, PRNG&& p);
+        F4BitOtBatch(GenState* state, bool sender, oc::Socket&& s, PRNG&& p);
 
         //~OleBatch()
         //{
@@ -38,9 +38,10 @@ namespace secJoin
         struct SendBatch
         {
             // The OT Sender
-            oc::SilentOtExtSender mSender;
-            // The OT send messages
-            ;
+            SilentF4VoleSender mSender;
+            std::array<oc::AlignedUnVector<oc::block>, 4> mOts;
+
+            block mDelta = oc::ZeroBlock;
 
             // return the task that generate the Sender correlation.
             macoro::task<> sendTask(
@@ -49,22 +50,15 @@ namespace secJoin
                 u64 size,
                 PRNG& prng,
                 oc::Socket& sock,
-                oc::AlignedUnVector<oc::block>& add,
-                oc::AlignedUnVector<oc::block>& mult,
                 macoro::async_manual_reset_event& corReady,
                 BatchThreadState& threadState);
 
             // The routine that compresses the sender's OT messages
             // into OLEs. Basically, it just tasks the LSB of the OTs.
             void compressSender(
-                block delta,
-                span<oc::block> sendMsg,
-                span<oc::block> add,
-                span<oc::block> mult);
+                span<oc::block> A);
 
-            void mock(u64 batchIdx,
-                span<oc::block> add,
-                span<oc::block> mult);
+            void mock(u64 batchIdx, u64 n);
 
         };
 
@@ -73,7 +67,8 @@ namespace secJoin
         struct RecvBatch
         {
             // The OT receiver
-            oc::SilentOtExtReceiver mReceiver;
+            SilentF4VoleReceiver mReceiver;
+            oc::AlignedUnVector<oc::block> mOts, mChoiceLsb, mChoiceMsb;
 
             // return the task that generate the Sender correlation.
             macoro::task<> recvTask(
@@ -82,28 +77,24 @@ namespace secJoin
                 u64 size,
                 PRNG& prng,
                 oc::Socket& sock,
-                oc::AlignedUnVector<oc::block>& add,
-                oc::AlignedUnVector<oc::block>& mult,
                 macoro::async_manual_reset_event& corReady,
                 BatchThreadState& threadState);
 
             // The routine that compresses the sender's OT messages
             // into OLEs. Basically, it just tasks the LSB of the OTs.
-            void compressRecver(span<oc::block> recvMsg, span<oc::block> add, span<oc::block> mult);
+            void compressRecver(span<oc::block> B);
 
-            void mock(u64 batchIdx, span<oc::block> add, span<oc::block> mult);
+            void mock(u64 batchIdx, u64 n);
 
         };
 
         macoro::variant<SendBatch, RecvBatch> mSendRecv;
 
-        oc::AlignedUnVector<oc::block> mAdd, mMult;
-
         void getCor(Cor* c, u64 begin, u64 size) override;
 
         BaseRequest getBaseRequest() override;
 
-        void setBase(BaseCor& sMsg) override;
+        void setBase(BaseCor& ) override;
 
         // Get the task associated with this batch.
         macoro::task<> getTask(BatchThreadState&) override;
@@ -118,8 +109,7 @@ namespace secJoin
 
         void clear() override
         {
-            mAdd = {};
-            mMult = {};
+            mSendRecv.emplace<0>();
         }
     };
 

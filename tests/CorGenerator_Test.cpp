@@ -2,6 +2,82 @@
 #include "secure-join/CorGenerator/CorGenerator.h"
 
 using namespace secJoin;
+
+void CorGenerator_F4BitOt_Test(const oc::CLP& cmd)
+{
+
+    u64 n = (1ull << 16) + 3234;
+
+    for (auto mock : { false, true })
+    {
+
+        PRNG prng(oc::ZeroBlock);
+
+        auto sock = coproto::LocalAsyncSocket::makePair();
+        CorGenerator send;
+        CorGenerator recv;
+        send.init(std::move(sock[0]), prng, 0, 2, 1 << 18, mock);
+        recv.init(std::move(sock[1]), prng, 1, 2, 1 << 18, mock);
+
+        send.mGenState->mDebug = cmd.isSet("debug");
+        recv.mGenState->mDebug = cmd.isSet("debug");
+
+        auto sReq = send.request<F4BitOtSend>(n);
+        auto rReq = recv.request<F4BitOtRecv>(n);
+        auto p0 = send.start() | macoro::make_eager();
+        auto p1 = recv.start() | macoro::make_eager();
+
+
+        u64 s = 0;
+        while (s < n)
+        {
+            F4BitOtSend sot;
+            F4BitOtRecv rot;
+
+            auto r = macoro::sync_wait(macoro::when_all_ready(
+                sReq.get(sot),
+                rReq.get(rot)
+            ));
+
+            std::get<0>(r).result();
+            std::get<1>(r).result();
+
+            for (u64 i = 0; i < sot.size()/128; ++i)
+            {
+                auto exp =
+                    sot.mOts[0][i] & (~rot.mChoiceMsb[i]) & (~rot.mChoiceLsb[i]) ^
+                    sot.mOts[1][i] & (~rot.mChoiceMsb[i]) & ( rot.mChoiceLsb[i]) ^
+                    sot.mOts[2][i] & ( rot.mChoiceMsb[i]) & (~rot.mChoiceLsb[i]) ^
+                    sot.mOts[3][i] & ( rot.mChoiceMsb[i]) & ( rot.mChoiceLsb[i]);
+
+                if (exp != rot.mOts[i])
+                    throw RTE_LOC;
+                //if (i < 100)
+                //    std::cout << " "<< rot.mChoice[i] << std::endl;
+            }
+
+            s += sot.size();
+        }
+
+
+        auto r = macoro::sync_wait(macoro::when_all_ready(
+            std::move(p0), std::move(p1)
+        ));
+
+        std::get<0>(r).result();
+        std::get<1>(r).result();
+
+    }
+
+    //auto r = macoro::sync_wait(macoro::when_all_ready(
+    //    std::move(t0),
+    //    std::move(t1)
+    //));
+
+    //std::get<0>(r).result();
+    //std::get<1>(r).result();
+}
+
 void CorGenerator_Ot_Test(const oc::CLP&cmd)
 {
 

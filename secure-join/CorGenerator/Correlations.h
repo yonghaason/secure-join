@@ -18,7 +18,8 @@ namespace secJoin
     enum class CorType
     {
         Ot,
-        Ole
+        Ole,
+        F4BitOt
     };
 
     inline std::string toString(CorType t)
@@ -29,6 +30,8 @@ namespace secJoin
             return "CorType::Ot";
         case secJoin::CorType::Ole:
             return "CorType::Ole";
+        case secJoin::CorType::F4BitOt:
+            return "CorType::F4BitOt";
         default:
             return "CorType::?????";
         }
@@ -105,6 +108,50 @@ namespace secJoin
 
         oc::span<std::array<oc::block, 2>> msg() { return mMsg; }
     };
+
+
+
+    // A 1-out-of-4 OT of bits sender correlation.
+    struct F4BitOtSend : Cor
+    {
+
+        F4BitOtSend() : Cor(CorType::F4BitOt) {}
+        F4BitOtSend(const F4BitOtSend&) = delete;
+        F4BitOtSend& operator=(const F4BitOtSend&) = delete;
+        F4BitOtSend(F4BitOtSend&&) = default;
+        F4BitOtSend& operator=(F4BitOtSend&&) = default;
+
+
+        // the ole's
+        std::array<oc::span<oc::block>, 4> mOts;
+
+        u64 size() const
+        {
+            return mOts[0].size() * 128;
+        }
+
+    };
+
+    // A 1-out-of-4 OT of bits sender correlation.
+    struct F4BitOtRecv : Cor
+    {
+
+        F4BitOtRecv() : Cor(CorType::F4BitOt) {}
+        F4BitOtRecv(const F4BitOtRecv&) = delete;
+        F4BitOtRecv& operator=(const F4BitOtRecv&) = delete;
+        F4BitOtRecv(F4BitOtRecv&&) = default;
+        F4BitOtRecv& operator=(F4BitOtRecv&&) = default;
+
+        // the ole's
+        span<oc::block> mOts, mChoiceLsb, mChoiceMsb;
+
+        u64 size() const
+        {
+            return mOts.size() * 128;
+        }
+
+    };
+
 
 
     // A sender OT correlation.

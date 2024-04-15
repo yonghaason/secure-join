@@ -48,6 +48,7 @@ set(SRCS
 	AdditivePerm_Test.cpp
 	AltModPrf_Test.cpp
 	CorGenerator_Test.cpp
+    F4Vole_Test.cpp
 	GMW_Test.cpp
 	RadixSort_Test.cpp
 	AggTree_Tests.cpp

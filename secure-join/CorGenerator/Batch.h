@@ -63,7 +63,7 @@ namespace secJoin
 
         virtual BaseRequest getBaseRequest() = 0;
 
-        virtual void setBase(span<oc::block> rMsg, span<std::array<oc::block, 2>> sMsg) = 0;
+        virtual void setBase(BaseCor& cor) = 0;
 
         // Get the task associated with this batch. If the task
         // has already been retrieved, this will be empty.

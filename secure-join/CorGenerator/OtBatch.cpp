@@ -120,21 +120,17 @@ namespace secJoin
         return r;
     }
 
-    void OtBatch::setBase(span<oc::block> rMsg, span<std::array<oc::block, 2>> sMsg)
+    void OtBatch::setBase(BaseCor& base)
     {
         if (mGenState->mMock)
             return;
 
         mSendRecv | match{
             [&](SendOtBatch& send) {
-                if (rMsg.size())
-                    std::terminate();
-                send.mSender.setSilentBaseOts(sMsg);
+                send.mSender.setSilentBaseOts(base.getSendOt(send.mSender.silentBaseOtCount()));
             },
             [&](RecvOtBatch& recv) {
-                if (sMsg.size())
-                    std::terminate();
-                recv.mReceiver.setSilentBaseOts(rMsg);
+                recv.mReceiver.setSilentBaseOts(base.getRecvOt(recv.mReceiver.silentBaseOtCount()));
             }
         };
     }

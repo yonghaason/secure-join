@@ -55,7 +55,7 @@ namespace secJoin
 
         BaseRequest getBaseRequest() override;
 
-        void setBase(span<oc::block> rMsg, span<std::array<oc::block, 2>> sMsg) override;
+        void setBase(BaseCor& base) override;
 
         // Get the task associated with this batch.
         macoro::task<> getTask(BatchThreadState&) override;

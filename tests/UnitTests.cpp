@@ -22,6 +22,7 @@
 #include "CorGenerator_Test.h"
 #include "Average_Test.h"
 #include "Where_Test.h"
+#include "F4Vole_Test.h"
 
 namespace secJoin_Tests
 {
@@ -30,9 +31,12 @@ namespace secJoin_Tests
         {
 
 
+            t.add("F4Vole_Silent_paramSweep_test                 ", F4Vole_Silent_paramSweep_test);
             t.add("CorGenerator_Ot_Test                          ", CorGenerator_Ot_Test);
             t.add("CorGenerator_BinOle_Test                      ", CorGenerator_BinOle_Test);
+            t.add("CorGenerator_F4BitOt_Test                     ", CorGenerator_F4BitOt_Test);
             t.add("CorGenerator_mixed_Test                       ", CorGenerator_mixed_Test);
+            
 
             t.add("Gmw_half_test                                 ", Gmw_half_test);
             t.add("Gmw_basic_test                                ", Gmw_basic_test);

@@ -12,6 +12,10 @@
 #include "Batch.h"
 #include "Request.h"
 
+#include "secure-join/CorGenerator/F4Vole/SilentF4VoleSender.h"
+#include "secure-join/CorGenerator/F4Vole/SilentF4VoleReceiver.h"
+
+
 namespace secJoin
 {
 
@@ -47,9 +51,11 @@ namespace secJoin
         GenState(GenState&&) = delete;
 
 
-        oc::SoftSpokenShOtSender<> mSendBase;
-        oc::SoftSpokenShOtReceiver<> mRecvBase;
-
+        oc::SoftSpokenShOtSender<> mSendOtBase;
+        oc::SoftSpokenShOtReceiver<> mRecvOtBase;
+        
+        SilentF4VoleSender mSendVoleBase;
+        SilentF4VoleReceiver mRecvVoleBase;
 
         macoro::thread_pool* mPool = nullptr;
 
@@ -58,6 +64,7 @@ namespace secJoin
 
         u64 mNumOle = 0;
         u64 mNumOt = 0;
+        u64 mNumF4BitOt = 0;
 
         struct ReqInfo
         {
@@ -109,13 +116,12 @@ namespace secJoin
         // returns a task that constructs the base OTs and assigns them to mBatches.
         macoro::task<> start();
 
-        std::array<std::shared_ptr<Batch>, 2> mOtBatch;
-        std::array<std::shared_ptr<Batch>, 2> mOleBatch;
+        std::array<std::shared_ptr<Batch>, 2> mOtBatch, mOleBatch, mF4BitOtBatch;
         std::vector<std::shared_ptr<Batch>> mBatches;
 
 
-        void set(SendBase& b);
-        void set(RecvBase& b);
+        //void set(SendBase& b);
+        //void set(RecvBase& b);
 
 
         void startBatch(Batch* b)
@@ -170,26 +176,53 @@ namespace secJoin
         }
 
         Request<OtRecv> recvOtRequest(u64 n) {
-            if (initialized() == false)
-                throw std::runtime_error(LOCATION);
-            return Request<OtRecv>{request(CorType::Ot, 0, oc::roundUpTo(n, 128))};
+            return request<OtRecv>(n);
         }
         Request<OtSend> sendOtRequest(u64 n) {
-            if (initialized() == false)
-                throw std::runtime_error(LOCATION);
-            return Request<OtSend>{request(CorType::Ot, 1, oc::roundUpTo(n, 128))};
+            return request<OtSend>(n);
         }
         Request<BinOle> binOleRequest(u64 n) {
-            if (initialized() == false)
-                throw std::runtime_error(LOCATION);
-            return Request<BinOle>{request(CorType::Ole, mGenState->mPartyIdx, oc::roundUpTo(n, 128))};
+            return request<BinOle>(n);
         }
 
-        void setBaseOts(SendBase& sb, RecvBase& rb)
+
+        template<typename T>
+        auto request(u64 n)
         {
-            mGenState->set(sb);
-            mGenState->set(rb);
+            if (initialized() == false)
+                throw std::runtime_error(LOCATION);
+
+            if constexpr (std::is_same_v<T, OtRecv>)
+            {
+                return Request<OtRecv>{implRequest(CorType::Ot, 0, oc::roundUpTo(n, 128))};
+            }
+            else if constexpr (std::is_same_v<T, OtSend>)
+            {
+                return Request<OtSend>{implRequest(CorType::Ot, 1, oc::roundUpTo(n, 128))};
+            }
+            else if constexpr (std::is_same_v<T, F4BitOtRecv>)
+            {
+                return Request<F4BitOtRecv>{implRequest(CorType::F4BitOt, 0, oc::roundUpTo(n, 128))};
+            }
+            else if constexpr (std::is_same_v<T, F4BitOtSend>)
+            {
+                return Request<F4BitOtSend>{implRequest(CorType::F4BitOt, 1, oc::roundUpTo(n, 128))};
+            }
+            else if constexpr (std::is_same_v<T, BinOle>)
+            {
+                return Request<BinOle>{implRequest(CorType::Ole, mGenState->mPartyIdx, oc::roundUpTo(n, 128))};
+            }
+            else
+            {
+                static_assert(0, "request type not supported");
+            }
         }
+
+        //void setBaseOts(SendBase& sb, RecvBase& rb)
+        //{
+        //    mGenState->set(sb);
+        //    mGenState->set(rb);
+        //}
 
         bool initialized()const
         {
@@ -224,7 +257,7 @@ namespace secJoin
 
     private:
 
-        std::shared_ptr<RequestState> request(CorType, u64 role, u64 size);
+        std::shared_ptr<RequestState> implRequest(CorType, u64 role, u64 size);
 
     };
 

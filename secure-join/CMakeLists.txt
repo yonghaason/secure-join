@@ -14,6 +14,7 @@ set(SRCS
     "CorGenerator/Batch.cpp"
     "CorGenerator/OtBatch.cpp"
     "CorGenerator/BinOleBatch.cpp"
+    "CorGenerator/F4BitOtBatch.cpp"
 
     
     "Perm/Permutation.cpp"
