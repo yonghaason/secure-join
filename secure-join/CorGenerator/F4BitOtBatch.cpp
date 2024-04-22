@@ -117,6 +117,13 @@ namespace secJoin
 		mOts[2].resize(m);
 		mOts[3].resize(m);
 
+		if (1)
+		{
+			for (u64 j = 0; j < 4; ++j)
+				memset<block>(mOts[j], 0);
+			return;
+		}
+
 		//auto m = add.size();
 		auto m8 = m / 8 * 8;
 		oc::block mm8(4532453452, 43254534);
@@ -138,14 +145,14 @@ namespace secJoin
 
 			for (u64 j = 1; j < 4; ++j)
 			{
-				mOts[j].data()[i + 0] = mOts[0].data()[i+0] ^ diff[j];
-				mOts[j].data()[i + 1] = mOts[0].data()[i+1] ^ diff[j];
-				mOts[j].data()[i + 2] = mOts[0].data()[i+2] ^ diff[j];
-				mOts[j].data()[i + 3] = mOts[0].data()[i+3] ^ diff[j];
-				mOts[j].data()[i + 4] = mOts[0].data()[i+4] ^ diff[j];
-				mOts[j].data()[i + 5] = mOts[0].data()[i+5] ^ diff[j];
-				mOts[j].data()[i + 6] = mOts[0].data()[i+6] ^ diff[j];
-				mOts[j].data()[i + 7] = mOts[0].data()[i+7] ^ diff[j];
+				mOts[j].data()[i + 0] = mOts[0].data()[i + 0] ^ diff[j];
+				mOts[j].data()[i + 1] = mOts[0].data()[i + 1] ^ diff[j];
+				mOts[j].data()[i + 2] = mOts[0].data()[i + 2] ^ diff[j];
+				mOts[j].data()[i + 3] = mOts[0].data()[i + 3] ^ diff[j];
+				mOts[j].data()[i + 4] = mOts[0].data()[i + 4] ^ diff[j];
+				mOts[j].data()[i + 5] = mOts[0].data()[i + 5] ^ diff[j];
+				mOts[j].data()[i + 6] = mOts[0].data()[i + 6] ^ diff[j];
+				mOts[j].data()[i + 7] = mOts[0].data()[i + 7] ^ diff[j];
 				diff[j] = diff[j] + diff[j] ^ block(342134123, 213412341);
 			}
 
@@ -191,6 +198,13 @@ namespace secJoin
 		mOts.resize(m);
 		mChoiceLsb.resize(m);
 		mChoiceMsb.resize(m);
+		if (1)
+		{
+			memset<block>(mOts, 0);
+			memset<block>(mChoiceLsb, 0);
+			memset<block>(mChoiceMsb, 0);
+			return;
+		}
 
 		//auto m = add.size();
 		auto m8 = m / 8 * 8;
@@ -200,8 +214,8 @@ namespace secJoin
 		for (u64 i = 0; i < 4; ++i)
 			diff[i] = block(409890897878905234 * i + 45234523, 5234565646423452 * i + 409890897878905234);
 		u64 i = 0;
-		std::array< std::array<block, 8>,4> ots;
-			
+		std::array< std::array<block, 8>, 4> ots;
+
 		while (i < m8)
 		{
 

@@ -136,11 +136,16 @@ namespace secJoin
         // The number of input we will have.
         u64 mInputSize = 0;
 
-        // The Ole request that will be used for the mod2 operation
-        BinOleRequest mOleReq_;
-
         // The base ot request that will be used for the key
-        OtRecvRequest mKeyReq_;
+        OtRecvRequest mKeyReq;
+
+        // The Ole request that will be used for the mod2 operation
+        BinOleRequest mOleReq;
+
+        // the 1-oo-4 OT request that will be used for the mod2 operations
+        Request<F4BitOtSend> mOtSendReq;
+
+        bool mUseMod2F4Ot = true;
 
         // variables that are used for debugging.
         oc::Matrix<oc::block> mDebugXk0, mDebugXk1, mDebugU0, mDebugU1, mDebugV;
@@ -171,18 +176,28 @@ namespace secJoin
             }
             else
             {
-                mKeyReq_ = ole.recvOtRequest(AltModPrf::KeySize);
+                mKeyReq = ole.recvOtRequest(AltModPrf::KeySize);
             }
 
-            auto numOle = oc::roundUpTo(mInputSize, 128) * AltModPrf::MidSize * 2;
-            mOleReq_ = ole.binOleRequest(numOle);
+
+            if (mUseMod2F4Ot)
+            {
+                auto num = oc::roundUpTo(mInputSize, 128) * AltModPrf::MidSize;
+                mOtSendReq = ole.request<F4BitOtSend>(num);
+            }
+            else
+            {
+                auto numOle = oc::roundUpTo(mInputSize, 128) * AltModPrf::MidSize * 2;
+                mOleReq = ole.binOleRequest(numOle);
+            }
         }
 
         // clear the state. Removes any key that is set can cancels the prepro (if any).
         void clear()
         {
-            mOleReq_.clear();
-            mKeyReq_.clear();
+            mOtSendReq.clear();
+            mOleReq.clear();
+            mKeyReq.clear();
             mKeyOTs.clear();
             mInputSize = 0;
             memset(mPrf.mExpandedKey.data(), 0, sizeof(mPrf.mExpandedKey));
@@ -191,10 +206,13 @@ namespace secJoin
         // perform the correlated randomness generation. 
         void preprocess()
         {
-            mOleReq_.start();
+            if (mUseMod2F4Ot)
+                mOtSendReq.start();
+            else
+                mOleReq.start();
 
-            if (mKeyReq_.size())
-                mKeyReq_.start();
+            if (mKeyReq.size())
+                mKeyReq.start();
         }
 
         // explicitly set the key and key OTs.
@@ -238,12 +256,21 @@ namespace secJoin
         //    }
         //}
 
-        // the mod 2 subprotocol.
-        macoro::task<> mod2(
+        // the mod 2 subprotocol based on OLE.
+        macoro::task<> mod2Ole(
             oc::MatrixView<oc::block> u0,
             oc::MatrixView<oc::block> u1,
             oc::MatrixView<oc::block> out,
             coproto::Socket& sock);
+
+
+        // the mod 2 subprotocol based on F4 OT.
+        macoro::task<> mod2OtF4(
+            oc::MatrixView<oc::block> u0,
+            oc::MatrixView<oc::block> u1,
+            oc::MatrixView<oc::block> out,
+            coproto::Socket& sock);
+
 
     };
 
@@ -262,10 +289,14 @@ namespace secJoin
         u64 mInputSize = 0;
 
         // The Ole request that will be used for the mod2 operation
-        BinOleRequest mOleReq_;
+        BinOleRequest mOleReq;
+
+        Request<F4BitOtRecv> mOtRecvReq;
 
         // The base ot request that will be used for the key
-        OtSendRequest mKeyReq_;
+        OtSendRequest mKeyReq;
+
+        bool mUseMod2F4Ot = true;
 
         // variables that are used for debugging.
         oc::Matrix<oc::block> mDebugXk0, mDebugXk1, mDebugU0, mDebugU1, mDebugV;
@@ -280,8 +311,9 @@ namespace secJoin
         // clears any internal state.
         void clear()
         {
-            mOleReq_.clear();
-            mKeyReq_.clear();
+            mOtRecvReq.clear();
+            mOleReq.clear();
+            mKeyReq.clear();
             mKeyOTs.clear();
             mInputSize = 0;
         }
@@ -304,23 +336,36 @@ namespace secJoin
 
             if (keyOts.size() == 0)
             {
-                mKeyReq_ = ole.sendOtRequest(AltModPrf::KeySize);
+                mKeyReq = ole.sendOtRequest(AltModPrf::KeySize);
             }
             else
             {
                 setKeyOts(keyOts);
             }
 
-            auto numOle = oc::roundUpTo(mInputSize, 128) * AltModPrf::MidSize * 2;
-            mOleReq_ = ole.binOleRequest(numOle);
+            if (mUseMod2F4Ot)
+            {
+                auto numOle = oc::roundUpTo(mInputSize, 128) * AltModPrf::MidSize;
+                mOtRecvReq = ole.request<F4BitOtRecv>(numOle);
+            }
+            else
+            {
+
+                auto numOle = oc::roundUpTo(mInputSize, 128) * AltModPrf::MidSize * 2;
+                mOleReq = ole.binOleRequest(numOle);
+            }
         }
 
         // Perform the preprocessing for the correlated randomness and key gen (if requested).
         void preprocess()
         {
-            mOleReq_.start();
-            if (mKeyReq_.size())
-                mKeyReq_.start();
+            if (mUseMod2F4Ot)
+                mOtRecvReq.start();
+            else
+                mOleReq.start();
+
+            if (mKeyReq.size())
+                mKeyReq.start();
 
         }
 
@@ -332,8 +377,15 @@ namespace secJoin
             coproto::Socket& sock,
             PRNG&);
 
-        // the mod 2 subprotocol.
-        macoro::task<> mod2(
+        // the mod 2 subprotocol based on ole.
+        macoro::task<> mod2Ole(
+            oc::MatrixView<oc::block> u0,
+            oc::MatrixView<oc::block> u1,
+            oc::MatrixView<oc::block> out,
+            coproto::Socket& sock);
+
+        // the mod 2 subprotocol based on ole.
+        macoro::task<> mod2OtF4(
             oc::MatrixView<oc::block> u0,
             oc::MatrixView<oc::block> u1,
             oc::MatrixView<oc::block> out,

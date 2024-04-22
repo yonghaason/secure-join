@@ -14,7 +14,7 @@ namespace secJoin
         OtRecvRequest mRecvReq;
 
         // The correlated randomness used when the sender.
-        OtSendRequest mSendReq;
+        OtSendRequest mOtSendReq;
 
         // True if preprocess has been called.
         bool mHasPreprocessing = false;
@@ -51,7 +51,7 @@ namespace secJoin
             if (gen.partyIdx())
                 mRecvReq = gen.recvOtRequest(mRowCount * mInBitCount);
             else
-                mSendReq = gen.sendOtRequest(mRowCount * mInBitCount);
+                mOtSendReq = gen.sendOtRequest(mRowCount * mInBitCount);
             mRequested = true;
         }
 

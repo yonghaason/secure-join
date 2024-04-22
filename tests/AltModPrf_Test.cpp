@@ -771,7 +771,7 @@ void AltModPrf_BMult_test(const oc::CLP& cmd)
     }
 }
 
-void AltModPrf_mod2_test(const oc::CLP& cmd)
+void AltModPrf_mod2Ole_test(const oc::CLP& cmd)
 {
 
 
@@ -856,17 +856,18 @@ void AltModPrf_mod2_test(const oc::CLP& cmd)
     //recver.init(n, ole1);
     //    sender.request(ole0);
     //    recver.request(ole1);
-    sender.mOleReq_ = ole0.binOleRequest(u0s[0].rows() * u0s[0].cols() * 256);
-    recver.mOleReq_ = ole1.binOleRequest(u0s[0].rows() * u0s[0].cols() * 256);
-
+    sender.mOleReq = ole0.binOleRequest(u0s[0].rows() * u0s[0].cols() * 256);
+    recver.mOleReq = ole1.binOleRequest(u0s[0].rows() * u0s[0].cols() * 256);
+    sender.mUseMod2F4Ot = false;
+    recver.mUseMod2F4Ot = false;
     //auto s0 = sender.mOleReq_.start() | macoro::make_eager();
     //auto s1 = recver.mOleReq_.start() | macoro::make_eager();
     //sender.mHasOleRequest = true;
     //recver.mHasOleRequest = true;
 
     auto r = macoro::sync_wait(macoro::when_all_ready(
-        sender.mod2(u0s[0], u1s[0], outs[0], sock[0]),
-        recver.mod2(u0s[1], u1s[1], outs[1], sock[1]),
+        sender.mod2Ole(u0s[0], u1s[0], outs[0], sock[0]),
+        recver.mod2Ole(u0s[1], u1s[1], outs[1], sock[1]),
         ole0.start(),
         ole1.start()
     ));
@@ -899,6 +900,137 @@ void AltModPrf_mod2_test(const oc::CLP& cmd)
         }
     }
 }
+
+
+void AltModPrf_mod2OtF4_test(const oc::CLP& cmd)
+{
+
+
+    u64 n = cmd.getOr("n", 12802);
+    u64 m = cmd.getOr("m", 128);
+    auto m128 = oc::divCeil(m, 128);
+
+
+    u64 printI = cmd.getOr("i", -1);
+    u64 printJ = cmd.getOr("j", -1);
+
+    PRNG prng0(oc::ZeroBlock);
+    PRNG prng1(oc::OneBlock);
+    oc::Timer timer;
+
+    AltModPrfSender sender;
+    AltModPrfReceiver recver;
+
+    //sender.mPrintI = printI;
+    //sender.mPrintJ = printJ;
+    //recver.mPrintI = printI;
+    //recver.mPrintJ = printJ;
+
+    sender.setTimer(timer);
+    recver.setTimer(timer);
+
+    oc::Matrix<u16> u(n, m);
+    std::array<oc::Matrix<u16>, 2> us;
+    us[0].resize(n, m);
+    us[1].resize(n, m);
+    for (u64 i = 0; i < u.rows(); ++i)
+    {
+        for (u64 j = 0; j < u.cols(); ++j)
+        {
+
+            u(i, j) = prng0.get<u8>() % 3;
+            us[0](i, j) = prng0.get<u8>() % 3;
+            us[1](i, j) = u8(u(i, j) + 3 - us[0](i, j)) % 3;
+            assert((u8(us[0](i, j) + us[1](i, j)) % 3) == u(i, j));
+        }
+    }
+
+
+    //auto us = xorShare(u, prng0);
+
+    std::array<oc::Matrix<oc::block>, 2> u0s, u1s;
+    u0s[0].resize(n, m128);
+    u0s[1].resize(n, m128);
+    u1s[0].resize(n, m128);
+    u1s[1].resize(n, m128);
+    mod3BitDecompostion(us[0], u0s[0], u1s[0]);
+    mod3BitDecompostion(us[1], u0s[1], u1s[1]);
+
+    //if (i == printI && j == printJ)
+    if (printI < n)
+    {
+        auto i = printI;
+        auto j = printJ;
+        std::cout << "\nu(" << i << ", " << j << ") \n"
+            << "    = " << u(i, j) << "\n"
+            << "    = " << us[0](i, j) << " + " << us[1](i, j) << "\n"
+            << "    = " << bit(u1s[0](i, 0), j) << bit(u0s[0](i, 0), j) << " + "
+            << bit(u1s[1](i, 0), j) << bit(u0s[1](i, 0), j) << std::endl;
+    }
+
+    //auto u0s = share(u0, prng0);
+    //auto u1s = share(u1, prng0);
+    std::array<oc::Matrix<oc::block>, 2> outs;
+    outs[0].resize(n, m128);
+    outs[1].resize(n, m128);
+
+    auto sock = coproto::LocalAsyncSocket::makePair();
+
+
+    CorGenerator ole0, ole1;
+    auto chls = coproto::LocalAsyncSocket::makePair();
+    ole0.init(chls[0].fork(), prng0, 0, 1, 1 << 18, cmd.getOr("mock", 1));
+    ole1.init(chls[1].fork(), prng1, 1, 1, 1 << 18, cmd.getOr("mock", 1));
+
+
+    //sender.init(n, ole0);
+    //recver.init(n, ole1);
+    //    sender.request(ole0);
+    //    recver.request(ole1);
+    sender.mOtSendReq = ole0.request<F4BitOtSend>(u0s[0].rows() * u0s[0].cols() * 128);
+    recver.mOtRecvReq = ole1.request<F4BitOtRecv>(u0s[0].rows() * u0s[0].cols() * 128);
+
+    //auto s0 = sender.mOleReq_.start() | macoro::make_eager();
+    //auto s1 = recver.mOleReq_.start() | macoro::make_eager();
+    //sender.mHasOleRequest = true;
+    //recver.mHasOleRequest = true;
+
+    auto r = macoro::sync_wait(macoro::when_all_ready(
+        sender.mod2OtF4(u0s[0], u1s[0], outs[0], sock[0]),
+        recver.mod2OtF4(u0s[1], u1s[1], outs[1], sock[1]),
+        ole0.start(),
+        ole1.start()
+    ));
+
+    std::get<0>(r).result();
+    std::get<1>(r).result();
+    std::get<2>(r).result();
+    std::get<3>(r).result();
+
+    auto out = reveal(outs);
+
+
+    for (u64 i = 0; i < n; ++i)
+    {
+        auto iter = oc::BitIterator((u8*)out[i].data());
+        for (u64 j = 0; j < m; ++j)
+        {
+            u8 uij = u(i, j);
+            u8 exp = uij % 2;
+            u8 act = *iter++;
+            if (exp != act)
+            {
+                std::cout << "i " << i << " j " << j << "\n"
+                    << "act " << int(act) << " = "
+                    << *oc::BitIterator((u8*)&outs[0](i, 0), j) << " ^ "
+                    << *oc::BitIterator((u8*)&outs[1](i, 0), j) << std::endl
+                    << "exp " << int(exp) << " = " << u(i, j) << " = " << us[0](i, j) << " + " << us[1](i, j) << std::endl;
+                throw RTE_LOC;
+            }
+        }
+    }
+}
+
 
 void AltModPrf_mod3_test(const oc::CLP& cmd)
 {

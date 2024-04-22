@@ -46,8 +46,8 @@ namespace secJoin
         mHasPreprocessing = true;
         if (mRecvReq.size())
             mRecvReq.start();
-        else if (mSendReq.size())
-            mSendReq.start();
+        else if (mOtSendReq.size())
+            mOtSendReq.start();
         else
         {
             mHasPreprocessing = false;
@@ -167,12 +167,12 @@ namespace secJoin
 
             //if (hasPreprocessing() == false)
             //    throw RTE_LOC;
-            if (mSendReq.size() < in.rows() * mInBitCount)
+            if (mOtSendReq.size() < in.rows() * mInBitCount)
                 throw RTE_LOC;
 
             while (i < out.size())
             {
-                MC_AWAIT(mSendReq.get(send));
+                MC_AWAIT(mOtSendReq.get(send));
 
                 m = std::min<u64>(send.size(), out.size() - i);
                 diff.resize(m);
