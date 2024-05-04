@@ -46,7 +46,7 @@ namespace secJoin
 		// the offset of the columns in the data matrix.
 		std::vector<Offset> mOffsets;
 
-		u64 mPartyIdx = -1;
+		u64 mPartyIdx = ~0ull;
 
         bool mRemDummiesFlag;
 

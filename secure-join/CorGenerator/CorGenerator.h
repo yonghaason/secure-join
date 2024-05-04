@@ -214,7 +214,9 @@ namespace secJoin
             }
             else
             {
-                static_assert(0, "request type not supported");
+                std::cout << "request type not supported" <<LOCATION<< std::endl;
+                std::terminate();
+                //static_assert(0, "request type not supported");
             }
         }
 

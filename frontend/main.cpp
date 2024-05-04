@@ -38,6 +38,10 @@ int main(int argc, char** argv)
         {
             OT_benchmark(clp);
         }
+        if (clp.isSet("f4"))
+        {
+            F4_benchmark(clp);
+        }
         if (clp.isSet("join"))
         {
             OmJoin_benchmark(clp);

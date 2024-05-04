@@ -276,7 +276,7 @@ namespace secJoin
                         std::string temp(tb.mColumns[colNum].getByteCount(), '\0');
 
                         // Is this safe?
-                        memcpy(temp.data(), tb.mColumns[colNum].mData[rowNum].begin(),
+                        memcpy(temp.data(), tb.mColumns[colNum].mData[rowNum].data(),
                             tb.mColumns[colNum].getByteCount());
 
                         temp.erase(temp.find('\0'));

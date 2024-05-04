@@ -344,11 +344,15 @@ namespace secJoin
         u64 n = cmd.getOr("n", 1ull << cmd.getOr("nn", 10));
         u64 trials = cmd.getOr("trials", 1);
         bool nt = cmd.getOr("nt", 1);
+        auto useOle = cmd.isSet("ole");
 
         oc::Timer timer;
 
         AltModPrfSender sender;
         AltModPrfReceiver recver;
+
+        sender.mUseMod2F4Ot = !useOle;
+        recver.mUseMod2F4Ot = !useOle;
 
         sender.setTimer(timer);
         recver.setTimer(timer);
@@ -383,6 +387,9 @@ namespace secJoin
         }
         sender.setKeyOts(kk, rk);
         recver.setKeyOts(sk);
+        u64 numOle = 0;
+        u64 numF4BitOt = 0;
+        u64 numOt = 0;
 
         auto begin = timer.setTimePoint("begin");
         for (u64 t = 0; t < trials; ++t)
@@ -390,8 +397,9 @@ namespace secJoin
             sender.init(n, ole0);
             recver.init(n, ole1);
 
-            std::cout << ole0.mGenState->mNumOle << " ole " << std::endl;
-            std::cout << ole0.mGenState->mNumOt << " ot " << std::endl;
+            numOle += ole0.mGenState->mNumOle;
+            numF4BitOt += ole0.mGenState->mNumF4BitOt;
+            numOt += ole0.mGenState->mNumOt;
 
             auto r = coproto::sync_wait(coproto::when_all_ready(
                 ole0.start(),
@@ -406,10 +414,18 @@ namespace secJoin
         }
         auto end = timer.setTimePoint("end");
 
-        std::cout << "AltModPrf n:" << n << ", " <<
+        auto ntr = n * trials;
+
+        std::cout << "AltModPrf n:" << n << ", "<<
             std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << "ms " <<
-            sock[0].bytesSent() / double(n) << "+" << sock[0].bytesReceived() / double(n) << "=" <<
-            (sock[0].bytesSent() + sock[0].bytesReceived()) / double(n) << " bytes/eval " << std::endl;
+            sock[0].bytesSent() / double(ntr) << "+" << sock[0].bytesReceived() / double(ntr) << "=" <<
+            (sock[0].bytesSent() + sock[0].bytesReceived()) / double(ntr) << " bytes/eval ";
+
+        std::cout << numOle / double(ntr) << " ole/eval ";
+        std::cout << numF4BitOt / double(ntr) << " f4/eval " ;
+        std::cout << numOt / double(ntr) << " ot/eval ";
+
+        std::cout << std::endl;
 
         if (cmd.isSet("v"))
         {
@@ -478,6 +494,93 @@ namespace secJoin
             std::cout << rTimer << std::endl;
 
             std::cout << sock[0].bytesReceived() / trials << " " << sock[1].bytesReceived() / trials << " bytes per " << std::endl;
+        }
+        catch (std::exception& e)
+        {
+            std::cout << e.what() << std::endl;
+        }
+#else
+        std::cout << "ENABLE_SILENTOT = false" << std::endl;
+#endif
+    }
+
+
+    void F4_benchmark(const oc::CLP& cmd)
+    {
+#ifdef ENABLE_SILENTOT
+        using namespace oc;
+        try
+        {
+
+            SilentF4VoleReceiver recver;
+            SilentF4VoleSender sender;
+
+            u64 trials = cmd.getOr("t", 10);
+
+            u64 n = cmd.getOr("n", 1ull << cmd.getOr("nn", 20));
+            MultType multType = (MultType)cmd.getOr("m", (int)MultType::Tungsten);
+            std::cout << multType << std::endl;
+
+            recver.mMultType = multType;
+            sender.mMultType = multType;
+
+            PRNG prng0(ZeroBlock), prng1(ZeroBlock);
+            block delta = prng0.get<block>() & block(~0ull, ~0ull<<2);
+
+            auto sock = coproto::LocalAsyncSocket::makePair();
+
+            Timer sTimer;
+            Timer rTimer;
+            auto s = rTimer.setTimePoint("start");
+            sender.setTimer(rTimer);
+            recver.setTimer(rTimer);
+            for (u64 t = 0; t < trials; ++t)
+            {
+                sender.configure(n);
+                recver.configure(n);
+
+                auto choice = recver.sampleBaseChoiceBits(prng0);
+                auto cBase = recver.sampleBaseVoleVals(prng0);
+
+                std::vector<block> bBase(cBase.size()), aBase(cBase.size());
+
+                prng0.get(aBase.data(), aBase.size());
+                CoeffCtxGF4 ctx;
+
+                for (u64 i = 0; i < aBase.size(); ++i)
+                {
+                    aBase[i] &= block(~0ull, ~0ull << 2);
+                    ctx.mul(bBase[i], delta, cBase[i]);
+                    ctx.plus(bBase[i], bBase[i], aBase[i]);
+                }
+
+                std::vector<std::array<block, 2>> sendBase(sender.silentBaseOtCount());
+                std::vector<block> recvBase(recver.silentBaseOtCount());
+                sender.setSilentBaseOts(sendBase, bBase);
+                recver.setSilentBaseOts(recvBase, aBase);
+
+                auto p0 = sender.silentSendInplace(delta, n, prng0, sock[0]);
+                auto p1 = recver.silentReceiveInplace(n, prng1, sock[1]);
+
+                rTimer.setTimePoint("r start");
+                coproto::sync_wait(macoro::when_all_ready(
+                    std::move(p0), std::move(p1)));
+                rTimer.setTimePoint("r done");
+
+            }
+            auto e = rTimer.setTimePoint("end");
+
+            auto time = std::chrono::duration_cast<std::chrono::milliseconds>(e - s).count();
+            auto avgTime = time / double(trials);
+            auto timePer512 = avgTime / n * 512;
+            std::cout << "F4 n:" << n << ", " <<
+                avgTime << "ms/batch, " << timePer512 << "ms/512ot" << std::endl;
+
+            if (cmd.isSet("verbose"))
+            {
+                std::cout << rTimer << std::endl;
+                std::cout << sock[0].bytesReceived() / trials << " " << sock[1].bytesReceived() / trials << " bytes per " << std::endl;
+            }
         }
         catch (std::exception& e)
         {

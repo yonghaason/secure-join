@@ -26,8 +26,8 @@ void RadixSort_aggregateSum_test(const oc::CLP& cmd)
         // sum over column j.
         for (u64 j = 0; j < L2; ++j)
         {
-            auto f0 = f.begin() + j;
-            auto s0 = s1.begin() + j;
+            auto f0 = f.data() + j;
+            auto s0 = s1.data() + j;
             for (u64 i = 0; i < m; ++i)
             {
                 sum += *f0;

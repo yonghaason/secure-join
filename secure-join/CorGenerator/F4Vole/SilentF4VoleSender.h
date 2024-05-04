@@ -103,6 +103,8 @@ namespace secJoin
 
         block mDeltaShare;
 
+        bool mDebug = false;
+
 #ifdef ENABLE_SOFTSPOKEN_OT
         macoro::optional<oc::SoftSpokenMalOtSender> mOtExtSender;
         macoro::optional<oc::SoftSpokenMalOtReceiver> mOtExtRecver;
@@ -124,7 +126,7 @@ namespace secJoin
         // otherwise we perform a base OT protocol to
         // generate the needed OTs.
         oc::task<> genSilentBaseOts(PRNG& prng, oc::Socket& chl, F delta)
-        {
+        try {
 #ifdef LIBOTE_HAS_BASE_OT
 
 #if defined ENABLE_MRR_TWIST && defined ENABLE_SSE
@@ -138,16 +140,13 @@ namespace secJoin
 #else
             using BaseOT = oc::DefaultBaseOT;
 #endif
-
-            MC_BEGIN(oc::task<>, this, delta, &prng, &chl,
-                msg = oc::AlignedUnVector<std::array<block, 2>>(silentBaseOtCount()),
-                baseOt = BaseOT{},
-                prng2 = std::move(oc::PRNG{}),
-                xx = oc::BitVector{},
-                chl2 = oc::Socket{},
-                nv = oc::NoisyVoleSender<F, G, Ctx>{},
-                b = VecF{}
-            );
+                auto msg = oc::AlignedUnVector<std::array<block, 2>>(silentBaseOtCount());
+                auto baseOt = BaseOT{};
+                auto prng2 = std::move(oc::PRNG{});
+                auto xx = oc::BitVector{};
+                auto chl2 = oc::Socket{};
+                auto nv = oc::NoisyVoleSender<F, G, Ctx>{};
+                auto b = VecF{};
             setTimePoint("SilentVoleSender.genSilent.begin");
 
             if (isConfigured() == false)
@@ -171,7 +170,7 @@ namespace secJoin
                 if (mOtExtRecver->hasBaseOts() == false)
                 {
                     msg.resize(msg.size() + mOtExtRecver->baseOtCount());
-                    MC_AWAIT(mOtExtSender->send(msg, prng, chl));
+                    co_await(mOtExtSender->send(msg, prng, chl));
 
                     mOtExtRecver->setBaseOts(
                         span<std::array<block, 2>>(msg).subspan(
@@ -179,14 +178,14 @@ namespace secJoin
                             mOtExtRecver->baseOtCount()));
                     msg.resize(msg.size() - mOtExtRecver->baseOtCount());
 
-                    MC_AWAIT(nv.send(delta, b, prng, *mOtExtRecver, chl, mCtx));
+                    co_await(nv.send(delta, b, prng, *mOtExtRecver, chl, mCtx));
                 }
                 else
                 {
                     chl2 = chl.fork();
                     prng2.SetSeed(prng.get());
 
-                    MC_AWAIT(
+                    co_await(
                         macoro::when_all_ready(
                             nv.send(delta, b, prng2, *mOtExtRecver, chl2, mCtx),
                             mOtExtSender->send(msg, prng, chl)));
@@ -199,7 +198,7 @@ namespace secJoin
             {
                 chl2 = chl.fork();
                 prng2.SetSeed(prng.get());
-                MC_AWAIT(
+                co_await(
                     macoro::when_all_ready(
                         nv.send(delta, b, prng2, baseOt, chl2, mCtx),
                         baseOt.send(msg, prng, chl)));
@@ -208,10 +207,15 @@ namespace secJoin
 
             setSilentBaseOts(msg, b);
             setTimePoint("SilentVoleSender.genSilent.done");
-            MC_END();
 #else
             throw std::runtime_error("LIBOTE_HAS_BASE_OT = false, must enable relic, sodium or simplest ot asm." LOCATION);
+            co_return
 #endif
+        }
+        catch (...)
+        {
+            chl.close();
+            throw;
         }
 
         // configure the silent OT extension. This sets
@@ -264,6 +268,7 @@ namespace secJoin
 
             mGen.setBase(sendBaseOts);
 
+
             // we store the negative of b. This is because
             // we need the correlation
             // 
@@ -277,7 +282,10 @@ namespace secJoin
             mCtx.resize(mBaseB, b.size());
             mCtx.zero(mBaseB.begin(), mBaseB.end());
             for (u64 i = 0; i < mBaseB.size(); ++i)
+            {
                 mCtx.minus(mBaseB[i], mBaseB[i], b[i]);
+                mBaseB[i] &= (block(~0ull, ~0ull << 2));
+            }
         }
 
         // The native OT extension interface of silent
@@ -290,17 +298,21 @@ namespace secJoin
             VecF& b,
             PRNG& prng,
             oc::Socket& chl)
-        {
-            MC_BEGIN(oc::task<>, this, delta, &b, &prng, &chl);
+        try {
 
-            MC_AWAIT(silentSendInplace(delta, b.size(), prng, chl));
+            co_await(silentSendInplace(delta, b.size(), prng, chl));
 
             mCtx.copy(mB.begin(), mB.begin() + b.size(), b.begin());
             //std::memcpy(b.data(), mB.data(), b.size() * mCtx.bytesF);
             clear();
 
             setTimePoint("SilentVoleSender.expand.ldpc.msgCpy");
-            MC_END();
+            
+        }
+        catch (...)
+        {
+            chl.close();
+            throw;
         }
 
         oc::task<> sendChosen(
@@ -308,17 +320,16 @@ namespace secJoin
             VecF& b,
             PRNG& prng,
             oc::Socket& chl)
-        {
-            MC_BEGIN(oc::task<>, this, delta, &b, &prng, &chl,
-                diff = oc::AlignedUnVector<u8>{});
+        try {
+            auto diff = oc::AlignedUnVector<u8>{};
 
-            MC_AWAIT(silentSendInplace(delta, b.size(), prng, chl));
+            co_await(silentSendInplace(delta, b.size(), prng, chl));
 
             mCtx.copy(mB.begin(), mB.begin() + b.size(), b.begin());
             setTimePoint("SilentVoleSender.expand.ldpc.msgCpy");
 
             diff.resize(oc::divCeil(b.size(), 4));
-            MC_AWAIT(chl.recv(diff));
+            co_await(chl.recv(diff));
 
             for (u64 i = 0, ii = 0; i < diff.size(); ++i)
             {
@@ -335,8 +346,11 @@ namespace secJoin
             setTimePoint("SilentVoleSender.expand.derandomize");
 
             clear();
-
-            MC_END();
+        }
+        catch (...)
+        {
+            chl.close();
+            throw;
         }
 
 
@@ -350,14 +364,12 @@ namespace secJoin
             u64 n,
             PRNG& prng,
             oc::Socket& chl)
-        {
-            MC_BEGIN(oc::task<>, this, delta, n, &prng, &chl,
-                deltaShare = block{},
-                X = block{},
-                hash = std::array<u8, 32>{},
-                baseB = VecF{},
-                A = oc::AlignedUnVector<block>{}
-            );
+        try {
+            auto deltaShare = block{};
+            auto     X = block{};
+            auto     hash = std::array<u8, 32>{};
+            auto     baseB = VecF{};
+            auto     A = oc::AlignedUnVector<block>{};
             setTimePoint("SilentVoleSender.ot.enter");
 
 
@@ -373,7 +385,7 @@ namespace secJoin
             if (mGen.hasBaseOts() == false)
             {
                 // recvs data
-                MC_AWAIT(genSilentBaseOts(prng, chl, delta));
+                co_await(genSilentBaseOts(prng, chl, delta));
             }
 
             setTimePoint("SilentVoleSender.start");
@@ -395,26 +407,26 @@ namespace secJoin
             // our secret share of delta * noiseVals. The receiver
             // can then manually add their shares of this to the
             // output of the PPRF at the correct locations.
-            MC_AWAIT(mGen.expand(chl, baseB, prng.get(), mB,
+            co_await(mGen.expand(chl, baseB, prng.get(), mB,
                 oc::PprfOutputFormat::Interleaved, true, 1));
             setTimePoint("SilentVoleSender.expand.pprf");
 
             if (mDebug)
             {
-                MC_AWAIT(checkRT(chl, delta));
+                co_await(checkRT(chl, delta));
                 setTimePoint("SilentVoleSender.expand.checkRT");
             }
 
             if (mMalType == oc::SilentSecType::Malicious)
             {
-                MC_AWAIT(chl.recv(X));
+                co_await(chl.recv(X));
 
                 if constexpr (MaliciousSupported)
                     hash = ferretMalCheck(X);
                 else
                     throw std::runtime_error("malicious is currently only supported for GF128 block. " LOCATION);
 
-                MC_AWAIT(chl.send(std::move(hash)));
+                co_await(chl.send(std::move(hash)));
             }
 
             switch (mMultType)
@@ -434,26 +446,6 @@ namespace secJoin
                 encoder.dualEncode<F, Ctx>(mB.begin(), mCtx);
                 break;
             }
-//            case MultType::QuasiCyclic:
-//            {
-//#ifdef ENABLE_BITPOLYMUL
-//                if constexpr (
-//                    std::is_same_v<F, block> &&
-//                    std::is_same_v<G, block> &&
-//                    std::is_same_v<Ctx, CoeffCtxGF128>)
-//                {
-//                    QuasiCyclicCode encoder;
-//                    encoder.init2(mRequestSize, mNoiseVecSize);
-//                    encoder.dualEncode(mB);
-//                }
-//                else
-//                    throw std::runtime_error("QuasiCyclic is only supported for GF128, i.e. block. " LOCATION);
-//#else
-//                throw std::runtime_error("QuasiCyclic requires ENABLE_BITPOLYMUL = true. " LOCATION);
-//#endif
-//
-//                break;
-//            }
             case osuCrypto::MultType::Tungsten:
             {
                 oc::experimental::TungstenCode encoder;
@@ -475,7 +467,7 @@ namespace secJoin
             if (mDebug)
             {
                 A.resize(mB.size());
-                MC_AWAIT(chl.recv(A));
+                co_await(chl.recv(A));
 
                 {
                     u64 n = mB.size();
@@ -520,20 +512,23 @@ namespace secJoin
                     }
                 }
             }
-
-
-            MC_END();
+        }
+        catch (...)
+        {
+            chl.close();
+            throw;
         }
 
-        bool mDebug = false;
-
         oc::task<> checkRT(oc::Socket& chl, F delta) const
+        try {
+            co_await(chl.send(delta));
+            co_await(chl.send(mB));
+            co_await(chl.send(mBaseB));
+        }
+        catch (...)
         {
-            MC_BEGIN(oc::task<>, this, &chl, delta);
-            MC_AWAIT(chl.send(delta));
-            MC_AWAIT(chl.send(mB));
-            MC_AWAIT(chl.send(mBaseB));
-            MC_END();
+            chl.close();
+            throw;
         }
 
         std::array<u8, 32> ferretMalCheck(block X)

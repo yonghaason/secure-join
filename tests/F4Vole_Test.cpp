@@ -46,9 +46,10 @@ namespace
 		auto c = recver.sampleBaseVoleVals(prng);
 		typename Ctx::template Vec<F> a(c.size()), b(c.size());
 
-		prng.get(b.data(), b.size());
+		//prng.get(b.data(), b.size());
 		for (auto i : oc::rng(c.size()))
-		{
+		{	
+			ctx.fromBlock(b[i], prng.get());
 			ctx.mul(a[i], delta, c[i]);
 			ctx.plus(a[i], b[i], a[i]);
 		}

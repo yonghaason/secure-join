@@ -55,7 +55,7 @@ namespace secJoin
         // when setting the wires memory, this records how many remain unmapped.
         u64 mRemainingMappings = 0;
 
-        u64 mRole = -1;
+        u64 mRole = ~0ull;
 
         OtExtType mOtExtType;
 
@@ -75,7 +75,7 @@ namespace secJoin
         span<oc::BetaGate> mGates;
 
         // the index of the circuit to print if debugging is enabled.
-        u64 mDebugPrintIdx = -1;
+        u64 mDebugPrintIdx = ~0ull;
 
         // the current print statement if debugging is enabled.
         BetaCircuit::PrintIter mPrint;

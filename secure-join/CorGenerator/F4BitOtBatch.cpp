@@ -634,14 +634,16 @@ namespace secJoin
 				{
 					for (u64 j = 0; j < 2; ++j)
 					{
-						m[0] = m[0] & mask;
-						m[1] = m[1] & mask;
-						m[2] = m[2] & mask;
-						m[3] = m[3] & mask;
-						m[4] = m[4] & mask;
-						m[5] = m[5] & mask;
-						m[6] = m[6] & mask;
-						m[7] = m[7] & mask;
+						assert((m[0].get<u64>(0) & 3) == 0);
+
+						//m[0] = m[0] & mask;
+						//m[1] = m[1] & mask;
+						//m[2] = m[2] & mask;
+						//m[3] = m[3] & mask;
+						//m[4] = m[4] & mask;
+						//m[5] = m[5] & mask;
+						//m[6] = m[6] & mask;
+						//m[7] = m[7] & mask;
 
 						oc::mAesFixedKey.hashBlocks<8>(m, s);
 

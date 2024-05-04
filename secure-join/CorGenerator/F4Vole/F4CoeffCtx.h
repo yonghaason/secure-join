@@ -30,10 +30,21 @@ namespace secJoin
 
         template<typename T>
         OC_FORCEINLINE void plus(T& ret, const T& lhs, const T& rhs) {
+            //if constexpr (std::is_same_v<T, F>)
+            //{
+            //    assert((lhs.get<u64>(0) & 3) == 0);
+            //    assert((rhs.get<u64>(0) & 3) == 0);
+            //}
+
             ret = lhs ^ rhs;
         }
         template<typename T>
         OC_FORCEINLINE void minus(T& ret, const T& lhs, const T& rhs) {
+            //if constexpr (std::is_same_v<T, F>)
+            //{
+            //    assert((lhs.get<u64>(0) & 3) == 0);
+            //    assert((rhs.get<u64>(0) & 3) == 0);
+            //}
             ret = lhs ^ rhs;
         }
         //template<typename F>
@@ -45,6 +56,8 @@ namespace secJoin
         //template<typename F>
         OC_FORCEINLINE void mul(F& ret, const F& lhs, const G& rhs) {
             assert(rhs.mVal < 4);
+            //assert((lhs.get<u64>(0) & 3) == 0);
+
             switch (rhs.mVal)
             {
             case 0:
@@ -82,6 +95,11 @@ namespace secJoin
                 assert(0);
                 __assume(0);
             }
+
+            //{
+            //    assert((lhs.get<u64>(0) & 3) == 0);
+            //    assert((ret.get<u64>(0) & 3) == 0);
+            //}
         }
 
         OC_FORCEINLINE void mul(G& ret, const G& lhs, const G& rhs) {
@@ -171,7 +189,7 @@ namespace secJoin
             if constexpr (std::is_same<T, F>::value)
             {
                 // if F is a block, just return the block with the LSB masked to zero.
-                ret = b;// &block(~0ull, ~0ull << 2);
+                ret = b & block(~0ull, ~0ull << 2);
             }
             else if constexpr (std::is_same<T, G>::value)
             {
@@ -180,7 +198,10 @@ namespace secJoin
             }
             else
             {
-                static_assert(0, "unknown type");
+
+                std::cout << "request type not supported" << LOCATION << std::endl;
+                std::terminate();
+                //static_assert(0, "unknown type");
             }
         }
 
