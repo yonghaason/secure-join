@@ -2,7 +2,7 @@
 
 #include "secure-join/Defines.h"
 #include "libOTe/Tools/Pprf/RegularPprf.h"
-
+#include "libOTe/TwoChooseOne/SoftSpokenOT/SoftSpokenShOtExt.h"
 namespace secJoin
 { 
 
@@ -16,13 +16,19 @@ namespace secJoin
         {
             mSender.configure(t, n);
             mOutput.resize(n * t);
-            std::vector<std::array<block, 2>> base(mSender.baseOtCount());
-            mSender.setBase(base);
         }
 
         auto gen(coproto::Socket& s, oc::PRNG& prng)
         {
-            return mSender.expand(s, mVal, prng.get(), mOutput, oc::PprfOutputFormat::ByTreeIndex, false, 1);
+            MC_BEGIN(macoro::task<>, this, &s, &prng,
+                base = std::vector<std::array<block, 2>>(mSender.baseOtCount()),
+                ot = oc::SoftSpokenShOtSender<>{}
+            );
+
+            MC_AWAIT(ot.send(base, prng, s));
+            mSender.setBase(base);
+            MC_AWAIT(mSender.expand(s, mVal, prng.get(), mOutput, oc::PprfOutputFormat::ByTreeIndex, false, 1));
+            MC_END();
         }
     };
 
@@ -36,16 +42,25 @@ namespace secJoin
         {
             mRecver.configure(t, n);
             mOutput.resize(n * t);
-            std::vector<block> base(mRecver.baseOtCount());
-            oc::BitVector bits(base.size());
-            mBaseCount = base.size();
-            mRecver.setBase(base);
-            mRecver.setChoiceBits(bits);
         }
 
-        auto gen(coproto::Socket& s)
+        auto gen(coproto::Socket& s, PRNG& prng)
         {
-            return mRecver.expand(s, mOutput, oc::PprfOutputFormat::ByTreeIndex, false, 1);
+            MC_BEGIN(macoro::task<>, this, &s, &prng,
+                base = std::vector<block>(mRecver.baseOtCount()),
+                bits = oc::BitVector(mRecver.baseOtCount()),
+                ot = oc::SoftSpokenShOtReceiver<>{}
+            );
+            //std::vector<block> base(mRecver.baseOtCount());
+            //oc::BitVector bits(base.size());
+            //mBaseCount = base.size();
+            //mRecver.setBase(base);
+
+            MC_AWAIT(ot.receive(bits, base, prng, s));
+            mRecver.setChoiceBits(bits);
+            mRecver.setBase(base);
+            MC_AWAIT(mRecver.expand(s, mOutput, oc::PprfOutputFormat::ByTreeIndex, false, 1));
+            MC_END();
         }
     };
 }
