@@ -11,6 +11,7 @@ namespace secJoin
     void F4_benchmark(const oc::CLP& cmd);
     void AltModPerm_benchmark(const oc::CLP& cmd);
     void AltMod_compressB_benchmark(const oc::CLP& cmd);
+    void AltMod_encodeX_benchmark(const oc::CLP& cmd);
     void AltMod_expandA_benchmark(const oc::CLP& cmd);
     void AltMod_sampleMod3_benchmark(const oc::CLP& cmd);
 

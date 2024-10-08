@@ -1,39 +1,11 @@
 #pragma once
 #include "secure-join/Defines.h"
 #include "secure-join/Perm/Permutation.h"
-//#include "libOTe/Tools/LDPC/Mtx.h"
+#include "secure-join/Prf/mod3.h"
 
 namespace secJoin
 {
 
-    inline void mod3Add(
-        span<block> z1, span<block> z0,
-        span<block> y1, span<block> y0)
-    {
-        assert(z1.size() == z0.size());
-        assert(z1.size() == y0.size());
-        assert(y1.size() == y0.size());
-
-        block* __restrict z1d = z1.data();
-        block* __restrict z0d = z0.data();
-        block* __restrict y1d = y1.data();
-        block* __restrict y0d = y0.data();
-
-        //auto x1x0 = x1 ^ x0;
-        //auto z1 = (1 ^ y0 ^ x0) * (x1x0 ^ y1);
-        //auto z0 = (1 ^ x1 ^ y1) * (x1x0 ^ y0);
-        //auto e = (x + y) % 3;
-        for (u64 i = 0; i < z0.size(); ++i)
-        {
-            auto x1i = z1d[i];
-            auto x0i = z0d[i];
-            auto y1i = y1d[i];
-            auto y0i = y0d[i];
-            auto x1x0 = x1i ^ x0i;
-            z1d[i] = (y0i ^ x0i).andnot_si128(x1x0 ^ y1i);
-            z0d[i] = (x1i ^ y1i).andnot_si128(x1x0 ^ y0i);
-        }
-    }
 
 
     // a compressing "linear code" that is comprised 
@@ -72,7 +44,7 @@ namespace secJoin
         }
 
         template<typename T>
-        void encode(span<T> in, span<T> out)
+        void encode(span<T> in, span<T> out) const
         {
             if (in.size() != mK)
                 throw RTE_LOC;
@@ -102,7 +74,7 @@ namespace secJoin
         void encode(
             oc::MatrixView<block> msb, oc::MatrixView<block> lsb,
             oc::MatrixView<block> outMsb, oc::MatrixView<block> outLsb,
-            u64 batchSize = 1ull << 10)
+            u64 batchSize = 1ull << 10) const
         {
             ;
             auto len = lsb.cols();
@@ -168,7 +140,7 @@ namespace secJoin
             }
         }
 
-        oc::Matrix<u8> getMatrix()
+        oc::Matrix<u8> getMatrix() const
         {
             oc::Matrix<u8> state(mK, mK);
             for (u64 i = 0; i < mK; ++i)

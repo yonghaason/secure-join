@@ -6,9 +6,13 @@
 
 
 //#define BIO_ENABLE_RELIC
+#include <ranges>
 
 namespace secJoin
 {
+    namespace stdr = std::ranges;
+    namespace stdv = std::views;
+
     using u8  = oc::u8;
     using u16 = oc::u16;
     using u32 = oc::u32;

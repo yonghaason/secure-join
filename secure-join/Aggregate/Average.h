@@ -9,8 +9,6 @@
 
 namespace secJoin
 {
-    using SharedTable = Table;
-    using SharedColumn = Column;
     struct Average
     {
         bool mInsecurePrint = false, mInsecureMockSubroutines = false;

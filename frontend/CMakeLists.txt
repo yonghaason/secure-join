@@ -4,6 +4,6 @@ set( SRCS
 	benchmark.cpp
 	)
 
-add_executable(frontend  ${SRCS})
+add_executable(secJoinfrontend  ${SRCS})
 
-target_link_libraries(frontend secureJoin_Tests)
+target_link_libraries(secJoinfrontend secureJoin_Tests)

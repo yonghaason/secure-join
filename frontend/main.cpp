@@ -9,6 +9,8 @@
 #include "coproto/Socket/AsioSocket.h"
 #include "cryptoTools/Common/Timer.h"
 
+
+
 namespace secJoin
 {
     void buildMod3Table2();
@@ -18,7 +20,6 @@ using namespace secJoin;
 
 int main(int argc, char** argv)
 {
-
     oc::CLP clp(argc, argv);
 
     if (!clp.isSet("u"))
@@ -71,6 +72,10 @@ int main(int argc, char** argv)
         if (clp.isSet("amult"))
         {
             AltMod_expandA_benchmark(clp);
+        }
+        if (clp.isSet("encodex"))
+        {
+            AltMod_encodeX_benchmark(clp);
         }
         if (clp.isSet("transpose"))
         {

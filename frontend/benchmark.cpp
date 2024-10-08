@@ -1,5 +1,5 @@
 #include "benchmark.h"
-#include "secure-join/Prf/AltModPrf.h"
+#include "secure-join/Prf/AltModWPrf.h"
 #include "secure-join/Sort/RadixSort.h"
 #include "secure-join/Join/OmJoin.h"
 #include "secure-join/Perm/PprfPermGen.h"
@@ -348,8 +348,8 @@ namespace secJoin
 
 		oc::Timer timer;
 
-		AltModPrfSender sender;
-		AltModPrfReceiver recver;
+		AltModWPrfSender sender;
+		AltModWPrfReceiver recver;
 
 		sender.mUseMod2F4Ot = !useOle;
 		recver.mUseMod2F4Ot = !useOle;
@@ -389,13 +389,13 @@ namespace secJoin
 
 
 		prng0.get(x.data(), x.size());
-		std::vector<oc::block> rk(sender.mPrf.KeySize);
-		std::vector<std::array<oc::block, 2>> sk(sender.mPrf.KeySize);
-		for (u64 i = 0; i < sender.mPrf.KeySize; ++i)
+		std::vector<oc::block> rk(AltModPrf::KeySize);
+		std::vector<std::array<oc::block, 2>> sk(AltModPrf::KeySize);
+		for (u64 i = 0; i < AltModPrf::KeySize; ++i)
 		{
 			sk[i][0] = oc::block(i, 0);
 			sk[i][1] = oc::block(i, 1);
-			rk[i] = oc::block(i, *oc::BitIterator((u8*)&sender.mPrf.mExpandedKey, i));
+			rk[i] = oc::block(i, *oc::BitIterator((u8*)&sender.mKeyMultRecver.mKey, i));
 		}
 		sender.setKeyOts(kk, rk);
 		recver.setKeyOts(sk);
@@ -416,7 +416,7 @@ namespace secJoin
 			auto r = coproto::sync_wait(coproto::when_all_ready(
 				ole0.start() | macoro::start_on(pool0),
 				ole1.start() | macoro::start_on(pool1),
-				sender.evaluate(y0, sock[0], prng0) | macoro::start_on(pool0),
+				sender.evaluate({}, y0, sock[0], prng0) | macoro::start_on(pool0),
 				recver.evaluate(x, y1, sock[1], prng1) | macoro::start_on(pool1)
 			));
 			std::get<0>(r).result();
@@ -428,8 +428,8 @@ namespace secJoin
 
 		auto ntr = n * trials;
 
-		std::cout << "AltModPrf n:" << n << ", " <<
-			std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count()/double(ntr) << "ns/eval " <<
+		std::cout << "AltModWPrf n:" << n << ", " <<
+			std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count() / double(ntr) << "ns/eval " <<
 			sock[0].bytesSent() / double(ntr) << "+" << sock[0].bytesReceived() / double(ntr) << "=" <<
 			(sock[0].bytesSent() + sock[0].bytesReceived()) / double(ntr) << " bytes/eval ";
 
@@ -719,6 +719,84 @@ namespace secJoin
 		}
 	}
 
+	void AltMod_encodeX_benchmark(const oc::CLP& cmd)
+	{
+
+		auto n = cmd.getOr("n", 1 << cmd.getOr("nn", 18));
+		auto t = cmd.getOr("t", 4);
+
+		if (cmd.isSet("e1"))
+		{
+
+			for (u64 tt : stdv::iota(0, t))
+			{
+				if (n % 128)
+					throw RTE_LOC;
+				oc::AlignedUnVector<block>x(n);
+				oc::Matrix<block>y(4 * 128, n / 128);
+
+				oc::Timer timer;
+				AltModPrf prf;
+
+				auto b = timer.setTimePoint("begin");
+
+				prf.expandInputAes(x, y);
+
+				auto e = timer.setTimePoint("end");
+
+				std::cout << "expand  n:" << n << ", " <<
+					std::chrono::duration_cast<std::chrono::milliseconds>(e - b).count() << "ms " << std::endl;;
+			}
+		}
+
+		if (cmd.isSet("e2"))
+		{
+
+			for (u64 tt : stdv::iota(0, t))
+			{
+				oc::AlignedUnVector<block>x(n);
+				oc::Matrix<block>y(4 * 128, n / 128);
+
+
+				oc::Timer timer;
+				AltModPrf prf;
+
+				auto b = timer.setTimePoint("begin");
+
+				prf.expandInputLinear(x, y);
+
+				auto e = timer.setTimePoint("end");
+
+				std::cout << "expand2 n:" << n << ", " <<
+					std::chrono::duration_cast<std::chrono::milliseconds>(e - b).count() << "ms " << std::endl;;
+			}
+		}
+
+		if (cmd.isSet("e3"))
+		{
+
+			for (u64 tt : stdv::iota(0, t))
+			{
+				oc::AlignedUnVector<block>x(n);
+				oc::Matrix<block>y(4 * 128, n / 128);
+
+
+				oc::Timer timer;
+				AltModPrf prf;
+				prf.initExpandInputPermuteLinear();
+
+				auto b = timer.setTimePoint("begin");
+
+				prf.expandInputPermuteLinear(x, y);
+
+				auto e = timer.setTimePoint("end");
+
+				std::cout << "expand3 n:" << n << ", " <<
+					std::chrono::duration_cast<std::chrono::milliseconds>(e - b).count() << "ms " << std::endl;;
+			}
+		}
+	}
+
 	void AltMod_expandA_benchmark(const oc::CLP& cmd)
 	{
 
@@ -862,13 +940,13 @@ namespace secJoin
 		thrd.join();
 		auto end = timer.setTimePoint("end");
 
-		auto totalComm = 
+		auto totalComm =
 			sock[0].bytesSent() + sock[0].bytesReceived() +
 			N * 16 * depth * trials;
 
 		std::cout << "PprfPerm n:" << N << ", #ots/per " << (recver.mBaseCount / N) << " depth " << depth << " " <<
 			std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() / double(trials) << "ms " <<
-			(totalComm)/double(1<<20)  << " MB/N " << std::endl;
+			(totalComm) / double(1 << 20) << " MB/N " << std::endl;
 
 		//std::cout << ole0.mNumBinOle / double(n) << " " << ole1.mNumBinOle / double(n) << " binOle/per" << std::endl;;
 		if (cmd.isSet("v"))
@@ -896,11 +974,16 @@ namespace secJoin
 
 	}
 
+}
 #ifdef _WIN32
 #include <intrin.h>
 #else
 #include <x86intrin.h>
 #endif
+
+
+
+namespace secJoin{
 
 
 	void aes_benchmark(const oc::CLP& cmd)
@@ -928,4 +1011,6 @@ namespace secJoin
 			<< "cycles/byte: " << double(cEnd - cBegin) / t / n / 16 << std::endl;
 
 	}
+
+
 }

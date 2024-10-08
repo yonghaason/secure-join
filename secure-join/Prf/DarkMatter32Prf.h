@@ -68,7 +68,7 @@ namespace secJoin
 
     class DarkMatter32PrfSender : public oc::TimerAdapter
     {
-        std::vector<PRNG> mKeyOTs;
+        std::vector<PRNG> mKeyRecvOTs;
     public:
         bool mCompressed = true;
         block256 mKey;
@@ -86,10 +86,10 @@ namespace secJoin
         {
             if (ots.size() != 256)
                 throw RTE_LOC;
-            mKeyOTs.resize(256);
+            mKeyRecvOTs.resize(256);
             for (u64 i = 0; i < 256; ++i)
             {
-                mKeyOTs[i].SetSeed(ots[i]);
+                mKeyRecvOTs[i].SetSeed(ots[i]);
             }
         }
 
@@ -132,12 +132,12 @@ namespace secJoin
                     if (ki)
                     {
                         // ui = ui ^ H(mKeyOTs[i])
-                        xorVector(ui, mKeyOTs[i]);
+                        xorVector(ui, mKeyRecvOTs[i]);
                         decompressMod3(uu, ui);
                     }
                     else
                     {
-                        sampleMod3(mKeyOTs[i], uu);
+                        sampleMod3(mKeyRecvOTs[i], uu);
                     }
 
                     for (u64 j = 0; j < y.size(); ++j)
@@ -190,12 +190,12 @@ namespace secJoin
                     if (ki)
                     {
                         // ui = ui ^ H(mKeyOTs[i])
-                        xorVector(ui, mKeyOTs[i]);
+                        xorVector(ui, mKeyRecvOTs[i]);
                         decompressMod3(uu, ui);
                     }
                     else
                     {
-                        sampleMod3(mKeyOTs[i], uu);
+                        sampleMod3(mKeyRecvOTs[i], uu);
                     }
 
                     auto u = (oc::block*)mU.data();
@@ -393,7 +393,7 @@ namespace secJoin
 
     class DarkMatter32PrfReceiver : public oc::TimerAdapter
     {
-        std::vector<std::array<PRNG, 2>> mKeyOTs;
+        std::vector<std::array<PRNG, 2>> mKeyRecvOTs;
     public:
         oc::SilentOtExtReceiver mOtReceiver;
         oc::SoftSpokenShOtReceiver<> mSoftReceiver;
@@ -408,11 +408,11 @@ namespace secJoin
         {
             if (ots.size() != 256)
                 throw RTE_LOC;
-            mKeyOTs.resize(256);
+            mKeyRecvOTs.resize(256);
             for (u64 i = 0; i < 256; ++i)
             {
-                mKeyOTs[i][0].SetSeed(ots[i][0]);
-                mKeyOTs[i][1].SetSeed(ots[i][1]);
+                mKeyRecvOTs[i][0].SetSeed(ots[i][0]);
+                mKeyRecvOTs[i][1].SetSeed(ots[i][1]);
             }
         }
 
@@ -459,7 +459,7 @@ namespace secJoin
                 for (i = 0; i < 256; ++i)
                 {
                     ui.resize(y.size());
-                    sampleMod3(mKeyOTs[i][0], mod3);
+                    sampleMod3(mKeyRecvOTs[i][0], mod3);
 
                     for (u64 j = 0; j < y.size(); ++j)
                     {
@@ -472,7 +472,7 @@ namespace secJoin
                     }
 
                     compressMod3(ui, mod3);
-                    xorVector(ui, mKeyOTs[i][1]);
+                    xorVector(ui, mKeyRecvOTs[i][1]);
 
                     MC_AWAIT(sock.send(std::move(ui)));
                     //    ui.resize(y.size()); // y.size() * 256 * 2 bits
@@ -537,7 +537,7 @@ namespace secJoin
                 {
                     ui.resize(x.size() * 256 / 4); // x.size() * 256 * 2 bits
 
-                    sampleMod3(mKeyOTs[i][0], mod3);
+                    sampleMod3(mKeyRecvOTs[i][0], mod3);
                     mod3i = mod3.data();
 
                     for (u64 j = 0; j < x.size(); ++j)
@@ -599,7 +599,7 @@ namespace secJoin
 
 
                     //ui = ui ^ H(mKeyOTs[i][1])
-                    xorVector(ui, mKeyOTs[i][1]);
+                    xorVector(ui, mKeyRecvOTs[i][1]);
 
                     MC_AWAIT(sock.send(std::move(ui)));
                 }

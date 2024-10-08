@@ -3,6 +3,7 @@
 #include "BinOleBatch.h"
 #include "CorGenerator.h"
 #include "F4BitOtBatch.h"
+#include "TritOtBatch.h"
 
 namespace secJoin
 {
@@ -20,6 +21,9 @@ namespace secJoin
             break;
         case CorType::F4BitOt:
             return std::make_shared<F4BitOtBatch>(state, sender, std::move(sock), std::move(p));
+            break;
+        case CorType::TritOt:
+            return std::make_shared<TritOtBatch>(state, sender, std::move(sock), std::move(p));
             break;
         default:
             std::terminate();

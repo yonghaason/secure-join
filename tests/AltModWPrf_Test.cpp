@@ -1,0 +1,1535 @@
+#include "AltModWPrf_Test.h"
+#include "secure-join/Prf/DarkMatter22Prf.h"
+#include "secure-join/Prf/DarkMatter32Prf.h"
+#include "secure-join/Prf/AltModWPrf.h"
+#include "secure-join/Prf/mod3.h"
+#include "cryptoTools/Crypto/PRNG.h"
+#include "cryptoTools/Common/Matrix.h"
+
+#include "cryptoTools/Common/TestCollection.h"
+#include "secure-join/Util/Util.h"
+#include "secure-join/Prf/F3LinearCode.h"
+
+using namespace secJoin;
+
+
+void mult(oc::DenseMtx& C, std::vector<u64>& X, std::vector<u64>& Y)
+{
+	for (u64 i = 0; i < C.rows(); ++i)
+	{
+		Y[i] = 0;
+		for (u64 j = 0; j < C.cols(); ++j)
+		{
+			Y[i] += C(i, j) * X[j];
+		}
+	}
+}
+
+
+void F2LinearCode_test(const oc::CLP& cmd)
+{
+	auto n = cmd.getOr("n", 1ull << 10);
+
+	F2LinearCode code;
+
+	oc::Matrix<u8> g(128, sizeof(block));
+	PRNG prng(oc::CCBlock);
+	prng.get(g.data(), g.size());
+	code.init(g);
+
+
+
+	auto mult = [&](block x) {
+		block ret = oc::ZeroBlock;
+		auto iter = oc::BitIterator(x.data());
+		for (u64 i = 0; i < 128; ++i)
+		{
+			if (*iter++)
+			{
+				ret ^= *(block*)g.data(i);
+			}
+		}
+		return ret;
+		};
+
+	std::vector<block> x(n), y(n);
+
+	for (u64 t = 0; t < 100; ++t)
+	{
+		prng.get(x.data(), x.size());
+		for (u64 i = 0; i < n / 128; ++i)
+		{
+			code.encodeN<128>(x.data() + i * 128, y.data() + i * 128);
+		}
+		for (u64 i = 0; i < n; ++i)
+		{
+			block act;
+			auto exp = mult(x[i]);
+			code.encode((u8*)&x[i], act.data());
+
+			if (exp != act)
+				throw RTE_LOC;
+
+			if (exp != y[i])
+				throw RTE_LOC;
+		}
+	}
+
+}
+
+void AltModWPrf_mod3BitDecompostion_test()
+{
+	u64 n = 256;
+	u64 m = 1024;
+
+
+	oc::Matrix<u16> u(n, m);
+	oc::Matrix<oc::block> u0(n, m / 128);
+	oc::Matrix<oc::block> u1(n, m / 128);
+
+	mod3BitDecompostion(u, u0, u1);
+
+
+	for (u64 i = 0; i < n; ++i)
+	{
+		auto iter0 = oc::BitIterator((u8*)u0.data(i));
+		auto iter1 = oc::BitIterator((u8*)u1.data(i));
+		for (u64 j = 0; j < m; ++j)
+		{
+			auto uu0 = u(i, j) & 1;
+			auto uu1 = (u(i, j) >> 1) & 1;
+
+			if (uu0 != *iter0++)
+				throw RTE_LOC;
+			if (uu1 != *iter1++)
+				throw RTE_LOC;
+		}
+	}
+}
+
+void AltModWPrf_sampleMod3_test(const oc::CLP& cmd)
+{
+	for (u64 n : {1ull, 4ull, 123ull, 1ull << cmd.getOr("nn", 16)})
+	{
+
+		u64 t = cmd.getOr("t", 1);
+		PRNG prng(block(22132, cmd.getOr("s", 1)));
+
+		bool failed = false;
+
+		for (u64 i = 0; i < 256; ++i)
+		{
+			auto vals = mod3TableFull[i];
+			auto lsb = mod3TableLsb[i];
+			auto msb = mod3TableMsb[i];
+			if (i < 243)
+			{
+				if (mod3TableV[i] != 5)
+					throw RTE_LOC;
+
+
+				for (u64 j = 0; j < 5; ++j)
+				{
+					if ((vals[j] & 1) != ((lsb >> j) & 1))
+						throw RTE_LOC;
+
+					if (((vals[j] >> 1) & 1) != ((msb >> j) & 1))
+						throw RTE_LOC;
+				}
+			}
+			else
+			{
+				if (mod3TableV[i] != 0)
+					throw RTE_LOC;
+
+				for (u64 j = 0; j < 5; ++j)
+					if (vals[j] != 0)
+						throw RTE_LOC;
+
+				if (lsb)
+					throw RTE_LOC;
+				if (msb)
+					throw RTE_LOC;
+			}
+		}
+
+		//for (u64 tt = 0; tt < t; ++tt)
+		//{
+		//    std::array<int, 3> counts{ 0,0,0 };
+
+		//    for (u64 i = 0;i < n * 128;++i)
+		//    {
+		//        ++counts[prng.get<u64>() % 3];
+		//    }
+
+		//    u64 N = n * 128;
+		//    u64 exp = N / 3;
+		//    u64 eps = 2 * std::sqrt(N);
+		//    for (auto c : counts)
+		//        if (c < exp - eps || c > exp + eps)
+		//        {
+		//            std::cout << "{ " << counts[0] << ", " << counts[1] << ", " << counts[2] << "}" << std::endl;
+		//            std::cout << "exp = " << exp << " eps = " << eps << std::endl;
+		//            failed = true;
+		//        }
+
+		//    std::cout << "basic { " << counts[0] << ", " << counts[1] << ", " << counts[2] << "}" << std::endl;
+		//}
+
+		for (u64 tt = 0; tt < t; ++tt)
+		{
+			oc::AlignedUnVector<block> lsb(n), msb(n);
+			sampleMod3Lookup(prng, msb, lsb);
+			std::array<int, 3> counts{ 0,0,0 };
+			for (u64 i = 0;i < n;++i)
+			{
+				for (u64 j = 0;j < 128; ++j)
+				{
+					auto lsbj = bit(lsb[i], j);
+					auto msbj = bit(msb[i], j);
+					u64 v = lsbj + 2 * msbj;
+
+					if (v > 2)
+						throw RTE_LOC;
+
+					++counts[v];
+				}
+			}
+
+			u64 N = n * 128;
+			u64 exp = N / 3;
+			u64 eps = std::sqrt(N);
+			for (auto c : counts)
+				if ((c < exp - eps || c > exp + eps) && n > 200)
+				{
+					failed = true;
+				}
+			//std::cout << "lookup1 { " << counts[0] << ", " << counts[1] << ", " << counts[2] << "}" << std::endl;
+		}
+
+		for (u64 tt = 0; tt < t; ++tt)
+		{
+			oc::AlignedUnVector<block> lsb(n), msb(n);
+			sampleMod3Lookup3(prng, msb, lsb);
+			std::array<int, 3> counts{ 0,0,0 };
+
+			for (u64 i = 0;i < n;++i)
+			{
+				for (u64 j = 0;j < 128; ++j)
+				{
+					auto lsbj = bit(lsb[i], j);
+					auto msbj = bit(msb[i], j);
+					u64 v = lsbj + 2 * msbj;
+
+					if (v > 2)
+						throw RTE_LOC;
+
+					++counts[v];
+				}
+			}
+
+			u64 N = n * 128;
+			u64 exp = N / 3;
+			u64 eps = 2 * std::sqrt(N);
+			for (auto c : counts)
+				if ((c < exp - eps || c > exp + eps) && n > 200)
+				{
+					//std::cout << "{ " << counts[0] << ", " << counts[1] << ", " << counts[2] << "}" << std::endl;
+					//std::cout << "exp = " << exp << " eps = " << eps << std::endl;
+					failed = true;
+				}
+
+			//std::cout << "lookup3 { " << counts[0] << ", " << counts[1] << ", " << counts[2] << "}" << std::endl;
+
+		}
+		if (failed)
+			throw RTE_LOC;
+	}
+}
+
+void AltModWPrf_AMult_test(const oc::CLP& cmd)
+{
+	F3AccPermCode c;
+	u64 k = cmd.getOr("k", 128);
+	u64 n = cmd.getOr("n", k / 2);
+	u64 l = cmd.getOr("l", 1 << 4);
+	u64 p = cmd.getOr("p", 0);
+
+	c.init(k, n, p);
+
+	//std::cout << c << std::endl;
+	{
+		auto m = c.getMatrix();
+		std::vector<u8> v(k), y(n);
+		PRNG prng(oc::ZeroBlock);
+		for (u64 j = 0; j < k;++j)
+			v[j] = prng.get<u8>() % 3;
+
+		auto vv = v;
+		auto yy = y;
+		c.encode<u8>(vv, y);
+
+		for (u64 i = 0; i < n; ++i)
+		{
+			for (u64 j = 0; j < k;++j)
+			{
+				yy[i] = (yy[i] + (v[j] * m(i, j))) % 3;
+			}
+		}
+
+		if (yy != y)
+			throw RTE_LOC;
+	}
+
+	{
+		oc::Matrix<block>msb(k, l), lsb(k, l);
+		oc::Matrix<block>msbOut(n, l), lsbOut(n, l);
+		PRNG prng(oc::ZeroBlock);
+		sampleMod3Lookup(prng, msb, lsb);
+
+
+		auto msb2 = msb;
+		auto lsb2 = lsb;
+		c.encode(msb2, lsb2, msbOut, lsbOut);
+
+		for (u64 i = 0; i < l * 128; ++i)
+		{
+			std::vector<u8> v(k), y(n), yy(n);
+			for (u64 j = 0; j < k; ++j)
+				v[j] = bit(lsb[j].data(), i) + bit(msb[j].data(), i) * 2;
+			for (u64 j = 0; j < n; ++j)
+				y[j] = bit(lsbOut[j].data(), i) + bit(msbOut[j].data(), i) * 2;
+
+			c.encode<u8>(v, yy);
+
+			if (y != yy)
+			{
+				std::cout << "v  ";
+				for (u64 j = 0; j < k; ++j)
+					std::cout << (int)v[j] << " ";
+				std::cout << std::endl;
+				std::cout << "y  ";
+				for (u64 j = 0; j < n; ++j)
+					std::cout << (int)y[j] << " ";
+				std::cout << std::endl << "yy ";
+				for (u64 j = 0; j < n; ++j)
+					std::cout << (int)yy[j] << " ";
+				std::cout << std::endl;
+				throw RTE_LOC;
+			}
+		}
+	}
+}
+
+
+
+void AltModWPrf_BMult_test(const oc::CLP& cmd)
+{
+	u64 n = 1ull << cmd.getOr("nn", 12);
+	u64 n128 = n / 128;
+	oc::Matrix<oc::block> v(256, n128);
+	std::vector<block256> V(n);
+	PRNG prng(oc::ZeroBlock);
+	prng.get(V.data(), V.size());
+
+	for (u64 i = 0; i < n; ++i)
+	{
+		for (u64 j = 0; j < 256; ++j)
+		{
+			*oc::BitIterator((u8*)&v(j, 0), i) = bit(V[i], j);
+		}
+	}
+	std::vector<oc::block> y(n);
+	compressB(v, y);
+
+	//oc::Matrix<u64> B(128, 256);
+	//for (u64 i = 0; i < 128; ++i)
+	//{
+	//    u64 j = 0;
+	//    for (; j < 128; ++j)
+	//        B(i, j) = j == i ? 1 : 0;
+	//    for (; j < B.cols(); ++j)
+	//    {
+	//        B(i, j) = *oc::BitIterator((u8*)&AltModWPrf::mB[i], j - 128);
+	//    }
+	//}
+
+	for (u64 i = 0; i < n; ++i)
+	{
+		//auto Y = AltModPrf::compress(V[i]);
+		//if (y[i] != Y)
+		//	throw RTE_LOC;
+
+		auto Y = oc::ZeroBlock;
+		AltModPrf::mBCode.encode((u8*)&V[i].mData[1], (u8*)&Y);
+
+		{
+			auto w = V[i];
+			oc::AlignedArray<block, 128> bw;
+
+			for (u64 i = 0; i < 128; ++i)
+			{
+				//bw[0][i] = B[i].mData[0] & w.mData[0];
+				bw[i] = AltModPrf::mB[i] & w.mData[1];
+			}
+			oc::transpose128(bw.data());
+			//oc::transpose128(bw[1].data());
+
+			block r = oc::ZeroBlock;//w[0];
+			//memset(&r, 0, sizeof(r));
+			//for (u64 i = 0; i < 128; ++i)
+			//    r = r ^ bw[0][i];
+			for (u64 i = 0; i < 128; ++i)
+				r = r ^ bw[i];
+
+			//oc::block b = oc::ZeroBlock;
+			//for (u64 ii = 0; ii < 128; ++ii)
+			//{
+			//    if (bit(V[i].mData[1], ii))
+			//    {
+			//        b = b ^ AltModWPrf::mB[ii];
+			//    }
+			//}
+
+			//if (Y != b)
+			//    throw RTE_LOC;
+			if (r != Y)
+				throw RTE_LOC;
+		}
+		//Y = Y ^ V[i].mData[0];
+		Y = Y ^ V[i].mData[0];
+		if (y[i] != Y)
+			throw RTE_LOC;
+	}
+}
+
+void AltModWPrf_correction_test(const oc::CLP& cmd)
+{
+	u64 n = (1 << 16) + 321;
+	u64 m = 2;
+	bool mock = false;
+	oc::Matrix<block>
+		x0(n, m), x1(n, m),
+		yLsb0(n, m), yLsb1(n, m),
+		yMsb0(n, m), yMsb1(n, m),
+		yLsb(n, m), yMsb(n, m);
+
+	PRNG prng(oc::CCBlock);
+
+	prng.get<block>(x0);
+	prng.get<block>(x1);
+	auto sock = coproto::LocalAsyncSocket::makePair();
+	CorGenerator gen[2];
+	gen[0].init(sock[0].fork(), prng, 0, 10, 1 << 16, mock);
+	gen[1].init(sock[1].fork(), prng, 1, 10, 1 << 16, mock);
+
+	auto recvReq = gen[0].request<TritOtRecv>(x0.size() * 128);
+	auto sendReq = gen[1].request<TritOtSend>(x1.size() * 128);
+
+	macoro::sync_wait(macoro::when_all_ready(
+		keyMultCorrectionRecv(recvReq, x0, yLsb0, yMsb0, sock[0], true),
+		keyMultCorrectionSend(sendReq, x1, yLsb1, yMsb1, sock[1], true)
+	));
+
+	// y = y0 + y1
+	mod3Add(yMsb, yLsb, yMsb0, yLsb0, yMsb1, yLsb1);
+
+	for (u64 i = 0; i < x0.size(); ++i)
+	{
+		if (yMsb(i) != oc::ZeroBlock)
+			throw RTE_LOC;
+
+
+		if (yLsb(i) != (x0(i) & x1(i)))
+			throw RTE_LOC;
+
+
+	}
+}
+
+
+
+void AltModWPrf_mod2Ole_test(const oc::CLP& cmd)
+{
+
+
+	u64 n = cmd.getOr("n", 128);
+	u64 m = cmd.getOr("m", 128);
+	auto m128 = oc::divCeil(m, 128);
+
+
+	u64 printI = cmd.getOr("i", -1);
+	u64 printJ = cmd.getOr("j", -1);
+
+	PRNG prng0(oc::ZeroBlock);
+	PRNG prng1(oc::OneBlock);
+	oc::Timer timer;
+
+	AltModWPrfSender sender;
+	AltModWPrfReceiver recver;
+
+	//sender.mPrintI = printI;
+	//sender.mPrintJ = printJ;
+	//recver.mPrintI = printI;
+	//recver.mPrintJ = printJ;
+
+	sender.setTimer(timer);
+	recver.setTimer(timer);
+
+	oc::Matrix<u16> u(n, m);
+	std::array<oc::Matrix<u16>, 2> us;
+	us[0].resize(n, m);
+	us[1].resize(n, m);
+	for (u64 i = 0; i < u.rows(); ++i)
+	{
+		for (u64 j = 0; j < u.cols(); ++j)
+		{
+
+			u(i, j) = prng0.get<u8>() % 3;
+			us[0](i, j) = prng0.get<u8>() % 3;
+			us[1](i, j) = u8(u(i, j) + 3 - us[0](i, j)) % 3;
+			assert((u8(us[0](i, j) + us[1](i, j)) % 3) == u(i, j));
+		}
+	}
+
+
+	//auto us = xorShare(u, prng0);
+
+	std::array<oc::Matrix<oc::block>, 2> u0s, u1s;
+	u0s[0].resize(n, m128);
+	u0s[1].resize(n, m128);
+	u1s[0].resize(n, m128);
+	u1s[1].resize(n, m128);
+	mod3BitDecompostion(us[0], u0s[0], u1s[0]);
+	mod3BitDecompostion(us[1], u0s[1], u1s[1]);
+
+	//if (i == printI && j == printJ)
+	if (printI < n)
+	{
+		auto i = printI;
+		auto j = printJ;
+		std::cout << "\nu(" << i << ", " << j << ") \n"
+			<< "    = " << u(i, j) << "\n"
+			<< "    = " << us[0](i, j) << " + " << us[1](i, j) << "\n"
+			<< "    = " << bit(u1s[0](i, 0), j) << bit(u0s[0](i, 0), j) << " + "
+			<< bit(u1s[1](i, 0), j) << bit(u0s[1](i, 0), j) << std::endl;
+	}
+
+	//auto u0s = share(u0, prng0);
+	//auto u1s = share(u1, prng0);
+	std::array<oc::Matrix<oc::block>, 2> outs;
+	outs[0].resize(n, m128);
+	outs[1].resize(n, m128);
+
+	auto sock = coproto::LocalAsyncSocket::makePair();
+
+
+	CorGenerator ole0, ole1;
+	auto chls = coproto::LocalAsyncSocket::makePair();
+	ole0.init(chls[0].fork(), prng0, 0, 1, 1 << 18, cmd.getOr("mock", 1));
+	ole1.init(chls[1].fork(), prng1, 1, 1, 1 << 18, cmd.getOr("mock", 1));
+
+
+	//sender.init(n, ole0);
+	//recver.init(n, ole1);
+	//    sender.request(ole0);
+	//    recver.request(ole1);
+	sender.mMod2OleReq = ole0.binOleRequest(u0s[0].rows() * u0s[0].cols() * 256);
+	recver.mMod2OleReq = ole1.binOleRequest(u0s[0].rows() * u0s[0].cols() * 256);
+	sender.mUseMod2F4Ot = false;
+	recver.mUseMod2F4Ot = false;
+	//auto s0 = sender.mOleReq_.start() | macoro::make_eager();
+	//auto s1 = recver.mOleReq_.start() | macoro::make_eager();
+	//sender.mHasOleRequest = true;
+	//recver.mHasOleRequest = true;
+
+	auto r = macoro::sync_wait(macoro::when_all_ready(
+		sender.mod2Ole(u0s[0], u1s[0], outs[0], sock[0]),
+		recver.mod2Ole(u0s[1], u1s[1], outs[1], sock[1]),
+		ole0.start(),
+		ole1.start()
+	));
+
+	std::get<0>(r).result();
+	std::get<1>(r).result();
+	std::get<2>(r).result();
+	std::get<3>(r).result();
+
+	auto out = reveal(outs);
+
+
+	for (u64 i = 0; i < n; ++i)
+	{
+		auto iter = oc::BitIterator((u8*)out[i].data());
+		for (u64 j = 0; j < m; ++j)
+		{
+			u8 uij = u(i, j);
+			u8 exp = uij % 2;
+			u8 act = *iter++;
+			if (exp != act)
+			{
+				std::cout << "i " << i << " j " << j << "\n"
+					<< "act " << int(act) << " = "
+					<< *oc::BitIterator((u8*)&outs[0](i, 0), j) << " ^ "
+					<< *oc::BitIterator((u8*)&outs[1](i, 0), j) << std::endl
+					<< "exp " << int(exp) << " = " << u(i, j) << " = " << us[0](i, j) << " + " << us[1](i, j) << std::endl;
+				throw RTE_LOC;
+			}
+		}
+	}
+}
+
+
+void AltModWPrf_mod2OtF4_test(const oc::CLP& cmd)
+{
+
+
+	u64 n = cmd.getOr("n", 12802);
+	u64 m = cmd.getOr("m", 128);
+	auto m128 = oc::divCeil(m, 128);
+
+
+	u64 printI = cmd.getOr("i", -1);
+	u64 printJ = cmd.getOr("j", -1);
+
+	PRNG prng0(oc::ZeroBlock);
+	PRNG prng1(oc::OneBlock);
+	oc::Timer timer;
+
+	AltModWPrfSender sender;
+	AltModWPrfReceiver recver;
+
+	//sender.mPrintI = printI;
+	//sender.mPrintJ = printJ;
+	//recver.mPrintI = printI;
+	//recver.mPrintJ = printJ;
+
+	sender.setTimer(timer);
+	recver.setTimer(timer);
+
+	oc::Matrix<u16> u(n, m);
+	std::array<oc::Matrix<u16>, 2> us;
+	us[0].resize(n, m);
+	us[1].resize(n, m);
+	for (u64 i = 0; i < u.rows(); ++i)
+	{
+		for (u64 j = 0; j < u.cols(); ++j)
+		{
+
+			u(i, j) = prng0.get<u8>() % 3;
+			us[0](i, j) = prng0.get<u8>() % 3;
+			us[1](i, j) = u8(u(i, j) + 3 - us[0](i, j)) % 3;
+			assert((u8(us[0](i, j) + us[1](i, j)) % 3) == u(i, j));
+		}
+	}
+
+
+	//auto us = xorShare(u, prng0);
+
+	std::array<oc::Matrix<oc::block>, 2> u0s, u1s;
+	u0s[0].resize(n, m128);
+	u0s[1].resize(n, m128);
+	u1s[0].resize(n, m128);
+	u1s[1].resize(n, m128);
+	mod3BitDecompostion(us[0], u0s[0], u1s[0]);
+	mod3BitDecompostion(us[1], u0s[1], u1s[1]);
+
+	//if (i == printI && j == printJ)
+	if (printI < n)
+	{
+		auto i = printI;
+		auto j = printJ;
+		std::cout << "\nu(" << i << ", " << j << ") \n"
+			<< "    = " << u(i, j) << "\n"
+			<< "    = " << us[0](i, j) << " + " << us[1](i, j) << "\n"
+			<< "    = " << bit(u1s[0](i, 0), j) << bit(u0s[0](i, 0), j) << " + "
+			<< bit(u1s[1](i, 0), j) << bit(u0s[1](i, 0), j) << std::endl;
+	}
+
+	//auto u0s = share(u0, prng0);
+	//auto u1s = share(u1, prng0);
+	std::array<oc::Matrix<oc::block>, 2> outs;
+	outs[0].resize(n, m128);
+	outs[1].resize(n, m128);
+
+	auto sock = coproto::LocalAsyncSocket::makePair();
+
+
+	CorGenerator ole0, ole1;
+	auto chls = coproto::LocalAsyncSocket::makePair();
+	ole0.init(chls[0].fork(), prng0, 0, 1, 1 << 18, cmd.getOr("mock", 1));
+	ole1.init(chls[1].fork(), prng1, 1, 1, 1 << 18, cmd.getOr("mock", 1));
+
+
+	//sender.init(n, ole0);
+	//recver.init(n, ole1);
+	//    sender.request(ole0);
+	//    recver.request(ole1);
+	sender.mMod2F4Req = ole0.request<F4BitOtSend>(u0s[0].rows() * u0s[0].cols() * 128);
+	recver.mMod2F4Req = ole1.request<F4BitOtRecv>(u0s[0].rows() * u0s[0].cols() * 128);
+
+	//auto s0 = sender.mOleReq_.start() | macoro::make_eager();
+	//auto s1 = recver.mOleReq_.start() | macoro::make_eager();
+	//sender.mHasOleRequest = true;
+	//recver.mHasOleRequest = true;
+
+	auto r = macoro::sync_wait(macoro::when_all_ready(
+		sender.mod2OtF4(u0s[0], u1s[0], outs[0], sock[0]),
+		recver.mod2OtF4(u0s[1], u1s[1], outs[1], sock[1]),
+		ole0.start(),
+		ole1.start()
+	));
+
+	std::get<0>(r).result();
+	std::get<1>(r).result();
+	std::get<2>(r).result();
+	std::get<3>(r).result();
+
+	auto out = reveal(outs);
+
+
+	for (u64 i = 0; i < n; ++i)
+	{
+		auto iter = oc::BitIterator((u8*)out[i].data());
+		for (u64 j = 0; j < m; ++j)
+		{
+			u8 uij = u(i, j);
+			u8 exp = uij % 2;
+			u8 act = *iter++;
+			if (exp != act)
+			{
+				std::cout << "i " << i << " j " << j << "\n"
+					<< "act " << int(act) << " = "
+					<< *oc::BitIterator((u8*)&outs[0](i, 0), j) << " ^ "
+					<< *oc::BitIterator((u8*)&outs[1](i, 0), j) << std::endl
+					<< "exp " << int(exp) << " = " << u(i, j) << " = " << us[0](i, j) << " + " << us[1](i, j) << std::endl;
+				throw RTE_LOC;
+			}
+		}
+	}
+}
+
+
+void AltModWPrf_mod3_test(const oc::CLP& cmd)
+{
+
+
+	PRNG prng(oc::ZeroBlock);
+	u64 n = 100;
+	for (u64 i = 0; i < n;++i)
+	{
+		u8 x = prng.get<u8>() % 3;
+		u8 y = prng.get<u8>() % 3;
+		auto a = (x >> 1) & 1;
+		auto b = x & 1;
+		auto c = (y >> 1) & 1;
+		auto d = y & 1;
+
+		auto ab = a ^ b;
+		auto z1 = (1 ^ d ^ b) * (ab ^ c);
+		auto z0 = (1 ^ a ^ c) * (ab ^ d);
+		auto e = (x + y) % 3;
+		if (z0 != (e & 1))
+			throw RTE_LOC;
+		if (z1 != (e >> 1))
+			throw RTE_LOC;
+	}
+
+
+	//     c
+	// ab  0  1   // msb = bc+a(1+c)  = bc + a + ac
+	// 00  0  0          = a + (b+a)c =
+	// 01  0  1          = 
+	// 10  1  0    
+	// 
+	//     0  1   // lsb = b(1+c) + (1+b+a)c
+	// 00  0  1          = b + (1 + a) c
+	// 01  1  0 
+	// 10  0  0
+	for (u64 i = 0; i < n;++i)
+	{
+		u8 x = prng.get<u8>() % 3;
+		u8 c = prng.get<u8>() % 2;
+		auto a = (x >> 1) & 1;
+		auto b = x & 1;
+
+		//auto ab = a ^ b;
+		//auto z1 = (1 ^ b) * (ab ^ c);
+		//auto z0 = (1 ^ a ^ c) * (ab);
+		auto z1 = a ^ (a ^ b) * c;
+		auto z0 = b ^ (1 ^ a) * c;
+		auto e = (x + c) % 3;
+		if (z0 != (e & 1))
+			throw RTE_LOC;
+		if (z1 != (e >> 1))
+			throw RTE_LOC;
+
+		oc::block A = oc::block::allSame(-a);
+		oc::block B = oc::block::allSame(-b);
+		oc::block C = oc::block::allSame(-c);
+		oc::block Z0 = oc::block::allSame(-z0);
+		oc::block Z1 = oc::block::allSame(-z1);
+
+		mod3Add(
+			span<oc::block>(&A, 1), span<oc::block>(&B, 1),
+			span<oc::block>(&A, 1), span<oc::block>(&B, 1),
+			span<oc::block>(&C, 1));
+
+		if (Z0 != B)
+			throw RTE_LOC;
+		if (Z1 != A)
+			throw RTE_LOC;
+	}
+
+
+	for (u64 i = 0; i < n;++i)
+	{
+		u8 x = prng.get<u8>() % 3;
+		u8 y0 = prng.get<u8>() % 2;
+		auto x1 = (x >> 1) & 1;
+		auto x0 = x & 1;
+
+		auto z = (x - y0 + 3) % 3;
+
+		auto z1 = (z >> 1) & 1;
+		auto z0 = z & 1;
+
+		oc::block X0 = oc::block::allSame(-x0);
+		oc::block X1 = oc::block::allSame(-x1);
+		oc::block Y0 = oc::block::allSame(-y0);
+		oc::block Z0 = oc::block{};
+		oc::block Z1 = oc::block{};
+
+		mod3Sub(
+			span<oc::block>(&Z1, 1), span<oc::block>(&Z0, 1),
+			span<oc::block>(&X1, 1), span<oc::block>(&X0, 1),
+			span<oc::block>(&Y0, 1));
+
+		if (Z0 != oc::block::allSame(-z0))
+			throw RTE_LOC;
+		if (Z1 != oc::block::allSame(-z1))
+			throw RTE_LOC;
+	}
+
+}
+
+
+void AltModWPrf_plain_test()
+{
+
+	u64 len = 1 << 10;
+	u64 n = AltModPrf::KeySize;
+	u64 m = 256;
+	u64 t = 128;
+	PRNG prng(oc::ZeroBlock);
+	AltModPrf::KeyType kk = prng.get();
+	oc::block xx = prng.get();
+
+	AltModPrf::KeyType x;
+	AltModPrf::expandInput(xx, x);
+	//if (x.size() > 1) {
+
+	//    for (u64 i = 0; i < x.size(); ++i)
+	//        x[i] = xx ^ oc::block(i, i);
+	//    oc::mAesFixedKey.hashBlocks<x.size() - 1>(x.data() + 1, x.data() + 1);
+	//}
+	//else
+	//    x[0] = xx;
+
+	AltModPrf prf;
+
+	prf.setKey(kk);
+
+
+	auto y = prf.eval(xx);
+
+	oc::Matrix<u64> B(t, m);
+	std::vector<u64> X(n), K(n), H(n), U(m), W(m), Y(t);
+	for (u64 i = 0; i < n; ++i)
+	{
+		X[i] = *oc::BitIterator((u8*)&x, i);
+		K[i] = *oc::BitIterator((u8*)&prf.mExpandedKey, i);
+		H[i] = X[i] & K[i];
+
+		//if (i < 20)
+		//    std::cout << "H[" << i << "] = " << (H[i]) << " = " << K[i] << " * " << X[i] << std::endl;
+
+	}
+	for (u64 i = 0; i < t; ++i)
+	{
+		u64 j = 0;
+		for (; j < 128; ++j)
+			B(i, j) = j == i ? 1 : 0;
+		for (; j < m; ++j)
+		{
+			B(i, j) = *oc::BitIterator((u8*)&AltModPrf::mB[i], j - 128);
+		}
+	}
+
+	AltModPrf::mACode.encode<u64>(H, U);
+
+	for (u64 i = 0; i < m; ++i)
+	{
+		W[i] = (U[i] % 3) % 2;
+	}
+	for (u64 i = 0; i < t; ++i)
+	{
+		for (u64 j = 0; j < m; ++j)
+		{
+			Y[i] ^= B(i, j) * W[j];
+		}
+
+		if (Y[i] != (u8)*oc::BitIterator((u8*)&y, i))
+		{
+			throw RTE_LOC;
+		}
+	}
+
+	{
+		std::vector<block> x(len), y(len);
+		prng.get(x.data(), x.size());
+		{
+			oc::Matrix<block> ex(4 * 128, len / 128), ext(len, 4);
+			prf.expandInput(x, ex);
+			oc::transpose(ex, ext);
+
+
+			//for (u64 i = 0; i < 128; ++i)
+			//{
+			//	std::cout << ex(i, 0) << std::endl;
+			//}
+
+			for (u64 i = 0; i < len; ++i)
+			{
+				AltModPrf::KeyType exp;
+				prf.expandInput(x[i], exp);
+				for (u64 j = 0; j < 4; ++j)
+					if (ext[i][j] != exp[j])
+					{
+						std::cout << i << " " << j << " single " << exp[j] << " multi " << ext[i][j] << std::endl;
+						throw RTE_LOC;
+					}
+			}
+		}
+		prf.eval(x, y);
+		for (u64 i = 0; i < len; ++i)
+		{
+			auto exp = prf.eval(x[i]);
+			if (y[i] != exp)
+				throw RTE_LOC;
+		}
+	}
+}
+
+
+void AltModProtoCheck(AltModWPrfSender& sender, AltModWPrfReceiver& recver)
+{
+	auto x = recver.mDebugInput;
+	std::array<std::vector<block>, 2> xShares;
+	auto n = x.size();
+
+	if (sender.mDebugInput.size())
+	{
+		xShares[0] = x;
+		xShares[1].resize(n);
+		for (u64 i = 0; i < n; ++i)
+		{
+			xShares[1][i] = sender.mDebugInput[i];
+			x[i] = x[i] ^ sender.mDebugInput[i];
+
+			if (i < 10)
+				std::cout << "x[" << i << "] " << x[i] << std::endl;
+		}
+	}
+
+	oc::Matrix<block> xt(AltModPrf::KeySize, oc::divCeil(n, 128));
+	AltModPrf::expandInput(x, xt);
+
+	auto key = sender.getKey();
+	if (recver.getKey())
+	{
+		key = key ^ *recver.getKey();
+	}
+
+	std::cout << "key " << key << std::endl;
+
+	for (u64 ii = 0; ii < n; ++ii)
+	{
+
+		std::array<u16, AltModPrf::KeySize> h;
+		AltModPrf::KeyType X;
+		std::array< AltModPrf::KeyType, 2> XShares;
+		AltModPrf::expandInput(x[ii], X);
+		if (sender.mDebugInput.size())
+		{
+			AltModPrf::expandInput(xShares[0][ii], XShares[0]);
+			AltModPrf::expandInput(xShares[1][ii], XShares[1]);
+		}
+
+		//auto kIter = oc::BitIterator((u8*)key.data());
+		//auto xIter = oc::BitIterator((u8*)X.data());
+		//std::array<oc::BitIterator, 2> xSharesIter{
+		//	oc::BitIterator((u8*)X0.data()),
+		//	oc::BitIterator((u8*)X1.data())
+		//};
+
+		bool failed = false;
+		//if (sender.mDebugInput.size())
+		//{
+		//	for (auto j = 0; j < 2;++j)
+		//	{
+		//		if (ii < 10)
+		//		{
+		//			std::cout << "x[" << ii << "][" << j << "] " << XShares[j] << std::endl;
+		//		}
+
+		//		auto& rkx0 = j ? recver.mKeyMultSender.mDebugXk0 : recver.mKeyMultRecver.mDebugXk0;
+		//		auto& rkx1 = j ? recver.mKeyMultSender.mDebugXk1 : recver.mKeyMultRecver.mDebugXk1;
+		//		auto& skx0 = j ? sender.mKeyMultRecver.mDebugXk0 : sender.mKeyMultSender.mDebugXk0;
+		//		auto& skx1 = j ? sender.mKeyMultRecver.mDebugXk1 : sender.mKeyMultSender.mDebugXk1;
+
+
+		//		for (u64 i = 0; i < AltModWPrf::KeySize; ++i)
+		//		{
+
+		//			if (bit(X, i) != bit(xt[i].data(), ii))
+		//				throw RTE_LOC;
+
+		//			u8 xi = bit(XShares[j], i);
+		//			u8 ki = bit(key, i);
+		//			h[i] = ki & xi;
+
+		//			assert(rkx0.cols() == oc::divCeil(x.size(), 128));
+		//			auto r0 = bit(rkx0.data(i), ii);
+		//			auto r1 = bit(rkx1.data(i), ii);
+		//			auto s0 = bit(skx0.data(i), ii);
+		//			auto s1 = bit(skx1.data(i), ii);
+
+		//			auto s = 2 * s1 + s0;
+		//			auto r = 2 * r1 + r0;
+
+		//			//auto neg = (3 - r) % 3;
+		//			auto act = (s + r) % 3;
+		//			if (act != h[i])
+		//				failed = true;
+		//			//throw RTE_LOC;
+
+		//		}
+		//	}
+		//}
+
+		for (u64 i = 0; i < AltModPrf::KeySize; ++i)
+		{
+
+			if (bit(X, i) != bit(xt[i].data(), ii))
+				throw RTE_LOC;
+
+			u8 xi = bit(X, i);
+			u8 ki = bit(key, i);
+			h[i] = ki & xi;
+
+			assert(recver.mDebugXk0.cols() == oc::divCeil(x.size(), 128));
+			auto r0 = bit(recver.mDebugXk0.data(i), ii);
+			auto r1 = bit(recver.mDebugXk1.data(i), ii);
+			auto s0 = bit(sender.mDebugXk0.data(i), ii);
+			auto s1 = bit(sender.mDebugXk1.data(i), ii);
+
+
+			auto s = 2 * s1 + s0;
+			auto r = 2 * r1 + r0;
+
+			//auto neg = (3 - r) % 3;
+			auto act = (s + r) % 3;
+			if (act != h[i])
+				failed = true;
+			//throw RTE_LOC;
+
+			//++kIter;
+			//++xIter;
+		}
+
+		if (failed)
+			throw RTE_LOC;
+
+		block256m3 u;
+		{
+
+			std::array<u8, AltModPrf::KeySize> out;
+			for (u64 i = 0; i < AltModPrf::KeySize; ++i)
+				out[i] = h[i];
+			AltModPrf::mACode.encode<u8>(out, u.mData);
+		}
+		//AltModPrf::mtxMultA(h, u);
+
+		for (u64 i = 0; i < 256; ++i)
+		{
+			auto r0 = bit(recver.mDebugU0.data(i), ii);
+			auto r1 = bit(recver.mDebugU1.data(i), ii);
+			auto s0 = bit(sender.mDebugU0.data(i), ii);
+			auto s1 = bit(sender.mDebugU1.data(i), ii);
+
+			auto s = 2 * s1 + s0;
+			auto r = 2 * r1 + r0;
+
+			if ((s + r) % 3 != u.mData[i])
+			{
+				throw RTE_LOC;
+			}
+
+		}
+
+		block256 w;
+		for (u64 i = 0; i < u.mData.size(); ++i)
+		{
+			*oc::BitIterator((u8*)&w, i) = u.mData[i] % 2;
+
+			auto v0 = bit(sender.mDebugV(i, 0), ii);
+			auto v1 = bit(recver.mDebugV(i, 0), ii);
+
+			if ((v0 ^ v1) != u.mData[i] % 2)
+			{
+				throw RTE_LOC;
+			}
+		}
+
+
+		//    auto yy = sender.mPrf.compress(w);
+
+		//    y = sender.mPrf.eval(x[ii]);
+		//else
+		//    y = sender.mPrf.eval(x[ii]);
+
+		//auto yy = (y0[ii] ^ y1[ii]);
+		//if (yy != y)
+		//{
+		//    std::cout << "i   " << ii << std::endl;
+		//    std::cout << "act " << yy << std::endl;
+		//    std::cout << "exp " << y << std::endl;
+		//    throw RTE_LOC;
+		//}
+	}
+}
+
+void AltModWPrf_proto_test(const oc::CLP& cmd)
+{
+
+
+	u64 n = cmd.getOr("n", 1024);
+	bool noCheck = cmd.isSet("nc");
+	bool debug = cmd.isSet("debug");
+
+	oc::Timer timer;
+
+	AltModWPrfSender sender;
+	AltModWPrfReceiver recver;
+	sender.mDebug = debug;
+	recver.mDebug = debug;
+
+	sender.setTimer(timer);
+	recver.setTimer(timer);
+
+	std::vector<oc::block> x(n);
+	std::vector<oc::block> y0(n), y1(n);
+
+	auto sock = coproto::LocalAsyncSocket::makePair();
+
+	PRNG prng0(oc::ZeroBlock);
+	PRNG prng1(oc::OneBlock);
+
+	AltModPrf dm(prng0.get());
+
+	CorGenerator ole0, ole1;
+	ole0.init(sock[0].fork(), prng0, 0, 1, 1 << 18, cmd.getOr("mock", 1));
+	ole1.init(sock[1].fork(), prng1, 1, 1, 1 << 18, cmd.getOr("mock", 1));
+
+	prng0.get(x.data(), x.size());
+
+
+	if (cmd.isSet("doKeyGen") == false)
+	{
+		std::vector<oc::block> rk(AltModPrf::KeySize);
+		std::vector<std::array<oc::block, 2>> sk(AltModPrf::KeySize);
+		for (u64 i = 0; i < AltModPrf::KeySize; ++i)
+		{
+			sk[i][0] = oc::block(i, 0);
+			sk[i][1] = oc::block(i, 1);
+			rk[i] = oc::block(i, *oc::BitIterator((u8*)&dm.mExpandedKey, i));
+		}
+		sender.init(n, ole0, AltModPrfKeyMode::SenderOnly, AltModPrfInputMode::ReceiverOnly, dm.getKey(), rk);
+		recver.init(n, ole1, AltModPrfKeyMode::SenderOnly, AltModPrfInputMode::ReceiverOnly, {}, sk);
+	}
+	else
+	{
+		sender.init(n, ole0);
+		recver.init(n, ole1);
+	}
+
+	auto r = coproto::sync_wait(coproto::when_all_ready(
+		sender.evaluate({}, y0, sock[0], prng0),
+		recver.evaluate(x, y1, sock[1], prng1),
+		ole0.start(),
+		ole1.start()
+	));
+
+	std::get<0>(r).result();
+	std::get<1>(r).result();
+	std::get<2>(r).result();
+	std::get<3>(r).result();
+
+
+	if (cmd.isSet("v"))
+	{
+		std::cout << timer << std::endl;
+		std::cout << sock[0].bytesReceived() / 1000.0 << " " << sock[0].bytesSent() / 1000.0 << " kB " << std::endl;
+	}
+
+	if (noCheck)
+		return;
+
+	for (u64 ii = 0; ii < n; ++ii)
+	{
+		if (debug)
+		{
+			AltModProtoCheck(sender, recver);
+		}
+		AltModPrf prf(sender.getKey());
+		auto y = prf.eval(x[ii]);
+
+		auto yy = (y0[ii] ^ y1[ii]);
+		if (yy != y)
+		{
+			std::cout << "i   " << ii << std::endl;
+			std::cout << "act " << yy << std::endl;
+			std::cout << "exp " << y << std::endl;
+			throw RTE_LOC;
+		}
+	}
+}
+
+void AltModWPrf_sharedKey_test(const oc::CLP& cmd)
+{
+
+
+	u64 n = cmd.getOr("n", 1024);
+	bool noCheck = cmd.isSet("nc");
+	bool debug = cmd.isSet("debug");
+
+	oc::Timer timer;
+
+	AltModWPrfSender sender;
+	AltModWPrfReceiver recver;
+	sender.mDebug = debug;
+	recver.mDebug = debug;
+
+	sender.setTimer(timer);
+	recver.setTimer(timer);
+
+	std::vector<oc::block> x(n);
+	std::vector<oc::block> y0(n), y1(n);
+
+	auto sock = coproto::LocalAsyncSocket::makePair();
+
+	PRNG prng0(oc::ZeroBlock);
+	PRNG prng1(oc::OneBlock);
+
+	AltModPrf dm_(prng0.get());
+	AltModPrf::KeyType k = dm_.mExpandedKey;
+	AltModPrf::KeyType k1 = prng0.get();
+	AltModPrf::KeyType k0 = k1 ^ k;
+
+	CorGenerator ole0, ole1;
+	ole0.init(sock[0].fork(), prng0, 0, 1, 1 << 18, cmd.getOr("mock", 1));
+	ole1.init(sock[1].fork(), prng1, 1, 1, 1 << 18, cmd.getOr("mock", 1));
+
+	prng0.get(x.data(), x.size());
+
+
+	if (cmd.isSet("doKeyGen") == false)
+	{
+		std::vector<oc::block> rk(AltModPrf::KeySize);
+		std::vector<std::array<oc::block, 2>> sk(AltModPrf::KeySize);
+		for (u64 i = 0; i < AltModPrf::KeySize; ++i)
+		{
+			sk[i][0] = oc::block(i, 0);
+			sk[i][1] = oc::block(i, 1);
+			rk[i] = oc::block(i, *oc::BitIterator((u8*)&k1, i));
+		}
+		sender.init(n, ole0, AltModPrfKeyMode::Shared, AltModPrfInputMode::ReceiverOnly, k1, rk);
+		recver.init(n, ole1, AltModPrfKeyMode::Shared, AltModPrfInputMode::ReceiverOnly, k0, sk);
+	}
+	else
+	{
+		sender.init(n, ole0, AltModPrfKeyMode::Shared, AltModPrfInputMode::ReceiverOnly, k1);
+		recver.init(n, ole1, AltModPrfKeyMode::Shared, AltModPrfInputMode::ReceiverOnly, k0);
+	}
+
+	auto r = coproto::sync_wait(coproto::when_all_ready(
+		sender.evaluate({}, y0, sock[0], prng0),
+		recver.evaluate(x, y1, sock[1], prng1),
+		ole0.start(),
+		ole1.start()
+	));
+
+	std::get<0>(r).result();
+	std::get<1>(r).result();
+	std::get<2>(r).result();
+	std::get<3>(r).result();
+
+
+	if (cmd.isSet("v"))
+	{
+		std::cout << timer << std::endl;
+		std::cout << sock[0].bytesReceived() / 1000.0 << " " << sock[0].bytesSent() / 1000.0 << " kB " << std::endl;
+	}
+
+	if (noCheck)
+		return;
+
+	if (debug)
+	{
+		AltModProtoCheck(sender, recver);
+	}
+
+	for (u64 ii = 0; ii < n; ++ii)
+	{
+		auto y = dm_.eval(x[ii]);
+
+		auto yy = (y0[ii] ^ y1[ii]);
+		if (yy != y)
+		{
+			std::cout << "i   " << ii << std::endl;
+			std::cout << "act " << yy << std::endl;
+			std::cout << "exp " << y << std::endl;
+			throw RTE_LOC;
+		}
+	}
+}
+
+void mod3Sub(block& zMsb, block& zLsb, block& xMsb, block& xLsb, block& yLsb)
+{
+	mod3Sub(
+		span<block>(&zMsb, 1),
+		span<block>(&zLsb, 1),
+		span<block>(&xMsb, 1),
+		span<block>(&xLsb, 1),
+		span<block>(&yLsb, 1));
+}
+void mod3Add(block& zMsb, block& zLsb, block& xMsb, block& xLsb, block& yMsb, block& yLsb)
+{
+
+	mod3Add(
+		span<block>(&zMsb, 1),
+		span<block>(&zLsb, 1),
+		span<block>(&xMsb, 1),
+		span<block>(&xLsb, 1),
+		span<block>(&yMsb, 1),
+		span<block>(&yLsb, 1));
+}
+void AltModWPrf_shared_test(const oc::CLP& cmd)
+{
+
+
+	u64 n = cmd.getOr("n", 1);
+	bool noCheck = cmd.isSet("nc");
+	bool debug = cmd.isSet("debug");
+
+	PRNG prng0(block(cmd.getOr("seed", 0), 0));
+	PRNG prng1(block(cmd.getOr("seed", 0), 1));
+
+	for (u64 jj = 0; jj < 100; ++jj)
+	{
+		u64 xs[2], xxs[2], ks[2];
+		xs[0] = prng0.getBit();
+		xs[1] = prng0.getBit();
+		auto x = xs[0] ^ xs[1];
+
+		ks[0] = prng0.getBit();
+		ks[1] = prng0.getBit();
+		auto k = ks[0] ^ ks[1];
+
+		xxs[0] = prng0.get<u64>() % 3;
+		u64 msg[2]{
+			((xs[0] ^ 0) + (3 - xxs[0])) % 3,
+			((xs[0] ^ 1) + (3 - xxs[0])) % 3
+		};
+		xxs[1] = msg[xs[1]];
+
+		if (((xxs[0] + xxs[1]) % 3) != x)
+			throw RTE_LOC;
+
+		u64 kx0 = xxs[0] * k;
+		u64 kxs0[2];
+		{
+			kxs0[0] = prng0.get<u64>() % 3;
+
+			u64 msg[2]{
+					xxs[0] * (ks[0] ^ 0) + (3 - kxs0[0]),
+					xxs[0] * (ks[0] ^ 1) + (3 - kxs0[0])
+			};
+			kxs0[1] = msg[ks[1]];
+
+
+			if (((kxs0[0] + kxs0[1]) % 3) != kx0)
+				throw RTE_LOC;
+		}
+
+		u64 kx1 = xxs[1] * k;
+		u64 kxs1[2];
+		{
+			kxs1[1] = prng0.get<u64>() % 3;
+
+			u64 msg[2]{
+					xxs[1] * (ks[1] ^ 0) + (3 - kxs1[1]),
+					xxs[1] * (ks[1] ^ 1) + (3 - kxs1[1])
+			};
+			kxs1[0] = msg[ks[0]];
+
+
+			if (((kxs1[0] + kxs1[1]) % 3) != kx1)
+				throw RTE_LOC;
+		}
+
+	}
+
+	if (0) {
+		auto x_0 = prng0.getBit();
+		auto x_1 = prng0.getBit();
+		auto x = x_1 ^ x_0;
+		auto k = prng0.getBit();
+
+		auto v_0 = x_0 & k;
+		auto v_1 = x_1 & k;
+		auto xc = x_1 & x_0;
+		auto xc_0 = prng0.getBit();
+		auto xc_1 = xc ^ xc_0;
+
+		auto xck_0 = xc_0 & k;
+		auto xck_1 = xc_1 & k;
+
+		auto v = v_0 + v_1;
+
+		auto xck = xck_0 + xck_1;
+
+		if (v != (x * k))
+			throw RTE_LOC;
+
+	}
+
+	oc::Timer timer;
+
+	AltModWPrfSender sender;
+	AltModWPrfReceiver recver;
+	sender.mDebug = debug;
+	recver.mDebug = debug;
+
+	sender.setTimer(timer);
+	recver.setTimer(timer);
+
+	std::vector<oc::block> x(n);
+	std::vector<oc::block> y0(n), y1(n);
+
+	auto sock = coproto::LocalAsyncSocket::makePair();
+	auto sock2 = coproto::LocalAsyncSocket::makePair();
+
+	AltModPrf dm_(prng0.get());
+	AltModPrf::KeyType k = dm_.mExpandedKey;
+	AltModPrf::KeyType k1 = prng0.get();
+	AltModPrf::KeyType k0 = k1 ^ k;
+
+	oc::AlignedUnVector<block> x0(n), x1(n);
+	CorGenerator ole0, ole1;
+	ole0.init(std::move(sock2[0]), prng0, 0, 1, 1 << 18, cmd.getOr("mock", 1));
+	ole1.init(std::move(sock2[1]), prng1, 1, 1, 1 << 18, cmd.getOr("mock", 1));
+
+	prng0.get(x.data(), x.size());
+	prng0.get(x0.data(), x0.size());
+	for (u64 i = 0; i < n; ++i)
+	{
+		//if (i & 1)
+		//{
+		//	x1[i] = { 0ull, 0ull };
+		//	x0[i] = x[i];
+		//}
+		//else
+		//{
+		//	x0[i] = { 0ull, 0ull };
+		//	x1[i] = x[i];
+		//}
+
+		auto mask = prng0.get<block>();
+		x0[i] = x[i] & mask; //{ 0ull, 0ull };
+		x1[i] = x[i] & (~mask);//^ x0[i];
+
+
+
+		if (i < 10)
+			std::cout << "x[" << i << "] " << x[i] << std::endl;
+
+		if (x[i] != (x0[i] ^ x1[i]))
+			throw RTE_LOC;
+	}
+
+	if (cmd.isSet("doKeyGen") == false)
+	{
+		std::vector<oc::block> rk0(AltModPrf::KeySize), rk1(AltModPrf::KeySize);
+		std::vector<std::array<oc::block, 2>> sk0(AltModPrf::KeySize), sk1(AltModPrf::KeySize);
+		for (u64 i = 0; i < AltModPrf::KeySize; ++i)
+		{
+			sk1[i][0] = oc::block(i, 0);
+			sk1[i][1] = oc::block(i, 1);
+			rk1[i] = oc::block(i, *oc::BitIterator((u8*)&k1, i));
+			sk0[i][0] = oc::block(i, 0);
+			sk0[i][1] = oc::block(i, 1);
+			rk0[i] = oc::block(i, *oc::BitIterator((u8*)&k0, i));
+		}
+		sender.init(n, ole0, AltModPrfKeyMode::Shared, AltModPrfInputMode::Shared, k1, rk1, sk0);
+		recver.init(n, ole1, AltModPrfKeyMode::Shared, AltModPrfInputMode::Shared, k0, sk1, rk0);
+	}
+	else
+	{
+		sender.init(n, ole0, AltModPrfKeyMode::Shared, AltModPrfInputMode::Shared, k1);
+		recver.init(n, ole1, AltModPrfKeyMode::Shared, AltModPrfInputMode::Shared, k0);
+	}
+
+	auto r = coproto::sync_wait(coproto::when_all_ready(
+		sender.evaluate(x0, y0, sock[0], prng0),
+		recver.evaluate(x1, y1, sock[1], prng1),
+		ole0.start(),
+		ole1.start()
+	));
+
+	std::get<0>(r).result();
+	std::get<1>(r).result();
+	std::get<2>(r).result();
+	std::get<3>(r).result();
+
+
+	if (cmd.isSet("v"))
+	{
+		std::cout << timer << std::endl;
+		std::cout << sock[0].bytesReceived() / 1000.0 << " " << sock[0].bytesSent() / 1000.0 << " kB " << std::endl;
+	}
+
+	if (noCheck)
+		return;
+
+	if (debug)
+	{
+		AltModProtoCheck(sender, recver);
+	}
+
+	for (u64 ii = 0; ii < n; ++ii)
+	{
+		auto y = dm_.eval(x[ii]);
+
+		auto yy = (y0[ii] ^ y1[ii]);
+		if (yy != y)
+		{
+			std::cout << "i   " << ii << std::endl;
+			std::cout << "act " << yy << std::endl;
+			std::cout << "exp " << y << std::endl;
+			throw RTE_LOC;
+		}
+	}
+
+}

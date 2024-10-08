@@ -46,7 +46,7 @@ set(SRCS
 	ComposedPerm_Test.cpp
 	PaillierPerm_Test.cpp
 	AdditivePerm_Test.cpp
-	AltModPrf_Test.cpp
+	AltModWPrf_Test.cpp
 	CorGenerator_Test.cpp
     F4Vole_Test.cpp
 	GMW_Test.cpp

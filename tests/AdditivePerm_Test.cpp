@@ -34,10 +34,10 @@
 //
 //
 //    // Setuping up the OT Keys
-//    AltModPrf::KeyType kk = prng.get();
-//    std::vector<oc::block> rk(AltModPrf::KeySize);
-//    std::vector<std::array<oc::block, 2>> sk(AltModPrf::KeySize);
-//    for (u64 i = 0; i < AltModPrf::KeySize; ++i)
+//    AltModWPrf::KeyType kk = prng.get();
+//    std::vector<oc::block> rk(AltModWPrf::KeySize);
+//    std::vector<std::array<oc::block, 2>> sk(AltModWPrf::KeySize);
+//    for (u64 i = 0; i < AltModWPrf::KeySize; ++i)
 //    {
 //        sk[i][0] = oc::block(i, 0);
 //        sk[i][1] = oc::block(i, 1);

@@ -117,13 +117,10 @@ namespace secJoin
         PermCorReceiver& dst)
     {
         MC_BEGIN(macoro::task<>, &chl, &prng, this, &dst,
-            aesPlaintext = oc::Matrix<oc::block>(),
-            aesCipher = oc::Matrix<oc::block>(),
-            preProsAltModCipher = oc::Matrix<oc::block>(),
-            AltModCipher = oc::Matrix<oc::block>(),
             blocksPerRow = u64(),
             aes = oc::AES(),
-            key = block());
+            key = block(),
+            altMod = AltModPrf{});
 
         if (mN == 0)
             throw std::runtime_error("AltModPermGenReceiver::init() must be called before setup. " LOCATION);
@@ -135,7 +132,7 @@ namespace secJoin
 
         // B = (AltMod(k,AES(k', pi(0))), ..., (AltMod(k,AES(k', pi(n-1)))))
         dst.mB.resize(mN, blocksPerRow);
-        MC_AWAIT(mPrfSender.evaluate(dst.mB, chl, prng));
+        MC_AWAIT(mPrfSender.evaluate({}, dst.mB, chl, prng));
 
         if (mDebug)
         {
@@ -153,7 +150,9 @@ namespace secJoin
                 dst.mA.data()[k] = oc::block(j, i);
         }
         aes.ecbEncBlocks(dst.mA, dst.mA);
-        mPrfSender.mPrf.eval(dst.mA, dst.mA);
+        
+        altMod.setKey(mPrfSender.getKey());
+        altMod.eval(dst.mA, dst.mA);
 
         MC_END();
     }

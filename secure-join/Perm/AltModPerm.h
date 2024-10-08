@@ -1,7 +1,7 @@
 #pragma once
 
 #include "secure-join/Defines.h"
-#include "secure-join/Prf/AltModPrf.h"
+#include "secure-join/Prf/AltModWPrf.h"
 #include "secure-join/Perm/Permutation.h"
 #include "secure-join/Perm/PermCorrelation.h"
 
@@ -14,7 +14,7 @@ namespace secJoin
     public:
         bool mDebug = false;
 
-        AltModPrfReceiver mPrfRecver;
+        AltModWPrfReceiver mPrfRecver;
 
         u64 mN = 0;
 
@@ -39,7 +39,7 @@ namespace secJoin
             mN = n;
             mBytesPerRow = bytesPerRow;
             u64 blocks = n * divCeil(bytesPerRow, sizeof(block));
-            mPrfRecver.init(blocks, cor, atlModKeys);
+            mPrfRecver.init(blocks, cor, AltModPrfKeyMode::SenderOnly, AltModPrfInputMode::ReceiverOnly,  {}, atlModKeys);
         }
 
         // this will request CorGen to start our preprocessing
@@ -70,7 +70,7 @@ namespace secJoin
         bool mDebug = false;
 
         // The AltMod prf sender protocol.
-        AltModPrfSender mPrfSender;
+        AltModWPrfSender mPrfSender;
 
         u64 mN = 0;
 
@@ -93,7 +93,7 @@ namespace secJoin
             mBytesPerRow = bytesPerRow;
 
             u64 blocks = n * divCeil(bytesPerRow, sizeof(block));
-            mPrfSender.init(blocks, cor, altModKey, altModKeyOts);
+            mPrfSender.init(blocks, cor, AltModPrfKeyMode::SenderOnly, AltModPrfInputMode::ReceiverOnly, altModKey, altModKeyOts);
         }
 
         // generete preprocessing for a rnadom permutation. This can be derandomized to a chosen perm later.

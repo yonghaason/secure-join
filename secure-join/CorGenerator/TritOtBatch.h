@@ -17,31 +17,29 @@
 
 #include "Batch.h"
 #include "Correlations.h"
-#include "secure-join/CorGenerator/F4Vole/SilentF4VoleSender.h"
-#include "secure-join/CorGenerator/F4Vole/SilentF4VoleReceiver.h"
+#include "libOTe/TwoChooseOne/Silent/SilentOtExtSender.h"
+#include "libOTe/TwoChooseOne/Silent/SilentOtExtReceiver.h"
 
 namespace secJoin
 {
 
 
-    // 1 out of 4 OT of bit strings
-    struct F4BitOtBatch : Batch
+    // 1 out of 2 OT of F3 elements
+    struct TritOtBatch : Batch
     {
-        F4BitOtBatch(GenState* state, bool sender, oc::Socket&& s, PRNG&& p);
-
-        //~OleBatch()
-        //{
-        //    std::cout << "~OleBatch()" << std::endl;
-        //}
+        TritOtBatch(GenState* state, bool sender, oc::Socket&& s, PRNG&& p);
 
         // The "send" specific state
         struct SendBatch
         {
             // The OT Sender
-            SilentF4VoleSender mSender;
-            std::array<oc::AlignedUnVector<oc::block>, 4> mOts;
+            oc::SilentOtExtSender mSender;
 
-            block mDelta = oc::ZeroBlock;
+            // the lsb of the two messages.
+            std::array<oc::AlignedUnVector<oc::block>, 2> mLsb;
+
+            // the msb of the two messages.
+            std::array<oc::AlignedUnVector<oc::block>, 2> mMsb;
 
             // return the task that generate the Sender correlation.
             macoro::task<> sendTask(
@@ -56,10 +54,10 @@ namespace secJoin
             // The routine that compresses the sender's OT messages
             // into OLEs. Basically, it just tasks the LSB of the OTs.
             void compressSender(
+                block delta,
                 span<oc::block> A);
 
             void mock(u64 batchIdx, u64 n);
-
         };
 
 
@@ -67,8 +65,12 @@ namespace secJoin
         struct RecvBatch
         {
             // The OT receiver
-            SilentF4VoleReceiver mReceiver;
-            oc::AlignedUnVector<oc::block> mOts, mChoiceLsb, mChoiceMsb;
+            oc::SilentOtExtReceiver mReceiver;
+            // the lsb and msb of the selected message.
+            oc::AlignedUnVector<oc::block> mLsb, mMsb;
+
+            // the choice bit of the selection
+            oc::AlignedUnVector<oc::block> mChoice;
 
             // return the task that generate the Sender correlation.
             macoro::task<> recvTask(
@@ -85,7 +87,6 @@ namespace secJoin
             void compressRecver(span<oc::block> B);
 
             void mock(u64 batchIdx, u64 n);
-
         };
 
         macoro::variant<SendBatch, RecvBatch> mSendRecv;
@@ -94,7 +95,7 @@ namespace secJoin
 
         BaseRequest getBaseRequest() override;
 
-        void setBase(BaseCor& ) override;
+        void setBase(BaseCor&) override;
 
         // Get the task associated with this batch.
         macoro::task<> getTask(BatchThreadState&) override;

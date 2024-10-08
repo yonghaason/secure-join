@@ -201,6 +201,8 @@ namespace secJoin
         }
     };
 
+    using SharedTable = Table;
+    using SharedColumn = Column;
 
     std::ostream& operator<<(std::ostream& o, const Table& t);
 
@@ -230,6 +232,7 @@ namespace secJoin
         // the columns to be selected.
         std::vector<ColRef> mSelect;
 
+        bool isUnion() const { return false; }
 
         JoinQuery(const ColRef& leftKey, const ColRef& rightKey, std::vector<ColRef> select)
             : mLeftKey(leftKey)

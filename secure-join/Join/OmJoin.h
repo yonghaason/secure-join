@@ -10,6 +10,7 @@
 
 namespace secJoin
 {
+	// one to many secure join protocol
 	struct OmJoin : public oc::TimerAdapter
 	{
 		// we will pack columns into a matrix `data`.

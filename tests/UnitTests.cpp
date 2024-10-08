@@ -3,7 +3,7 @@
 #include "LowMCPerm_Test.h"
 #include "PaillierPerm_Test.h"
 #include "ComposedPerm_Test.h"
-#include "AltModPrf_Test.h"
+#include "AltModWPrf_Test.h"
 #include "GMW_Test.h"
 #include "RadixSort_Test.h"
 
@@ -35,6 +35,7 @@ namespace secJoin_Tests
             t.add("CorGenerator_Ot_Test                          ", CorGenerator_Ot_Test);
             t.add("CorGenerator_BinOle_Test                      ", CorGenerator_BinOle_Test);
             t.add("CorGenerator_F4BitOt_Test                     ", CorGenerator_F4BitOt_Test);
+            t.add("CorGenerator_TritOt_Test                      ", CorGenerator_TritOt_Test);
             t.add("CorGenerator_mixed_Test                       ", CorGenerator_mixed_Test);
             
 
@@ -48,19 +49,23 @@ namespace secJoin_Tests
             t.add("Gmw_noLevelize_test                           ", Gmw_noLevelize_test);
 
 
-            t.add("AltModPrf_mod3BitDecompostion_test            ", AltModPrf_mod3BitDecompostion_test);
+            t.add("F2LinearCode_test                              ", F2LinearCode_test);
+            t.add("AltModWPrf_mod3BitDecompostion_test            ", AltModWPrf_mod3BitDecompostion_test);
 
-            t.add("AltModPrf_AMult_test                          ", AltModPrf_AMult_test);
-            t.add("AltModPrf_BMult_test                          ", AltModPrf_BMult_test);
+            t.add("AltModWPrf_AMult_test                          ", AltModWPrf_AMult_test);
+            t.add("AltModWPrf_BMult_test                          ", AltModWPrf_BMult_test);
+            t.add("AltModWPrf_correction_test                     ", AltModWPrf_correction_test);
 
-            t.add("AltModPrf_sampleMod3_test                     ", AltModPrf_sampleMod3_test);
-            t.add("AltModPrf_mod3_test                           ", AltModPrf_mod3_test);
-            t.add("AltModPrf_mod2Ole_test                        ", AltModPrf_mod2Ole_test);
-            t.add("AltModPrf_mod2OtF4_test                       ", AltModPrf_mod2OtF4_test);
+            t.add("AltModWPrf_sampleMod3_test                     ", AltModWPrf_sampleMod3_test);
+            t.add("AltModWPrf_mod3_test                           ", AltModWPrf_mod3_test);
+            t.add("AltModWPrf_mod2Ole_test                        ", AltModWPrf_mod2Ole_test);
+            t.add("AltModWPrf_mod2OtF4_test                       ", AltModWPrf_mod2OtF4_test);
             
-            t.add("AltModPrf_plain_test                          ", AltModPrf_plain_test);
-            t.add("AltModPrf_proto_test                          ", AltModPrf_proto_test);
-
+            t.add("AltModWPrf_plain_test                          ", AltModWPrf_plain_test);
+            t.add("AltModWPrf_proto_test                          ", AltModWPrf_proto_test);
+            t.add("AltModWPrf_sharedKey_test                      ", AltModWPrf_sharedKey_test);
+            t.add("AltModWPrf_shared_test                         ", AltModWPrf_shared_test);
+            
             t.add("plaintext_perm_test                           ", plaintext_perm_test);
             t.add("PermCor_apply_test                            ", PermCor_apply_test);
             t.add("PermCor_sharedApply_test                      ", PermCor_sharedApply_test);

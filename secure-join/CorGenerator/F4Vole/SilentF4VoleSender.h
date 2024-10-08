@@ -126,7 +126,8 @@ namespace secJoin
         // otherwise we perform a base OT protocol to
         // generate the needed OTs.
         oc::task<> genSilentBaseOts(PRNG& prng, oc::Socket& chl, F delta)
-        try {
+        {
+            MACORO_TRY{
 #ifdef LIBOTE_HAS_BASE_OT
 
 #if defined ENABLE_MRR_TWIST && defined ENABLE_SSE
@@ -142,7 +143,7 @@ namespace secJoin
 #endif
                 auto msg = oc::AlignedUnVector<std::array<block, 2>>(silentBaseOtCount());
                 auto baseOt = BaseOT{};
-                auto prng2 = std::move(oc::PRNG{});
+                auto prng2 = oc::PRNG{};
                 auto xx = oc::BitVector{};
                 auto chl2 = oc::Socket{};
                 auto nv = oc::NoisyVoleSender<F, G, Ctx>{};
@@ -170,7 +171,7 @@ namespace secJoin
                 if (mOtExtRecver->hasBaseOts() == false)
                 {
                     msg.resize(msg.size() + mOtExtRecver->baseOtCount());
-                    co_await(mOtExtSender->send(msg, prng, chl));
+                    co_await mOtExtSender->send(msg, prng, chl);
 
                     mOtExtRecver->setBaseOts(
                         span<std::array<block, 2>>(msg).subspan(
@@ -178,17 +179,17 @@ namespace secJoin
                             mOtExtRecver->baseOtCount()));
                     msg.resize(msg.size() - mOtExtRecver->baseOtCount());
 
-                    co_await(nv.send(delta, b, prng, *mOtExtRecver, chl, mCtx));
+                    co_await nv.send(delta, b, prng, *mOtExtRecver, chl, mCtx);
                 }
                 else
                 {
                     chl2 = chl.fork();
                     prng2.SetSeed(prng.get());
 
-                    co_await(
+                    co_await
                         macoro::when_all_ready(
                             nv.send(delta, b, prng2, *mOtExtRecver, chl2, mCtx),
-                            mOtExtSender->send(msg, prng, chl)));
+                            mOtExtSender->send(msg, prng, chl));
                 }
 #else
                 throw RTE_LOC;
@@ -198,10 +199,10 @@ namespace secJoin
             {
                 chl2 = chl.fork();
                 prng2.SetSeed(prng.get());
-                co_await(
+                co_await
                     macoro::when_all_ready(
                         nv.send(delta, b, prng2, baseOt, chl2, mCtx),
-                        baseOt.send(msg, prng, chl)));
+                        baseOt.send(msg, prng, chl));
             }
 
 
@@ -211,11 +212,10 @@ namespace secJoin
             throw std::runtime_error("LIBOTE_HAS_BASE_OT = false, must enable relic, sodium or simplest ot asm." LOCATION);
             co_return
 #endif
-        }
-        catch (...)
-        {
-            chl.close();
-            throw;
+            } MACORO_CATCH(exPtr) {
+                co_await chl.close();
+                std::rethrow_exception(exPtr);
+            }
         }
 
         // configure the silent OT extension. This sets
@@ -298,21 +298,21 @@ namespace secJoin
             VecF& b,
             PRNG& prng,
             oc::Socket& chl)
-        try {
+        {
+            MACORO_TRY{
 
-            co_await(silentSendInplace(delta, b.size(), prng, chl));
+            co_await silentSendInplace(delta, b.size(), prng, chl);
 
             mCtx.copy(mB.begin(), mB.begin() + b.size(), b.begin());
             //std::memcpy(b.data(), mB.data(), b.size() * mCtx.bytesF);
             clear();
 
             setTimePoint("SilentVoleSender.expand.ldpc.msgCpy");
-            
-        }
-        catch (...)
-        {
-            chl.close();
-            throw;
+
+            } MACORO_CATCH(exPtr) {
+                co_await chl.close();
+                std::rethrow_exception(exPtr);
+            }
         }
 
         oc::task<> sendChosen(
@@ -320,16 +320,17 @@ namespace secJoin
             VecF& b,
             PRNG& prng,
             oc::Socket& chl)
-        try {
+        {
+            MACORO_TRY{
             auto diff = oc::AlignedUnVector<u8>{};
 
-            co_await(silentSendInplace(delta, b.size(), prng, chl));
+            co_await silentSendInplace(delta, b.size(), prng, chl);
 
             mCtx.copy(mB.begin(), mB.begin() + b.size(), b.begin());
             setTimePoint("SilentVoleSender.expand.ldpc.msgCpy");
 
             diff.resize(oc::divCeil(b.size(), 4));
-            co_await(chl.recv(diff));
+            co_await chl.recv(diff);
 
             for (u64 i = 0, ii = 0; i < diff.size(); ++i)
             {
@@ -346,11 +347,11 @@ namespace secJoin
             setTimePoint("SilentVoleSender.expand.derandomize");
 
             clear();
-        }
-        catch (...)
-        {
-            chl.close();
-            throw;
+
+            } MACORO_CATCH(exPtr) {
+                co_await chl.close();
+                std::rethrow_exception(exPtr);
+            }
         }
 
 
@@ -364,7 +365,8 @@ namespace secJoin
             u64 n,
             PRNG& prng,
             oc::Socket& chl)
-        try {
+        {
+            MACORO_TRY{
             auto deltaShare = block{};
             auto     X = block{};
             auto     hash = std::array<u8, 32>{};
@@ -385,7 +387,7 @@ namespace secJoin
             if (mGen.hasBaseOts() == false)
             {
                 // recvs data
-                co_await(genSilentBaseOts(prng, chl, delta));
+                co_await genSilentBaseOts(prng, chl, delta);
             }
 
             setTimePoint("SilentVoleSender.start");
@@ -407,26 +409,26 @@ namespace secJoin
             // our secret share of delta * noiseVals. The receiver
             // can then manually add their shares of this to the
             // output of the PPRF at the correct locations.
-            co_await(mGen.expand(chl, baseB, prng.get(), mB,
-                oc::PprfOutputFormat::Interleaved, true, 1));
+            co_await mGen.expand(chl, baseB, prng.get(), mB,
+                oc::PprfOutputFormat::Interleaved, true, 1);
             setTimePoint("SilentVoleSender.expand.pprf");
 
             if (mDebug)
             {
-                co_await(checkRT(chl, delta));
+                co_await checkRT(chl, delta);
                 setTimePoint("SilentVoleSender.expand.checkRT");
             }
 
             if (mMalType == oc::SilentSecType::Malicious)
             {
-                co_await(chl.recv(X));
+                co_await chl.recv(X);
 
                 if constexpr (MaliciousSupported)
                     hash = ferretMalCheck(X);
                 else
                     throw std::runtime_error("malicious is currently only supported for GF128 block. " LOCATION);
 
-                co_await(chl.send(std::move(hash)));
+                co_await chl.send(std::move(hash));
             }
 
             switch (mMultType)
@@ -467,7 +469,7 @@ namespace secJoin
             if (mDebug)
             {
                 A.resize(mB.size());
-                co_await(chl.recv(A));
+                co_await chl.recv(A);
 
                 {
                     u64 n = mB.size();
@@ -512,23 +514,24 @@ namespace secJoin
                     }
                 }
             }
-        }
-        catch (...)
-        {
-            chl.close();
-            throw;
+
+            } MACORO_CATCH(exPtr) {
+                co_await chl.close();
+                std::rethrow_exception(exPtr);
+            }
         }
 
         oc::task<> checkRT(oc::Socket& chl, F delta) const
-        try {
-            co_await(chl.send(delta));
-            co_await(chl.send(mB));
-            co_await(chl.send(mBaseB));
-        }
-        catch (...)
         {
-            chl.close();
-            throw;
+            MACORO_TRY{
+            co_await chl.send(delta);
+            co_await chl.send(mB);
+            co_await chl.send(mBaseB);
+
+            } MACORO_CATCH(exPtr) {
+                co_await chl.close();
+                std::rethrow_exception(exPtr);
+            }
         }
 
         std::array<u8, 32> ferretMalCheck(block X)

@@ -575,7 +575,7 @@ namespace secJoin
 
     class DarkMatter22PrfSender : public oc::TimerAdapter
     {
-        std::vector<PRNG> mKeyOTs;
+        std::vector<PRNG> mKeyRecvOTs;
     public:
         block256 mKey;
 #ifdef SECUREJOIN_DK_USE_SILENT
@@ -590,12 +590,12 @@ namespace secJoin
         {
             if (ots.size() != 256)
                 throw RTE_LOC;
-            mKeyOTs.resize(256);
+            mKeyRecvOTs.resize(256);
             for (u64 i = 0; i < 256; ++i)
             {
                 //mKeyOTs[i].mAes.setKey(ots[i]);
                 //mKeyOTs[i].mBlockIdx = 0;
-                mKeyOTs[i].SetSeed(ots[i]);
+                mKeyRecvOTs[i].SetSeed(ots[i]);
             }
         }
 
@@ -634,18 +634,18 @@ namespace secJoin
                 if (ki)
                 {
                     // mV = mV ^ vi ^ H(mKeyOTs[i])
-                    xorVectorAdd(mV, vi, mKeyOTs[i]);
+                    xorVectorAdd(mV, vi, mKeyRecvOTs[i]);
 
                     // ui = ui ^ H(mKeyOTs[i])
-                    xorVector(ui, mKeyOTs[i]);
+                    xorVector(ui, mKeyRecvOTs[i]);
 
                     decompressMod3(uui, ui);
                 }
                 else
                 {
-                    sampleMod3(mKeyOTs[i], uui);
+                    sampleMod3(mKeyRecvOTs[i], uui);
 
-                    xorVector(mV, mKeyOTs[i]);
+                    xorVector(mV, mKeyRecvOTs[i]);
                     //for (u64 j = 0; j < y.size(); ++j)
                     //{
                     //    mV[j] = mV[j] ^ mKeyOTs[i].get<block256>();
@@ -847,7 +847,7 @@ namespace secJoin
 
     class DarkMatter22PrfReceiver : public oc::TimerAdapter
     {
-        std::vector<std::array<PRNG, 2>> mKeyOTs;
+        std::vector<std::array<PRNG, 2>> mKeyRecvOTs;
     public:
         oc::SilentOtExtReceiver mOtReceiver;
         oc::SoftSpokenShOtReceiver<> mSoftReceiver;
@@ -860,15 +860,15 @@ namespace secJoin
         {
             if (ots.size() != 256)
                 throw RTE_LOC;
-            mKeyOTs.resize(256);
+            mKeyRecvOTs.resize(256);
             for (u64 i = 0; i < 256; ++i)
             {
                 //mKeyOTs[i][0].mAes.setKey(ots[i][0]);
                 //mKeyOTs[i][1].mAes.setKey(ots[i][1]);
                 //mKeyOTs[i][0].mBlockIdx = 0;
                 //mKeyOTs[i][1].mBlockIdx = 0;
-                mKeyOTs[i][0].SetSeed(ots[i][0]);
-                mKeyOTs[i][1].SetSeed(ots[i][1]);
+                mKeyRecvOTs[i][0].SetSeed(ots[i][0]);
+                mKeyRecvOTs[i][1].SetSeed(ots[i][1]);
             }
         }
 
@@ -908,7 +908,7 @@ namespace secJoin
                 vi.resize(x.size()); // x.size() * 256 bits
                 ui.resize(x.size() * 256 / 4); // x.size() * 256 * 2 bits
 
-                sampleMod3(mKeyOTs[i][0], mod3);
+                sampleMod3(mKeyRecvOTs[i][0], mod3);
                 mod3i = mod3.data();
 
                 //for (u64 j = 0; j < x.size(); ++j)
@@ -935,8 +935,8 @@ namespace secJoin
                         xji[3] = xj[3].rotate(i);
                         xj += 4;
 
-                        mKeyOTs[i][0].mAes.ecbEncCounterMode(mKeyOTs[i][0].mBlockIdx, 8, viIter);
-                        mKeyOTs[i][0].mBlockIdx += 8;
+                        mKeyRecvOTs[i][0].mAes.ecbEncCounterMode(mKeyRecvOTs[i][0].mBlockIdx, 8, viIter);
+                        mKeyRecvOTs[i][0].mBlockIdx += 8;
                         //viIter[0] = mKeyOTs[i][0].get();
                         //viIter[1] = mKeyOTs[i][0].get();
                         //viIter[2] = mKeyOTs[i][0].get();
@@ -955,8 +955,8 @@ namespace secJoin
                         vIter[6] = vIter[6] ^ viIter[6];
                         vIter[7] = vIter[7] ^ viIter[7];
 
-                        mKeyOTs[i][1].mAes.ecbEncCounterMode(mKeyOTs[i][1].mBlockIdx, 8, m1);
-                        mKeyOTs[i][1].mBlockIdx += 8;
+                        mKeyRecvOTs[i][1].mAes.ecbEncCounterMode(mKeyRecvOTs[i][1].mBlockIdx, 8, m1);
+                        mKeyRecvOTs[i][1].mBlockIdx += 8;
 
                         //m1[0] = mKeyOTs[i][1].get();
                         //m1[1] = mKeyOTs[i][1].get();
@@ -1065,7 +1065,7 @@ namespace secJoin
 
 
                 //ui = ui ^ H(mKeyOTs[i][1])
-                xorVector(ui, mKeyOTs[i][1]);
+                xorVector(ui, mKeyRecvOTs[i][1]);
                 //for (u64 j = 0; j < ui.size(); ++j)
                 //{
                 //    ui[j] = ui[j] ^ mKeyOTs[i][1].get<u8>();

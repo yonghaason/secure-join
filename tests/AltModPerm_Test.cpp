@@ -4,7 +4,7 @@
 
 using namespace secJoin;
 
-void AltModProtoCheck(AltModPrfSender& sender, AltModPrfReceiver& recver);
+void AltModProtoCheck(AltModWPrfSender& sender, AltModWPrfReceiver& recver);
 
 void AltModPerm_setup_test(const oc::CLP& cmd)
 {

@@ -144,7 +144,9 @@ namespace secJoin
 		// otherwise we perform a base OT protocol to
 		// generate the needed OTs.
 		macoro::task<> genSilentBaseOts(PRNG& prng, coproto::Socket& chl)
-			try {
+		{
+			MACORO_TRY{
+
 #ifdef LIBOTE_HAS_BASE_OT
 
 #if defined ENABLE_MRR_TWIST && defined ENABLE_SSE
@@ -165,7 +167,7 @@ namespace secJoin
 			auto baseVole = std::vector<block>{};
 			auto baseOt = BaseOT{};
 			auto chl2 = coproto::Socket{};
-			auto prng2 = std::move(PRNG{});
+			auto prng2 = PRNG{};
 			auto noiseVals = VecG{};
 			auto baseAs = VecF{};
 			auto nv = oc::NoisyVoleReceiver<F, G, Ctx>{};
@@ -214,7 +216,7 @@ namespace secJoin
 					bb.randomize(prng);
 					choice.append(bb);
 
-					co_await(mOtExtRecver->receive(choice, msg, prng, chl));
+					co_await mOtExtRecver->receive(choice, msg, prng, chl);
 
 					mOtExtSender->setBaseOts(
 						span<block>(msg).subspan(
@@ -223,7 +225,7 @@ namespace secJoin
 						bb);
 
 					msg.resize(msg.size() - mOtExtSender->baseOtCount());
-					co_await(nv.receive(noiseVals, baseAs, prng, *mOtExtSender, chl, mCtx));
+					co_await nv.receive(noiseVals, baseAs, prng, *mOtExtSender, chl, mCtx);
 				}
 				else
 				{
@@ -231,11 +233,11 @@ namespace secJoin
 					prng2.SetSeed(prng.get());
 
 
-					co_await(
+					co_await
 						macoro::when_all_ready(
 							nv.receive(noiseVals, baseAs, prng2, *mOtExtSender, chl2, mCtx),
 							mOtExtRecver->receive(choice, msg, prng, chl)
-						));
+						);
 				}
 #else
 				throw std::runtime_error("soft spoken must be enabled");
@@ -246,11 +248,10 @@ namespace secJoin
 				chl2 = chl.fork();
 				prng2.SetSeed(prng.get());
 
-				co_await(
+				co_await
 					macoro::when_all_ready(
 						baseOt.receive(choice, msg, prng, chl),
-						nv.receive(noiseVals, baseAs, prng2, baseOt, chl2, mCtx))
-					);
+						nv.receive(noiseVals, baseAs, prng2, baseOt, chl2, mCtx));
 			}
 
 			setSilentBaseOts(msg, span<block>(baseAs.data(), baseAs.size()));
@@ -260,11 +261,10 @@ namespace secJoin
 			co_return;
 #endif
 
-		}
-		catch (...)
-		{
-			chl.close();
-			throw;
+			} MACORO_CATCH(exPtr) {
+				co_await chl.close();
+				std::rethrow_exception(exPtr);
+			}
 		}
 
 		// configure the silent OT extension. This sets
@@ -418,18 +418,19 @@ namespace secJoin
 			VecF& a,
 			PRNG& prng,
 			coproto::Socket& chl)
-			try {
+		{
+			MACORO_TRY{
 
-			co_await(silentReceiveInplace(a.size(), prng, chl));
+			co_await silentReceiveInplace(a.size(), prng, chl);
 
 			mCtx.copy(mA.begin(), mA.begin() + a.size(), a.begin());
 
 			clear();
-		}
-		catch (...)
-		{
-			chl.close();
-			throw;
+
+			} MACORO_CATCH(exPtr) {
+				if(!chl.closed()) co_await chl.close();
+				std::rethrow_exception(exPtr);
+			}
 		}
 
 		// Perform the actual OT extension. If silent
@@ -441,10 +442,12 @@ namespace secJoin
 			VecF& a,
 			PRNG& prng,
 			coproto::Socket& chl)
-			try {
+		{
+			MACORO_TRY{
+
 			auto diff = std::vector<u8>{};
 
-			co_await(silentReceiveInplace(a.size(), prng, chl));
+			co_await silentReceiveInplace(a.size(), prng, chl);
 
 			mCtx.copy(mA.begin(), mA.begin() + a.size(), a.begin());
 
@@ -460,16 +463,15 @@ namespace secJoin
 				}
 			}
 
-			co_await(chl.send(std::move(diff)));
+			co_await chl.send(std::move(diff));
 
 			clear();
-		}
-		catch (...)
-		{
-			chl.close();
-			throw;
-		}
 
+			} MACORO_CATCH(exPtr) {
+				if (!chl.closed()) co_await chl.close();
+				std::rethrow_exception(exPtr);
+			}
+		}
 		// Perform the actual OT extension. If silent
 		// base OTs have been generated or set, then
 		// this function is non-interactive. Otherwise
@@ -478,7 +480,8 @@ namespace secJoin
 			u64 n,
 			PRNG& prng,
 			coproto::Socket& chl)
-			try {
+		{
+			MACORO_TRY{
 			auto myHash = std::array<u8, 32>{};
 			auto theirHash = std::array<u8, 32>{};
 
@@ -495,7 +498,7 @@ namespace secJoin
 
 			if (hasSilentBaseOts() == false)
 			{
-				co_await(genSilentBaseOts(prng, chl));
+				co_await genSilentBaseOts(prng, chl);
 			}
 
 			setTimePoint("SilentVoleReceiver.alloc");
@@ -528,7 +531,7 @@ namespace secJoin
 			// 
 			//    mA = mB + mS(mBaseC * mDelta)
 			//
-			co_await(mGen.expand(chl, mA, oc::PprfOutputFormat::Interleaved, true, mNumThreads));
+			co_await mGen.expand(chl, mA, oc::PprfOutputFormat::Interleaved, true, mNumThreads);
 
 			setTimePoint("SilentVoleReceiver.expand.pprf_transpose");
 
@@ -553,21 +556,21 @@ namespace secJoin
 
 			if (mDebug)
 			{
-				co_await(checkRT(chl));
+				co_await checkRT(chl);
 				setTimePoint("SilentVoleReceiver.expand.checkRT");
 			}
 
 
 			if (mMalType == oc::SilentSecType::Malicious)
 			{
-				co_await(chl.send(std::move(mMalCheckSeed)));
+				co_await chl.send(std::move(mMalCheckSeed));
 
 				if constexpr (MaliciousSupported)
 					myHash = ferretMalCheck();
 				else
 					throw std::runtime_error("malicious is currently only supported for GF128 block. " LOCATION);
 
-				co_await(chl.recv(theirHash));
+				co_await chl.recv(theirHash);
 
 				if (theirHash != myHash)
 					throw RTE_LOC;
@@ -617,19 +620,21 @@ namespace secJoin
 
 			if (mDebug)
 			{
-				co_await(chl.send(mA));
+				co_await chl.send(mA);
 			}
-		}
-		catch (...)
-		{
-			chl.close();
-			throw;
+
+			} MACORO_CATCH(exPtr) {
+				if (!chl.closed()) co_await chl.close();
+				std::rethrow_exception(exPtr);
+			}
 		}
 
 
 		// internal.
 		macoro::task<> checkRT(coproto::Socket& chl)
-			try {
+		{
+			MACORO_TRY{
+
 			auto B = VecF{};
 			auto sparseNoiseDelta = VecF{};
 			auto baseB = VecF{};
@@ -641,19 +646,19 @@ namespace secJoin
 			// recv delta
 			buffer.resize(mCtx.template byteSize<F>());
 			mCtx.resize(delta, 1);
-			co_await(chl.recv(buffer));
+			co_await chl.recv(buffer);
 			mCtx.deserialize(buffer.begin(), buffer.end(), delta.begin());
 
 			// recv B
 			buffer.resize(mCtx.template byteSize<F>() * mA.size());
 			mCtx.resize(B, mA.size());
-			co_await(chl.recv(buffer));
+			co_await chl.recv(buffer);
 			mCtx.deserialize(buffer.begin(), buffer.end(), B.begin());
 
 			// recv the noisy values.
 			buffer.resize(mCtx.template byteSize<F>() * mBaseA.size());
 			mCtx.resize(baseB, mBaseA.size());
-			co_await(chl.recvResize(buffer));
+			co_await chl.recvResize(buffer);
 			mCtx.deserialize(buffer.begin(), buffer.end(), baseB.begin());
 
 			// it shoudl hold that 
@@ -759,11 +764,11 @@ namespace secJoin
 				if (failed)
 					throw RTE_LOC;
 			}
-		}
-		catch (...)
-		{
-			chl.close();
-			throw;
+
+			} MACORO_CATCH(exPtr) {
+				if (!chl.closed()) co_await chl.close();
+				std::rethrow_exception(exPtr);
+			}
 		}
 
 		std::array<u8, 32> ferretMalCheck()

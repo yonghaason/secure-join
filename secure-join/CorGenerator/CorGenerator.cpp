@@ -30,6 +30,9 @@ namespace secJoin
 		case CorType::F4BitOt:
 			mGenState->mNumF4BitOt += n;
 			break;
+		case CorType::TritOt:
+			mGenState->mNumTritOt += n;
+			break;
 		default:
 			std::terminate();
 		}
@@ -46,6 +49,8 @@ namespace secJoin
 						return mGenState->mOleBatch[r->mSender];
 					case CorType::F4BitOt:
 						return mGenState->mF4BitOtBatch[r->mSender];
+					case CorType::TritOt:
+						return mGenState->mTritOtBatch[r->mSender];
 					default:
 						std::terminate();
 					}
@@ -85,28 +90,24 @@ namespace secJoin
 
 	macoro::task<> GenState::start()
 	{
-		MC_BEGIN(macoro::task<>, this,
-			This = this->shared_from_this(),
-			i = u64{},
-			j = u64{},
-			r = u64{},
-			s = u64{},
-			base = BaseCor{},
-			//sMsg = oc::AlignedUnVector<std::array<oc::block, 2>>{},
-			//rMsg = oc::AlignedUnVector<oc::block>{},
-			protos = std::vector<macoro::task<>>{},
-			tasks = std::vector<macoro::eager_task<>>{},
-			prngs = std::vector<PRNG>{},
-			rPrng = PRNG{},
-			socks = std::vector<oc::Socket>{},
-			req = BaseRequest{},
-			reqs = std::vector<BaseRequest>{},
-			temp = std::vector<u8>{},
-			res = macoro::result<void>{},
-			reqChecks = std::map<CorType, oc::RandomOracle>{},
-			theirReq = std::vector<ReqInfo>{},
-			threadState = std::vector<BatchThreadState>{}
-		);
+		auto This = this->shared_from_this();
+		auto i = u64{};
+		auto j = u64{};
+		auto r = u64{};
+		auto s = u64{};
+		auto base = BaseCor{};
+		auto protos = std::vector<macoro::task<>>{};
+		auto tasks = std::vector<macoro::eager_task<>>{};
+		auto prngs = std::vector<PRNG>{};
+		auto rPrng = PRNG{};
+		auto socks = std::vector<oc::Socket>{};
+		auto req = BaseRequest{};
+		auto reqs = std::vector<BaseRequest>{};
+		auto temp = std::vector<u8>{};
+		auto res = macoro::result<void>{};
+		auto reqChecks = std::map<CorType, oc::RandomOracle>{};
+		auto theirReq = std::vector<ReqInfo>{};
+		auto threadState = std::vector<BatchThreadState>{};
 
 		setTimePoint("GenState::start");
 		mOtBatch = {};
@@ -127,8 +128,8 @@ namespace secJoin
 
 			for (i = 0; i < mReqs.size(); ++i)
 			{
-				MC_AWAIT(mSock.send(coproto::copy(mReqs)));
-				MC_AWAIT(mSock.recvResize(theirReq));
+				co_await(mSock.send(coproto::copy(mReqs)));
+				co_await(mSock.recvResize(theirReq));
 				for (i = 0; i < theirReq.size(); ++i)
 					theirReq[i].mRole ^= 1;
 			}
@@ -235,11 +236,11 @@ namespace secJoin
 			else
 				tasks.emplace_back(std::move(protos[i]) | macoro::make_eager());
 
-			//MC_AWAIT(tasks.back());
+			//co_await(tasks.back());
 		}
 
 		for (i = 0; i < tasks.size(); ++i)
-			MC_AWAIT(tasks[i]);
+			co_await(tasks[i]);
 
 		setTimePoint("GenState::base");
 
@@ -251,7 +252,7 @@ namespace secJoin
 		{
 			if (i < mBatches.size())
 			{
-				MC_AWAIT(mBatches[i]->mStart);
+				co_await(mBatches[i]->mStart);
 
 				if (mBatches[i]->mAbort == false)
 				{
@@ -282,7 +283,7 @@ namespace secJoin
 			if (j < mBatches.size())
 			{
 				if (threadState[j % mNumConcurrent].mTask.handle())
-					MC_AWAIT(threadState[j % mNumConcurrent].mTask);
+					co_await(threadState[j % mNumConcurrent].mTask);
 
 				setTimePoint("GenState::batch.end " + std::to_string(j));
 				mBatches[j] = {};
@@ -291,8 +292,6 @@ namespace secJoin
 
 		mBatches = {};
 		setTimePoint("GenState::done ");
-
-		MC_END();
 	}
 
 	//void GenState::set(SendBase& b) { auto v = b.get(); mRecvBase.setBaseOts(v); }

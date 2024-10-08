@@ -560,78 +560,78 @@ void RadixSort_genBitPerm_test(const oc::CLP& cmd)
         }
 
 }
-void printStatus(coproto::LocalAsyncSocket& s0)
-{
-
-    auto name = [](coproto::internal::SockScheduler::Slot& s) -> std::string
-        {
-            return {};
-
-            //if (s.mName.size())
-            //    return  s.mName;
-
-            //std::stringstream ss;
-            //ss << s.mSessionID;
-            //return ss.str();
-        };
-
-    std::cout << "send buffers: " << std::endl;
-    for (auto& b : s0.mImpl->mSendBuffers_)
-    {
-        std::cout << "name: " << name(*b) << " local: " << b->mLocalId << " remote: " << (i32)b->mRemoteId << " size: " << b->mSendOps2_.begin()->mSendBuff.asSpan().size() << std::endl;
-    }
-
-
-    if (s0.mImpl->mRecvStatus == coproto::internal::SockScheduler::Status::InUse ||
-        s0.mImpl->mRecvStatus == coproto::internal::SockScheduler::Status::RequestedRecvOp)
-    {
-        if (s0.mImpl->mHaveRecvHeader)
-        {
-            std::cout << "recving on remote: " << s0.mImpl->mRecvHeader[1];
-            auto iter = s0.mImpl->mRemoteSlotMapping_.find(s0.mImpl->mRecvHeader[1]);
-            if (iter != s0.mImpl->mRemoteSlotMapping_.end())
-            {
-                std::cout << " name:" << name(*iter->second);
-            }
-            std::cout << std::endl;
-        }
-        else
-        {
-            std::cout << "recving header " << std::endl;
-        }
-    }
-    else if (s0.mImpl->mRecvStatus == coproto::internal::SockScheduler::Status::Idle)
-    {
-        std::cout << "recv idea " << std::endl;
-    }
-    else
-        std::cout << "recv closed " << std::endl;
-
-
-
-    std::cout << "slots:" << std::endl;
-    for (auto& s : s0.mImpl->mSlots_)
-    {
-        std::cout << "name: " << name(s) << " local: " << s.mLocalId << " remote: " << (i32)s.mRemoteId << std::endl;
-        std::cout << "    " << s.mRecvOps2_.size() << " recvs" << std::endl;
-        std::cout << "    " << s.mSendOps2_.size() << " sends" << std::endl;
-    }
-}
-
-void printStatus(coproto::LocalAsyncSocket& s0, coproto::LocalAsyncSocket& s1)
-{
-
-    std::cout << "S0\n-----------------------" << std::endl;
-    printStatus(s0);
-    std::cout << "S1\n-----------------------" << std::endl;
-    printStatus(s1);
-    //for (auto& b : s0.mImpl->m)
-    //{
-    //    std::cout << "local: " << b->mLocalId << " remote: " << b->mRemoteId << " size: " << b->mSendOps2_.begin()->mSendBuff.asSpan().size() << std::endl;
-    //}
-
-}
-
+//void printStatus(coproto::LocalAsyncSocket& s0)
+//{
+//
+//    auto name = [](coproto::internal::SocketFork& s) -> std::string
+//        {
+//            return {};
+//
+//            //if (s.mName.size())
+//            //    return  s.mName;
+//
+//            //std::stringstream ss;
+//            //ss << s.mSessionID;
+//            //return ss.str();
+//        };
+//
+//    std::cout << "send buffers: " << std::endl;
+//    for (auto& b : s0.mImpl->mSendBuffers)
+//    {
+//        std::cout << "name: " << name(*b) << " local: " << b->mLocalId << " remote: " << (i32)b->mRemoteId << " size: " << b->mSendOps2_.begin()->mSendBuff.asSpan().size() << std::endl;
+//    }
+//
+//
+//    if (s0.mImpl->mRecvStatus == coproto::internal::SockScheduler::Status::InUse ||
+//        s0.mImpl->mRecvStatus == coproto::internal::SockScheduler::Status::RequestedRecvOp)
+//    {
+//        if (s0.mImpl->mHaveRecvHeader)
+//        {
+//            std::cout << "recving on remote: " << s0.mImpl->mRecvHeader[1];
+//            auto iter = s0.mImpl->mRemoteSlotMapping_.find(s0.mImpl->mRecvHeader[1]);
+//            if (iter != s0.mImpl->mRemoteSlotMapping_.end())
+//            {
+//                std::cout << " name:" << name(*iter->second);
+//            }
+//            std::cout << std::endl;
+//        }
+//        else
+//        {
+//            std::cout << "recving header " << std::endl;
+//        }
+//    }
+//    else if (s0.mImpl->mRecvStatus == coproto::internal::SockScheduler::Status::Idle)
+//    {
+//        std::cout << "recv idea " << std::endl;
+//    }
+//    else
+//        std::cout << "recv closed " << std::endl;
+//
+//
+//
+//    std::cout << "slots:" << std::endl;
+//    for (auto& s : s0.mImpl->mSlots_)
+//    {
+//        std::cout << "name: " << name(s) << " local: " << s.mLocalId << " remote: " << (i32)s.mRemoteId << std::endl;
+//        std::cout << "    " << s.mRecvOps2_.size() << " recvs" << std::endl;
+//        std::cout << "    " << s.mSendOps2_.size() << " sends" << std::endl;
+//    }
+//}
+//
+//void printStatus(coproto::LocalAsyncSocket& s0, coproto::LocalAsyncSocket& s1)
+//{
+//
+//    std::cout << "S0\n-----------------------" << std::endl;
+//    printStatus(s0);
+//    std::cout << "S1\n-----------------------" << std::endl;
+//    printStatus(s1);
+//    //for (auto& b : s0.mImpl->m)
+//    //{
+//    //    std::cout << "local: " << b->mLocalId << " remote: " << b->mRemoteId << " size: " << b->mSendOps2_.begin()->mSendBuff.asSpan().size() << std::endl;
+//    //}
+//
+//}
+//
 
 
 void RadixSort_genPerm_test(const oc::CLP& cmd)

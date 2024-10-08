@@ -1,14 +1,11 @@
-
-
 #include "AltModPrf.h"
-#include "secure-join/AggTree/PerfectShuffle.h"
-#include "mod3.h"
-#define AltMod_NEW
+#include "AltModSimd.h"
+
 
 namespace secJoin
 {
 
-	auto makeAltModPrfB() {
+	auto makeAltModWPrfB() {
 		std::array<block, 128> r;
 		memset(&r, 0, sizeof(r));
 		PRNG prng(block(2134, 5437));
@@ -19,9 +16,9 @@ namespace secJoin
 		}
 		return r;
 	};
-	const std::array<block, 128> AltModPrf::mB = makeAltModPrfB();
+	const std::array<block, 128> AltModPrf::mB = makeAltModWPrfB();
 
-	auto makeAltModPrfBCode()
+	auto makeAltModWPrfBCode()
 	{
 
 		oc::Matrix<u8> g(128, sizeof(block)), gt(128, sizeof(block));
@@ -33,17 +30,17 @@ namespace secJoin
 		r.init(gt);
 		return r;
 	}
-	F2LinearCode AltModPrf::mBCode = makeAltModPrfBCode();
+	const F2LinearCode AltModPrf::mBCode = makeAltModWPrfBCode();
 
-	auto makeAltModPrfACode() {
+	auto makeAltModWPrfACode() {
 
 		F3AccPermCode r;
 		r.init(AltModPrf::KeySize, AltModPrf::MidSize);
 		return r;
 	};
-	F3AccPermCode AltModPrf::mACode = makeAltModPrfACode();
+	const F3AccPermCode AltModPrf::mACode = makeAltModWPrfACode();
 
-	auto makeAltModPrfBExpanded()
+	auto makeAltModWPrfBExpanded()
 	{
 		std::array<std::array<u8, 128>, 128> r;
 		for (u64 i = 0; i < AltModPrf::mB.size(); ++i)
@@ -54,7 +51,24 @@ namespace secJoin
 		}
 		return r;
 	}
-	const std::array<std::array<u8, 128>, 128> AltModPrf::mBExpanded = makeAltModPrfBExpanded();
+	const std::array<std::array<u8, 128>, 128> AltModPrf::mBExpanded = makeAltModWPrfBExpanded();
+
+
+	auto makeAltModWPrfGCode()
+	{
+		constexpr u64 expandInput2W = (AltModPrf::KeySize - 128) / 128;
+		std::array<F2LinearCode, expandInput2W> expandInput2Code;
+
+		oc::Matrix<u8> g(128, sizeof(block));
+		PRNG prng(oc::CCBlock);
+		for (auto i : stdv::iota(0ull, expandInput2W))
+		{
+			prng.get(g.data(), g.size());
+			expandInput2Code[i].init(g);
+		}
+		return expandInput2Code;
+	}
+	const std::array<F2LinearCode, 3> AltModPrf::mGCode = makeAltModWPrfGCode();
 
 	// input v.
 	// v will have m=256 rows. It will store the i'th value in
@@ -86,7 +100,7 @@ namespace secJoin
 
 		oc::Matrix<block> yt(128, n128);
 
-		//auto B = AltModPrf::mB;
+		//auto B = AltModWPrf::mB;
 		assert(begin % 128 == 0);
 		// assert(n % 128 == 0);
 		assert(v.rows() == AltModPrf::MidSize);
@@ -100,7 +114,7 @@ namespace secJoin
 
 		for (u64 i = 0; i < 128; ++i)
 		{
-			//while (AltModPrf::mBExpanded[i][j] == 0)
+			//while (AltModWPrf::mBExpanded[i][j] == 0)
 			//    ++j;
 
 			auto vIter = v.data() + begin128 + i * vStep;
@@ -302,93 +316,28 @@ namespace secJoin
 
 
 
-	// v = u + PRNG()
-	inline void xorVectorOne(span<oc::block> v, span<const oc::block> u, PRNG& prng)
-	{
-		oc::block m[8];
-		auto vIter = v.data();
-		auto uIter = u.data();
-		auto n = v.size();
-		assert(u64(v.data()) % 16 == 0);
-
-		auto j = 0ull;
-		auto main = n / 8 * 8;
-		for (; j < main; j += 8)
-		{
-			prng.mAes.ecbEncCounterMode(prng.mBlockIdx, 8, m);
-			prng.mBlockIdx += 8;
-
-			vIter[0] = uIter[0] ^ m[0];
-			vIter[1] = uIter[1] ^ m[1];
-			vIter[2] = uIter[2] ^ m[2];
-			vIter[3] = uIter[3] ^ m[3];
-			vIter[4] = uIter[4] ^ m[4];
-			vIter[5] = uIter[5] ^ m[5];
-			vIter[6] = uIter[6] ^ m[6];
-			vIter[7] = uIter[7] ^ m[7];
-			vIter += 8;
-			uIter += 8;
-		}
-		for (; j < n; ++j)
-		{
-			auto m = prng.mAes.ecbEncBlock(oc::toBlock(prng.mBlockIdx++));
-			//oc::block m = prng.get();
-
-			*vIter = *uIter ^ m;
-			++vIter;
-			++uIter;
-		}
-		assert(vIter == v.data() + v.size());
-	}
-
-
-
-	// out = (hi0, hi1) ^ prng()
-	inline void xorVectorOne(
-		span<block> out1,
-		span<block> out0,
-		span<block> m1,
-		span<block> m0,
-		PRNG& prng)
-	{
-
-		xorVectorOne(out1, m1, prng);
-		xorVectorOne(out0, m0, prng);
-	}
-
-	// out = (hi0, hi1) ^ prng()
-	inline void xorVectorOne(
-		span<block> out,
-		span<block> m1,
-		span<block> m0,
-		PRNG& prng)
-	{
-		xorVectorOne(out.subspan(m0.size()), m1, prng);
-		xorVectorOne(out.subspan(0, m0.size()), m0, prng);
-	}
-
 	void  AltModPrf::setKey(AltModPrf::KeyType k)
 	{
 		mExpandedKey = k;
-		//mExpandedKey[1] = oc::mAesFixedKey.hashBlock(k);
-		//mExpandedKey[2] = oc::mAesFixedKey.hashBlock(k ^ oc::block(4234473534532, 452878778345324));
-		//mExpandedKey[3] = oc::mAesFixedKey.hashBlock(k ^ oc::block(35746745624534, 876876787665423));
-
-		//static_assert(KeyType{}.size() == 4, "assumed");
 	}
 
-	void  AltModPrf::mtxMultA(const std::array<u16, KeySize>& hj, block256m3& uj)
-	{
-		std::array<u8, KeySize> h;
-		for (u64 i = 0; i < KeySize; ++i)
-			h[i] = hj[i];
-		mACode.encode<u8>(h, uj.mData);
-	}
+	//void  AltModPrf::mtxMultA(const std::array<u16, KeySize>& hj, block256m3& uj)
+	//{
+	//	std::array<u8, KeySize> h;
+	//	for (u64 i = 0; i < KeySize; ++i)
+	//		h[i] = hj[i];
+	//	mACode.encode<u8>(h, uj.mData);
+	//}
 
 
-	void AltModPrf::expandInput(span<block> x, oc::MatrixView<block> xt)
+	void AltModPrf::expandInputAes(span<block> x, oc::MatrixView<block> xt)
 	{
 		auto n = x.size();
+		if (xt.rows() != AltModPrf::KeySize)
+			throw RTE_LOC;
+		if (xt.cols() != oc::divCeil(n, 128))
+			throw RTE_LOC;
+
 		for (u64 i = 0, k = 0; i < n; ++k)
 		{
 			static_assert(AltModPrf::KeySize % 128 == 0);
@@ -430,11 +379,157 @@ namespace secJoin
 
 			i += 128;
 		}
+	}
 
+	void AltModPrf::expandInputLinear(block x, KeyType& X)
+	{
+		X[0] = x;
+		constexpr const auto rem = KeyType{}.size() - 1;
+		for (auto i = 0; i < rem; ++i)
+			mGCode[i].encode((u8*)&x, (u8*)&X[i + 1]);
+	}
+
+	void AltModPrf::expandInputLinear(span<block> x, oc::MatrixView<block> xt)
+	{
+		auto n = x.size();
+		if (xt.rows() != AltModPrf::KeySize)
+			throw RTE_LOC;
+		if (xt.cols() != oc::divCeil(n, 128))
+			throw RTE_LOC;
+
+
+		oc::AlignedArray<block, 128> t;
+		auto step = xt.cols();
+		for (u64 i = 0; i < n; i += 128)
+		{
+			static_assert(AltModPrf::KeySize % 128 == 0);
+			auto m = std::min<u64>(128, n - i);
+			auto xIter = x.data() + i;
+
+			memcpy(t.data(), xIter, m * sizeof(block));
+			if (m != 128)
+				memset(t.data() + m, 0, (128 - m) * sizeof(block));
+
+			oc::transpose128(t.data());
+
+			auto k = i / 128;
+			auto xtk = &xt(0, k);
+			for (u64 j = 0; j < 128; ++j)
+			{
+				assert(xtk == &xt(j, k));
+
+				//if (i == 0)
+				//{
+				//	std::cout << t[j] << std::endl;
+				//}
+
+				*xtk = t[j];
+				xtk += step;
+			}
+		}
+		//std::cout << std::endl;
+
+		for (u64 q = 0; q < AltModPrf::mGCode.size(); ++q)
+		{
+			for (u64 i = 0; i < n; i += 128)
+			{
+				static_assert(AltModPrf::KeySize % 128 == 0);
+				auto m = std::min<u64>(128, n - i);
+				auto xIter = x.data() + i;
+
+				if (m == 128)
+				{
+					for (u64 w = 0; w < 16; ++w)
+						AltModPrf::mGCode[q].encodeN<8>(xIter + w * 8, t.data() + w * 8);
+				}
+				else
+				{
+					for (u64 j = 0; j < m; ++j)
+						AltModPrf::mGCode[q].encode((u8*)&xIter[j], (u8*)&t[j]);
+					for (u64 j = m; j < 128; ++j)
+						t[j] = oc::ZeroBlock;
+				}
+
+				oc::transpose128(t.data());
+
+				auto k = i / 128;
+				auto xtk = &xt(q * 128 + 128, k);
+				for (u64 j = 0;j < 128; ++j)
+				{
+					assert(xtk == &xt(q * 128 + 128 + j, k));
+					*xtk = t[j];
+					xtk += step;
+				}
+
+
+			}
+		}
+	}
+
+	namespace
+	{
+		Perm expandInput3Perm;
+	}
+
+	void AltModPrf::initExpandInputPermuteLinear()
+	{
+		PRNG prng(oc::CCBlock);
+		expandInput3Perm = Perm(4 * 128, prng);
 
 	}
 
-	void AltModPrf::expandInput(block x, KeyType& X)
+	void AltModPrf::expandInputPermuteLinear(span<block> x, oc::MatrixView<block> xt)
+	{
+		if (xt.rows() != 4 * 128)
+			throw RTE_LOC;
+		u64 batchSize = 1ull << 10;
+		oc::AlignedArray<block, 128> t;
+		auto step = xt.cols();
+		auto n = x.size();
+		for (u64 i = 0; i < n; i += batchSize)
+		{
+			static_assert(AltModPrf::KeySize % 128 == 0);
+			auto batchSize_ = std::min<u64>(batchSize, n - i);
+			auto k = i / 128;
+			for (auto q = 0ull; q < batchSize_; q += 128)
+			{
+				auto xIter = x.data() + i + q;
+				auto m = std::min<u64>(128, n - q);
+				memcpy(t.data(), xIter, m);
+				if (m != 128)
+					memset(t.data() + m, 0, 128 - m);
+
+				oc::transpose128(t.data());
+
+
+				auto xtk = &xt(0, k);
+				for (u64 j = 0;j < 128; ++j)
+				{
+					assert(xtk == &xt(j, k));
+					*xtk = t[j];
+					xtk += step;
+				}
+			}
+
+			auto d = oc::divCeil(batchSize_, 128);
+			auto iterations = 3ull;
+			for (u64 iter = 0; iter < iterations; ++iter)
+			{
+				for (u64 j = 0; j < 4 * 128 - 1; ++j)
+				{
+					block* __restrict src = &xt(expandInput3Perm[j], k);
+					block* __restrict dst = &xt(expandInput3Perm[j + 1], k);
+					for (auto q = 0; q < d; ++q)
+					{
+						dst[q] = dst[q] ^ src[q];
+					}
+				}
+			}
+		}
+	}
+
+
+	void AltModPrf::expandInputAes(block x, KeyType& X)
 	{
 		X[0] = x;
 		for (u64 i = 1; i < X.size(); ++i)
@@ -447,29 +542,32 @@ namespace secJoin
 
 	block  AltModPrf::eval(block x)
 	{
-		std::array<u16, KeySize> h;
-		std::array<block, KeySize / 128> X;
+		block y;
+		eval({ &x,1 }, { &y,1 });
+		return y;
+		//std::array<u16, KeySize> h;
+		//AltModPrf::KeyType X;
 
-		expandInput(x, X);
+		//expandInput(x, X);
 
-		auto kIter = oc::BitIterator((u8*)mExpandedKey.data());
-		auto xIter = oc::BitIterator((u8*)X.data());
-		for (u64 i = 0; i < KeySize; ++i)
-		{
-			h[i] = *kIter & *xIter;
-			++kIter;
-			++xIter;
-		}
+		//auto kIter = oc::BitIterator((u8*)mExpandedKey.data());
+		//auto xIter = oc::BitIterator((u8*)X.data());
+		//for (u64 i = 0; i < KeySize; ++i)
+		//{
+		//	h[i] = *kIter & *xIter;
+		//	++kIter;
+		//	++xIter;
+		//}
 
-		block256m3 u;
-		mtxMultA(h, u);
+		//block256m3 u;
+		//mtxMultA(h, u);
 
-		block256 w;
-		for (u64 i = 0; i < u.mData.size(); ++i)
-		{
-			*oc::BitIterator((u8*)&w, i) = u.mData[i] % 2;
-		}
-		return compress(w);
+		//block256 w;
+		//for (u64 i = 0; i < u.mData.size(); ++i)
+		//{
+		//	*oc::BitIterator((u8*)&w, i) = u.mData[i] % 2;
+		//}
+		//return compress(w);
 	}
 
 	void AltModPrf::eval(span<block> x, span<block> y)
@@ -509,1229 +607,34 @@ namespace secJoin
 
 
 
-	block  AltModPrf::compress(block256& w)
-	{
-		return compress(w, mB);
-	}
+	//block  AltModPrf::compress(block256& w)
+	//{
+	//	return compress(w, mB);
+	//}
+
+	//block  AltModPrf::compress(block256& w, const std::array<block, 128>& B)
+	//{
+	//	oc::AlignedArray<block, 128> bw;
+
+	//	for (u64 i = 0; i < 128; ++i)
+	//	{
+	//		//bw[0][i] = B[i].mData[0] & w.mData[0];
+	//		bw[i] = B[i] & w.mData[1];
+	//	}
+	//	oc::transpose128(bw.data());
+	//	//oc::transpose128(bw[1].data());
+
+	//	block r = w[0];
+	//	//memset(&r, 0, sizeof(r));
+	//	//for (u64 i = 0; i < 128; ++i)
+	//	//    r = r ^ bw[0][i];
+	//	for (u64 i = 0; i < 128; ++i)
+	//		r = r ^ bw[i];
+
+	//	return r;
+	//}
 
 
-	block  AltModPrf::compress(block256& w, const std::array<block, 128>& B)
-	{
-		oc::AlignedArray<block, 128> bw;
-
-		for (u64 i = 0; i < 128; ++i)
-		{
-			//bw[0][i] = B[i].mData[0] & w.mData[0];
-			bw[i] = B[i] & w.mData[1];
-		}
-		oc::transpose128(bw.data());
-		//oc::transpose128(bw[1].data());
-
-		block r = w[0];
-		//memset(&r, 0, sizeof(r));
-		//for (u64 i = 0; i < 128; ++i)
-		//    r = r ^ bw[0][i];
-		for (u64 i = 0; i < 128; ++i)
-			r = r ^ bw[i];
-
-		return r;
-	}
-
-
-
-	void mtxMultA(
-		oc::Matrix<block>&& v1,
-		oc::Matrix<block>&& v0,
-		oc::Matrix<block>& u1,
-		oc::Matrix<block>& u0
-	)
-	{
-		AltModPrf::mACode.encode(v1, v0, u1, u0);
-		v0 = {};
-		v1 = {};
-	}
-
-
-	void AltModPrfSender::setKeyOts(AltModPrf::KeyType k, span<const block> ots)
-	{
-		if (ots.size() != AltModPrf::KeySize)
-			throw RTE_LOC;
-
-		mPrf.setKey(k);
-		mKeyOTs.resize(AltModPrf::KeySize);
-		for (u64 i = 0; i < AltModPrf::KeySize; ++i)
-		{
-			mKeyOTs[i].SetSeed(ots[i]);
-		}
-	}
-
-	void mod3BitDecompostion(oc::MatrixView<u16> u, oc::MatrixView<block> u0, oc::MatrixView<block> u1)
-	{
-		if (u.rows() != u0.rows())
-			throw RTE_LOC;
-		if (u.rows() != u1.rows())
-			throw RTE_LOC;
-
-		if (oc::divCeil(u.cols(), 128) != u0.cols())
-			throw RTE_LOC;
-		if (oc::divCeil(u.cols(), 128) != u1.cols())
-			throw RTE_LOC;
-
-		u64 n = u.rows();
-		u64 m = u.cols();
-
-		oc::AlignedUnVector<u8> temp(oc::divCeil(m * 2, 8));
-		for (u64 i = 0; i < n; ++i)
-		{
-			auto iter = temp.data();
-
-			assert(m % 4 == 0);
-
-			for (u64 k = 0; k < m; k += 4)
-			{
-				assert(u[i][k + 0] < 3);
-				assert(u[i][k + 1] < 3);
-				assert(u[i][k + 2] < 3);
-				assert(u[i][k + 3] < 3);
-
-				// 00 01 10 11 20 21 30 31
-				*iter++ =
-					(u[i][k + 0] << 0) |
-					(u[i][k + 1] << 2) |
-					(u[i][k + 2] << 4) |
-					(u[i][k + 3] << 6);
-			}
-
-			span<u8> out0((u8*)u0.data(i), temp.size() / 2);
-			span<u8> out1((u8*)u1.data(i), temp.size() / 2);
-			perfectUnshuffle(temp, out0, out1);
-
-#ifndef NDEBUG
-			for (u64 j = 0; j < out0.size(); ++j)
-			{
-				if (out0[j] & out1[j])
-					throw RTE_LOC;
-			}
-#endif
-		}
-	}
-
-	coproto::task<> AltModPrfSender::evaluate(
-		span<block> y,
-		coproto::Socket& sock,
-		PRNG& prng)
-	{
-
-		MC_BEGIN(coproto::task<>, y, this, &sock,
-			buffer = oc::AlignedUnVector<u8>{},
-			f = oc::BitVector{},
-			diff = oc::BitVector{},
-			ots = oc::AlignedUnVector<std::array<block, 2>>{},
-			i = u64{},
-			ole = BinOleRequest{},
-			u0 = oc::Matrix<block>{},
-			u1 = oc::Matrix<block>{},
-			uu0 = oc::Matrix<block>{},
-			uu1 = oc::Matrix<block>{},
-			v = oc::Matrix<block>{},
-			xk0 = oc::Matrix<block>{},
-			xk1 = oc::Matrix<block>{},
-			msg = oc::Matrix<block>{},
-			otRecv = OtRecv{}
-		);
-
-		if (y.size() != mInputSize)
-			throw std::runtime_error("output length do not match. " LOCATION);
-
-		if (mUseMod2F4Ot)
-		{
-			if (mOtSendReq.size() != oc::roundUpTo(y.size(), 128) * AltModPrf::MidSize)
-				throw std::runtime_error("do not have enough preprocessing. Call request(...) first. " LOCATION);
-		}
-		else
-		{
-			if (mOleReq.size() != oc::roundUpTo(y.size(), 128) * AltModPrf::MidSize * 2)
-				throw std::runtime_error("do not have enough preprocessing. Call request(...) first. " LOCATION);
-		}
-
-		// if we are doing the key gen, get the results.
-		if (mKeyReq.size())
-		{
-			MC_AWAIT(mKeyReq.get(otRecv));
-
-			if (oc::divCeil(otRecv.mChoice.size(), 8) != sizeof(AltModPrf::KeyType))
-				throw RTE_LOC;
-
-			auto k = otRecv.mChoice.getSpan<AltModPrf::KeyType>()[0];
-			setKeyOts(k, otRecv.mMsg);
-		}
-
-		// make sure we have a key.
-		if (mKeyOTs.size() != AltModPrf::KeySize)
-			throw std::runtime_error("AltMod was called without a key and keyGen was not requested. " LOCATION);
-
-		// debugging, make sure we have the correct key OTs.
-		if (mDebug)
-		{
-			ots.resize(mKeyOTs.size());
-			MC_AWAIT(sock.recv(ots));
-			for (u64 i = 0; i < ots.size(); ++i)
-			{
-				auto ki = *oc::BitIterator((u8*)&mPrf.mExpandedKey, i);
-				if (ots[i][ki] != mKeyOTs[i].getSeed())
-				{
-					std::cout << "bad key ot " << i << "\nki=" << ki << " " << mKeyOTs[i].getSeed() << " vs \n"
-						<< ots[i][0] << " " << ots[i][1] << std::endl;
-					throw RTE_LOC;
-				}
-			}
-		}
-
-		setTimePoint("DarkMatter.sender.begin");
-
-		// for each bit of the key, perform an OT derandomization where we get a share
-		// of the input x times the key mod 3. We store the LSB and MSB of the share separately.
-		// Hence we need 2 * AltModPrf::KeySize rows in xkShares
-		xk0.resize(AltModPrf::KeySize, oc::divCeil(y.size(), 128), oc::AllocType::Uninitialized);
-		xk1.resize(AltModPrf::KeySize, oc::divCeil(y.size(), 128), oc::AllocType::Uninitialized);
-		for (i = 0; i < AltModPrf::KeySize;)
-		{
-			msg.resize(StepSize, xk0.cols() * 2); // y.size() * 256 * 2 bits
-			MC_AWAIT(sock.recv(msg));
-			for (u64 k = 0; k < StepSize; ++i, ++k)
-			{
-				u8 ki = *oc::BitIterator((u8*)&mPrf.mExpandedKey, i);
-
-				auto lsbShare = xk0[i];
-				auto msbShare = xk1[i];
-				if (ki)
-				{
-					auto msbMsg = msg[k].subspan(0, msbShare.size());
-					auto lsbMsg = msg[k].subspan(msbShare.size(), lsbShare.size());
-
-					// ui = (hi1,hi0)                                   ^ G(OT(i,1))
-					//    = { [ G(OT(i,0))  + x  mod 3 ] ^ G(OT(i,1)) } ^ G(OT(i,1))
-					//    =     G(OT(i,0))  + x  mod 3 
-					xorVectorOne(msbShare, msbMsg, mKeyOTs[i]);
-					xorVectorOne(lsbShare, lsbMsg, mKeyOTs[i]);
-				}
-				else
-				{
-					// ui = (hi1,hi0)         
-					//    = G(OT(i,0))  mod 3 
-					sampleMod3Lookup(mKeyOTs[i], msbShare, lsbShare);
-				}
-			}
-		}
-
-		if (mDebug)
-		{
-			mDebugXk0 = xk0;
-			mDebugXk1 = xk1;
-		}
-
-		// Compute u = H * xkShare mod 3
-		buffer = {};
-		u0.resize(AltModPrf::MidSize, oc::divCeil(y.size(), 128), oc::AllocType::Uninitialized);
-		u1.resize(AltModPrf::MidSize, oc::divCeil(y.size(), 128), oc::AllocType::Uninitialized);
-		mtxMultA(std::move(xk1), std::move(xk0), u1, u0);
-
-		if (mDebug)
-		{
-			mDebugU0 = u0;
-			mDebugU1 = u1;
-		}
-
-		// Compute v = u mod 2
-		v.resize(AltModPrf::MidSize, u0.cols());
-		if(mUseMod2F4Ot)
-			MC_AWAIT(mod2OtF4(u0, u1, v, sock));
-		else
-			MC_AWAIT(mod2Ole(u0, u1, v, sock));
-
-		if (mDebug)
-		{
-			mDebugV = v;
-		}
-
-		// Compute y = B * v
-		compressB(v, y);
-
-		mInputSize = 0;
-
-		MC_END();
-	}
-
-	void AltModPrfReceiver::setKeyOts(span<std::array<block, 2>> ots)
-	{
-		if (ots.size() != AltModPrf::KeySize)
-			throw RTE_LOC;
-		mKeyOTs.resize(AltModPrf::KeySize);
-		for (u64 i = 0; i < AltModPrf::KeySize; ++i)
-		{
-			mKeyOTs[i][0].SetSeed(ots[i][0]);
-			mKeyOTs[i][1].SetSeed(ots[i][1]);
-		}
-	}
-
-	coproto::task<> AltModPrfReceiver::evaluate(
-		span<block> x,
-		span<block> y,
-		coproto::Socket& sock,
-		PRNG& prng)
-	{
-
-		if (mInputSize == 0)
-			throw std::runtime_error("input lengths 0. " LOCATION);
-		MC_BEGIN(coproto::task<>, x, y, this, &sock,
-			xt = oc::Matrix<block>{},
-			buffer = oc::AlignedUnVector<u8>{},
-			gx = oc::AlignedUnVector<u16>{},
-			i = u64{},
-			baseOts = oc::AlignedUnVector<std::array<block, 2>>{},
-			u0 = oc::Matrix<block>{},
-			u1 = oc::Matrix<block>{},
-			uu0 = oc::Matrix<block>{},
-			uu1 = oc::Matrix<block>{},
-			xk0 = oc::Matrix<block>{},
-			xk1 = oc::Matrix<block>{},
-			msg = oc::Matrix<block>{},
-			v = oc::Matrix<block>{},
-			pre = macoro::eager_task<>{},
-			otSend = OtSend{}
-		);
-
-		if (x.size() != mInputSize)
-			throw std::runtime_error("input lengths do not match. " LOCATION);
-
-		if (y.size() != mInputSize)
-			throw std::runtime_error("output lengths do not match. " LOCATION);
-
-		if (mUseMod2F4Ot)
-		{
-			if (mOtRecvReq.size() != oc::roundUpTo(y.size(), 128) * AltModPrf::MidSize)
-				throw std::runtime_error("do not have enough preprocessing. Call request(...) first. " LOCATION);
-		}
-		else
-		{
-			if (mOleReq.size() != oc::roundUpTo(y.size(), 128) * AltModPrf::MidSize * 2)
-				throw std::runtime_error("do not have enough preprocessing. Call request(...) first. " LOCATION);
-		}
-
-		// If no one has started the preprocessing, then lets start it.
-		//if (mPreproStarted == false)
-		//    pre = preprocess() | macoro::make_eager();
-
-		// if we are doing the key gen, get the results.
-		if (mKeyReq.size())
-		{
-			MC_AWAIT(mKeyReq.get(otSend));
-			setKeyOts(otSend.mMsg);
-			mKeyReq.clear();
-		}
-
-		// make sure we have a key.
-		if (!mKeyOTs.size())
-			throw std::runtime_error("AltMod was called without a key and keyGen was not requested. " LOCATION);
-
-		// debugging, make sure we have the correct key OTs.
-		if (mDebug)
-		{
-			baseOts.resize(mKeyOTs.size());
-			for (u64 i = 0; i < baseOts.size(); ++i)
-			{
-				baseOts[i][0] = mKeyOTs[i][0].getSeed();
-				baseOts[i][1] = mKeyOTs[i][1].getSeed();
-			}
-			MC_AWAIT(sock.send(std::move(baseOts)));
-		}
-
-		setTimePoint("DarkMatter.recver.begin");
-
-
-
-		// we need x in a transformed format so that we can do SIMD operations.
-		xt.resize(AltModPrf::KeySize, oc::divCeil(y.size(), 128));
-		AltModPrf::expandInput(x, xt);
-
-		static_assert(AltModPrf::KeySize % StepSize == 0, "we dont handle remainders. Should be true.");
-
-		// for each bit of the key, perform an OT derandomization where we get a share
-		// of the input x times the key mod 3. We store the LSB and MSB of the share separately.
-		// Hence we need 2 * AltModPrf::KeySize rows in xkShares
-		xk0.resize(AltModPrf::KeySize, oc::divCeil(x.size(), 128), oc::AllocType::Uninitialized);
-		xk1.resize(AltModPrf::KeySize, oc::divCeil(x.size(), 128), oc::AllocType::Uninitialized);
-		for (i = 0; i < AltModPrf::KeySize;)
-		{
-			assert(AltModPrf::KeySize % StepSize == 0);
-			msg.resize(StepSize, xk0.cols() * 2);
-
-			for (u64 k = 0; k < StepSize; ++i, ++k)
-			{
-				// we store them in swapped order to negate the value.
-				auto msbShare = xk0[i];
-				auto lsbShare = xk1[i];
-				sampleMod3Lookup(mKeyOTs[i][0], msbShare, lsbShare);
-
-				auto msbMsg = msg[k].subspan(0, msbShare.size());
-				auto lsbMsg = msg[k].subspan(msbShare.size(), lsbShare.size());
-
-				// # hi = G(OT(i,0)) + x mod 3
-				mod3Add(
-					msbMsg, lsbMsg,
-					msbShare, lsbShare,
-					xt[i]);
-
-				// ## msg = m ^ G(OT(i,1))
-				//xorVector(msg[k], mKeyOTs[i][1]);
-				xorVector(msbMsg, mKeyOTs[i][1]);
-				xorVector(lsbMsg, mKeyOTs[i][1]);
-			}
-			MC_AWAIT(sock.send(std::move(msg)));
-		}
-		if (mDebug)
-		{
-			mDebugXk0 = xk0;
-			mDebugXk1 = xk1;
-		}
-
-		// Compute u = H * xkShare mod 3
-		buffer = {};
-		u0.resize(AltModPrf::MidSize, oc::divCeil(x.size(), 128), oc::AllocType::Uninitialized);
-		u1.resize(AltModPrf::MidSize, oc::divCeil(x.size(), 128), oc::AllocType::Uninitialized);
-		mtxMultA(std::move(xk1), std::move(xk0), u1, u0);
-
-		if (mDebug)
-		{
-			mDebugU0 = u0;
-			mDebugU1 = u1;
-		}
-
-		// Compute v = u mod 2
-		v.resize(AltModPrf::MidSize, u0.cols());
-
-		if (mUseMod2F4Ot)
-			MC_AWAIT(mod2OtF4(u0, u1, v, sock));
-		else
-			MC_AWAIT(mod2Ole(u0, u1, v, sock));
-
-		if (mDebug)
-		{
-			mDebugV = v;
-		}
-
-		// Compute y = B * v
-		compressB(v, y);
-		mInputSize = 0;
-
-		MC_END();
-	}
-
-
-
-
-	// The parties input a sharing of the u=(u0,u1) such that 
-	// 
-	//   u = u0 + u1 mod 3
-	// 
-	// When looking at the truth table of u mod 2 we have
-	// 
-	//           u1
-	//          0 1 2
-	//         ________
-	//      0 | 0 1 0
-	//   u0 1 | 1 0 0 
-	//      2 | 0 0 1
-	//   
-	// Logically, what we are going to do is a 1-out-of-3
-	// OT. The PrfSender with u0 will use select the row of
-	// this table based on u0. For example, if u0=0 then the 
-	// truth table reduces to
-	// 
-	//   0 1 0
-	// 
-	// where the PrfReceiver should use the OT to pick up
-	// the element indexed bu u1. For example, they should pick up 
-	// 1 iff u1 = 1.
-	// 
-	// To maintain security, we need to give the PrfReceiver a sharing
-	// of this value, not the value itself. The PrfSender will pick a random mask
-	// 
-	//   r
-	// 
-	// and then the PrfReceiver should learn that table above XOR r.
-	// 
-	// We can build a 1-out-of-3 OT from OLE. Each mod2 / 1-out-of-3 OT consumes 2 
-	// binary OLE's. A single OLE consists of PrfSender holding 
-	// 
-	//     x0, y0
-	// 
-	// the PrfReceiver holding
-	// 
-	//     x1, y1
-	// 
-	// such that (x0+x1) = (y0*y1). We will partially derandomize these
-	// by allowing the PrfReceiver to change their y1 to be a chosen
-	// value, c. That is, the parties want to hold correlation
-	// 
-	//    (x0',y0',x1', c)
-	// 
-	// where x0,x1,y0 are random and c is chosen. This is done by sending
-	// 
-	//   d = (y1+c)
-	// 
-	// and the PrfSender updates their share as
-	// 
-	//   x0' = x0 + y0 * d
-	// 
-	// The parties output (x0',y0,x1,c). Observe parties hold the correlation
-	// 
-	//   x1 + x0'                   = y0 * c
-	//   x1 + x0 + y0 * d           = y0 * c
-	//   x1 + x0 + y0 * (y1+c)      = y0 * c
-	//   x1 + x0 + y0 * y1 + y0 * c = y0 * c
-	//                       y0 * c = y0 * c
-	//
-	// Ok, now let us perform the mod 2 operations. As state, this 
-	// will consume 2 OLEs. Let these be denoted as
-	// 
-	//   (x0,x1,y0,y1), (x0',x1',y0',y1')
-	//
-	// These have not been derandomized yet. To get an 1-out-of-3 OT, we
-	// will derandomize them using the PrfReceiver's u1. This value is 
-	// represented using two bits (u10,u11) such that u1 = u10 + 2 * u11
-	// 
-	// We will derandomize (x0,x1,y0,y1) using u10 and (x0',x1',y0',y1') 
-	// using u11. Let us redefine these correlations as 
-	// 
-	//   (x0,x1,y0,u10), (x0',x1',y0',u11)
-	// 
-	// That is, we also redefined x0,x0' accordingly.
-	// 
-	// We will define the random OT strings (in tms case x1 single bit)
-	// as 
-	//    
-	//    m0 = x0      + x0'
-	//    m1 = x0 + y0 + x0'
-	//    m2 = x0      + x0' + y0'
-	// 
-	// Note that 
-	//  - when u10 = u11 = 0, then x1=x0, x1'=x0' and therefore
-	//    the PrfReceiver knows m0. m1,m2 is uniform due to y0, y0' being 
-	//    uniform, respectively. 
-	// - When u10 = 1, u11 = 0, then x1 = x0 + y0 and x1' = x0 and therefore 
-	//   PrfReceiver knows m1 = x1 + x1' = (x0 + y0) + x0'. m0 is uniform because 
-	//   x0 = x1 + y0 and y0 is uniform given x1. m2 is uniform because y0' 
-	//   is uniform given x1. 
-	// - Finally, when u10 = 0, u11 = 1, the same basic case as above applies.
-	// 
-	// 
-	// these will be used to mask the truth table T. That is, the PrfSender
-	// will sample x1 mask r and send
-	// 
-	//   t0 = m0 + T[u0, 0] + r
-	//   t1 = m1 + T[u0, 1] + r
-	//   t2 = m2 + T[u0, 2] + r
-	// 
-	// The PrfReceiver can therefore compute
-	// 
-	//   z1 = t_u1 + m_u1
-	//      = T[u1, u1] + r
-	//      = (u mod 2) + r
-	// 
-	// and the PrfSender can compute
-	//  
-	//   z0 = r
-	// 
-	// and therefor we have z0+z1 = u mod 2.
-	// 
-	// As an optimization, we dont need to send t0. The idea is that if
-	// the receiver want to learn T[u0, 0], then they can set their share
-	// as m0. That is,
-	// 
-	//   z1 = (u1 == 0) ? m0 : t_u1 + m_u1
-	//      = u10 * t_u1 + mu1
-	// 
-	// The sender now needs to define r appropriately. In particular, 
-	// 
-	//   r = m0 + T[u0, 0]
-	// 
-	// In the case of u1 = 0, z1 = m0, z0 = r + T[u0,0], and therefore we 
-	// get the right result. The other cases are the same with the randomness
-	// of the mast r coming from m0.
-	// 
-	//
-	// u has 256 rows
-	// each row holds 2bit values
-	// 
-	// out will have 256 rows.
-	// each row will hold packed bits.
-	// 
-	macoro::task<> AltModPrfSender::mod2Ole(
-		oc::MatrixView<block> u0,
-		oc::MatrixView<block> u1,
-		oc::MatrixView<block> out,
-		coproto::Socket& sock)
-	{
-		MC_BEGIN(macoro::task<>, this, u0, u1, out, &sock,
-			triple = BinOle{},
-			tIter = std::vector<BinOle>::iterator{},
-			tIdx = u64{},
-			tSize = u64{},
-			i = u64{},
-			j = u64{},
-			rows = u64{},
-			cols = u64{},
-			step = u64{},
-			end = u64{},
-			buff = oc::AlignedUnVector<block>{},
-			outIter = (block*)nullptr,
-			u0Iter = (block*)nullptr,
-			u1Iter = (block*)nullptr
-		);
-		if (mUseMod2F4Ot)
-		{
-			std::cout << "mUseMod2F4Ot == true but call mod2Ole. " << LOCATION << std::endl;
-			std::terminate();
-		}
-
-		if (out.rows() != u0.rows())
-			throw RTE_LOC;
-		if (out.rows() != u1.rows())
-			throw RTE_LOC;
-		if (out.cols() != u0.cols())
-			throw RTE_LOC;
-		if (out.cols() != u1.cols())
-			throw RTE_LOC;
-
-		tIdx = 0;
-		tSize = 0;
-		rows = u0.rows();
-		cols = u0.cols();
-
-		outIter = out.data();
-		u0Iter = u0.data();
-		u1Iter = u1.data();
-		for (i = 0; i < rows; ++i)
-		{
-			for (j = 0; j < cols; )
-			{
-
-				if (tIdx == tSize)
-				{
-					MC_AWAIT(mOleReq.get(triple));
-
-					tSize = triple.mAdd.size();
-					tIdx = 0;
-					buff.resize(tSize);
-					MC_AWAIT(sock.recv(buff));
-				}
-
-
-				// we have (cols - j) * 128 elems left in the row.
-				// we have (tSize - tIdx) * 128 oles left
-				// each elem requires 2 oles
-				// 
-				// so the amount we can do this iteration is 
-				step = std::min<u64>(cols - j, (tSize - tIdx) / 2);
-				end = step + j;
-				for (; j < end; j += 1, tIdx += 2)
-				{
-					// we have x1, y1, s.t. x0 + x1 = y0 * y1
-					auto x = &triple.mAdd.data()[tIdx];
-					auto y = &triple.mMult.data()[tIdx];
-					auto d = &buff.data()[tIdx];
-
-					// x1[0] = x1[0] ^ (y1[0] * d[0])
-					//       = x1[0] ^ (y1[0] * (u0[0] ^ y0[0]))
-					//       = x1[0] ^ (y[0] * u0[0])
-					for (u64 k = 0; k < 2; ++k)
-					{
-						x[k] = x[k] ^ (y[k] & d[k]);
-					}
-
-					block m0, m1, m2, t0, t1, t2;
-					m0 = x[0] ^ x[1];
-					m1 = m0 ^ y[0];
-					m2 = m0 ^ y[1];
-
-					//           u1
-					//          0 1 2
-					//         ________
-					//      0 | 0 1 0
-					//   u0 1 | 1 0 0 
-					//      2 | 0 0 1
-					//t0 = hi0 + T[u0,0] 
-					//   = hi0 + u0(i,j)  
-
-					assert(u0Iter == &u0(i, j));
-					assert(u1Iter == &u1(i, j));
-					assert((u0(i, j) & u1(i, j)) == oc::ZeroBlock);
-
-					t0 = m0 ^ *u0Iter;
-					t1 = t0 ^ m1 ^ *u0Iter ^ *u1Iter ^ oc::AllOneBlock;
-					t2 = t0 ^ m2 ^ *u1Iter;
-
-					++u0Iter;
-					++u1Iter;
-
-					//if (mDebug)// && i == mPrintI && (j == (mPrintJ / 128)))
-					//{
-					//    auto mPrintJ = 0;
-					//    auto bitIdx = mPrintJ % 128;
-					//    std::cout << j << " m  " << bit(m0, bitIdx) << " " << bit(m1, bitIdx) << " " << bit(m2, bitIdx) << std::endl;
-					//    std::cout << j << " u " << bit(u1(i, j), bitIdx) << bit(u0(i, j), bitIdx) << " = " <<
-					//        (bit(u1(i, j), bitIdx) * 2 + bit(u0(i, j), bitIdx)) << std::endl;
-					//    std::cout << j << " r  " << bit(m0, bitIdx) << std::endl;
-					//    std::cout << j << " t  " << bit(t0, bitIdx) << " " << bit(t1, bitIdx) << " " << bit(t2, bitIdx) << std::endl;
-					//}
-
-					// r
-					assert(outIter == &out(i, j));
-					*outIter++ = t0;
-					d[0] = t1;
-					d[1] = t2;
-				}
-
-				if (tIdx == tSize)
-				{
-					MC_AWAIT(sock.send(std::move(buff)));
-				}
-			}
-		}
-
-		assert(buff.size() == 0);
-
-		MC_END();
-	}
-
-
-
-
-	macoro::task<> AltModPrfReceiver::mod2Ole(
-		oc::MatrixView<block> u0,
-		oc::MatrixView<block> u1,
-		oc::MatrixView<block> out,
-		coproto::Socket& sock)
-	{
-		MC_BEGIN(macoro::task<>, this, u0, u1, out, &sock,
-			triple = std::vector<BinOle>{},
-			tIter = std::vector<BinOle>::iterator{},
-			tIdx = u64{},
-			tSize = u64{},
-			i = u64{},
-			j = u64{},
-			step = u64{},
-			rows = u64{},
-			end = u64{},
-			cols = u64{},
-			buff = oc::AlignedUnVector<block>{},
-			add = span<block>{},
-			mlt = span<block>{},
-			outIter = (block*)nullptr,
-			u0Iter = (block*)nullptr,
-			u1Iter = (block*)nullptr,
-			ec = macoro::result<void, std::exception_ptr>{}
-		);
-
-		if (mUseMod2F4Ot)
-		{
-			std::cout << "mUseMod2F4Ot == true but call mod2Ole. " << LOCATION << std::endl;
-			std::terminate();
-		}
-
-		triple.reserve(mOleReq.batchCount());
-		tIdx = 0;
-		tSize = 0;
-
-		// the format of u is that it should have AltModPrf::MidSize rows.
-		rows = u0.rows();
-
-		// cols should be the number of inputs.
-		cols = u0.cols();
-
-		// we are performing mod 2. u0 is the lsb, u1 is the msb. these are packed into 128 bit blocks. 
-		// we then have a matrix of these with `rows` rows and `cols` columns. We mod requires
-		// 2 OLEs. So in total we need rows * cols * 128 * 2 OLEs.
-		assert(mOleReq.size() == rows * cols * 128 * 2);
-
-		u0Iter = u0.data();
-		u1Iter = u1.data();
-		for (i = 0; i < rows; ++i)
-		{
-			for (j = 0; j < cols;)
-			{
-
-				if (tSize == tIdx)
-				{
-
-					triple.emplace_back();
-					MC_AWAIT(mOleReq.get(triple.back()));
-
-					tSize = triple.back().mAdd.size();
-					tIdx = 0;
-					buff.resize(tSize);
-				}
-
-				step = std::min<u64>(cols - j, (tSize - tIdx) / 2);
-				end = step + j;
-
-				for (; j < end; ++j, tIdx += 2)
-				{
-					auto y = &triple.back().mMult.data()[tIdx];
-					auto b = &buff.data()[tIdx];
-					assert(u0Iter == &u0(i, j));
-					assert(u1Iter == &u1(i, j));
-					b[0] = *u0Iter ^ y[0];
-					b[1] = *u1Iter ^ y[1];
-
-					++u0Iter;
-					++u1Iter;
-				}
-
-				if (tSize == tIdx)
-				{
-					MC_AWAIT(sock.send(std::move(buff)));
-					TODO("clear mult");
-					//triple.back().clear();
-				}
-			}
-		}
-
-		if (buff.size())
-			MC_AWAIT(sock.send(std::move(buff)));
-
-		tIdx = 0;
-		tSize = 0;
-		tIter = triple.begin();
-		outIter = out.data();
-		u0Iter = u0.data();
-		u1Iter = u1.data();
-		for (i = 0; i < rows; ++i)
-		{
-			for (j = 0; j < cols; )
-			{
-
-				if (tIdx == tSize)
-				{
-
-					tIdx = 0;
-					tSize = tIter->mAdd.size();
-					add = tIter->mAdd;
-					++tIter;
-					buff.resize(tSize);
-					MC_AWAIT_TRY(ec, sock.recv(buff));
-					if (ec.has_error())
-					{
-						std::cout << whatError(ec) << std::endl;
-						throw ec.error();
-					}
-				}
-
-				step = std::min<u64>(cols - j, (tSize - tIdx) / 2);
-				end = step + j;
-
-				for (; j < end; ++j, tIdx += 2)
-				{
-
-					assert((u0(i, j) & u1(i, j)) == oc::ZeroBlock);
-					assert(u0Iter == &u0(i, j));
-					assert(u1Iter == &u1(i, j));
-
-					// if u = 0, w = hi0
-					// if u = 1, w = hi1 + t1
-					// if u = 2, w = m2 + t2
-					block w =
-						(*u0Iter++ & buff.data()[tIdx + 0]) ^ // t1
-						(*u1Iter++ & buff.data()[tIdx + 1]) ^ // t2
-						add.data()[tIdx + 0] ^ add.data()[tIdx + 1];// m_u
-
-					//if (mDebug)// && i == mPrintI && (j == (mPrintJ / 128)))
-					//{
-					//    auto mPrintJ = 0;
-					//    auto bitIdx = mPrintJ % 128;
-					//    std::cout << j << " u " << bit(u1(i, j), bitIdx) << bit(u0(i, j), bitIdx) << " = " <<
-					//        (bit(u1(i, j), bitIdx) * 2 + bit(u0(i, j), bitIdx)) << std::endl;
-					//    std::cout << j << " t  _ " << bit(buff[tIdx + 0], bitIdx) << " " << bit(buff[tIdx + 1], bitIdx) << std::endl;
-					//    std::cout << j << " w  " << bit(w, bitIdx) << std::endl;
-					//}
-
-					assert(outIter == &out(i, j));
-					*outIter++ = w;
-				}
-			}
-		}
-
-		MC_END();
-	}
-
-
-
-
-
-
-	// The parties input a sharing (u,v) such that 
-	// 
-	//   u + v mod 3
-	// 
-	// is the true value. When looking at the truth table of u mod 2 we have
-	// 
-	//            u
-	//          0 1 2
-	//         ________
-	//      0 | 0 1 0
-	//   v  1 | 1 0 0 
-	//      2 | 0 0 1
-	//   
-	// Logically, what we are going to do is a 1-out-of-3
-	// OT. The PrfSender with v will use select the row of
-	// this table based on v. For example, if v=0 then the 
-	// truth table reduces to
-	// 
-	//   0 1 0
-	// 
-	// where the PrfReceiver should use the OT to pick up
-	// the element indexed by u. For example, they should pick up 
-	// 1 iff u = 1.
-	// 
-	// To maintain security, we need to give the PrfReceiver a sharing
-	// of this value, not the value itself. The PrfSender will pick a random
-	// share
-	// 
-	//   r
-	// 
-	// and then the PrfReceiver should learn that table above XOR r. Let v0 and v1 
-	// be the lsb and msb of v. The truth table can be computed as 
-	// 
-	//  T[v,0] = v0
-	//  T[v,1] = ~(v0 ^ v1)
-	//  T[v,2] = v1
-	// 
-	// and so we will sent via a 1-oo-3 OT the messages  
-	// 
-	//  t0 = r + T[v,0], 
-	//  t1 = r + T[v,1], 
-	//  t2 = r + T[v,2]
-	// 
-	// As an optimization, we dont need to send t0. The idea is that if
-	// the receiver want to learn T[v, 0], then they can set their share
-	// as OT string m0. The sender will set their output share as
-	// 
-	// z1 = m0 + T[v,0]
-	// 
-	// The sender now needs to define r appropriately. 
-	macoro::task<> AltModPrfSender::mod2OtF4(
-		oc::MatrixView<block> v0,
-		oc::MatrixView<block> v1,
-		oc::MatrixView<block> out,
-		coproto::Socket& sock)
-	{
-		MC_BEGIN(macoro::task<>, this, v0, v1, out, &sock,
-			ots = F4BitOtSend{},
-			i = u64{},
-			j = u64{},
-			rows = u64{},
-			cols = u64{},
-			step = u64{},
-			end = u64{},
-			remaining = u64{},
-			buff = oc::AlignedUnVector<block>{},
-			outIter = (block*)nullptr,
-			v0Iter = (block*)nullptr,
-			v1Iter = (block*)nullptr,
-			otEnd = (block*)nullptr,
-			derand = (block*)nullptr,
-			derandEnd = (block*)nullptr,
-			otIter = std::array<block*, 4>{nullptr, nullptr, nullptr, nullptr }
-		);
-		if (!mUseMod2F4Ot)
-		{
-			std::cout << "mUseMod2F4Ot == false but call mod2OtF4. " << LOCATION << std::endl;
-			std::terminate();
-		}
-		if (out.rows() != v0.rows())
-			throw RTE_LOC;
-		if (out.rows() != v1.rows())
-			throw RTE_LOC;
-		if (out.cols() != v0.cols())
-			throw RTE_LOC;
-		if (out.cols() != v1.cols())
-			throw RTE_LOC;
-
-		rows = v0.rows();
-		cols = v0.cols();
-		remaining = rows * cols;
-
-		outIter = out.data();
-		v0Iter = v0.data();
-		v1Iter = v1.data();
-		for (i = 0; i < rows; ++i)
-		{
-			for (j = 0; j < cols; )
-			{
-
-				if (otIter[0] == otEnd)
-				{
-					MC_AWAIT(mOtSendReq.get(ots));
-
-					otEnd = ots.mOts[0].data() + ots.mOts[0].size();
-					for (u64 k = 0; k < 4; ++k)
-						otIter[k] = ots.mOts[k].data();
-
-					buff.resize(std::min<u64>(ots.mOts[0].size(), remaining) * 2);
-					remaining -= buff.size() / 2;
-
-					MC_AWAIT(sock.recv(buff));
-					derand = buff.data();
-					derandEnd = derand + buff.size();
-				}
-
-
-				// we have (cols - j) * 128 elems left in the row.
-				// we have (tSize - tIdx) * 128 oles left
-				// each elem requires 2 oles
-				// 
-				// so the amount we can do this iteration is 
-				step = std::min<u64>(cols - j, (derandEnd - derand) / 2);
-				end = step + j;
-				for (; j < end; ++j)
-				{
-
-					assert(v0Iter == &v0(i, j));
-					assert(v1Iter == &v1(i, j));
-					assert((v0(i, j) & v1(i, j)) == oc::ZeroBlock);
-
-
-					auto swap = [](block* l0, block* l1, block c)
-						{
-							auto diff = *l0 ^ *l1;
-							*l0 = *l0 ^ (c & diff);
-							*l1 = *l0 ^ diff;
-						};
-
-					// derandomize the OT strings based on their choice values derand
-					swap(otIter[0], otIter[1], derand[0]);
-					swap(otIter[2], otIter[3], derand[0]);
-					swap(otIter[0], otIter[2], derand[1]);
-					swap(otIter[1], otIter[3], derand[1]);
-
-					//            u
-					//          0 1 2
-					//         ________
-					//      0 | 0 1 0
-					//   v  1 | 1 0 0 
-					//      2 | 0 0 1
-
-					// the shared value if u=0
-					auto Tv0 = *v0Iter;
-
-					// the shared value if u=1
-					auto Tv1 = ~(*v0Iter ^ *v1Iter);
-
-					// the shared value if u=2
-					auto Tv2 = *v1Iter;
-
-					assert(outIter == &out(i, j));
-
-					// outShare = T[v,0] ^ ot_0. They will have ot_1 which xors with this to T[v,0]
-					*outIter = Tv0 ^ *otIter[0];
-
-					// t1 = Enc( T[v, 1] ^ outShare )
-					auto t1 = Tv1 ^ *outIter ^ *otIter[1];
-
-					// t2 = Enc( T[u, 2] ^ outShare )
-					auto t2 = Tv2 ^ *outIter ^ *otIter[2];
-
-					//if (mDebug)// && i == mPrintI && (j == (mPrintJ / 128)))
-					//{
-					//    auto mPrintJ = 0;
-					//    auto bitIdx = mPrintJ % 128;
-					//	std::cout << j << " v  " << bit(v1, bitIdx) << bit(v0, bitIdx) << std::endl;
-					//	std::cout << j << " m  " << bit(Tv0, bitIdx) << " " << bit(Tv1, bitIdx) << " " << bit(Tv2, bitIdx) << std::endl;
-					//	std::cout << j << " ot " << bit(*otIter[0], bitIdx) << " " << bit(*otIter[0], bitIdx) << " " << bit(*otIter[0], bitIdx) << std::endl;
-					//	std::cout << j << " t  " << bit(t1, bitIdx) << " " << bit(t2, bitIdx) << std::endl;
-					//    std::cout << j << " r  " << bit(*outIter, bitIdx) << std::endl;
-					//}
-
-					// r
-					derand[0] = t1;
-					derand[1] = t2;
-
-					++v0Iter;
-					++v1Iter;
-					++outIter;
-					derand += 2;
-					for (u64 k = 0; k < 4; ++k)
-						++otIter[k];
-				}
-
-				if (derandEnd == derand)
-				{
-					MC_AWAIT(sock.send(std::move(buff)));
-				}
-			}
-		}
-
-		assert(buff.size() == 0);
-
-		MC_END();
-	}
-
-
-
-	macoro::task<> AltModPrfReceiver::mod2OtF4(
-		oc::MatrixView<block> u0,
-		oc::MatrixView<block> u1,
-		oc::MatrixView<block> out,
-		coproto::Socket& sock)
-	{
-		MC_BEGIN(macoro::task<>, this, u0, u1, out, &sock,
-			ots = std::vector<F4BitOtRecv>{},
-			tIter = std::vector<F4BitOtRecv>::iterator{},
-			i = u64{},
-			j = u64{},
-			step = u64{},
-			rows = u64{},
-			cols = u64{},
-			end = u64{},
-			remaining = u64{},
-			buff = oc::AlignedUnVector<block>{},
-			outIter = (block*)nullptr,
-			otIter = (block*)nullptr,
-			lsbIter = (block*)nullptr,
-			msbIter = (block*)nullptr,
-			u0Iter = (block*)nullptr,
-			u1Iter = (block*)nullptr,
-			derand = (block*)nullptr,
-			derandEnd = (block*)nullptr
-		);
-		if (!mUseMod2F4Ot)
-		{
-			std::cout << "mUseMod2F4Ot == false but call mod2OtF4. " << LOCATION << std::endl;
-			std::terminate();
-		}
-
-		ots.reserve(mOtRecvReq.batchCount());
-
-		// the format of u is that it should have AltModPrf::MidSize rows.
-		rows = u0.rows();
-
-		// cols should be the number of inputs.
-		cols = u0.cols();
-
-		remaining = rows * cols;
-
-		// we are performing mod 2. u0 is the lsb, u1 is the msb. these are packed into 128 bit blocks. 
-		// we then have a matrix of these with `rows` rows and `cols` columns. We mod requires
-		// 2 OLEs. So in total we need rows * cols * 128 * 2 OLEs.
-		assert(mOtRecvReq.size() == rows * cols * 128);
-
-		u0Iter = u0.data();
-		u1Iter = u1.data();
-		for (i = 0; i < rows; ++i)
-		{
-			for (j = 0; j < cols;)
-			{
-
-				if (derandEnd == derand)
-				{
-
-					ots.emplace_back();
-					MC_AWAIT(mOtRecvReq.get(ots.back()));
-					lsbIter = ots.back().mChoiceLsb.data();
-					msbIter = ots.back().mChoiceMsb.data();
-
-					buff.resize(std::min<u64>(ots.back().mChoiceLsb.size(), remaining) * 2);
-					remaining -= buff.size() / 2;
-					derand = buff.data();
-					derandEnd = derand + buff.size();
-				}
-
-				step = std::min<u64>(cols - j, (derandEnd - derand) / 2);
-				end = step + j;
-
-				for (; j < end; ++j)
-				{
-					assert(u0Iter == &u0(i, j));
-					assert(u1Iter == &u1(i, j));
-					derand[0] = *u0Iter++ ^ *lsbIter++;
-					derand[1] = *u1Iter++ ^ *msbIter++;
-
-					derand += 2;
-				}
-
-				if (derandEnd == derand)
-				{
-					MC_AWAIT(sock.send(std::move(buff)));
-				}
-			}
-		}
-
-		assert(buff.size() == 0);
-
-		tIter = ots.begin();
-		outIter = out.data();
-		u0Iter = u0.data();
-		u1Iter = u1.data();
-		derand = nullptr;
-		derandEnd = nullptr;
-		remaining = rows * cols;
-		for (i = 0; i < rows; ++i)
-		{
-			for (j = 0; j < cols; )
-			{
-
-				if (derand == derandEnd)
-				{
-					otIter = tIter->mOts.data();
-					buff.resize(std::min<u64>(tIter->mOts.size(), remaining) * 2);
-					remaining -= buff.size() / 2;
-					MC_AWAIT(sock.recv(buff));
-
-					derand = buff.data();
-					derandEnd = derand + buff.size();
-					++tIter;
-				}
-
-				step = std::min<u64>(cols - j, (derandEnd - derand) / 2);
-				end = step + j;
-
-				for (; j < end; ++j)
-				{
-
-					assert((u0(i, j) & u1(i, j)) == oc::ZeroBlock);
-					assert(u0Iter == &u0(i, j));
-					assert(u1Iter == &u1(i, j));
-					assert(derand + 1 < derandEnd);
-					assert(outIter == &out(i, j));
-					assert(otIter < (tIter[-1].mOts.data() + tIter[-1].mOts.size()));
-
-					// if u = 0, w = hi0
-					// if u = 1, w = hi1 + t1
-					// if u = 2, w = m2 + t2
-					block w =
-						(*u0Iter++ & derand[0]) ^ // t1
-						(*u1Iter++ & derand[1]) ^ // t2
-						*otIter++;// m_u
-
-					//if (mDebug)// && i == mPrintI && (j == (mPrintJ / 128)))
-					//{
-					//    auto mPrintJ = 0;
-					//    auto bitIdx = mPrintJ % 128;
-					//    std::cout << j << " u " << bit(u1(i, j), bitIdx) << bit(u0(i, j), bitIdx) << std::endl;
-					//    std::cout << j << " t  _ " << bit(derand[0], bitIdx) << " " << bit(derand[1], bitIdx) << std::endl;
-					//    std::cout << j << " w  " << bit(w, bitIdx) << std::endl;
-					//}
-
-					*outIter++ = w;
-					derand += 2;
-
-				}
-			}
-		}
-
-		MC_END();
-	}
 
 
 }

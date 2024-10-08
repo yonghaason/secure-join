@@ -11,11 +11,34 @@ namespace secJoin
     extern const std::array<u32, 256> mod3TableMsb;
     extern std::array<std::array<u8, 5>, 256> const mod3TableFull;
 
+
     // z =  x + y mod 3
-    void mod3Add(
+    inline void mod3Add(
         span<block> z1, span<block> z0,
-        span<block> x1, span<block> x0,
-        span<block> y1, span<block> y0);
+        span<const block> x1, span<const block> x0,
+        span<const block> y1, span<const block> y0)
+    {
+        assert(z1.size() == z0.size());
+        assert(z1.size() == x0.size());
+        assert(z1.size() == y0.size());
+        assert(x1.size() == x0.size());
+        assert(y1.size() == y0.size());
+
+        //auto x1x0 = x1 ^ x0;
+        //auto z1 = (1 ^ y0 ^ x0) * (x1x0 ^ y1);
+        //auto z0 = (1 ^ x1 ^ y1) * (x1x0 ^ y0);
+        //auto e = (x + y) % 3;
+        for (u64 i = 0; i < z0.size(); ++i)
+        {
+            auto x1i = x1.data()[i];
+            auto x0i = x0.data()[i];
+            auto y1i = y1.data()[i];
+            auto y0i = y0.data()[i];
+            auto x1x0 = x1i ^ x0i;
+            z1.data()[i] = (y0i ^ x0i).andnot_si128(x1x0 ^ y1i);
+            z0.data()[i] = (x1i ^ y1i).andnot_si128(x1x0 ^ y0i);
+        }
+    }
 
     // (ab) += y0 mod 3
     // we treat binary x1 as the MSB and binary x0 as lsb.
@@ -23,32 +46,163 @@ namespace secJoin
     //   t = x1 * 2 + x0 + y0
     //   x1 = t / 2
     //   x0 = t % 2
-    void mod3Add(
+    inline void mod3Add(
         span<block> z1, span<block> z0,
-        span<block> x1, span<block> x0,
-        span<block> y0);
+        span<const block> x1, span<const block> x0,
+        span<const block> y0)
+    {
+        //auto z1 = x1 ^ (x1 ^ x0) * y0;
+        //auto z0 = x0 ^ (1 ^ x1) * y0;
+        assert(z1.size() == z0.size());
+        assert(z1.size() == x0.size());
+        assert(z1.size() == y0.size());
+        assert(x1.size() == x0.size());
 
 
-    void sampleMod3(PRNG& prng, span<u8> mBuffer);
-    void sampleMod3(PRNG& prng, span<block> msb, span<block> lsb, oc::AlignedUnVector<u8>& b);
+        for (u64 i = 0; i < x1.size(); ++i)
+        {
+            auto ab = x1.data()[i] ^ x0.data()[i];
+            auto abc = ab & y0.data()[i];
+
+            auto zz1 = x1.data()[i] ^ abc;
+
+            auto nac = x1.data()[i].andnot_si128(y0.data()[i]);
+            auto zz0 = x0.data()[i] ^ nac;
+
+            z1.data()[i] = zz1;
+            z0.data()[i] = zz0;
+
+        }
+    }
+
+    // z = x-y mod 3
+    // we treat binary x1 as the MSB and binary x0 as lsb.
+    // That is, for bits, x1 x0 y0, we sets 
+    //   t = x1 * 2 + x0 + y0
+    //   x1 = t / 2
+    //   x0 = t % 2
+    inline void mod3Sub(
+        span<block> z1, span<block> z0,
+        span<const block> x1, span<const block> x0,
+        span<const block> y0)
+    {
+        assert(z1.size() == z0.size());
+        assert(z1.size() == x0.size());
+        assert(z1.size() == y0.size());
+        assert(x1.size() == x0.size());
+
+        for (u64 i = 0; i < x1.size(); ++i)
+        {
+            auto x1i = x1.data()[i];
+            auto x0i = x0.data()[i];
+            auto y1i = y0.data()[i];
+            auto x1x0 = x1i ^ x0i;
+            z1.data()[i] = (x0i).andnot_si128(x1x0 ^ y1i);
+            z0.data()[i] = (x1i ^ y1i).andnot_si128(x1x0);
+        }
+    }
+
+
+
+    // z = x-y mod 3
+    // we treat binary x1 as the MSB and binary x0 as lsb.
+    inline void mod3Sub(
+        span<block> z1, span<block> z0,
+        span<const block> x1, span<const block> x0,
+        span<const block> y1, span<const block> y0)
+    {
+        // swaping the bits is negation
+        mod3Add(z1, z0, x1, x0, y0, y1);
+    }
+
+
+    // z += y mod 3
+    inline void mod3Add(
+        span<block> z1, span<block> z0,
+        span<block> y1, span<block> y0)
+    {
+        assert(z1.size() == z0.size());
+        assert(z1.size() == y0.size());
+        assert(y1.size() == y0.size());
+
+        block* __restrict z1d = z1.data();
+        block* __restrict z0d = z0.data();
+        block* __restrict y1d = y1.data();
+        block* __restrict y0d = y0.data();
+
+        //auto x1x0 = x1 ^ x0;
+        //auto z1 = (1 ^ y0 ^ x0) * (x1x0 ^ y1);
+        //auto z0 = (1 ^ x1 ^ y1) * (x1x0 ^ y0);
+        //auto e = (x + y) % 3;
+        for (u64 i = 0; i < z0.size(); ++i)
+        {
+            auto x1i = z1d[i];
+            auto x0i = z0d[i];
+            auto y1i = y1d[i];
+            auto y0i = y0d[i];
+            auto x1x0 = x1i ^ x0i;
+            z1d[i] = (y0i ^ x0i).andnot_si128(x1x0 ^ y1i);
+            z0d[i] = (x1i ^ y1i).andnot_si128(x1x0 ^ y0i);
+        }
+    }
+
+    // z += y mod 3
+    inline void mod3Add(
+        span<block> z1, span<block> z0,
+        span<const block> y0)
+    {
+        assert(z1.size() == z0.size());
+        assert(z1.size() == y0.size());
+
+        block* __restrict z1d = z1.data();
+        block* __restrict z0d = z0.data();
+        const block* __restrict y0d = y0.data();
+
+        //auto x1x0 = x1 ^ x0;
+        //auto z1 = (1 ^ y0 ^ x0) * (x1x0 ^ y1);
+        //auto z0 = (1 ^ x1 ^ y1) * (x1x0 ^ y0);
+        //auto e = (x + y) % 3;
+        for (u64 i = 0; i < z0.size(); ++i)
+        {
+            auto x1i = z1d[i];
+            auto x0i = z0d[i];
+            auto y0i = y0d[i];
+            auto x1x0 = x1i ^ x0i;
+            z1d[i] = (y0i ^ x0i).andnot_si128(x1x0);
+            z0d[i] = (x1i).andnot_si128(x1x0 ^ y0i);
+        }
+    }
+
+    //void sampleMod3(PRNG& prng, span<u8> mBuffer);
+    //void sampleMod3(PRNG& prng, span<block> msb, span<block> lsb, oc::AlignedUnVector<u8>& b);
 
     void buildMod3Table();
 
-
-    //void buildMod3Table2();
-
-
-    void buildMod3Table4();
+    //void buildMod3Table4();
 
 
-    void sampleMod3Lookup(PRNG& prng, span<block> msb, span<block> lsb);
+    // sample many mid 3 values from prng.
+    void sampleMod3Lookup1(PRNG& prng, span<block> msb, span<block> lsb);
 
     //void sampleMod3Lookup2(PRNG& prng, span<block> msbVec, span<block> lsbVec);
 
+    // sample many mid 3 values from prng.
     void sampleMod3Lookup3(PRNG& prng, span<block> msbVec, span<block> lsbVec);
 
     //void sampleMod3Lookup5(PRNG& prng, span<block> msbVec, span<block> lsbVec);
 
     //void sampleMod3Lookup4(PRNG& prng, span<block> msbVec, span<block> lsbVec);
 
+    // sample many mid 3 values from prng.
+    inline void sampleMod3Lookup(PRNG& prng, span<block> msb, span<block> lsb)
+    {
+        sampleMod3Lookup3(prng, msb, lsb);
+    }
+
+
+    // sample 8 mod three values, where the i'th is sampled using seed[i]. 
+    void sample8Mod3(block* seed, u8& msb, u8& lsb);
+
+    // sample many mod three values, where the i'th is sampled using seed[i]. 
+    void sampleMod3(span<block> seed, span<block> msb, span<block> lsb);
 }

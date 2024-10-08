@@ -19,7 +19,8 @@ namespace secJoin
     {
         Ot,
         Ole,
-        F4BitOt
+        F4BitOt,
+        TritOt
     };
 
     inline std::string toString(CorType t)
@@ -32,6 +33,8 @@ namespace secJoin
             return "CorType::Ole";
         case secJoin::CorType::F4BitOt:
             return "CorType::F4BitOt";
+        case secJoin::CorType::TritOt:
+            return "CorType::TritOt";
         default:
             return "CorType::?????";
         }
@@ -175,6 +178,60 @@ namespace secJoin
 
         //oc::span<std::array<oc::block, 2>> msg() { return mMsg; }
     };
+
+
+    // A receiver OT correlation with F3 strings.
+    struct TritOtRecv : Cor
+    {
+
+        TritOtRecv() : Cor(CorType::TritOt) {}
+        TritOtRecv(const TritOtRecv&) = delete;
+        TritOtRecv& operator=(const TritOtRecv&) = delete;
+        TritOtRecv(TritOtRecv&&) = default;
+        TritOtRecv& operator=(TritOtRecv&&) = default;
+
+
+        // The choice bits 
+        oc::span<oc::block> mChoice;
+
+        // the LSB and MSB of the mod3 message 
+        oc::span<oc::block> mLsb, mMsb;
+
+        // the number of correlations this chunk has.
+        u64 size() const { return mLsb.size() * 128; }
+
+        // The choice bits 
+        oc::span<oc::block> choice() { return mChoice; }
+
+        // the OT messages
+        oc::span<oc::block> lsb() { return mLsb; }
+        oc::span<oc::block> msb() { return mMsb; }
+    };
+
+
+
+    // A sender OT correlation with F3 strings. 
+    struct TritOtSend : Cor
+    {
+
+        TritOtSend() : Cor(CorType::TritOt) {}
+        TritOtSend(const TritOtSend&) = delete;
+        TritOtSend& operator=(const TritOtSend&) = delete;
+        TritOtSend(TritOtSend&&) = default;
+        TritOtSend& operator=(TritOtSend&&) = default;
+
+        // the OT messages
+        std::array<oc::span<oc::block>, 2> mLsb, mMsb;
+
+        u64 size() const
+        {
+            return mLsb[0].size() * 128;
+        }
+
+        std::array<oc::span<oc::block>, 2> lsb() { return mLsb; }
+        std::array<oc::span<oc::block>, 2> msb() { return mMsb; }
+    };
+
 
 
 }

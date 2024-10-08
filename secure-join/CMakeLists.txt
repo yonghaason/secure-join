@@ -4,6 +4,8 @@
 set(SRCS
     "Prf/mod3.cpp"
     "Prf/AltModPrf.cpp"
+    "Prf/AltModKeyMult.cpp"
+    "Prf/AltModWPrf.cpp"
     "Prf/F2LinearCode.cpp"
     "Prf/F3LinearCode.cpp"
     "Prf/DarkMatter22Prf.cpp"
@@ -14,6 +16,7 @@ set(SRCS
     "CorGenerator/Batch.cpp"
     "CorGenerator/OtBatch.cpp"
     "CorGenerator/BinOleBatch.cpp"
+    "CorGenerator/TritOtBatch.cpp"
     "CorGenerator/F4BitOtBatch.cpp"
 
     
@@ -46,6 +49,7 @@ set(SRCS
     
     "Join/Table.cpp"
     "Join/OmJoin.cpp"
+    "Join/OoJoin.cpp"
     )
 
 if(SECUREJOIN_ENABLE_PAILLIER)

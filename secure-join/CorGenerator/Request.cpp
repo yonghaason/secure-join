@@ -24,18 +24,19 @@ namespace secJoin
 
     void RequestState::addBatch(BatchSegment b)
     {
-        switch (mType)
-        {
-        case CorType::Ot:
-            if (dynamic_cast<OtBatch*>(b.mBatch.get()) == nullptr)
-                std::terminate();
-            break;
-        case CorType::Ole:
-            if (dynamic_cast<OleBatch*>(b.mBatch.get()) == nullptr)
-                break;
-        default:
-            break;
-        }
+        //switch (mType)
+        //{
+        //case CorType::Ot:
+        //    if (dynamic_cast<OtBatch*>(b.mBatch.get()) == nullptr)
+        //        std::terminate();
+        //    break;
+        //case CorType::Ole:
+        //    if (dynamic_cast<OleBatch*>(b.mBatch.get()) == nullptr)
+        //        break;
+        //default:
+        //    std::terminate();
+        //    break;
+        //}
 
         mBatches_.emplace_back(std::move(b));
     }
