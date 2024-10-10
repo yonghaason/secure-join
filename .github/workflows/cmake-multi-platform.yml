@@ -29,7 +29,7 @@ jobs:
             submodules: recursive
             
       - name: build
-        run:  python3 build.py  -DENABLE_MOCK_OT=true -DENABLE_RELIC=false -DENABLE_SODIUM=false -
+        run:  python3 build.py  -DENABLE_MOCK_OT=true -DENABLE_RELIC=false -DENABLE_SODIUM=false
 
       - name: unit tests
         run: |
