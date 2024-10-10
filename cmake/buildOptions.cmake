@@ -18,7 +18,7 @@ option(SECUREJOIN_ENABLE_PIC          "compile with -fPIC " OFF)
 option(SECUREJOIN_STATIC_WRAPPER      "static compiling " OFF)
 option(NO_CMAKE_SYSTEM_PATH           "use system paths" OFF)
 
-
+option(ENABLE_BITPOLYMUL "enable silent ot with QC codes" OFF)
 
 #option(FETCH_LIBOTE		"download and build libOTe" OFF))
 EVAL(FETCH_LIBOTE_AUTO 

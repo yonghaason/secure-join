@@ -128,63 +128,63 @@ namespace secJoin
 		PRNG& prng,
 		coproto::Socket& sock)
 	{
+		throw RTE_LOC;
+		//setTimePoint("intersect_start");
+		//auto& leftTable = query.mLeftKey.mTable;
+		//auto& rightTable = query.mRightKey.mTable;
 
-		setTimePoint("intersect_start");
-		auto& leftTable = query.mLeftKey.mTable;
-		auto& rightTable = query.mRightKey.mTable;
+		//auto [leftSelectColumns, rightSelectColumns] = groupSelectCols(query);
 
-		auto [leftSelectColumns, rightSelectColumns] = groupSelectCols(query);
+		//auto keys = co_await hashKeys(query);
 
-		auto keys = co_await hashKeys(query);
+		//if (mPartyIdx)
+		//{
+		//	auto [perm, table] = cuckooHash(rightSelectColumns, keys);
 
-		if (mPartyIdx)
-		{
-			auto [perm, table] = cuckooHash(rightSelectColumns, keys);
+		//	PermCorSender sendPerm;
+		//	co_await mPermGenSend.generate(perm, prng, sock, sendPerm);
 
-			PermCorSender sendPerm;
-			co_await mPermGenSend.generate(perm, prng, sock, sendPerm);
+		//	BinMatrix tableShare(table.rows(), table.bitsPerEntry());
+		//	co_await sendPerm.apply<u8>(PermOp::Regular, tableShare, sock);
 
-			BinMatrix tableShare(table.rows(), table.bitsPerEntry());
-			co_await sendPerm.apply<u8>(PermOp::Regular, tableShare, sock);
+		//	for (auto i = 0; i < table.size(); ++i)
+		//		table(i) ^= tableShare(i);
+		//	tableShare = {};
 
-			for (auto i = 0; i < table.size(); ++i)
-				table(i) ^= tableShare(i);
-			tableShare = {};
+		//	PermCorReceiver recvPerm;
+		//	co_await mPermGenRecv.generate(prng, sock, recvPerm);
 
-			PermCorReceiver recvPerm;
-			co_await mPermGenRecv.generate(prng, sock, recvPerm);
+		//	BinMatrix tableSelect(leftTable.rows() * 3, table.bitsPerEntry());
+		//	co_await recvPerm.apply<u8>(PermOp::Regular, table, tableSelect, sock);
 
-			BinMatrix tableSelect(leftTable.rows() * 3, table.bitsPerEntry());
-			co_await recvPerm.apply<u8>(PermOp::Regular, table, tableSelect, sock);
+		//	tableSelect.reshape(table.bitsPerEntry() * 3);
+		//	assert(tableSelect.rows() == leftTable.rows());
 
-			tableSelect.reshape(table.bitsPerEntry() * 3);
-			assert(tableSelect.rows() == leftTable.rows());
+		//	co_await compare(tableSelect, query, out);
 
-			co_await compare(tableSelect, query, out);
+		//}
+		//else
+		//{
+		//	PermCorReceiver recvPerm;
+		//	co_await mPermGenRecv.generate(prng, sock, recvPerm);
 
-		}
-		else
-		{
-			PermCorReceiver recvPerm;
-			co_await mPermGenRecv.generate(prng, sock, recvPerm);
+		//	auto tableShare = loadTable(rightSelectColumns);
 
-			auto tableShare = loadTable(rightSelectColumns);
+		//	BinMatrix table(tableShare.rows(), tableShare.bitsPerEntry());
+		//	co_await recvPerm.apply<u8>(PermOp::Regular, tableShare, table, sock);
+		//	tableShare = {};
 
-			BinMatrix table(tableShare.rows(), tableShare.bitsPerEntry());
-			co_await recvPerm.apply<u8>(PermOp::Regular, tableShare, table, sock);
-			tableShare = {};
+		//	BinMatrix tableSelect(leftTable.rows() * 3, table.bitsPerEntry());
+		//	auto perm = selectCuckooPos(table, tableSelect, keys);
 
-			BinMatrix tableSelect(leftTable.rows() * 3, table.bitsPerEntry());
-			auto perm = selectCuckooPos(table, tableSelect, keys);
+		//	PermCorSender sendPerm;
+		//	co_await mPermGenSend.generate(perm, prng, sock, sendPerm);
 
-			PermCorSender sendPerm;
-			co_await mPermGenSend.generate(perm, prng, sock, sendPerm);
+		//	tableSelect.reshape(table.bitsPerEntry() * 3);
+		//	assert(tableSelect.rows() == leftTable.rows());
 
-			tableSelect.reshape(table.bitsPerEntry() * 3);
-			assert(tableSelect.rows() == leftTable.rows());
-
-			co_await compare(tableSelect, query, out);
-		}
+		//	co_await compare(tableSelect, query, out);
+		//}
 	}
 
 
