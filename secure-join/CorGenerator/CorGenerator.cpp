@@ -88,9 +88,8 @@ namespace secJoin
 		u16 role;
 	};
 
-	macoro::task<> GenState::start()
+	macoro::task<> GenState::start(std::shared_ptr<GenState> This)
 	{
-		auto This = this->shared_from_this();
 		auto i = u64{};
 		auto j = u64{};
 		auto r = u64{};

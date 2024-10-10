@@ -3,6 +3,7 @@
 
 set(SRCS
     "Prf/mod3.cpp"
+    "Prf/ConvertToF3.cpp"
     "Prf/AltModPrf.cpp"
     "Prf/AltModKeyMult.cpp"
     "Prf/AltModWPrf.cpp"

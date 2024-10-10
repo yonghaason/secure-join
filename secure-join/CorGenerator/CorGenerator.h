@@ -34,7 +34,7 @@ namespace secJoin
 			, mMock(mock)
 			, mPartyIdx(partyIdx)
 		{
-			if (batchSize < (1ull << 12))
+			if (batchSize < (1ull << 10))
 				throw std::runtime_error("too small of batch size." LOCATION);
 
 			if (batchSize > (1ull << 26))
@@ -115,7 +115,7 @@ namespace secJoin
 		std::atomic<u64> mBatchStartIdx = 0;
 
 		// returns a task that constructs the base OTs and assigns them to mBatches.
-		macoro::task<> start();
+		macoro::task<> start(std::shared_ptr<GenState> This);
 
 		std::array<std::shared_ptr<Batch>, 2> mOtBatch, mOleBatch, mF4BitOtBatch, mTritOtBatch;
 		std::vector<std::shared_ptr<Batch>> mBatches;
@@ -250,7 +250,8 @@ namespace secJoin
 		macoro::task<> start()
 		{
 			mStarted.push_back(mGenState);
-			return std::exchange(mGenState, nullptr)->start();
+			auto gen = std::exchange(mGenState, nullptr);
+			return gen->start(gen);
 		}
 
 		void startBatch(Batch* b)

@@ -13,6 +13,7 @@
 
 #include "AltModPrf.h"
 #include "AltModKeyMult.h"
+#include "ConvertToF3.h"
 
 // TODO:
 // * implement batching for large number of inputs. Will get 
@@ -47,9 +48,9 @@ namespace secJoin
         // the 1-oo-4 OT request that will be used for the mod2 operations
         Request<F4BitOtSend> mMod2F4Req;
 
-        Request<TritOtSend> mKeyMultTritReq;
-
         bool mUseMod2F4Ot = true;
+
+        ConvertToF3Sender mConvToF3;
 
         AltModPrfKeyMode mKeyMode = AltModPrfKeyMode::SenderOnly;
 
@@ -95,7 +96,7 @@ namespace secJoin
             {
                 mKeyMultSender.init(ole, key, keySendOts);
                 mKeyMultOleReq = ole.binOleRequest(n128 * AltModPrf::KeySize);
-                mKeyMultTritReq = ole.request<TritOtSend>(n128 * AltModPrf::KeySize);
+                mConvToF3.init(n128 * AltModPrf::KeySize, ole);
             }
 
             if (mUseMod2F4Ot)
@@ -197,9 +198,9 @@ namespace secJoin
 
         Request<F4BitOtRecv> mMod2F4Req;
 
-        Request<TritOtRecv> mKeyMultTritReq;
-
         bool mUseMod2F4Ot = true;
+
+        ConvertToF3Recver mConvToF3;
 
         AltModPrfKeyMode mKeyMode = AltModPrfKeyMode::SenderOnly;
 
@@ -265,7 +266,7 @@ namespace secJoin
             {
                 mKeyMultRecver.init(ole, keyShare, keyRecvOts);
                 mKeyMultOleReq = ole.binOleRequest(n128 * AltModPrf::KeySize);
-                mKeyMultTritReq = ole.request<TritOtRecv>(n128 * AltModPrf::KeySize);
+                mConvToF3.init(n128 * AltModPrf::KeySize, ole);
             }
             
             if (mUseMod2F4Ot)

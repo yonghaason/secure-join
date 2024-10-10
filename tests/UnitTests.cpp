@@ -55,7 +55,10 @@ namespace secJoin_Tests
             t.add("AltModWPrf_AMult_test                          ", AltModWPrf_AMult_test);
             t.add("AltModWPrf_BMult_test                          ", AltModWPrf_BMult_test);
             t.add("AltModWPrf_correction_test                     ", AltModWPrf_correction_test);
-
+            t.add("AltModWPrf_convertToF3_test                    ", AltModWPrf_convertToF3_test);
+            t.add("AltModWPrf_keyMult_test                        ", AltModWPrf_keyMult_test);
+            t.add("AltModWPrf_keyMultF3_test                      ", AltModWPrf_keyMultF3_test);
+            
             t.add("AltModWPrf_sampleMod3_test                     ", AltModWPrf_sampleMod3_test);
             t.add("AltModWPrf_mod3_test                           ", AltModWPrf_mod3_test);
             t.add("AltModWPrf_mod2Ole_test                        ", AltModWPrf_mod2Ole_test);

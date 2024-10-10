@@ -30,10 +30,18 @@ namespace secJoin
 
         oc::Matrix<oc::block> mDebugXk0, mDebugXk1;
 
+        //macoro::task<> mult(
+        //    const oc::Matrix<block>& x,
+        //    oc::Matrix<block>& xk0,
+        //    oc::Matrix<block>& xk1,
+        //    coproto::Socket& sock);
+
+
         macoro::task<> mult(
-            const oc::Matrix<block>& x,
-            oc::Matrix<block>& xk0,
-            oc::Matrix<block>& xk1,
+            oc::MatrixView<const block> xLsb,
+            oc::MatrixView<const block> xMsb,
+            oc::Matrix<block>& xkLsb,
+            oc::Matrix<block>& xkMsb,
             coproto::Socket& sock);
 
         void setKeyOts(
@@ -101,12 +109,17 @@ namespace secJoin
 
         oc::Matrix<oc::block> mDebugXk0, mDebugXk1;
 
+        //macoro::task<> mult(
+        //    u64 n,
+        //    oc::Matrix<block>& xk0,
+        //    oc::Matrix<block>& xk1,
+        //    coproto::Socket& sock);
+
         macoro::task<> mult(
             u64 n,
             oc::Matrix<block>& xk0,
             oc::Matrix<block>& xk1,
             coproto::Socket& sock);
-
 
         void setKeyOts(
             AltModPrf::KeyType k,

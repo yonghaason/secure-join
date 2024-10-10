@@ -16,21 +16,6 @@
 namespace secJoin
 {
 
-    template<typename T>
-    int bit(T* x, u64 i)
-    {
-        return  *oc::BitIterator((u8*)x, i);
-    }
-    template<typename T>
-    int bit(T& x, u64 i)
-    {
-        return  *oc::BitIterator((u8*)&x, i);
-    }
-    template<typename T>
-    int bit2(T& x, u64 i)
-    {
-        return  *oc::BitIterator((u8*)&x, i * 2) + 2 * *oc::BitIterator((u8*)&x, i * 2 + 1);;
-    }
     void mod3BitDecompostion(oc::MatrixView<u16> u, oc::MatrixView<oc::block> u0, oc::MatrixView<oc::block> u1);
 
     void compressB(

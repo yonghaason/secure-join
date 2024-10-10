@@ -2,6 +2,7 @@
 #include "secure-join/Prf/DarkMatter22Prf.h"
 #include "secure-join/Prf/DarkMatter32Prf.h"
 #include "secure-join/Prf/AltModWPrf.h"
+#include "secure-join/Prf/AltModSimd.h"
 #include "secure-join/Prf/mod3.h"
 #include "cryptoTools/Crypto/PRNG.h"
 #include "cryptoTools/Common/Matrix.h"
@@ -9,6 +10,7 @@
 #include "cryptoTools/Common/TestCollection.h"
 #include "secure-join/Util/Util.h"
 #include "secure-join/Prf/F3LinearCode.h"
+#include "secure-join/Prf/ConvertToF3.h"
 
 using namespace secJoin;
 
@@ -405,14 +407,59 @@ void AltModWPrf_BMult_test(const oc::CLP& cmd)
 
 void AltModWPrf_correction_test(const oc::CLP& cmd)
 {
+	//u64 n = (1 << 16) + 321;
+	//u64 m = 2;
+	//bool mock = false;
+	//oc::Matrix<block>
+	//	x0(n, m), x1(n, m),
+	//	yLsb0(n, m), yLsb1(n, m),
+	//	yMsb0(n, m), yMsb1(n, m),
+	//	yLsb(n, m), yMsb(n, m);
+
+	//PRNG prng(oc::CCBlock);
+
+	//prng.get<block>(x0);
+	//prng.get<block>(x1);
+	//auto sock = coproto::LocalAsyncSocket::makePair();
+	//CorGenerator gen[2];
+	//gen[0].init(sock[0].fork(), prng, 0, 10, 1 << 16, mock);
+	//gen[1].init(sock[1].fork(), prng, 1, 10, 1 << 16, mock);
+
+	//auto recvReq = gen[0].request<TritOtRecv>(x0.size() * 128);
+	//auto sendReq = gen[1].request<TritOtSend>(x1.size() * 128);
+
+	//macoro::sync_wait(macoro::when_all_ready(
+	//	keyMultCorrectionRecv(recvReq, x0, yLsb0, yMsb0, sock[0], true),
+	//	keyMultCorrectionSend(sendReq, x1, yLsb1, yMsb1, sock[1], true)
+	//));
+
+	//// y = y0 + y1
+	//mod3Add(yMsb, yLsb, yMsb0, yLsb0, yMsb1, yLsb1);
+
+	//for (u64 i = 0; i < x0.size(); ++i)
+	//{
+	//	if (yMsb(i) != oc::ZeroBlock)
+	//		throw RTE_LOC;
+
+
+	//	if (yLsb(i) != (x0(i) & x1(i)))
+	//		throw RTE_LOC;
+
+
+	//}
+}
+
+
+
+void AltModWPrf_convertToF3_test(const oc::CLP& cmd)
+{
 	u64 n = (1 << 16) + 321;
-	u64 m = 2;
-	bool mock = false;
-	oc::Matrix<block>
-		x0(n, m), x1(n, m),
-		yLsb0(n, m), yLsb1(n, m),
-		yMsb0(n, m), yMsb1(n, m),
-		yLsb(n, m), yMsb(n, m);
+	bool mock = true;
+	oc::AlignedUnVector<block>
+		x0(n), x1(n),
+		yLsb0(n), yLsb1(n),
+		yMsb0(n), yMsb1(n),
+		yLsb(n), yMsb(n);
 
 	PRNG prng(oc::CCBlock);
 
@@ -420,33 +467,263 @@ void AltModWPrf_correction_test(const oc::CLP& cmd)
 	prng.get<block>(x1);
 	auto sock = coproto::LocalAsyncSocket::makePair();
 	CorGenerator gen[2];
-	gen[0].init(sock[0].fork(), prng, 0, 10, 1 << 16, mock);
-	gen[1].init(sock[1].fork(), prng, 1, 10, 1 << 16, mock);
+	gen[0].init(sock[0].fork(), prng, 0, 10, 1 << 14, mock);
+	gen[1].init(sock[1].fork(), prng, 1, 10, 1 << 14, mock);
 
-	auto recvReq = gen[0].request<TritOtRecv>(x0.size() * 128);
-	auto sendReq = gen[1].request<TritOtSend>(x1.size() * 128);
+	ConvertToF3Sender sender;
+	ConvertToF3Recver recver;
+
+	sender.init(n * 128, gen[0]);
+	recver.init(n * 128, gen[1]);
 
 	macoro::sync_wait(macoro::when_all_ready(
-		keyMultCorrectionRecv(recvReq, x0, yLsb0, yMsb0, sock[0], true),
-		keyMultCorrectionSend(sendReq, x1, yLsb1, yMsb1, sock[1], true)
+		sender.convert(x0, sock[0], yMsb0, yLsb0),
+		recver.convert(x1, sock[1], yMsb1, yLsb1),
+		gen[0].start(),
+		gen[1].start()
 	));
 
 	// y = y0 + y1
 	mod3Add(yMsb, yLsb, yMsb0, yLsb0, yMsb1, yLsb1);
 
-	for (u64 i = 0; i < x0.size(); ++i)
+	for (u64 i = 0; i < x0.size() * 128; ++i)
 	{
-		if (yMsb(i) != oc::ZeroBlock)
+		if (bit(yMsb.data(), i))
 			throw RTE_LOC;
 
 
-		if (yLsb(i) != (x0(i) & x1(i)))
+		if (bit(yLsb.data(), i) != (bit(x0.data(), i) ^ bit(x1.data(), i)))
 			throw RTE_LOC;
-
 
 	}
 }
 
+void AltModWPrf_keyMult_test(const oc::CLP& cmd)
+{
+	u64 n = cmd.getOr("n", 1 << 12) + 31;
+	PRNG prng(oc::CCBlock);
+	bool mock = true;
+
+	auto sock = coproto::LocalAsyncSocket::makePair();
+
+	for (auto shared : { false, true })
+	{
+		CorGenerator gen[2];
+		gen[0].init(sock[0].fork(), prng, 0, 10, 1 << 10, mock);
+		gen[1].init(sock[1].fork(), prng, 1, 10, 1 << 10, mock);
+		AltModKeyMultSender sender;
+		AltModKeyMultReceiver recver;
+
+		std::vector<std::array<block, 2>> sendOTSender(AltModPrf::KeySize);
+		std::vector<block> recvOTRecver(AltModPrf::KeySize);
+		AltModPrf::KeyType sendKey, recvKey, key;
+		prng.get(sendOTSender.data(), sendOTSender.size());
+		sendKey = prng.get();
+		recvKey = prng.get();
+
+		for (u64 i = 0; i < AltModPrf::KeySize; ++i)
+		{
+			recvOTRecver[i] = sendOTSender[i][bit(recvKey, i)];
+		}
+
+		if (shared)
+		{
+			key = sendKey ^ recvKey;
+			sender.init(gen[0], sendKey, sendOTSender);
+			recver.init(gen[1], recvKey, recvOTRecver);
+		}
+		else
+		{
+			key = recvKey;
+			sender.init(gen[0], {}, sendOTSender);
+			recver.init(gen[1], recvKey, recvOTRecver);
+		}
+
+		oc::Matrix<block> x(AltModPrf::KeySize, divCeil(n, 128)), yMsb0, yMsb1, yLsb0, yLsb1;
+		block mask = oc::AllOneBlock;
+		for (u64 i = (n % 128); i < 128; ++i)
+			*oc::BitIterator(&mask, i) = 0;
+
+		for (u64 i = 0; i < x.rows(); ++i)
+		{
+			prng.get(x[i].data(), x[i].size());
+			x[i].back() &= mask;
+		}
+
+		macoro::sync_wait(macoro::when_all_ready(
+			gen[0].start(),
+			gen[1].start(),
+			sender.mult(x, {}, yLsb0, yMsb0, sock[0]),
+			recver.mult(n, yLsb1, yMsb1, sock[1])
+		));
+
+
+		if (yMsb0.rows() != AltModPrf::KeySize)
+			throw RTE_LOC;
+		if (yMsb1.rows() != AltModPrf::KeySize)
+			throw RTE_LOC;
+		if (yLsb0.rows() != AltModPrf::KeySize)
+			throw RTE_LOC;
+		if (yLsb1.rows() != AltModPrf::KeySize)
+			throw RTE_LOC;
+		if (yMsb0.cols() != x.cols())
+			throw RTE_LOC;
+		if (yMsb1.cols() != x.cols())
+			throw RTE_LOC;
+		if (yLsb0.cols() != x.cols())
+			throw RTE_LOC;
+		if (yLsb1.cols() != x.cols())
+			throw RTE_LOC;
+
+		auto yLsb = yLsb0;
+		auto yMsb = yLsb0;
+
+		mod3Add(yMsb, yLsb, yMsb0, yLsb0, yMsb1, yLsb1);
+
+		for (u64 i = 0; i < yLsb.rows(); ++i)
+		{
+			auto ki = bit(key, i);
+			for (u64 j = 0; j < x.cols();++j)
+			{
+				if (yMsb(i, j) != oc::ZeroBlock)
+					throw RTE_LOC;
+
+				if (ki == 0)
+				{
+					if (yLsb(i, j) != oc::ZeroBlock)
+						throw RTE_LOC;
+				}
+				else
+				{
+					if (yLsb(i, j) != x(i, j))
+						throw RTE_LOC;
+				}
+			}
+
+		}
+	}
+}
+
+void AltModWPrf_keyMultF3_test(const oc::CLP& cmd)
+{
+
+	u64 n = cmd.getOr("n", 1 << 12) + 31;
+	PRNG prng(oc::CCBlock);
+	bool mock = true;
+
+	auto sock = coproto::LocalAsyncSocket::makePair();
+
+	for (auto shared : { false, true })
+	{
+		CorGenerator gen[2];
+		gen[0].init(sock[0].fork(), prng, 0, 10, 1 << 10, mock);
+		gen[1].init(sock[1].fork(), prng, 1, 10, 1 << 10, mock);
+		AltModKeyMultSender sender;
+		AltModKeyMultReceiver recver;
+
+		std::vector<std::array<block, 2>> sendOTSender(AltModPrf::KeySize);
+		std::vector<block> recvOTRecver(AltModPrf::KeySize);
+		AltModPrf::KeyType sendKey, recvKey, key;
+		prng.get(sendOTSender.data(), sendOTSender.size());
+		sendKey = prng.get();
+		recvKey = prng.get();
+
+		for (u64 i = 0; i < AltModPrf::KeySize; ++i)
+		{
+			recvOTRecver[i] = sendOTSender[i][bit(recvKey, i)];
+		}
+
+		if (shared)
+		{
+			key = sendKey ^ recvKey;
+			sender.init(gen[0], sendKey, sendOTSender);
+			recver.init(gen[1], recvKey, recvOTRecver);
+		}
+		else
+		{
+			key = recvKey;
+			sender.init(gen[0], {}, sendOTSender);
+			recver.init(gen[1], recvKey, recvOTRecver);
+		}
+
+		oc::Matrix<block> 
+			xLsb(AltModPrf::KeySize, divCeil(n, 128)),
+			xMsb(AltModPrf::KeySize, divCeil(n, 128)),
+			yMsb0, yMsb1, yLsb0, yLsb1;
+		block mask = oc::AllOneBlock;
+		for (u64 i = (n % 128); i < 128; ++i)
+			*oc::BitIterator(&mask, i) = 0;
+
+		for (u64 i = 0; i < xLsb.rows(); ++i)
+		{
+			prng.get(xLsb[i].data(), xLsb[i].size());
+			prng.get(xMsb[i].data(), xMsb[i].size());
+
+			// make sure its not 3...
+			for (u64 j = 0; j < xLsb.cols(); ++j)
+				xLsb(i, j) = xLsb(i, j) & ~xMsb(i, j);
+
+			xLsb[i].back() &= mask;
+			xMsb[i].back() &= mask;
+		}
+
+		macoro::sync_wait(macoro::when_all_ready(
+			gen[0].start(),
+			gen[1].start(),
+			sender.mult(xLsb, xMsb, yLsb0, yMsb0, sock[0]),
+			recver.mult(n, yLsb1, yMsb1, sock[1])
+		));
+
+
+		if (yMsb0.rows() != AltModPrf::KeySize)
+			throw RTE_LOC;
+		if (yMsb1.rows() != AltModPrf::KeySize)
+			throw RTE_LOC;
+		if (yLsb0.rows() != AltModPrf::KeySize)
+			throw RTE_LOC;
+		if (yLsb1.rows() != AltModPrf::KeySize)
+			throw RTE_LOC;
+		if (yMsb0.cols() != xLsb.cols())
+			throw RTE_LOC;
+		if (yMsb1.cols() != xLsb.cols())
+			throw RTE_LOC;
+		if (yLsb0.cols() != xLsb.cols())
+			throw RTE_LOC;
+		if (yLsb1.cols() != xLsb.cols())
+			throw RTE_LOC;
+
+		auto yLsb = yLsb0;
+		auto yMsb = yLsb0;
+
+		mod3Add(yMsb, yLsb, yMsb0, yLsb0, yMsb1, yLsb1);
+
+		for (u64 i = 0; i < yLsb.rows(); ++i)
+		{
+			auto ki = bit(key, i);
+			for (u64 j = 0; j < xMsb.cols();++j)
+			{
+
+				if (ki == 0)
+				{
+					if (yMsb(i, j) != oc::ZeroBlock)
+						throw RTE_LOC;
+					if (yLsb(i, j) != oc::ZeroBlock)
+						throw RTE_LOC;
+				}
+				else
+				{
+					if (yMsb(i, j) != xMsb(i, j))
+						throw RTE_LOC;
+
+					if (yLsb(i, j) != xLsb(i, j))
+						throw RTE_LOC;
+				}
+			}
+
+		}
+	}
+
+}
 
 
 void AltModWPrf_mod2Ole_test(const oc::CLP& cmd)
@@ -936,9 +1213,6 @@ void AltModProtoCheck(AltModWPrfSender& sender, AltModWPrfReceiver& recver)
 		{
 			xShares[1][i] = sender.mDebugInput[i];
 			x[i] = x[i] ^ sender.mDebugInput[i];
-
-			if (i < 10)
-				std::cout << "x[" << i << "] " << x[i] << std::endl;
 		}
 	}
 
@@ -950,8 +1224,6 @@ void AltModProtoCheck(AltModWPrfSender& sender, AltModWPrfReceiver& recver)
 	{
 		key = key ^ *recver.getKey();
 	}
-
-	std::cout << "key " << key << std::endl;
 
 	for (u64 ii = 0; ii < n; ++ii)
 	{
@@ -1290,16 +1562,17 @@ void AltModWPrf_sharedKey_test(const oc::CLP& cmd)
 		AltModProtoCheck(sender, recver);
 	}
 
+	std::vector<block> y(x.size());
+	dm_.eval(x, y);
 	for (u64 ii = 0; ii < n; ++ii)
 	{
-		auto y = dm_.eval(x[ii]);
 
 		auto yy = (y0[ii] ^ y1[ii]);
-		if (yy != y)
+		if (yy != y[ii])
 		{
 			std::cout << "i   " << ii << std::endl;
 			std::cout << "act " << yy << std::endl;
-			std::cout << "exp " << y << std::endl;
+			std::cout << "exp " << y[ii] << std::endl;
 			throw RTE_LOC;
 		}
 	}
@@ -1327,95 +1600,15 @@ void mod3Add(block& zMsb, block& zLsb, block& xMsb, block& xLsb, block& yMsb, bl
 }
 void AltModWPrf_shared_test(const oc::CLP& cmd)
 {
+	oc::Timer timer;
+	timer.setTimePoint("param");
 
-
-	u64 n = cmd.getOr("n", 1);
+	u64 n = cmd.getOr("n", (1ull << 7) + 123);
 	bool noCheck = cmd.isSet("nc");
 	bool debug = cmd.isSet("debug");
 
 	PRNG prng0(block(cmd.getOr("seed", 0), 0));
 	PRNG prng1(block(cmd.getOr("seed", 0), 1));
-
-	for (u64 jj = 0; jj < 100; ++jj)
-	{
-		u64 xs[2], xxs[2], ks[2];
-		xs[0] = prng0.getBit();
-		xs[1] = prng0.getBit();
-		auto x = xs[0] ^ xs[1];
-
-		ks[0] = prng0.getBit();
-		ks[1] = prng0.getBit();
-		auto k = ks[0] ^ ks[1];
-
-		xxs[0] = prng0.get<u64>() % 3;
-		u64 msg[2]{
-			((xs[0] ^ 0) + (3 - xxs[0])) % 3,
-			((xs[0] ^ 1) + (3 - xxs[0])) % 3
-		};
-		xxs[1] = msg[xs[1]];
-
-		if (((xxs[0] + xxs[1]) % 3) != x)
-			throw RTE_LOC;
-
-		u64 kx0 = xxs[0] * k;
-		u64 kxs0[2];
-		{
-			kxs0[0] = prng0.get<u64>() % 3;
-
-			u64 msg[2]{
-					xxs[0] * (ks[0] ^ 0) + (3 - kxs0[0]),
-					xxs[0] * (ks[0] ^ 1) + (3 - kxs0[0])
-			};
-			kxs0[1] = msg[ks[1]];
-
-
-			if (((kxs0[0] + kxs0[1]) % 3) != kx0)
-				throw RTE_LOC;
-		}
-
-		u64 kx1 = xxs[1] * k;
-		u64 kxs1[2];
-		{
-			kxs1[1] = prng0.get<u64>() % 3;
-
-			u64 msg[2]{
-					xxs[1] * (ks[1] ^ 0) + (3 - kxs1[1]),
-					xxs[1] * (ks[1] ^ 1) + (3 - kxs1[1])
-			};
-			kxs1[0] = msg[ks[0]];
-
-
-			if (((kxs1[0] + kxs1[1]) % 3) != kx1)
-				throw RTE_LOC;
-		}
-
-	}
-
-	if (0) {
-		auto x_0 = prng0.getBit();
-		auto x_1 = prng0.getBit();
-		auto x = x_1 ^ x_0;
-		auto k = prng0.getBit();
-
-		auto v_0 = x_0 & k;
-		auto v_1 = x_1 & k;
-		auto xc = x_1 & x_0;
-		auto xc_0 = prng0.getBit();
-		auto xc_1 = xc ^ xc_0;
-
-		auto xck_0 = xc_0 & k;
-		auto xck_1 = xc_1 & k;
-
-		auto v = v_0 + v_1;
-
-		auto xck = xck_0 + xck_1;
-
-		if (v != (x * k))
-			throw RTE_LOC;
-
-	}
-
-	oc::Timer timer;
 
 	AltModWPrfSender sender;
 	AltModWPrfReceiver recver;
@@ -1456,18 +1649,20 @@ void AltModWPrf_shared_test(const oc::CLP& cmd)
 		//	x1[i] = x[i];
 		//}
 
-		auto mask = prng0.get<block>();
-		x0[i] = x[i] & mask; //{ 0ull, 0ull };
-		x1[i] = x[i] & (~mask);//^ x0[i];
+		//auto mask = prng0.get<block>();
+		//x0[i] = x[i] & mask; //{ 0ull, 0ull };
+		//x1[i] = x[i] & (~mask);//^ x0[i];
+
+		x1[i] = x[i] ^ x0[i];
 
 
-
-		if (i < 10)
-			std::cout << "x[" << i << "] " << x[i] << std::endl;
+		//if (i < 10)
+		//	std::cout << "x[" << i << "] " << x[i] << std::endl;
 
 		if (x[i] != (x0[i] ^ x1[i]))
 			throw RTE_LOC;
 	}
+	timer.setTimePoint("pre");
 
 	if (cmd.isSet("doKeyGen") == false)
 	{
@@ -1482,7 +1677,10 @@ void AltModWPrf_shared_test(const oc::CLP& cmd)
 			sk0[i][1] = oc::block(i, 1);
 			rk0[i] = oc::block(i, *oc::BitIterator((u8*)&k0, i));
 		}
+		timer.setTimePoint("in0");
+
 		sender.init(n, ole0, AltModPrfKeyMode::Shared, AltModPrfInputMode::Shared, k1, rk1, sk0);
+		timer.setTimePoint("in1");
 		recver.init(n, ole1, AltModPrfKeyMode::Shared, AltModPrfInputMode::Shared, k0, sk1, rk0);
 	}
 	else
@@ -1490,6 +1688,7 @@ void AltModWPrf_shared_test(const oc::CLP& cmd)
 		sender.init(n, ole0, AltModPrfKeyMode::Shared, AltModPrfInputMode::Shared, k1);
 		recver.init(n, ole1, AltModPrfKeyMode::Shared, AltModPrfInputMode::Shared, k0);
 	}
+	timer.setTimePoint("init");
 
 	auto r = coproto::sync_wait(coproto::when_all_ready(
 		sender.evaluate(x0, y0, sock[0], prng0),
@@ -1497,6 +1696,7 @@ void AltModWPrf_shared_test(const oc::CLP& cmd)
 		ole0.start(),
 		ole1.start()
 	));
+	timer.setTimePoint("run");
 
 	std::get<0>(r).result();
 	std::get<1>(r).result();
@@ -1518,18 +1718,21 @@ void AltModWPrf_shared_test(const oc::CLP& cmd)
 		AltModProtoCheck(sender, recver);
 	}
 
+	std::vector<block> y(x.size());
+	dm_.eval(x, y);
 	for (u64 ii = 0; ii < n; ++ii)
 	{
-		auto y = dm_.eval(x[ii]);
-
 		auto yy = (y0[ii] ^ y1[ii]);
-		if (yy != y)
+		if (yy != y[ii])
 		{
 			std::cout << "i   " << ii << std::endl;
 			std::cout << "act " << yy << std::endl;
-			std::cout << "exp " << y << std::endl;
+			std::cout << "exp " << y[ii] << std::endl;
 			throw RTE_LOC;
 		}
 	}
+	timer.setTimePoint("check");
+	std::cout << timer << std::endl;
+
 
 }

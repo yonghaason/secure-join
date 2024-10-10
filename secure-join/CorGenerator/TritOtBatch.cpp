@@ -102,6 +102,7 @@ namespace secJoin
 
 	void TritOtBatch::SendBatch::mock(u64 batchIdx, u64 n)
 	{
+
 		assert(n % 128 == 0);
 		auto  m = n / 128;
 		mLsb[0].resize(m);
@@ -109,7 +110,7 @@ namespace secJoin
 		mMsb[0].resize(m);
 		mMsb[1].resize(m);
 
-		if (1)
+		if (0)
 		{
 			for (u64 j = 0; j < 2; ++j)
 			{
@@ -118,50 +119,26 @@ namespace secJoin
 			}
 			return;
 		}
+		else
+		{
+			std::array<block, 2> lsb, msb;
+			lsb[0] = block(12342342342134231234, 2342341234123421341) & oc::CCBlock;;
+			lsb[1] = block(13563456435643564356, 5734542341345236357) & oc::CCBlock;;
+			msb[0] = ~lsb[0] & oc::CCBlock;
+			msb[1] = ~lsb[1] & oc::CCBlock;
 
-		////auto m = add.size();
-		//auto m8 = m / 8 * 8;
-		//oc::block mm8(4532453452, 43254534);
-		//oc::block mm = oc::mAesFixedKey.ecbEncBlock(oc::block(batchIdx, 0));
-		//block diff[4];
-		//for (u64 i = 0; i < 4; ++i)
-		//	diff[i] = block(409890897878905234 * i + 45234523, 5234565646423452 * i + 409890897878905234);
-		//u64 i = 0;
-		//while (i < m8)
-		//{
-		//	mOts[0].data()[i + 0] = mm;
-		//	mOts[0].data()[i + 1] = mm >> 1 | mm << 1;
-		//	mOts[0].data()[i + 2] = mm >> 2 | mm << 2;
-		//	mOts[0].data()[i + 3] = mm >> 3 | mm << 3;
-		//	mOts[0].data()[i + 4] = mm >> 4 | mm << 4;
-		//	mOts[0].data()[i + 5] = mm >> 5 | mm << 5;
-		//	mOts[0].data()[i + 6] = mm >> 6 | mm << 6;
-		//	mOts[0].data()[i + 7] = mm >> 7 | mm << 7;
+			assert((lsb[0] & msb[0]) == oc::ZeroBlock);
+			assert((lsb[1] & msb[1]) == oc::ZeroBlock);
 
-		//	for (u64 j = 1; j < 4; ++j)
-		//	{
-		//		mOts[j].data()[i + 0] = mOts[0].data()[i + 0] ^ diff[j];
-		//		mOts[j].data()[i + 1] = mOts[0].data()[i + 1] ^ diff[j];
-		//		mOts[j].data()[i + 2] = mOts[0].data()[i + 2] ^ diff[j];
-		//		mOts[j].data()[i + 3] = mOts[0].data()[i + 3] ^ diff[j];
-		//		mOts[j].data()[i + 4] = mOts[0].data()[i + 4] ^ diff[j];
-		//		mOts[j].data()[i + 5] = mOts[0].data()[i + 5] ^ diff[j];
-		//		mOts[j].data()[i + 6] = mOts[0].data()[i + 6] ^ diff[j];
-		//		mOts[j].data()[i + 7] = mOts[0].data()[i + 7] ^ diff[j];
-		//		diff[j] = diff[j] + diff[j] ^ block(342134123, 213412341);
-		//	}
-		//	
-		//	mm += mm8;
-		//	i += 8;
-		//}
-		//for (; i < m; ++i)
-		//{
-		//	mOts[0][i] = mm;
-		//	for (u64 j = 1; j < 4; ++j)
-		//	{
-		//		mOts[j][i] = mOts[0][i] ^ diff[j];
-		//	}
-		//}
+			for (u64 i = 0; i < m; ++i)
+			{
+				mLsb[0][i] = lsb[0];
+				mLsb[1][i] = lsb[1];
+				mMsb[0][i] = msb[0];
+				mMsb[1][i] = msb[1];
+			}
+		}
+
 	}
 
 	void TritOtBatch::RecvBatch::mock(u64 batchIdx, u64 n)
@@ -171,12 +148,31 @@ namespace secJoin
 		mChoice.resize(m);
 		mLsb.resize(m);
 		mMsb.resize(m);
-		if (1)
+		if (0)
 		{
 			memset<block>(mChoice, 0);
 			memset<block>(mLsb, 0);
 			memset<block>(mMsb, 0);
 			return;
+		}
+		else
+		{
+			std::array<block, 2> lsb, msb;
+			block choice = block(343524129893458929, 2453289232749293483);
+			lsb[0] = block(12342342342134231234, 2342341234123421341) & oc::CCBlock;;
+			lsb[1] = block(13563456435643564356, 5734542341345236357) & oc::CCBlock;;
+			msb[0] = ~lsb[0] & oc::CCBlock;
+			msb[1] = ~lsb[1] & oc::CCBlock;
+
+			assert((lsb[0] & msb[0]) == oc::ZeroBlock);
+			assert((lsb[1] & msb[1]) == oc::ZeroBlock);
+
+			for (u64 i = 0; i < m; ++i)
+			{
+				mChoice[i] = choice ^ block(i << 32 + i, i << 32 + i);
+				mLsb[i] = (lsb[0] & ~mChoice[i]) ^ (lsb[1] & mChoice[i]);
+				mMsb[i] = (msb[0] & ~mChoice[i]) ^ (msb[1] & mChoice[i]);
+			}
 		}
 
 		////auto m = add.size();

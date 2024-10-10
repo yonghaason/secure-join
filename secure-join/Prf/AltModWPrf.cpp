@@ -83,196 +83,197 @@ namespace secJoin
 	}
 
 
-	macoro::task<> keyMultCorrectionSend(
-		Request<TritOtSend>& request,
-		oc::MatrixView<const oc::block> x,
-		oc::Matrix<oc::block>& y0,
-		oc::Matrix<oc::block>& y1,
-		coproto::Socket& sock,
-		bool debug)
-	{
+	//macoro::task<> keyMultCorrectionSend(
+	//	Request<TritOtSend>& request,
+	//	oc::MatrixView<const oc::block> x,
+	//	oc::Matrix<oc::block>& y0,
+	//	oc::Matrix<oc::block>& y1,
+	//	coproto::Socket& sock,
+	//	bool debug)
+	//{
 
-		struct SharedBuffer : span<block>
-		{
-			using Container = oc::AlignedUnVector<block>;
-			SharedBuffer(std::shared_ptr<Container> c, span<typename Container::value_type> v)
-				: span<typename Container::value_type>(v)
-				, mCont(c)
-			{}
+	//	struct SharedBuffer : span<block>
+	//	{
+	//		using Container = oc::AlignedUnVector<block>;
+	//		SharedBuffer(std::shared_ptr<Container> c, span<typename Container::value_type> v)
+	//			: span<typename Container::value_type>(v)
+	//			, mCont(c)
+	//		{}
 
-			std::shared_ptr<Container> mCont;
-		};
+	//		std::shared_ptr<Container> mCont;
+	//	};
 
-		if (request.size() < x.size() * 128)
-			throw RTE_LOC;
-		y0.resize(x.rows(), x.cols(), oc::AllocType::Uninitialized);
-		y1.resize(x.rows(), x.cols(), oc::AllocType::Uninitialized);
+	//	if (request.size() < x.size() * 128)
+	//		throw RTE_LOC;
+	//	y0.resize(x.rows(), x.cols(), oc::AllocType::Uninitialized);
+	//	y1.resize(x.rows(), x.cols(), oc::AllocType::Uninitialized);
 
-		std::shared_ptr<oc::AlignedUnVector<block>> delta =
-			std::make_shared<oc::AlignedUnVector<block>>(2 * x.size());
-		oc::AlignedUnVector<block> correction;
+	//	std::shared_ptr<oc::AlignedUnVector<block>> delta =
+	//		std::make_shared<oc::AlignedUnVector<block>>(2 * x.size());
+	//	oc::AlignedUnVector<block> correction;
 
-		TritOtSend trit;
-		u64 j = 0, rem = x.size(), k = 0;
-		while (rem)
-		{
-			co_await request.get(trit);
-			// the step size
-			auto min = std::min(rem, trit.size() / 128);
+	//	TritOtSend trit;
+	//	u64 j = 0, rem = x.size(), k = 0;
+	//	while (rem)
+	//	{
+	//		co_await request.get(trit);
+	//		// the step size
+	//		auto min = std::min(rem, trit.size() / 128);
 
-			// the buffer holding delta
-			SharedBuffer di(delta, { delta->data() + j * 2, min * 2 });
+	//		// the buffer holding delta
+	//		SharedBuffer di(delta, { delta->data() + j * 2, min * 2 });
 
-			// delta lsb and msb
-			auto d0 = span<block>(di.data(), min);
-			auto d1 = span<block>(di.data() + min, min);
+	//		// delta lsb and msb
+	//		auto d0 = span<block>(di.data(), min);
+	//		auto d1 = span<block>(di.data() + min, min);
 
-			// the input and outputs
-			auto xi = span<const block>(x.data() + j, min);
-			auto y0i = span<block>(y0.data() + j, min);
-			auto y1i = span<block>(y1.data() + j, min);
+	//		// the input and outputs
+	//		auto xi = span<const block>(x.data() + j, min);
+	//		auto y0i = span<block>(y0.data() + j, min);
+	//		auto y1i = span<block>(y1.data() + j, min);
 
-			correction.resize(min);
-			co_await sock.recv(correction);
+	//		correction.resize(min);
+	//		co_await sock.recv(correction);
 
-			// delta = s0 + s1
-			mod3Add(d1, d0, trit.mMsb[0], trit.mLsb[0], trit.mMsb[1], trit.mLsb[1]);
-			// delta = s0 + s1 + x
-			mod3Add(d1, d0, xi);
+	//		// delta = s0 + s1
+	//		mod3Add(d1, d0, trit.mMsb[0], trit.mLsb[0], trit.mMsb[1], trit.mLsb[1]);
+	//		// delta = s0 + s1 + x
+	//		mod3Add(d1, d0, xi);
 
-			// y = -(s_c)
-			for (u64 i = 0; i < min; ++i)
-			{
-				// compute the diff
-				auto t0 = trit.mLsb[0].data()[i] ^ trit.mLsb[1].data()[i];
-				auto t1 = trit.mMsb[0].data()[i] ^ trit.mMsb[1].data()[i];
+	//		// y = -(s_c)
+	//		for (u64 i = 0; i < min; ++i)
+	//		{
+	//			// compute the diff
+	//			auto t0 = trit.mLsb[0].data()[i] ^ trit.mLsb[1].data()[i];
+	//			auto t1 = trit.mMsb[0].data()[i] ^ trit.mMsb[1].data()[i];
 
-				// select either s0 or s1, assign the bits backwards for negation.
-				y1i.data()[i] = correction.data()[i] & (t0 ^ trit.mLsb[1].data()[i]);
-				y0i.data()[i] = correction.data()[i] & (t1 ^ trit.mMsb[1].data()[i]);
-			}
+	//			// select either s0 or s1, assign the bits backwards for negation.
+	//			y1i.data()[i] = correction.data()[i] & (t0 ^ trit.mLsb[1].data()[i]);
+	//			y0i.data()[i] = correction.data()[i] & (t1 ^ trit.mMsb[1].data()[i]);
+	//		}
 
-			co_await sock.send(std::move(di));
+	//		co_await sock.send(std::move(di));
 
-			rem -= min;
-			j += min;
-		}
+	//		rem -= min;
+	//		j += min;
+	//	}
 
-	}
+	//}
 
-	macoro::task<> keyMultCorrectionRecv(
-		Request<TritOtRecv>& request,
-		oc::MatrixView<const oc::block> x,
-		oc::Matrix<oc::block>& y0,
-		oc::Matrix<oc::block>& y1,
-		coproto::Socket& sock,
-		bool debug)
-	{
-		macoro::async_scope asyncScope;
+	//macoro::task<> keyMultCorrectionRecv(
+	//	Request<TritOtRecv>& request,
+	//	oc::MatrixView<const oc::block> x,
+	//	oc::Matrix<oc::block>& y0,
+	//	oc::Matrix<oc::block>& y1,
+	//	coproto::Socket& sock,
+	//	bool debug)
+	//{
+	//	macoro::async_scope asyncScope;
 
-		MACORO_TRY{
-			struct SharedBuffer : span<block>
-			{
-				using Container = oc::AlignedUnVector<block>;
-				SharedBuffer(std::shared_ptr<Container> c, span<typename Container::value_type> v)
-					: span<typename Container::value_type>(v)
-					, mCont(c)
-				{}
+	//	MACORO_TRY{
+	//		struct SharedBuffer : span<block>
+	//		{
+	//			using Container = oc::AlignedUnVector<block>;
+	//			SharedBuffer(std::shared_ptr<Container> c, span<typename Container::value_type> v)
+	//				: span<typename Container::value_type>(v)
+	//				, mCont(c)
+	//			{}
 
-				std::shared_ptr<Container> mCont;
-			};
+	//			std::shared_ptr<Container> mCont;
+	//		};
 
-			if (request.size() != x.size() * 128)
-				throw RTE_LOC;
-			y0.resize(x.rows(), x.cols(), oc::AllocType::Uninitialized);
-			y1.resize(x.rows(), x.cols(), oc::AllocType::Uninitialized);
+	//		if (request.size() != x.size() * 128)
+	//			throw RTE_LOC;
+	//		y0.resize(x.rows(), x.cols(), oc::AllocType::Uninitialized);
+	//		y1.resize(x.rows(), x.cols(), oc::AllocType::Uninitialized);
 
-			std::shared_ptr<oc::AlignedUnVector<block>> correction =
-				std::make_shared<oc::AlignedUnVector<block>>(x.size());
-			std::shared_ptr<oc::AlignedUnVector<block>> delta =
-				std::make_shared<oc::AlignedUnVector<block>>(2 * x.size());
-
-
-			std::vector<std::pair<TritOtRecv, macoro::scoped_task<>>> trits;trits.reserve(request.batchCount());
-			u64 j = 0, rem = x.size();
-			while (rem)
-			{
-				trits.emplace_back();
-				auto& [trit, recv] = trits.back();
-				co_await request.get(trit);
-
-				// the step size
-				auto min = std::min(rem, trit.size() / 128);
-				// the input
-				auto xi = span<const block>(x.data() + j, min);
-				auto ci = SharedBuffer(correction, correction->subspan(j, min));
+	//		std::shared_ptr<oc::AlignedUnVector<block>> correction =
+	//			std::make_shared<oc::AlignedUnVector<block>>(x.size());
+	//		std::shared_ptr<oc::AlignedUnVector<block>> delta =
+	//			std::make_shared<oc::AlignedUnVector<block>>(2 * x.size());
 
 
-				for (u64 i = 0; i < min; ++i)
-				{
-					ci[i] = trit.choice()[i] ^ xi[i];
-				}
+	//		std::vector<std::pair<TritOtRecv, macoro::scoped_task<>>> trits;trits.reserve(request.batchCount());
+	//		u64 j = 0, rem = x.size();
+	//		while (rem)
+	//		{
+	//			trits.emplace_back();
+	//			auto& [trit, recv] = trits.back();
+	//			co_await request.get(trit);
 
-				co_await sock.send(std::move(ci));
+	//			// the step size
+	//			auto min = std::min(rem, trit.size() / 128);
+	//			// the input
+	//			auto xi = span<const block>(x.data() + j, min);
+	//			auto ci = SharedBuffer(correction, correction->subspan(j, min));
 
-				// schedule the recv operation eagerly.
-				auto di = SharedBuffer(delta, delta->subspan(j * 2, min * 2));
-				recv = asyncScope.add(sock.recv(di));
+
+	//			for (u64 i = 0; i < min; ++i)
+	//			{
+	//				ci[i] = trit.choice()[i] ^ xi[i];
+	//			}
+
+	//			co_await sock.send(std::move(ci));
+
+	//			// schedule the recv operation eagerly.
+	//			auto di = SharedBuffer(delta, delta->subspan(j * 2, min * 2));
+	//			recv = asyncScope.add(sock.recv(di));
 
 
-				rem -= min;
-				j += min;
-			}
+	//			rem -= min;
+	//			j += min;
+	//		}
 
-			j = 0; rem = x.size();
-			u64 k = 0;
-			while (rem)
-			{
-				auto& [trit, recv] = trits[k++];
+	//		j = 0; rem = x.size();
+	//		u64 k = 0;
+	//		while (rem)
+	//		{
+	//			auto& [trit, recv] = trits[k++];
 
-				auto min = std::min(rem, trit.size() / 128);
-				co_await std::move(recv);
+	//			auto min = std::min(rem, trit.size() / 128);
+	//			co_await std::move(recv);
 
-				// delta lsb and msb
-				auto di = SharedBuffer(delta, delta->subspan(j*2, min*2));
-				auto d0 = di.subspan(0, min);
-				auto d1 = di.subspan(min, min);
+	//			// delta lsb and msb
+	//			auto di = SharedBuffer(delta, delta->subspan(j*2, min*2));
+	//			auto d0 = di.subspan(0, min);
+	//			auto d1 = di.subspan(min, min);
 
-				// the input and outputs
-				auto xi = span<const block>(x.data() + j, min);
-				auto y0i = span<block>(y0.data() + j, min);
-				auto y1i = span<block>(y1.data() + j, min);
+	//			// the input and outputs
+	//			auto xi = span<const block>(x.data() + j, min);
+	//			auto y0i = span<block>(y0.data() + j, min);
+	//			auto y1i = span<block>(y1.data() + j, min);
 
-				// delta = x1 * delta 
-				for (u64 i = 0; i < min; ++i)
-				{
-					d0[i] = d0[i] & xi[i];
-					d1[i] = d1[i] & xi[i];
-				}
+	//			// delta = x1 * delta 
+	//			for (u64 i = 0; i < min; ++i)
+	//			{
+	//				d0[i] = d0[i] & xi[i];
+	//				d1[i] = d1[i] & xi[i];
+	//			}
 
-				// y = sb + x * delta
-				mod3Add(d1, d0, trit.mMsb, trit.mLsb);
-				// delta = s0 + s1 + x
-				mod3Add(d1, d0, xi);
+	//			// y = sb + x * delta
+	//			mod3Add(d1, d0, trit.mMsb, trit.mLsb);
+	//			// delta = s0 + s1 + x
+	//			mod3Add(d1, d0, xi);
 
-				// y = -sb
-				memcpy(y0i, trit.mMsb);
-				memcpy(y1i, trit.mLsb);
+	//			// y = -sb
+	//			memcpy(y0i, trit.mMsb);
+	//			memcpy(y1i, trit.mLsb);
 
-				//std::cout << "send " << k << std::endl;
-				//co_await sock.send(std::move(di));
+	//			//std::cout << "send " << k << std::endl;
+	//			//co_await sock.send(std::move(di));
 
-				rem -= min;
-				j += min;
-			}
-		}
-		MACORO_CATCH(ex)
-		{
-			co_await sock.close();
-			co_await asyncScope;
-		}
+	//			rem -= min;
+	//			j += min;
+	//		}
+	//	}
+	//	MACORO_CATCH(ex)
+	//	{
+	//		co_await sock.close();
+	//		co_await asyncScope;
+	//	}
 
-	}
+	//}
+
 
 	coproto::task<> AltModWPrfSender::evaluate(
 		span<block> x,
@@ -338,33 +339,21 @@ namespace secJoin
 			if (mDebug)
 				mDebugInput = std::vector<block>(x.begin(), x.end());
 
-			auto xk0b = oc::Matrix<block>{};
-			auto xk1b = oc::Matrix<block>{};
-			auto xk0a = oc::Matrix<block>{};
-			auto xk1a = oc::Matrix<block>{};
-			auto xc0 = oc::Matrix<block>{};
-			auto xc1 = oc::Matrix<block>{};
-
+			auto xkaLsb = oc::Matrix<block>{};
+			auto xkaMsb = oc::Matrix<block>{};
+			auto xtMsb = oc::Matrix<block>{ xt.rows(), xt.cols(), oc::AllocType::Uninitialized };
+			auto xtLsb = oc::Matrix<block>{ xt.rows(), xt.cols(), oc::AllocType::Uninitialized };
 			auto sb = sock.fork();
-			auto sc = sock.fork();
+
+			co_await mConvToF3.convert(xt, sock, xtMsb, xtLsb);
+
 			co_await macoro::when_all_ready(
-				mKeyMultRecver.mult(x.size(), xk0a, xk1a, sock),
-				mKeyMultSender.mult(xt, xk0b, xk1b, sb),
-				keyMultCorrectionSend(mKeyMultTritReq, xt, xc0, xc1, sc, false)
+				mKeyMultRecver.mult(x.size(), xk0, xk1, sock),
+				mKeyMultSender.mult(xtLsb, xtMsb, xkaLsb, xkaMsb, sb)
 			);
 
-
-			xk1.resize(xk1a.rows(), xk1a.cols());
-			xk0.resize(xk0a.rows(), xk0a.cols());
-			assert(xk0a.size() == xk0b.size());
-			assert(xk1a.size() == xk1b.size());
-
 			// xka += xkb
-			mod3Add(xk1a, xk0a, xk1b, xk0b);
-
-			// xk = xka + xkb - xc
-			mod3Add(xk1, xk0, xk1a, xk0a, xc1, xc0);
-
+			mod3Add(xk1, xk0, xkaMsb, xkaLsb);
 		}
 
 		if (mDebug)
@@ -480,7 +469,7 @@ namespace secJoin
 		if ((mKeyMode == AltModPrfKeyMode::SenderOnly || mKeyMode == AltModPrfKeyMode::Shared)
 			&& mInputMode == AltModPrfInputMode::ReceiverOnly)
 		{
-			co_await mKeyMultSender.mult(xt, xk0, xk1, sock);
+			co_await mKeyMultSender.mult(xt, {}, xk0, xk1, sock);
 		}
 		else
 		{
@@ -495,29 +484,26 @@ namespace secJoin
 			if (mKeyMultRecver.mKey != *mKeyMultSender.mOptionalKeyShare)
 				throw RTE_LOC;
 
-			auto xk0b = oc::Matrix<block>{};
-			auto xk1b = oc::Matrix<block>{};
-			auto xk0a = oc::Matrix<block>{};
-			auto xk1a = oc::Matrix<block>{};
-			auto xc0 = oc::Matrix<block>{};
-			auto xc1 = oc::Matrix<block>{};
+			auto xtMsb = oc::Matrix<block>{ xt.rows(), xt.cols(), oc::AllocType::Uninitialized };
+			auto xtLsb = oc::Matrix<block>{ xt.rows(), xt.cols(), oc::AllocType::Uninitialized };
+			auto xk0a = oc::Matrix<block>{  };
+			auto xk1a = oc::Matrix<block>{  };
 			auto sb = sock.fork();
-			auto sc = sock.fork();
+
+			co_await mConvToF3.convert(xt, sock, xtMsb, xtLsb);
 
 			co_await macoro::when_all_ready(
-				mKeyMultSender.mult(xt, xk0a, xk1a, sock),
-				mKeyMultRecver.mult(x.size(), xk0b, xk1b, sb),
-				keyMultCorrectionRecv(mKeyMultTritReq, xt, xc0, xc1, sc, true)
+				mKeyMultSender.mult(xtLsb, xtMsb, xk0a, xk1a, sock),
+				mKeyMultRecver.mult(x.size(), xk0, xk1, sb)
 			);
 
 			xk1.resize(xk1a.rows(), xk1a.cols());
 			xk0.resize(xk0a.rows(), xk0a.cols());
-			assert(xk0a.size() == xk0b.size());
-			assert(xk1a.size() == xk1b.size());
+			assert(xk0.size() == xk0a.size());
+			assert(xk1.size() == xk1a.size());
 
-			// xk = xka + xkb - xc
-			mod3Add(xk1a, xk0a, xk1b, xk0b);
-			mod3Add(xk1, xk0, xk1a, xk0a, xc1, xc0);
+			// xk = xka + xkb
+			mod3Add(xk1, xk0, xk1a, xk0a);
 		}
 
 

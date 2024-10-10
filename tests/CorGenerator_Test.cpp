@@ -1,6 +1,7 @@
 #include "CorGenerator_Test.h"
 #include "secure-join/CorGenerator/CorGenerator.h"
 #include "secure-join/Prf/AltModWPrf.h"
+#include "secure-join/Prf/AltModSimd.h"
 using namespace secJoin;
 
 void CorGenerator_F4BitOt_Test(const oc::CLP& cmd)
