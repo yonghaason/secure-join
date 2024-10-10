@@ -15,7 +15,7 @@ option(SECUREJOIN_ENABLE_BOOST        "Enable boost networking" OFF)
 option(SECUREJOIN_ENABLE_PAILLIER     "Enable paillier" OFF)
 option(SECUREJOIN_ENABLE_FAKE_GEN     "...." OFF)
 option(SECUREJOIN_ENABLE_PIC          "compile with -fPIC " OFF)
-option(SECUREJOIN_STATIC_WRAPPER      "static compiling " OFF)
+option(SECUREJOIN_STATIC_WRAPPER      "static compiling " ON)
 option(NO_CMAKE_SYSTEM_PATH           "use system paths" OFF)
 
 option(ENABLE_BITPOLYMUL "enable silent ot with QC codes" OFF)
