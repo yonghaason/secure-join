@@ -37,6 +37,8 @@ namespace secJoin
         // The "send" specific state
         struct SendBatch
         {
+            SendBatch() {}
+
             // The OT Sender
             SilentF4VoleSender mSender;
             std::array<oc::AlignedUnVector<oc::block>, 4> mOts;
@@ -60,12 +62,20 @@ namespace secJoin
 
             void mock(u64 batchIdx, u64 n);
 
+            void clear()
+            {
+                mSender.clear();
+                mOts = {};
+                mDelta = oc::ZeroBlock;
+            }
         };
 
 
         // The "specific" specific state
         struct RecvBatch
         {
+            RecvBatch() {}
+
             // The OT receiver
             SilentF4VoleReceiver mReceiver;
             oc::AlignedUnVector<oc::block> mOts, mChoiceLsb, mChoiceMsb;
@@ -86,6 +96,13 @@ namespace secJoin
 
             void mock(u64 batchIdx, u64 n);
 
+            void clear()
+            {
+                mReceiver.clear();
+                mOts = {};
+                mChoiceLsb = {};
+                mChoiceMsb = {};
+            }
         };
 
         macoro::variant<SendBatch, RecvBatch> mSendRecv;
@@ -109,7 +126,11 @@ namespace secJoin
 
         void clear() override
         {
-            mSendRecv.emplace<0>();
+            if (mSendRecv.index())
+                std::get<1>(mSendRecv).clear();
+            else
+                std::get<1>(mSendRecv).clear();
+            //mSendRecv = SendBatch{};
         }
     };
 

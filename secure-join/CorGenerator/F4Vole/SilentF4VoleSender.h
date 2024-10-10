@@ -340,7 +340,6 @@ namespace secJoin
                     auto d = G{ static_cast<u8>((diff[i] >> (2 * j)) & 3) };
                     block u;
                     mCtx.mul(u, delta, d);
-                    auto bi = b[ii];
                     b[ii] ^= u;
                 }
             }
@@ -367,7 +366,6 @@ namespace secJoin
             oc::Socket& chl)
         {
             MACORO_TRY{
-            auto deltaShare = block{};
             auto     X = block{};
             auto     hash = std::array<u8, 32>{};
             auto     baseB = VecF{};

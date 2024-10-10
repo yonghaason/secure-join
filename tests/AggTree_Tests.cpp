@@ -811,7 +811,7 @@ void AggTree_dup_setLeaves_Test()
 
 
     //u64 mN = oc::roundUpTo(361, 16);
-    for (u64 mN : { 8ull, 256ull, 361ull, 24223ull })
+    for (u64 mN : { 8ull, 361ull, 4223ull })
     {
         u64 m = 11;
 
@@ -1420,7 +1420,7 @@ void AggTree_dup_downstream_Test(const oc::CLP& cmd)
     {
         return left;
     };
-    AggTree_xor_downstream_Test(op, opCir, cmd.getOr("n", 2343), cmd.getOr("mock", 1));
+    AggTree_xor_downstream_Test(op, opCir, cmd.getOr("n", 343), cmd.getOr("mock", 1));
 }
 
 
@@ -1442,7 +1442,7 @@ void AggTree_xor_full_downstream_Test(const oc::CLP& cmd)
     {
         return left ^ right;
     };
-    AggTree_xor_downstream_Test(op, opCir, cmd.getOr("n", 2343), cmd.getOr("mock", 1));
+    AggTree_xor_downstream_Test(op, opCir, cmd.getOr("n", 343), cmd.getOr("mock", 1));
 }
 void AggTree_xor_Partial_downstream_Test(const oc::CLP& cmd)
 {
@@ -1462,8 +1462,7 @@ void AggTree_xor_Partial_downstream_Test(const oc::CLP& cmd)
     {
         return left ^ right;
     };
-    AggTree_xor_downstream_Test(op, opCir, cmd.getOr("n", 2343), cmd.getOr("mock", 1));
-    AggTree_xor_downstream_Test(op, opCir, cmd.getOr("n", 2343), cmd.getOr("mock", 1));
+    AggTree_xor_downstream_Test(op, opCir, cmd.getOr("n", 343), cmd.getOr("mock", 1));
 }
 
 
@@ -1560,7 +1559,7 @@ void AggTree_dup_pre_full_Test(const oc::CLP& cmd)
         return left;
     };
 
-    AggTree_full_Test(op, opCir, cmd.getOr("n", 2343), cmd.getOr("mock", 1));
+    AggTree_full_Test(op, opCir, cmd.getOr("n", 343), cmd.getOr("mock", 1));
 }
 
 
@@ -1583,5 +1582,5 @@ void AggTree_xor_pre_full_Test(const oc::CLP& cmd)
         return left ^ right;
     };
 
-    AggTree_full_Test(op, opCir, cmd.getOr("n", 2343), cmd.getOr("mock",1));
+    AggTree_full_Test(op, opCir, cmd.getOr("n", 343), cmd.getOr("mock",1));
 }

@@ -93,7 +93,7 @@ namespace secJoin
             }
             default:
                 assert(0);
-                __assume(0);
+                //__assume(0);
             }
 
             //{
@@ -139,7 +139,7 @@ namespace secJoin
             }
             default:
                 assert(0);
-                __assume(0);
+                //__assume(0);
             }
         }
 

@@ -8,6 +8,7 @@ namespace secJoin
 
 	F4BitOtBatch::F4BitOtBatch(GenState* state, bool sender, oc::Socket&& s, PRNG&& p)
 		: Batch(state, std::move(s), std::move(p))
+		, mSendRecv(std::in_place_type_t<SendBatch>{})
 	{
 		if (sender)
 			mSendRecv.emplace<0>();
@@ -153,7 +154,7 @@ namespace secJoin
 				mOts[j].data()[i + 5] = mOts[0].data()[i + 5] ^ diff[j];
 				mOts[j].data()[i + 6] = mOts[0].data()[i + 6] ^ diff[j];
 				mOts[j].data()[i + 7] = mOts[0].data()[i + 7] ^ diff[j];
-				diff[j] = diff[j] + diff[j] ^ block(342134123, 213412341);
+				diff[j] = (diff[j] + diff[j]) ^ block(342134123, 213412341);
 			}
 
 			//for(u64 ii = i; ii < i+8; ++ii)
@@ -248,7 +249,7 @@ namespace secJoin
 				ots[j].data()[5] = ots[0].data()[5] ^ diff[j];
 				ots[j].data()[6] = ots[0].data()[6] ^ diff[j];
 				ots[j].data()[7] = ots[0].data()[7] ^ diff[j];
-				diff[j] = diff[j] + diff[j] ^ block(342134123, 213412341);
+				diff[j] = (diff[j] + diff[j]) ^ block(342134123, 213412341);
 
 				auto mLsb = block(~0ull * !bool(j & 1), ~0ull * !bool(j & 1));
 				auto mMsb = block(~0ull * !bool(j & 2), ~0ull * !bool(j & 2));
@@ -310,12 +311,12 @@ namespace secJoin
 		macoro::async_manual_reset_event& corReady,
 		BatchThreadState& threadState)
 	{
-		MC_BEGIN(macoro::task<>, this, state, batchIdx, size, &prng,
-			&sock, &corReady, &threadState,
-			baseSend = std::vector<std::array<block, 2>>{},
-			baseB = std::vector<block>{},
-			baseDelta = block{}
-		);
+		//MC_BEGIN(macoro::task<>, this, state, batchIdx, size, &prng,
+			//&sock, &corReady, &threadState,
+			auto baseSend = std::vector<std::array<block, 2>>{};
+			auto baseB = std::vector<block>{};
+			auto baseDelta = block{};
+		//);
 
 		if (state->mMock)
 		{
@@ -328,9 +329,9 @@ namespace secJoin
 			{
 				baseSend.resize(mReceiver.silentBaseOtCount());
 				baseB.resize(mReceiver.baseVoleCount());
-				MC_AWAIT(sock.recv(baseSend));
-				MC_AWAIT(sock.recv(baseB));
-				MC_AWAIT(sock.recv(baseDelta));
+				co_await sock.recv(baseSend);
+				co_await sock.recv(baseB);
+				co_await sock.recv(baseDelta);
 
 				{
 					for (u64 i = 0; i < baseSend.size(); ++i)
@@ -374,7 +375,7 @@ namespace secJoin
 
 			mReceiver.mDebug = state->mDebug;
 
-			MC_AWAIT(mReceiver.silentReceiveInplace(mReceiver.mRequestSize, prng, sock));
+			 co_await mReceiver.silentReceiveInplace(mReceiver.mRequestSize, prng, sock);
 
 
 			compressRecver(mReceiver.mA);
@@ -386,7 +387,6 @@ namespace secJoin
 		}
 
 		corReady.set();
-		MC_END();
 	}
 
 	macoro::task<>  F4BitOtBatch::SendBatch::sendTask(
@@ -398,8 +398,6 @@ namespace secJoin
 		macoro::async_manual_reset_event& corReady,
 		BatchThreadState& threadState)
 	{
-		MC_BEGIN(macoro::task<>, this, state, batchIdx, size, &prng,
-			&sock, &corReady, &threadState);
 
 		if (state->mMock)
 		{
@@ -410,9 +408,9 @@ namespace secJoin
 
 			if (state->mDebug)
 			{
-				MC_AWAIT(sock.send(coproto::copy(mSender.mGen.mBaseOTs)));
-				MC_AWAIT(sock.send(mSender.mBaseB));
-				MC_AWAIT(sock.send(mDelta));
+				co_await sock.send(coproto::copy(mSender.mGen.mBaseOTs));
+				co_await sock.send(mSender.mBaseB);
+				co_await sock.send(mDelta);
 
 			}
 
@@ -427,7 +425,7 @@ namespace secJoin
 
 			mSender.mDebug = state->mDebug;
 
-			MC_AWAIT(mSender.silentSendInplace(mDelta, mSender.mRequestSize, prng, sock));
+			co_await mSender.silentSendInplace(mDelta, mSender.mRequestSize, prng, sock);
 
 
 			compressSender(mSender.mB);
@@ -439,7 +437,6 @@ namespace secJoin
 
 
 		corReady.set();
-		MC_END();
 	}
 
 
@@ -463,7 +460,7 @@ namespace secJoin
 
 		auto OneBlock = block(1);
 		auto TwoBlock = block(2);
-		block mask = block(~0ull, ~15ull);
+		block mask = block(~0ull, ~3ull);
 
 		auto m = &A[0];
 
@@ -614,7 +611,7 @@ namespace secJoin
 		std::array<block, 16> sendMsg;
 		//auto m = B.data();
 
-		block mask = block(~0ull, ~15ull);;
+		block mask = block(~0ull, ~3ull);;
 		std::array<block, 4> deltas;
 		deltas[0] = block(0, 0);
 		deltas[1] = mDelta & mask;
@@ -636,14 +633,14 @@ namespace secJoin
 					{
 						assert((m[0].get<u64>(0) & 3) == 0);
 
-						//m[0] = m[0] & mask;
-						//m[1] = m[1] & mask;
-						//m[2] = m[2] & mask;
-						//m[3] = m[3] & mask;
-						//m[4] = m[4] & mask;
-						//m[5] = m[5] & mask;
-						//m[6] = m[6] & mask;
-						//m[7] = m[7] & mask;
+						m[0] = m[0] & mask;
+						m[1] = m[1] & mask;
+						m[2] = m[2] & mask;
+						m[3] = m[3] & mask;
+						m[4] = m[4] & mask;
+						m[5] = m[5] & mask;
+						m[6] = m[6] & mask;
+						m[7] = m[7] & mask;
 
 						oc::mAesFixedKey.hashBlocks<8>(m, s);
 
@@ -675,7 +672,7 @@ namespace secJoin
 					break;
 				default:
 					assert(0);
-					__assume(0);
+					//__assume(0);
 					break;
 				}
 

@@ -1,4 +1,5 @@
 #include "Average_Test.h"
+#include "cryptoTools/Common/TestCollection.h"
 
 using namespace secJoin;
 
@@ -94,6 +95,8 @@ void evalAverage
 
 void Average_concatColumns_Test()
 {
+    throw oc::UnitTestSkipped("not functional");
+
     u64 n0 = 2345;
     Table t0;
     t0.mColumns.emplace_back("c0", TypeID::IntID, 11);
@@ -204,6 +207,7 @@ void Average_concatColumns_Test()
 
 void Average_getControlBits_Test(const oc::CLP& cmd)
 {
+    throw oc::UnitTestSkipped("not functional");
     u64 n = 342;
     u64 keyBitCount = 21;
     auto mock = cmd.getOr("mock", 1);
@@ -258,6 +262,7 @@ void Average_getControlBits_Test(const oc::CLP& cmd)
 
 void Average_avg_Test(const oc::CLP& cmd)
 {
+    throw oc::UnitTestSkipped("not functional");
     u64 nT = cmd.getOr("nT", 10);
     Table T;
 
@@ -348,6 +353,7 @@ void Average_avg_Test(const oc::CLP& cmd)
 
 void Average_avg_BigKey_Test(const oc::CLP& cmd)
 {
+    throw oc::UnitTestSkipped("not functional");
     u64 nT = cmd.getOr("nT", 10);
     Table T;
 

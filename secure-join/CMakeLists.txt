@@ -59,11 +59,11 @@ if(SECUREJOIN_ENABLE_PAILLIER)
 endif()
 
 add_library(secureJoin STATIC ${SRCS})
-if(SECUREJOIN_DEV)
-    target_link_libraries(secureJoin libOTe)
-else()
-    target_link_libraries(secureJoin oc::libOTe)
-endif()
+target_link_libraries(secureJoin libOTe)
+#if(SECUREJOIN_DEV)
+#else()
+#    target_link_libraries(secureJoin oc::libOTe)
+#endif()
 
 configure_file(config.h.in "config.h" )
 

@@ -194,9 +194,9 @@ namespace secJoin
     // z += y mod 3
     OC_FORCEINLINE void mod3Add(block& z1, block& z0, const block& y0)
     {
-        __assume(&z0 != &z1);
-        __assume(&z0 != &y0);
-        __assume(&z1 != &y0);
+        //__assume(&z0 != &z1);
+        //__assume(&z0 != &y0);
+        //__assume(&z1 != &y0);
 
         auto x1 = z1;
         auto x0 = z0;
@@ -223,7 +223,7 @@ namespace secJoin
         //auto e = (x + y) % 3;
         for (u64 i = 0; i < z0.size(); ++i)
         {
-            mod3Add(z1d[i], z0d[i], y0[i]);
+            mod3Add(z1d[i], z0d[i], y0d[i]);
             //auto x1i = z1d[i];
             //auto x0i = z0d[i];
             //auto y0i = y0d[i];

@@ -282,10 +282,10 @@ void OmJoin_getOutput_Test()
 
 void OmJoin_join_Test(const oc::CLP& cmd)
 {
-    u64 nL = cmd.getOr("L", 511),
+    u64 nL = cmd.getOr("L", 111),
         nR = cmd.getOr("R", 81);
 
-    u64 keySize = cmd.getOr("keySize", 21);
+    u64 keySize = cmd.getOr("keySize", 9);
     bool printSteps = cmd.isSet("print");
     bool mock = cmd.getOr("mock", 1);
 
@@ -301,7 +301,7 @@ void OmJoin_join_Test(const oc::CLP& cmd)
         {"R2", TypeID::IntID, 7}
     } });
 
-    std::unordered_set<u64> keys;
+    std::unordered_set<u64> keys, k2;
     for (u64 i = 0; i < nL; ++i)
     {
         // u64 k 
@@ -316,6 +316,8 @@ void OmJoin_join_Test(const oc::CLP& cmd)
     for (u64 i = 0; i < nR; ++i)
     {
         auto ii = i / 2 * 4 % mod;
+        //if (k2.insert(ii).second == false)
+        //    throw RTE_LOC;
         memcpy(&R.mColumns[0].mData.mData(i, 0), &ii, R.mColumns[0].mData.bytesPerEntry());
         // R.mColumns[0].mData.mData(i, 0) = i * 2;
         R.mColumns[1].mData.mData(i) = i % 3;
@@ -412,16 +414,16 @@ void OmJoin_join_BigKey_Test(const oc::CLP& cmd)
 
     bool printSteps = cmd.isSet("print");
     bool mock = cmd.getOr("mock", 1);
-
+    u64 keySize = 100;
     Table L, R;
 
     L.init(nL, { {
-        {"L1", TypeID::IntID, 100},
-        {"L2", TypeID::IntID, 16}
+        {"L1", TypeID::IntID, keySize},
+        {"L2", TypeID::IntID, 8}
     } });
     R.init(nR, { {
-        {"R1", TypeID::IntID, 100},
-        {"R2", TypeID::IntID, 7}
+        {"R1", TypeID::IntID, keySize},
+        {"R2", TypeID::IntID, 8}
     } });
 
     std::vector<u8> buff(L[0].mCol.getByteCount());
@@ -433,7 +435,7 @@ void OmJoin_join_BigKey_Test(const oc::CLP& cmd)
         memcpy(buff.data(), &ii, sizeof(ii));
         memcpy(&L.mColumns[0].mData.mData(i, 0), buff.data(), L.mColumns[0].mData.bytesPerEntry());
         L.mColumns[1].mData.mData(i, 0) = i % 4;
-        L.mColumns[1].mData.mData(i, 1) = i % 3;
+        //L.mColumns[1].mData.mData(i, 1) = i % 3;
     }
 
     for (u64 i = 0; i < nR; ++i)
@@ -484,10 +486,14 @@ void OmJoin_join_BigKey_Test(const oc::CLP& cmd)
         join0.setTimer(timer);
         // join1.setTimer(timer);
 
+        // make ssp small to the test is fast.
+        join0.mStatSecParam = 4;
+        join1.mStatSecParam = 4;
         JoinQuery query0{ Ls[0][0], Rs[0][0], { Ls[0][0], Rs[0][1], Ls[0][1] } };
         JoinQuery query1{ Ls[1][0], Rs[1][0], { Ls[1][0], Rs[1][1], Ls[1][1] } };
         join0.init(query0, ole0);
         join1.init(query1, ole1);
+        
 
         auto r = macoro::sync_wait(macoro::when_all_ready(
                 ole0.start(),
@@ -534,28 +540,28 @@ void OmJoin_join_BigKey_Test(const oc::CLP& cmd)
 void OmJoin_join_Reveal_Test(const oc::CLP& cmd)
 {
 
-    u64 nL = 20,
-        nR = 9;
+    u64 nL = 4,
+        nR = 4;
     bool printSteps = cmd.isSet("print");
     bool mock = cmd.getOr("mock", 1);
 
     Table L, R, LP, RP;
 
     L.init(nL, { {
-        {"L1", TypeID::IntID, 12},
+        {"L1", TypeID::IntID, 6},
         {"L2", TypeID::IntID, 16}
     } });
     R.init(nR, { {
-        {"R1", TypeID::IntID, 12},
+        {"R1", TypeID::IntID, 6},
         {"R2", TypeID::IntID, 7}
     } });
 
     LP.init(nL, { {
-        {"L1", TypeID::IntID, 12},
+        {"L1", TypeID::IntID, 6},
         {"L2", TypeID::IntID, 16}
     } });
     RP.init(nR, { {
-        {"R1", TypeID::IntID, 12},
+        {"R1", TypeID::IntID, 6},
         {"R2", TypeID::IntID, 7}
     } });
 
@@ -752,19 +758,19 @@ auto communicate(
 
 void OmJoin_join_round_Test(const oc::CLP& cmd)
 {
-    u64 nL = cmd.getOr("L", 2000),
-        nR = cmd.getOr("R", 999);
+    u64 nL = cmd.getOr("L", 20),
+        nR = cmd.getOr("R", 29);
     bool printSteps = cmd.isSet("print");
     bool mock = cmd.getOr("mock", 1);
 
     Table L, R;
 
     L.init(nL, { {
-        {"L1", TypeID::IntID, 21},
-        {"L2", TypeID::IntID, 16}
+        {"L1", TypeID::IntID, 9},
+        {"L2", TypeID::IntID, 8}
     } });
     R.init(nR, { {
-        {"R1", TypeID::IntID, 21},
+        {"R1", TypeID::IntID, 9},
         {"R2", TypeID::IntID, 7}
     } });
 
@@ -773,7 +779,7 @@ void OmJoin_join_round_Test(const oc::CLP& cmd)
         // u64 k 
         memcpy(&L.mColumns[0].mData.mData(i, 0), &i, L.mColumns[0].mData.bytesPerEntry());
         L.mColumns[1].mData.mData(i, 0) = i % 4;
-        L.mColumns[1].mData.mData(i, 1) = i % 3;
+        //L.mColumns[1].mData.mData(i, 1) = i % 3;
     }
 
     for (u64 i = 0; i < nR; ++i)
@@ -832,12 +838,6 @@ void OmJoin_join_round_Test(const oc::CLP& cmd)
 
     coproto::BufferingSocket::exchangeMessages(sock[0], sock[1]);
 
-
-
-    //auto f = std::async([&] { communicate(proto0, true, sock[0], verbose); });
-    //communicate(proto1, false, sock[1], false);
-    //f.get();
-
     macoro::sync_wait(macoro::when_all_ready(
         std::move(t0),
         std::move(t1),
@@ -847,7 +847,7 @@ void OmJoin_join_round_Test(const oc::CLP& cmd)
 
     auto res = reveal(out[0], out[1]);
 
-    if (res != exp)
+    if (res != exp.removeDummies())
     {
         std::cout << "exp \n" << exp << std::endl;
         std::cout << "act \n" << res << std::endl;

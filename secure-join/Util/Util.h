@@ -271,7 +271,6 @@ namespace secJoin
         ret.init(size, t0.getColumnInfo());
         if (removeNulls == false)
             ret.mIsActive.resize(size);
-
         u64 outPtr = 0;
         for (u64 i = 0, j = 0; i < t0.rows(); ++i)
         {

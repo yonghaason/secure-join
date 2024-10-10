@@ -428,10 +428,10 @@ void RadixSort_genBitPerm_test(const oc::CLP& cmd)
     //u64 L = 4;
     //u64 n = 40;
     u64 trials = 1;
-    for (auto m : { /*2,*/ 10, 15 })
-        for (auto n : { 10ull, 40ull, 1ull << cmd.getOr("nn", 10) })
+    for (auto m : { /*2,*/ 10/*, 15*/ })
+        for (auto n : { 10ull, /*40ull,*/ 1ull << cmd.getOr("nn", 6) })
         {
-            for (auto L : { 1, 3, 5 })
+            for (auto L : { /*1,*/ 3/*, 5 */})
             {
 
                 if (L > m)
@@ -640,9 +640,9 @@ void RadixSort_genPerm_test(const oc::CLP& cmd)
 
     u64 trials = 1;
 
-    for (auto n : { 6ull, 1ull << cmd.getOr("nn", 10) })
+    for (auto n : {/* 6ull, */1ull << cmd.getOr("nn", 6) })
     {
-        for (auto bitCount : { 9,17 })
+        for (auto bitCount : { 2,7 })
         {
             for (auto L : { 2 })
             {

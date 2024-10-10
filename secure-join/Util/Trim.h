@@ -41,7 +41,7 @@ namespace secJoin
 		oc::MatrixView<u8> aa;
 		oc::MatrixView<u8> bb;
 
-		static_assert(std::is_pod<T>::value, "");
+		static_assert(std::is_trivial<T>::value, "");
 		aa = oc::MatrixView<u8>((u8*)a.data(), a.rows(), a.cols() * sizeof(T));
 		bb = oc::MatrixView<u8>((u8*)b.data(), b.rows(), b.cols() * sizeof(T));
 
@@ -52,7 +52,7 @@ namespace secJoin
 	template<typename T>
 	void trim(oc::MatrixView<T> a, i64 bits)
 	{
-		static_assert(std::is_pod<T>::value, "");
+		static_assert(std::is_trivial<T>::value, "");
 		oc::MatrixView<u8> aa((u8*)a.data(), a.rows(), a.cols() * sizeof(T));
 		trimImpl(aa, bits);
 	}

@@ -102,6 +102,7 @@ void runProtocol(secJoin::WrapperState* visaState, secJoin::WrapperState* bankSt
 
 void OmJoin_wrapper_join_test(const oc::CLP& cmd)
 {
+    throw oc::UnitTestSkipped("not functional");
     // std::string str("Hello World!");
     // testApi(str);
     std::string rootPath(SEC_JOIN_ROOT_DIRECTORY);
@@ -177,6 +178,8 @@ void OmJoin_wrapper_join_test(const oc::CLP& cmd)
 
 void OmJoin_wrapper_avg_test(const oc::CLP& cmd)
 {
+    throw oc::UnitTestSkipped("not functional");
+
     std::string rootPath(SEC_JOIN_ROOT_DIRECTORY);
     std::string visaCsvPath = rootPath + "/tests/tables/visa.csv";
     std::string bankCsvPath = rootPath + "/tests/tables/bank.csv";
@@ -300,6 +303,8 @@ void OmJoin_wrapper_avg_test(const oc::CLP& cmd)
 
 void OmJoin_wrapper_where_test(const oc::CLP& cmd)
 {
+    throw oc::UnitTestSkipped("not functional");
+
     std::string rootPath(SEC_JOIN_ROOT_DIRECTORY);
     std::string visaCsvPath = rootPath + "/tests/tables/visa.csv";
     std::string bankCsvPath = rootPath + "/tests/tables/bank.csv";

@@ -176,16 +176,6 @@ namespace secJoin
 			mGenState = std::make_shared<GenState>(partyIdx, prng.fork(), std::move(sock), numConcurrent, batchSize, mock);
 		}
 
-		Request<OtRecv> recvOtRequest(u64 n) {
-			return request<OtRecv>(n);
-		}
-		Request<OtSend> sendOtRequest(u64 n) {
-			return request<OtSend>(n);
-		}
-		Request<BinOle> binOleRequest(u64 n) {
-			return request<BinOle>(n);
-		}
-
 
 		template<typename T>
 		auto request(u64 n)
@@ -227,6 +217,18 @@ namespace secJoin
 				std::terminate();
 				//static_assert(0, "request type not supported");
 			}
+		}
+
+
+
+		Request<OtRecv> recvOtRequest(u64 n) {
+			return request<OtRecv>(n);
+		}
+		Request<OtSend> sendOtRequest(u64 n) {
+			return request<OtSend>(n);
+		}
+		Request<BinOle> binOleRequest(u64 n) {
+			return request<BinOle>(n);
 		}
 
 		//void setBaseOts(SendBase& sb, RecvBase& rb)

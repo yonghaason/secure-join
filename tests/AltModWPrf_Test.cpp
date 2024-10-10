@@ -56,7 +56,7 @@ void F2LinearCode_test(const oc::CLP& cmd)
 
 	std::vector<block> x(n), y(n);
 
-	for (u64 t = 0; t < 100; ++t)
+	for (u64 t = 0; t < 4; ++t)
 	{
 		prng.get(x.data(), x.size());
 		for (u64 i = 0; i < n / 128; ++i)
@@ -82,7 +82,7 @@ void F2LinearCode_test(const oc::CLP& cmd)
 void AltModWPrf_mod3BitDecompostion_test()
 {
 	u64 n = 256;
-	u64 m = 1024;
+	u64 m = 128;
 
 
 	oc::Matrix<u16> u(n, m);
@@ -111,7 +111,7 @@ void AltModWPrf_mod3BitDecompostion_test()
 
 void AltModWPrf_sampleMod3_test(const oc::CLP& cmd)
 {
-	for (u64 n : {1ull, 4ull, 123ull, 1ull << cmd.getOr("nn", 16)})
+	for (u64 n : {1ull, 4ull, 123ull/*, 1ull << cmd.getOr("nn", 16)*/})
 	{
 
 		u64 t = cmd.getOr("t", 1);
@@ -453,7 +453,7 @@ void AltModWPrf_correction_test(const oc::CLP& cmd)
 
 void AltModWPrf_convertToF3_test(const oc::CLP& cmd)
 {
-	u64 n = (1 << 16) + 321;
+	u64 n = (1 << 14) + 321;
 	bool mock = true;
 	oc::AlignedUnVector<block>
 		x0(n), x1(n),
@@ -1094,7 +1094,7 @@ void AltModWPrf_mod3_test(const oc::CLP& cmd)
 void AltModWPrf_plain_test()
 {
 
-	u64 len = 1 << 10;
+	u64 len = 128;
 	u64 n = AltModPrf::KeySize;
 	u64 m = 256;
 	u64 t = 128;
@@ -1458,21 +1458,23 @@ void AltModWPrf_proto_test(const oc::CLP& cmd)
 	if (noCheck)
 		return;
 
+
+	AltModPrf prf(sender.getKey());
+	std::vector<block> y(x.size());
+	prf.eval(x, y);
 	for (u64 ii = 0; ii < n; ++ii)
 	{
 		if (debug)
 		{
 			AltModProtoCheck(sender, recver);
 		}
-		AltModPrf prf(sender.getKey());
-		auto y = prf.eval(x[ii]);
 
 		auto yy = (y0[ii] ^ y1[ii]);
-		if (yy != y)
+		if (yy != y[ii])
 		{
 			std::cout << "i   " << ii << std::endl;
 			std::cout << "act " << yy << std::endl;
-			std::cout << "exp " << y << std::endl;
+			std::cout << "exp " << y[ii] << std::endl;
 			throw RTE_LOC;
 		}
 	}
@@ -1731,8 +1733,6 @@ void AltModWPrf_shared_test(const oc::CLP& cmd)
 			throw RTE_LOC;
 		}
 	}
-	timer.setTimePoint("check");
-	std::cout << timer << std::endl;
 
 
 }

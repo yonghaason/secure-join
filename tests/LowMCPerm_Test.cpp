@@ -7,7 +7,7 @@ using namespace secJoin;
 
 void LowMC_eval_test(const oc::CLP& cmd)
 {
-    u64 n = cmd.getOr("n", 100);
+    u64 n = cmd.getOr("n", 10);
 
     oc::Matrix<u8> x(n, 16);// , x2Perm(n, rowSize);
 

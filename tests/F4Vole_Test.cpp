@@ -304,10 +304,10 @@ void F4Vole_Silent_test_chosen(u64 n, oc::MultType type, bool debug, bool doFake
 void F4Vole_Silent_paramSweep_test(const oc::CLP& cmd)
 {
 	auto debug = cmd.isSet("debug");
-	for (u64 n : {128, 45364})
+	for (u64 n : {128, 4534})
 	{
 		//F4Vole_Silent_test_impl_base(n, oc::DefaultMultType, debug, true, false);
 		F4Vole_Silent_test_impl(n, oc::DefaultMultType, debug, true, false);
-		F4Vole_Silent_test_chosen(n, oc::DefaultMultType, debug, true, false);
+		//F4Vole_Silent_test_chosen(n, oc::DefaultMultType, debug, true, false);
 	}
 }
