@@ -408,13 +408,11 @@ namespace secJoin {
     {
         BetaBundle& a = mWhBundle[inIndex1].mBundle;
         BetaBundle& b = mWhBundle[inIndex2].mBundle;
-        u64 aSize = mWhBundle[inIndex1].mBundle.size();
-        u64 bSize = mWhBundle[inIndex2].mBundle.size();
         WhType typeIndex1 = mWhBundle[inIndex1].mType;
         WhType typeIndex2 = mWhBundle[inIndex2].mType;
         c.resize(1);
 
-        assert(aSize == bSize);
+        assert(mWhBundle[inIndex1].mBundle.size() == mWhBundle[inIndex2].mBundle.size());
 
         if (typeIndex1 == WhType::Number || typeIndex1 == WhType::String)
         {
@@ -703,7 +701,7 @@ namespace secJoin {
         {
             u64 index = getMapVal(map, gateInputIndex);
             // 
-            if (index == -1)
+            if (index == ~0ull)
                 return 0;
             BinMatrix temp = st[index].mCol.mData;
             // return temp.bitsPerEntry();

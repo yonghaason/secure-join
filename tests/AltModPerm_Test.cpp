@@ -31,7 +31,7 @@ void AltModPerm_setup_test(const oc::CLP& cmd)
     AltModPerm0.mPrfRecver.mDebug = debug;
     AltModPerm1.mPrfSender.mDebug = debug;
 
-    for (auto invPerm : { PermOp::Regular,PermOp::Inverse })
+    //for (auto invPerm : { PermOp::Regular,PermOp::Inverse })
     {
 
         ole0.init(sock[0].fork(), prng0, 0, 1, 1 << 18, cmd.getOr("mock", 1));

@@ -354,15 +354,14 @@ void Average_avg_Test(const oc::CLP& cmd)
 void Average_avg_BigKey_Test(const oc::CLP& cmd)
 {
     throw oc::UnitTestSkipped("not functional");
-    u64 nT = cmd.getOr("nT", 10);
-    Table T;
+    //u64 nT = cmd.getOr("nT", 10);
+    //Table T;
 
-    bool printSteps = cmd.isSet("print");
-    bool mock = cmd.getOr("mock", 1);
+    //bool printSteps = cmd.isSet("print");
+    //bool mock = cmd.getOr("mock", 1);
 
-    std::vector<oc::u64> joinCols, selectCols, groupByCols, avgCols;
-    u64 startIndex = 0;
-    throw RTE_LOC;
+    //std::vector<oc::u64> joinCols, selectCols, groupByCols, avgCols;
+    //u64 startIndex = 0;
     //parseColsArray(joinCols, selectCols, groupByCols, avgCols, opInfo, startIndex, printSteps);
     //updateSelectCols(selectCols, groupByCols, avgCols, printSteps);
 

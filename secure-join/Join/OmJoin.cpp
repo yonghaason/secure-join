@@ -155,10 +155,10 @@ namespace secJoin
         span<BinMatrix*> cols,
         span<Offset> offsets)
     {
-        auto m = cols.size();
+        //auto m = cols.size();
         //auto n = cols[0]->rows();
         //auto d0 = dst.data();
-        auto e0 = dst.data() + dst.size();
+        //auto e0 = dst.data() + dst.size();
 
         //std::vector<u64>
         //    offsets,
@@ -198,7 +198,7 @@ namespace secJoin
             //auto step = cols[j]->bytesPerEntry();
             for (u64 i = 0; i < n; ++i)
             {
-                assert(d0 + size <= e0);
+                assert(d0 + size <= dst.data() + dst.size());
                 memcpy(d0, src, size);
 
                 src += size;
@@ -226,8 +226,7 @@ namespace secJoin
         {
             if (&leftJoinCol.mTable == &selects[i].mTable)
             {
-                auto bytes = oc::divCeil(selects[i].mCol.getBitCount(), 8);
-                assert(bytes == selects[i].mCol.getByteCount());
+                assert(oc::divCeil(selects[i].mCol.getBitCount(), 8) == selects[i].mCol.getByteCount());
                 assert(selects[i].mCol.rows() == n0);
 
                 left.emplace_back(&selects[i].mCol.mData);

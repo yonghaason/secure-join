@@ -523,67 +523,67 @@ void Where_ArrType_Not_Equals_Test(const oc::CLP& cmd)
 
 void Where_Cross_ArrType_Test(const oc::CLP& cmd)
 {
-    u64 nT = cmd.getOr("nT", 10);
-    bool printSteps = cmd.isSet("print");
-    bool mock = !cmd.isSet("noMock");
-    Table T;
+    throw oc::UnitTestSkipped("non-functional");// not impl
+    //u64 nT = cmd.getOr("nT", 10);
+    //bool printSteps = cmd.isSet("print");
+    //bool mock = !cmd.isSet("noMock");
+    //Table T;
 
-    T.init(nT, { {
-        {"T0", TypeID::IntID, 16},
-        {"T1", TypeID::IntID, 16},
-        {"T2", TypeID::IntID, 8},
-        {"T3", TypeID::IntID, 8},
-        {"T4", TypeID::StringID, 128},
-        {"T5", TypeID::StringID, 96}
-    } });
+    //T.init(nT, { {
+    //    {"T0", TypeID::IntID, 16},
+    //    {"T1", TypeID::IntID, 16},
+    //    {"T2", TypeID::IntID, 8},
+    //    {"T3", TypeID::IntID, 8},
+    //    {"T4", TypeID::StringID, 128},
+    //    {"T5", TypeID::StringID, 96}
+    //} });
 
-    T.mIsActive.resize(nT);
-    for (u64 i = 0; i < nT; i++)
-        T.mIsActive[i] = (u8)1;
+    //T.mIsActive.resize(nT);
+    //for (u64 i = 0; i < nT; i++)
+    //    T.mIsActive[i] = (u8)1;
 
-    std::string comparisionString = "TestString";
-    std::string comparisionString1 = "ldetbjfejb";
-    for (u64 i = 0; i < nT; ++i)
-    {
-        T.mColumns[0].mData.mData(i, 0) = -1 * (i % 3);
-        T.mColumns[1].mData.mData(i, 0) = i % 4;
-        T.mColumns[2].mData.mData(i, 0) = i % 4;
-        T.mColumns[3].mData.mData(i, 0) = -1 * (i % 5);
-        if (i % 3 == 0)
-            memcpy(T.mColumns[4].mData.data(i), comparisionString.data(), comparisionString.size());
-        else
-            memcpy(T.mColumns[4].mData.data(i), comparisionString1.data(), comparisionString1.size());
-        if (i % 4 == 0)
-            memcpy(T.mColumns[5].mData.data(i), comparisionString.data(), comparisionString.size());
-    }
+    //std::string comparisionString = "TestString";
+    //std::string comparisionString1 = "ldetbjfejb";
+    //for (u64 i = 0; i < nT; ++i)
+    //{
+    //    T.mColumns[0].mData.mData(i, 0) = -1 * (i % 3);
+    //    T.mColumns[1].mData.mData(i, 0) = i % 4;
+    //    T.mColumns[2].mData.mData(i, 0) = i % 4;
+    //    T.mColumns[3].mData.mData(i, 0) = -1 * (i % 5);
+    //    if (i % 3 == 0)
+    //        memcpy(T.mColumns[4].mData.data(i), comparisionString.data(), comparisionString.size());
+    //    else
+    //        memcpy(T.mColumns[4].mData.data(i), comparisionString1.data(), comparisionString1.size());
+    //    if (i % 4 == 0)
+    //        memcpy(T.mColumns[5].mData.data(i), comparisionString.data(), comparisionString.size());
+    //}
 
-    std::vector<std::string> literals = { "T0", "T1", "T2", "T3", "T4", "T5", comparisionString,
-        "1", "-4" };
-    std::vector<std::string> literalsType = { WHBUNDLE_COL_TYPE, WHBUNDLE_COL_TYPE, WHBUNDLE_COL_TYPE,
-        WHBUNDLE_COL_TYPE, WHBUNDLE_COL_TYPE, WHBUNDLE_COL_TYPE, WHBUNDLE_STRING_TYPE,
-        WHBUNDLE_NUM_TYPE, WHBUNDLE_NUM_TYPE };
+    //std::vector<std::string> literals = { "T0", "T1", "T2", "T3", "T4", "T5", comparisionString,
+    //    "1", "-4" };
+    //std::vector<std::string> literalsType = { WHBUNDLE_COL_TYPE, WHBUNDLE_COL_TYPE, WHBUNDLE_COL_TYPE,
+    //    WHBUNDLE_COL_TYPE, WHBUNDLE_COL_TYPE, WHBUNDLE_COL_TYPE, WHBUNDLE_STRING_TYPE,
+    //    WHBUNDLE_NUM_TYPE, WHBUNDLE_NUM_TYPE };
 
-    std::unordered_map<u64, u64> map;
-    for (oc::u64 i = 0; i < T.cols(); i++)
-        map[i] = i;
+    //std::unordered_map<u64, u64> map;
+    //for (oc::u64 i = 0; i < T.cols(); i++)
+    //    map[i] = i;
 
 
-    auto sock = coproto::LocalAsyncSocket::makePair();
-    CorGenerator ole0, ole1;
-    PRNG prng0(oc::ZeroBlock);
-    PRNG prng1(oc::ZeroBlock);
-    ole0.init(sock[0].fork(), prng0, 0, 1, 1 << 16, mock);
-    ole1.init(sock[1].fork(), prng1, 1, 1, 1 << 16, mock);
+    //auto sock = coproto::LocalAsyncSocket::makePair();
+    //CorGenerator ole0, ole1;
+    //PRNG prng0(oc::ZeroBlock);
+    //PRNG prng1(oc::ZeroBlock);
+    //ole0.init(sock[0].fork(), prng0, 0, 1, 1 << 16, mock);
+    //ole1.init(sock[1].fork(), prng1, 1, 1, 1 << 16, mock);
 
-    // Col1 < Col2 && Col3 == Const
-    std::vector<ArrGate> gates1 = {
-        {ArrGateType::LESS_THAN, 0, 1, 9} ,
-        {ArrGateType::EQUALS, 0, 3, 10} ,
-        {ArrGateType::AND, 9, 10, 11} };
+    //// Col1 < Col2 && Col3 == Const
+    //std::vector<ArrGate> gates1 = {
+    //    {ArrGateType::LESS_THAN, 0, 1, 9} ,
+    //    {ArrGateType::EQUALS, 0, 3, 10} ,
+    //    {ArrGateType::AND, 9, 10, 11} };
 
-    std::vector<std::vector<ArrGate>> gates = { gates1 };
+    //std::vector<std::vector<ArrGate>> gates = { gates1 };
 
-    throw oc::UnitTestSkipped("needs harshal");// not impl
     //for (u64 i = 0; i < gates.size(); i++)
     //{
 

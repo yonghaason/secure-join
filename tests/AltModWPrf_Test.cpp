@@ -202,7 +202,7 @@ void AltModWPrf_sampleMod3_test(const oc::CLP& cmd)
 			u64 exp = N / 3;
 			u64 eps = std::sqrt(N);
 			for (auto c : counts)
-				if ((c < exp - eps || c > exp + eps) && n > 200)
+				if ((c < (exp - eps) || c > (exp + eps)) && n > 200)
 				{
 					failed = true;
 				}
@@ -234,7 +234,7 @@ void AltModWPrf_sampleMod3_test(const oc::CLP& cmd)
 			u64 exp = N / 3;
 			u64 eps = 2 * std::sqrt(N);
 			for (auto c : counts)
-				if ((c < exp - eps || c > exp + eps) && n > 200)
+				if ((c < (exp - eps) || c > (exp + eps)) && n > 200)
 				{
 					//std::cout << "{ " << counts[0] << ", " << counts[1] << ", " << counts[2] << "}" << std::endl;
 					//std::cout << "exp = " << exp << " eps = " << eps << std::endl;

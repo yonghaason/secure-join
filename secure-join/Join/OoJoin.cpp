@@ -22,7 +22,7 @@ namespace secJoin
 		PRNG& prng,
 		bool remDummiesFlag)
 	{
-		u64 rows = schema.mLeftSize + schema.mRightSize;
+		//u64 rows = schema.mLeftSize + schema.mRightSize;
 
 		auto keySize = std::min<u64>(
 			schema.mKey.mBitCount,
@@ -57,7 +57,7 @@ namespace secJoin
 
 		if (mPartyIdx)
 		{
-			AltModPrf::KeyType keyShare = prng.get();
+			//AltModPrf::KeyType keyShare = prng.get();
 			throw RTE_LOC;
 			//mSendHasher.init(schema.mLeftSize + schema.mRightSize, ole, keyShare);
 			mPermGenSend.init(schema.mRightSize, mDataBitsPerEntry, ole);
@@ -65,7 +65,7 @@ namespace secJoin
 		}
 		else
 		{
-			AltModPrf::KeyType keyShare = prng.get();
+			//AltModPrf::KeyType keyShare = prng.get();
 			throw RTE_LOC;
 			//mRecvHasher.init(schema.mLeftSize + schema.mRightSize, ole, keyShare);
 			mPermGenRecv.init(schema.mRightSize, mDataBitsPerEntry, ole);
@@ -195,7 +195,7 @@ namespace secJoin
 		if (mPartyIdx)
 		{
 
-			mSendHasher;
+			//mSendHasher;
 		}
 		else
 		{

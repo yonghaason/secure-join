@@ -5,8 +5,7 @@ Type;Text\n\
 Rows;7\n\
 Cols;2\n\
 PAN;INT;8\n\
-Risk_Score;INT;4\n\
-");
+Risk_Score;INT;4\n");
 
 const std::istringstream visa_csv("\
 PAN;Risk_Score\n\
@@ -16,5 +15,4 @@ PAN;Risk_Score\n\
 2490717994;100\n\
 4567664634;100\n\
 3136665904;90\n\
-4953106736;100\n\
-");
+4953106736;100\n");

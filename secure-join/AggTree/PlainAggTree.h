@@ -333,14 +333,14 @@ namespace secJoin
 					{
 						auto& v = parent.mPreVal[i];
 						auto& v0 = childUp.mPreVal[i * 2];
-						auto& v1 = childUp.mPreVal[i * 2 + 1];
+						//auto& v1 = childUp.mPreVal[i * 2 + 1];
 						auto& d0 = childDn.mPreVal[i * 2];
 						auto& d1 = childDn.mPreVal[i * 2 + 1];
 						auto p0 = childUp.mPreBit[i * 2];
 
 						assert(v.size());
 						assert(v0.size());
-						assert(v1.size());
+						//assert(v1.size());
 
 						d1 = p0 ? op(v, v0) : v0;
 						d0 = v;

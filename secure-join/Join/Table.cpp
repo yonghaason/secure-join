@@ -387,7 +387,7 @@ namespace secJoin
         for (i64 row = n0 - 1; row >= 0; row--)
         {
 
-            if( (row < n0 - 1) && !eq(groupByCol.mCol.mData[row], groupByCol.mCol.mData[row + 1]))
+            if( (row < i64(n0) - 1) && !eq(groupByCol.mCol.mData[row], groupByCol.mCol.mData[row + 1]))
             {
                 copyTableEntry(out, groupByCol, avgCol, inputs, actFlag, row + 1);
 

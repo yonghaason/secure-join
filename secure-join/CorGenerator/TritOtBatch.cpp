@@ -122,8 +122,8 @@ namespace secJoin
 		else
 		{
 			std::array<block, 2> lsb, msb;
-			lsb[0] = block(12342342342134231234, 2342341234123421341) & oc::CCBlock;;
-			lsb[1] = block(13563456435643564356, 5734542341345236357) & oc::CCBlock;;
+			lsb[0] = block(12342342342134231234ull, 2342341234123421341ull) & oc::CCBlock;;
+			lsb[1] = block(13563456435643564356ull, 5734542341345236357ull) & oc::CCBlock;;
 			msb[0] = ~lsb[0] & oc::CCBlock;
 			msb[1] = ~lsb[1] & oc::CCBlock;
 
@@ -158,9 +158,9 @@ namespace secJoin
 		else
 		{
 			std::array<block, 2> lsb, msb;
-			block choice = block(343524129893458929, 2453289232749293483);
-			lsb[0] = block(12342342342134231234, 2342341234123421341) & oc::CCBlock;;
-			lsb[1] = block(13563456435643564356, 5734542341345236357) & oc::CCBlock;;
+			block choice = block(343524129893458929ull, 2453289232749293483ull);
+			lsb[0] = block(12342342342134231234ull, 2342341234123421341ull) & oc::CCBlock;;
+			lsb[1] = block(13563456435643564356ull, 5734542341345236357ull) & oc::CCBlock;;
 			msb[0] = ~lsb[0] & oc::CCBlock;
 			msb[1] = ~lsb[1] & oc::CCBlock;
 
@@ -169,7 +169,7 @@ namespace secJoin
 
 			for (u64 i = 0; i < m; ++i)
 			{
-				mChoice[i] = choice ^ block(i << 32 + i, i << 32 + i);
+				mChoice[i] = choice ^ block((i << 32) + i, (i << 32) + i);
 				mLsb[i] = (lsb[0] & ~mChoice[i]) ^ (lsb[1] & mChoice[i]);
 				mMsb[i] = (msb[0] & ~mChoice[i]) ^ (msb[1] & mChoice[i]);
 			}
@@ -491,8 +491,7 @@ namespace secJoin
 			oc::mAesFixedKey.hashBlocks<8>(aa.data(), s);
 			sample8Mod3(s, *msbIter[0], *lsbIter[0]);
 
-			auto diff = (*msbIter[0] & *lsbIter[0]);
-			assert(diff == 0);
+			assert((*msbIter[0] & *lsbIter[0]) == 0);
 
 			msbIter[0]++;
 			lsbIter[0]++;

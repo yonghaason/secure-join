@@ -22,7 +22,7 @@ namespace secJoin
 
 		u64 trials = cmd.getOr("trials", 1);
 
-		bool gen = cmd.isSet("gen");
+		//bool gen = cmd.isSet("gen");
 
 		u64 chunk = cmd.getOr("chunk", 5);
 
@@ -609,7 +609,7 @@ namespace secJoin
 		u64 n = cmd.getOr("n", 1ull << cmd.getOr("nn", 10));
 		u64 rowSize = cmd.getOr("m", 16);
 		u64 b = cmd.getOr("b", 16);
-		bool debug = cmd.isSet("debug");
+		//bool debug = cmd.isSet("debug");
 		u64 nt = cmd.getOr("nt", 1);
 		// bool invPerm = false;
 
@@ -730,6 +730,8 @@ namespace secJoin
 
 			for (u64 tt : stdv::iota(0, t))
 			{
+				(void)tt;
+
 				if (n % 128)
 					throw RTE_LOC;
 				oc::AlignedUnVector<block>x(n);
@@ -754,6 +756,7 @@ namespace secJoin
 
 			for (u64 tt : stdv::iota(0, t))
 			{
+				(void)tt;
 				oc::AlignedUnVector<block>x(n);
 				oc::Matrix<block>y(4 * 128, n / 128);
 
@@ -777,6 +780,7 @@ namespace secJoin
 
 			for (u64 tt : stdv::iota(0, t))
 			{
+				(void)tt;
 				oc::AlignedUnVector<block>x(n);
 				oc::Matrix<block>y(4 * 128, n / 128);
 
