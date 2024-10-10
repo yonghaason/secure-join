@@ -38,8 +38,11 @@ run(NAME "libOTe Checkout ${GIT_TAG} " CMD ${CHECKOUT_CMD}  WD ${CLONE_DIR})
 run(NAME "libOTe submodule"       CMD ${SUBMODULE_CMD} WD ${CLONE_DIR})
 
 option(ENABLE_CIRCUITS " " true)
-option(ENABLE_CIRCUITS " " true)
-option(ENABLE_MRR " " true)
+if(ENABLE_MOCK_OT)
+else()
+    option(ENABLE_MRR " " true)
+endif()
+
 option(ENABLE_IKNP " " true)
 option(ENABLE_SOFTSPOKEN_OT " " true)
 option(ENABLE_SILENTOT " " true)
