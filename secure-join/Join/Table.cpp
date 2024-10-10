@@ -572,8 +572,7 @@ namespace secJoin
             return;
 
         u64 m = avgCol.size();
-        u64 totRows = out.rows();
-        assert(row < totRows);
+        assert(row < out.rows());
         // Copying the groupby column
         assert(out.mColumns[0].mData.cols() == groupByCol.mCol.mData.cols());
         memcpy(out.mColumns[0].mData.data(row),

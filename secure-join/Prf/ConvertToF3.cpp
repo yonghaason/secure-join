@@ -254,8 +254,8 @@ namespace secJoin
 				auto tMsb = trit.mMsb[0].data()[i] ^ trit.mMsb[1].data()[i];
 
 				//  if(cor) swap(s1,s0)
-				auto s0Lsb = (correction[i] & tLsb) ^ trit.mLsb[0][i];
-				auto s0Msb = (correction[i] & tMsb) ^ trit.mMsb[0][i];
+				auto s0Lsb = (cr[i] & tLsb) ^ trit.mLsb[0].data()[i];
+				auto s0Msb = (cr[i] & tMsb) ^ trit.mMsb[0].data()[i];
 				auto s1Lsb = s0Lsb ^ tLsb;
 				auto s1Msb = s0Msb ^ tMsb;
 				//auto xi = x[i];

@@ -195,7 +195,7 @@ void F4Vole_Silent_test_impl(u64 n, oc::MultType type, bool debug, bool doFakeBa
 
 			for (u64 j = 0; j < 8; ++j)
 			{
-				F exp, ai, bi;
+				//F ai, bi;
 				G ci = { static_cast<u8>(a[i+j].get<u8>(0) & 3) };
 
 				if ((ci.mVal & 1) != lsb[j])

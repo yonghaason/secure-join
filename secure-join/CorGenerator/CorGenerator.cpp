@@ -90,10 +90,10 @@ namespace secJoin
 
 	macoro::task<> GenState::start(std::shared_ptr<GenState> This)
 	{
-		auto i = u64{};
-		auto j = u64{};
-		auto r = u64{};
-		auto s = u64{};
+		//auto i = u64{};
+		//auto j = u64{};
+		//auto r = u64{};
+		//auto s = u64{};
 		auto base = BaseCor{};
 		auto protos = std::vector<macoro::task<>>{};
 		auto tasks = std::vector<macoro::eager_task<>>{};
@@ -114,7 +114,7 @@ namespace secJoin
 
 		// make base OT requests
 		reqs.reserve(mBatches.size());
-		for (i = 0; i < mBatches.size();++i)
+		for (auto i = 0ull; i < mBatches.size();++i)
 		{
 			auto& batch = *mBatches[i];
 			if (!batch.mSize)
@@ -125,7 +125,7 @@ namespace secJoin
 		if (mDebug)
 		{
 
-			for (i = 0; i < mReqs.size(); ++i)
+			for (auto i = 0ull; i < mReqs.size(); ++i)
 			{
 				co_await(mSock.send(coproto::copy(mReqs)));
 				co_await(mSock.recvResize(theirReq));
@@ -136,7 +136,7 @@ namespace secJoin
 			{
 				std::lock_guard<std::mutex> lock(oc::gIoStreamMtx);
 				std::cout << "party " << mPartyIdx << std::endl;
-				for (i = 0; i < mReqs.size();++i)
+				for (auto i = 0ull; i < mReqs.size();++i)
 				{
 					bool failed = false;
 					ReqInfo exp = { CorType::Ole,0,0 };
@@ -228,7 +228,7 @@ namespace secJoin
 			}
 		}
 
-		for (i = 0; i < protos.size(); ++i)
+		for (auto i = 0ull; i < protos.size(); ++i)
 		{
 			if (mPool)
 				tasks.emplace_back(std::move(protos[i]) | macoro::start_on(*mPool));
@@ -238,7 +238,7 @@ namespace secJoin
 			//co_await(tasks.back());
 		}
 
-		for (i = 0; i < tasks.size(); ++i)
+		for (auto i = 0ull; i < tasks.size(); ++i)
 			co_await(tasks[i]);
 
 		setTimePoint("GenState::base");
@@ -247,7 +247,7 @@ namespace secJoin
 
 
 
-		for (i = 0, r = 0, s = 0, j = -mNumConcurrent + 1; j != mBatches.size(); ++i, ++j)
+		for (auto i = 0ull, r = 0ull, s = 0ull, j = -mNumConcurrent + 1; j != mBatches.size(); ++i, ++j)
 		{
 			if (i < mBatches.size())
 			{

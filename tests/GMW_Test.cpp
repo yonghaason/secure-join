@@ -38,7 +38,7 @@ namespace secJoin_Tests
         PRNG prng(seed);
 
         u64 n = cmd.getOr("n", 100ull);
-        u64 bc = cmd.getOr("bc", 16);
+        //u64 bc = cmd.getOr("bc", 16);
         //        u64 eqSize = cmd.getOr("e", n / 2);
 
         CorGenerator gen0, gen1;

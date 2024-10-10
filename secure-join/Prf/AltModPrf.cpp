@@ -385,7 +385,7 @@ namespace secJoin
 	{
 		X[0] = x;
 		constexpr const auto rem = KeyType{}.size() - 1;
-		for (auto i = 0; i < rem; ++i)
+		for (auto i = 0ull; i < rem; ++i)
 			mGCode[i].encode((u8*)&x, (u8*)&X[i + 1]);
 	}
 
@@ -519,7 +519,7 @@ namespace secJoin
 				{
 					block* __restrict src = &xt(expandInput3Perm[j], k);
 					block* __restrict dst = &xt(expandInput3Perm[j + 1], k);
-					for (auto q = 0; q < d; ++q)
+					for (auto q = 0ull; q < d; ++q)
 					{
 						dst[q] = dst[q] ^ src[q];
 					}

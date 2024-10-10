@@ -46,10 +46,10 @@ void CorGenerator_F4BitOt_Test(const oc::CLP& cmd)
 			for (u64 i = 0; i < sot.size() / 128; ++i)
 			{
 				auto exp =
-					sot.mOts[0][i] & (~rot.mChoiceMsb[i]) & (~rot.mChoiceLsb[i]) ^
-					sot.mOts[1][i] & (~rot.mChoiceMsb[i]) & (rot.mChoiceLsb[i]) ^
-					sot.mOts[2][i] & (rot.mChoiceMsb[i]) & (~rot.mChoiceLsb[i]) ^
-					sot.mOts[3][i] & (rot.mChoiceMsb[i]) & (rot.mChoiceLsb[i]);
+					(sot.mOts[0][i] & (~rot.mChoiceMsb[i]) & (~rot.mChoiceLsb[i])) ^
+					(sot.mOts[1][i] & (~rot.mChoiceMsb[i]) & (rot.mChoiceLsb[i])) ^
+					(sot.mOts[2][i] & (rot.mChoiceMsb[i]) & (~rot.mChoiceLsb[i])) ^
+					(sot.mOts[3][i] & (rot.mChoiceMsb[i]) & (rot.mChoiceLsb[i]));
 
 				if (exp != rot.mOts[i])
 					throw RTE_LOC;

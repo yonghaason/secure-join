@@ -285,7 +285,6 @@ namespace secJoin
 		auto buffer = oc::AlignedUnVector<u8>{};
 		auto f = oc::BitVector{};
 		auto diff = oc::BitVector{};
-		auto i = u64{};
 		auto ole = BinOleRequest{};
 		auto u0 = oc::Matrix<block>{};
 		auto u1 = oc::Matrix<block>{};
@@ -692,7 +691,6 @@ namespace secJoin
 		coproto::Socket& sock)
 	{
 		auto triple = BinOle{};
-		auto tIter = std::vector<BinOle>::iterator{};
 		auto tIdx = u64{};
 		auto tSize = u64{};
 		auto i = u64{};

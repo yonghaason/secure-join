@@ -701,8 +701,10 @@ namespace secJoin
                         auto s0 = ((u8*)src[k].data()) + srcStart;
                         auto d0 = ((u8*)dst[k].data()) + dstStart;
                         //auto max = src[k].size() * sizeof(*src[k].data());
+#ifndef NDEBUG
                         auto es = (u8*)(src[k].data() + src[k].size());
                         auto ed = (u8*)(dst[k].data() + dst[k].size());
+#endif
                         //assert(dstStart + size < max);
                         assert(d0 + size <= ed);
                         assert(s0 + size <= es);

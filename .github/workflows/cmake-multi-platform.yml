@@ -29,11 +29,11 @@ jobs:
             submodules: recursive
             
       - name: build
-        run:  python3 build.py  -DENABLE_MOCK_OT=true -DENABLE_RELIC=false -DENABLE_SODIUM=false
+        run:  python3 build.py  -DENABLE_MOCK_OT=true -DENABLE_RELIC=false -DENABLE_SODIUM=false -
 
       - name: unit tests
         run: |
-             ./out/build/linux/frontend/frontend_libOTe -u
+             ./out/build/linux/frontend/secJoinfrontend -u
 
       # - name: find source tree
       #   run: |
@@ -158,7 +158,7 @@ jobs:
 
         
       - name: unit test
-        run:  ./out/build/x64-Release/frontend/frontend_libOTe.exe -u
+        run:  ./out/build/x64-Release/frontend/secJoinfrontend.exe -u
           
       # - name: find source tree
       #   run: |
