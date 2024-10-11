@@ -17,6 +17,5 @@ namespace secJoin
 
     void PprfPerm_benchmark(const oc::CLP& cmd);
     void transpose_benchmark(const oc::CLP& cmd);
-    void aes_benchmark(const oc::CLP& cmd);
 
 }

@@ -1,7 +1,8 @@
 #pragma once
 #include "secure-join/Defines.h"
+#ifdef ENABLE_SSE
 #include <immintrin.h>
-
+#endif
 
 
 namespace secJoin

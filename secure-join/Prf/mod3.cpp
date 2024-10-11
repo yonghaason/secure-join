@@ -841,8 +841,8 @@ namespace secJoin
 			auto s = std::min<u64>(msbVec.size() - i, lsbSum.size() * 2);
 			assert(lsbIter + s <= lsbVec.data() + lsbVec.size());
 			assert(msbIter + s <= msbVec.data() + msbVec.size());
-			memcpy(lsbIter, lsbSum.data(), s * sizeof(__m128i));
-			memcpy(msbIter, msbSum.data(), s * sizeof(__m128i));
+			memcpy(lsbIter, lsbSum.data(), s * sizeof(block));
+			memcpy(msbIter, msbSum.data(), s * sizeof(block));
 			lsbIter += s;
 			msbIter += s;
 
@@ -877,7 +877,7 @@ namespace secJoin
 			// compute the index of the "first" valid mod3 sample. 
 			// "first" here is defined as begin closest to the msb. 
 			// we do this by counting the number of leading zeros.
-			auto idx = 63 - __lzcnt64(valid);
+			auto idx = 63 - oc::countl_zero(valid);
 			auto l = (lsbs >> idx) & 1;
 			auto m = (msbs >> idx) & 1;
 

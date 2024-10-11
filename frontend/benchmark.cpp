@@ -979,42 +979,4 @@ namespace secJoin
 	}
 
 }
-#ifdef _WIN32
-#include <intrin.h>
-#else
-#include <x86intrin.h>
-#endif
 
-
-
-namespace secJoin{
-
-
-	void aes_benchmark(const oc::CLP& cmd)
-	{
-		u64 n = cmd.getOr("n", 256);
-		u64 t = cmd.getOr("t", 256);
-
-		oc::AlignedUnVector<block> buff(n);
-		oc::Timer timer;
-		auto b = timer.setTimePoint("b");
-		auto cBegin = __rdtsc();
-
-		for (u64 tt = 0; tt < t; ++tt)
-		{
-			oc::mAesFixedKey.ecbEncCounterMode(0, n, buff.data());
-		}
-		auto cEnd = __rdtsc();
-		auto e = timer.setTimePoint("b");
-
-		auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(e - b).count();
-		ms = std::max<u64>(ms, 1);
-
-		std::cout << "aes n:" << n << ", " << ms << "ms " << std::endl <<
-			n * t * 16 / ms << "KB/second " << std::endl
-			<< "cycles/byte: " << double(cEnd - cBegin) / t / n / 16 << std::endl;
-
-	}
-
-
-}
