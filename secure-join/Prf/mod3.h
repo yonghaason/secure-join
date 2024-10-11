@@ -9,7 +9,7 @@ namespace secJoin
     extern const std::array<u32, 256> mod3TableV;
     extern const std::array<u32, 256> mod3TableLsb;
     extern const std::array<u32, 256> mod3TableMsb;
-    extern std::array<std::array<u8, 5>, 256> const mod3TableFull;
+    //extern std::array<std::array<u8, 5>, 256> const mod3TableFull;
 
     // z =  x + y mod 3
     OC_FORCEINLINE void mod3Add(

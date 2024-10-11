@@ -1,6 +1,8 @@
 #include "F4BitOtBatch.h"
 #include "CorGenerator.h"
 #include "secure-join/Util/match.h"
+#include "secure-join/Util/Simd.h"
+
 namespace secJoin
 {
 
@@ -439,8 +441,6 @@ namespace secJoin
 		corReady.set();
 	}
 
-
-
 	// the first two bits of A is the choice bit of the VOLE.
 
 	void F4BitOtBatch::RecvBatch::compressRecver(
@@ -470,14 +470,14 @@ namespace secJoin
 			for (u64 j = 0; j < 2; ++j)
 			{
 				// extract the choice bit from the LSB of m
-				_mm_storeu_si32(&lsb[0], m[0] & OneBlock);
-				_mm_storeu_si32(&lsb[1], m[1] & OneBlock);
-				_mm_storeu_si32(&lsb[2], m[2] & OneBlock);
-				_mm_storeu_si32(&lsb[3], m[3] & OneBlock);
-				_mm_storeu_si32(&lsb[4], m[4] & OneBlock);
-				_mm_storeu_si32(&lsb[5], m[5] & OneBlock);
-				_mm_storeu_si32(&lsb[6], m[6] & OneBlock);
-				_mm_storeu_si32(&lsb[7], m[7] & OneBlock);
+				storeu_si32(&lsb[0], m[0] & OneBlock);
+				storeu_si32(&lsb[1], m[1] & OneBlock);
+				storeu_si32(&lsb[2], m[2] & OneBlock);
+				storeu_si32(&lsb[3], m[3] & OneBlock);
+				storeu_si32(&lsb[4], m[4] & OneBlock);
+				storeu_si32(&lsb[5], m[5] & OneBlock);
+				storeu_si32(&lsb[6], m[6] & OneBlock);
+				storeu_si32(&lsb[7], m[7] & OneBlock);
 
 				assert(lsb[0] == (m[0].get<u64>(0) & 1));
 
@@ -494,14 +494,14 @@ namespace secJoin
 
 				// extract the choice bit from the MSB of m
 
-				_mm_storeu_si32(&msb[0], m[0] & TwoBlock);
-				_mm_storeu_si32(&msb[1], m[1] & TwoBlock);
-				_mm_storeu_si32(&msb[2], m[2] & TwoBlock);
-				_mm_storeu_si32(&msb[3], m[3] & TwoBlock);
-				_mm_storeu_si32(&msb[4], m[4] & TwoBlock);
-				_mm_storeu_si32(&msb[5], m[5] & TwoBlock);
-				_mm_storeu_si32(&msb[6], m[6] & TwoBlock);
-				_mm_storeu_si32(&msb[7], m[7] & TwoBlock);
+				storeu_si32(&msb[0], m[0] & TwoBlock);
+				storeu_si32(&msb[1], m[1] & TwoBlock);
+				storeu_si32(&msb[2], m[2] & TwoBlock);
+				storeu_si32(&msb[3], m[3] & TwoBlock);
+				storeu_si32(&msb[4], m[4] & TwoBlock);
+				storeu_si32(&msb[5], m[5] & TwoBlock);
+				storeu_si32(&msb[6], m[6] & TwoBlock);
+				storeu_si32(&msb[7], m[7] & TwoBlock);
 
 				assert(msb[0] == (m[0].get<u64>(0) & 2));
 
@@ -535,22 +535,22 @@ namespace secJoin
 			}
 			m -= 16;
 
-			block a00 = _mm_shuffle_epi8(m[0], shuffle[0]);
-			block a01 = _mm_shuffle_epi8(m[1], shuffle[1]);
-			block a02 = _mm_shuffle_epi8(m[2], shuffle[2]);
-			block a03 = _mm_shuffle_epi8(m[3], shuffle[3]);
-			block a04 = _mm_shuffle_epi8(m[4], shuffle[4]);
-			block a05 = _mm_shuffle_epi8(m[5], shuffle[5]);
-			block a06 = _mm_shuffle_epi8(m[6], shuffle[6]);
-			block a07 = _mm_shuffle_epi8(m[7], shuffle[7]);
-			block a08 = _mm_shuffle_epi8(m[8], shuffle[8]);
-			block a09 = _mm_shuffle_epi8(m[9], shuffle[9]);
-			block a10 = _mm_shuffle_epi8(m[10], shuffle[10]);
-			block a11 = _mm_shuffle_epi8(m[11], shuffle[11]);
-			block a12 = _mm_shuffle_epi8(m[12], shuffle[12]);
-			block a13 = _mm_shuffle_epi8(m[13], shuffle[13]);
-			block a14 = _mm_shuffle_epi8(m[14], shuffle[14]);
-			block a15 = _mm_shuffle_epi8(m[15], shuffle[15]);
+			block a00 = shuffle_epi8(m[0], shuffle[0]);
+			block a01 = shuffle_epi8(m[1], shuffle[1]);
+			block a02 = shuffle_epi8(m[2], shuffle[2]);
+			block a03 = shuffle_epi8(m[3], shuffle[3]);
+			block a04 = shuffle_epi8(m[4], shuffle[4]);
+			block a05 = shuffle_epi8(m[5], shuffle[5]);
+			block a06 = shuffle_epi8(m[6], shuffle[6]);
+			block a07 = shuffle_epi8(m[7], shuffle[7]);
+			block a08 = shuffle_epi8(m[8], shuffle[8]);
+			block a09 = shuffle_epi8(m[9], shuffle[9]);
+			block a10 = shuffle_epi8(m[10], shuffle[10]);
+			block a11 = shuffle_epi8(m[11], shuffle[11]);
+			block a12 = shuffle_epi8(m[12], shuffle[12]);
+			block a13 = shuffle_epi8(m[13], shuffle[13]);
+			block a14 = shuffle_epi8(m[14], shuffle[14]);
+			block a15 = shuffle_epi8(m[15], shuffle[15]);
 
 			a00 = a00 ^ a08;
 			a01 = a01 ^ a09;
@@ -571,9 +571,9 @@ namespace secJoin
 
 			a00 = a00 ^ a01;
 
-			a00 = _mm_slli_epi16(a00, 7);
+			a00 = slli_epi16<7>(a00);
 
-			u16 ap = _mm_movemask_epi8(a00);
+			u16 ap = movemask_epi8(a00);
 
 			*aIter16++ = ap;
 			m += 16;
@@ -676,22 +676,22 @@ namespace secJoin
 					break;
 				}
 
-				block a00 = _mm_shuffle_epi8(sendMsg[0], shuffle[0]);
-				block a01 = _mm_shuffle_epi8(sendMsg[1], shuffle[1]);
-				block a02 = _mm_shuffle_epi8(sendMsg[2], shuffle[2]);
-				block a03 = _mm_shuffle_epi8(sendMsg[3], shuffle[3]);
-				block a04 = _mm_shuffle_epi8(sendMsg[4], shuffle[4]);
-				block a05 = _mm_shuffle_epi8(sendMsg[5], shuffle[5]);
-				block a06 = _mm_shuffle_epi8(sendMsg[6], shuffle[6]);
-				block a07 = _mm_shuffle_epi8(sendMsg[7], shuffle[7]);
-				block a08 = _mm_shuffle_epi8(sendMsg[8], shuffle[8]);
-				block a09 = _mm_shuffle_epi8(sendMsg[9], shuffle[9]);
-				block a10 = _mm_shuffle_epi8(sendMsg[10], shuffle[10]);
-				block a11 = _mm_shuffle_epi8(sendMsg[11], shuffle[11]);
-				block a12 = _mm_shuffle_epi8(sendMsg[12], shuffle[12]);
-				block a13 = _mm_shuffle_epi8(sendMsg[13], shuffle[13]);
-				block a14 = _mm_shuffle_epi8(sendMsg[14], shuffle[14]);
-				block a15 = _mm_shuffle_epi8(sendMsg[15], shuffle[15]);
+				block a00 = shuffle_epi8(sendMsg[0], shuffle[0]);
+				block a01 = shuffle_epi8(sendMsg[1], shuffle[1]);
+				block a02 = shuffle_epi8(sendMsg[2], shuffle[2]);
+				block a03 = shuffle_epi8(sendMsg[3], shuffle[3]);
+				block a04 = shuffle_epi8(sendMsg[4], shuffle[4]);
+				block a05 = shuffle_epi8(sendMsg[5], shuffle[5]);
+				block a06 = shuffle_epi8(sendMsg[6], shuffle[6]);
+				block a07 = shuffle_epi8(sendMsg[7], shuffle[7]);
+				block a08 = shuffle_epi8(sendMsg[8], shuffle[8]);
+				block a09 = shuffle_epi8(sendMsg[9], shuffle[9]);
+				block a10 = shuffle_epi8(sendMsg[10], shuffle[10]);
+				block a11 = shuffle_epi8(sendMsg[11], shuffle[11]);
+				block a12 = shuffle_epi8(sendMsg[12], shuffle[12]);
+				block a13 = shuffle_epi8(sendMsg[13], shuffle[13]);
+				block a14 = shuffle_epi8(sendMsg[14], shuffle[14]);
+				block a15 = shuffle_epi8(sendMsg[15], shuffle[15]);
 
 				a00 = a00 ^ a08;
 				a01 = a01 ^ a09;
@@ -712,9 +712,9 @@ namespace secJoin
 
 				a00 = a00 ^ a01;
 
-				a00 = _mm_slli_epi16(a00, 7);
+				a00 = slli_epi16<7>(a00);
 
-				u16 ap = _mm_movemask_epi8(a00);
+				u16 ap = movemask_epi8(a00);
 
 				assert(iters[b] < (u16*)(mOts[b].data() + mOts[b].size()));
 				*iters[b]++ = ap;

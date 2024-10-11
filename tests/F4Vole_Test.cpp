@@ -5,6 +5,7 @@
 
 #include "libOTe/Vole/Silent/SilentVoleReceiver.h"
 #include "libOTe/Vole/Silent/SilentVoleSender.h"
+#include "secure-join/Util/Simd.h"
 
 using namespace secJoin;
 
@@ -163,23 +164,23 @@ void F4Vole_Silent_test_impl(u64 n, oc::MultType type, bool debug, bool doFakeBa
 		{
 
 			// extract the choice bit from the LSB of m
-			_mm_storeu_si32(&lsb[0], a[i + 0] & oc::OneBlock);
-			_mm_storeu_si32(&lsb[1], a[i + 1] & oc::OneBlock);
-			_mm_storeu_si32(&lsb[2], a[i + 2] & oc::OneBlock);
-			_mm_storeu_si32(&lsb[3], a[i + 3] & oc::OneBlock);
-			_mm_storeu_si32(&lsb[4], a[i + 4] & oc::OneBlock);
-			_mm_storeu_si32(&lsb[5], a[i + 5] & oc::OneBlock);
-			_mm_storeu_si32(&lsb[6], a[i + 6] & oc::OneBlock);
-			_mm_storeu_si32(&lsb[7], a[i + 7] & oc::OneBlock);
+			storeu_si32(&lsb[0], a[i + 0] & oc::OneBlock);
+			storeu_si32(&lsb[1], a[i + 1] & oc::OneBlock);
+			storeu_si32(&lsb[2], a[i + 2] & oc::OneBlock);
+			storeu_si32(&lsb[3], a[i + 3] & oc::OneBlock);
+			storeu_si32(&lsb[4], a[i + 4] & oc::OneBlock);
+			storeu_si32(&lsb[5], a[i + 5] & oc::OneBlock);
+			storeu_si32(&lsb[6], a[i + 6] & oc::OneBlock);
+			storeu_si32(&lsb[7], a[i + 7] & oc::OneBlock);
 
-			_mm_storeu_si32(&msb[0], a[i + 0] & block(0,2));
-			_mm_storeu_si32(&msb[1], a[i + 1] & block(0,2));
-			_mm_storeu_si32(&msb[2], a[i + 2] & block(0,2));
-			_mm_storeu_si32(&msb[3], a[i + 3] & block(0,2));
-			_mm_storeu_si32(&msb[4], a[i + 4] & block(0,2));
-			_mm_storeu_si32(&msb[5], a[i + 5] & block(0,2));
-			_mm_storeu_si32(&msb[6], a[i + 6] & block(0,2));
-			_mm_storeu_si32(&msb[7], a[i + 7] & block(0,2));
+			storeu_si32(&msb[0], a[i + 0] & block(0,2));
+			storeu_si32(&msb[1], a[i + 1] & block(0,2));
+			storeu_si32(&msb[2], a[i + 2] & block(0,2));
+			storeu_si32(&msb[3], a[i + 3] & block(0,2));
+			storeu_si32(&msb[4], a[i + 4] & block(0,2));
+			storeu_si32(&msb[5], a[i + 5] & block(0,2));
+			storeu_si32(&msb[6], a[i + 6] & block(0,2));
+			storeu_si32(&msb[7], a[i + 7] & block(0,2));
 
 
 			// pack the choice bits.

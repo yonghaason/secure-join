@@ -247,7 +247,7 @@ namespace secJoin
 
 
 
-		for (u64 i = 0ull, r = 0ull, s = 0ull, j = -mNumConcurrent + 1; j != mBatches.size(); ++i, ++j)
+		for (u64 i = 0ull, j = -mNumConcurrent + 1; j != mBatches.size(); ++i, ++j)
 		{
 			if (i < mBatches.size())
 			{

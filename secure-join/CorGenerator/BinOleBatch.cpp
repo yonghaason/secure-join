@@ -1,6 +1,8 @@
 #include "BinOleBatch.h"
 #include "CorGenerator.h"
 #include "secure-join/Util/match.h"
+#include "secure-join/Util/Simd.h"
+
 namespace secJoin
 {
 
@@ -285,7 +287,6 @@ namespace secJoin
     }
 
 
-
     // the LSB of A is the choice bit of the OT.
 
     void OleBatch::RecvBatch::compressRecver(
@@ -368,22 +369,22 @@ namespace secJoin
             // _mm_sll_epi16 : shifts 16 bit works left
             // _mm_movemask_epi8: packs together the MSG
 
-            block a00 = _mm_shuffle_epi8(m[0], shuffle[0]);
-            block a01 = _mm_shuffle_epi8(m[1], shuffle[1]);
-            block a02 = _mm_shuffle_epi8(m[2], shuffle[2]);
-            block a03 = _mm_shuffle_epi8(m[3], shuffle[3]);
-            block a04 = _mm_shuffle_epi8(m[4], shuffle[4]);
-            block a05 = _mm_shuffle_epi8(m[5], shuffle[5]);
-            block a06 = _mm_shuffle_epi8(m[6], shuffle[6]);
-            block a07 = _mm_shuffle_epi8(m[7], shuffle[7]);
-            block a08 = _mm_shuffle_epi8(m[8], shuffle[8]);
-            block a09 = _mm_shuffle_epi8(m[9], shuffle[9]);
-            block a10 = _mm_shuffle_epi8(m[10], shuffle[10]);
-            block a11 = _mm_shuffle_epi8(m[11], shuffle[11]);
-            block a12 = _mm_shuffle_epi8(m[12], shuffle[12]);
-            block a13 = _mm_shuffle_epi8(m[13], shuffle[13]);
-            block a14 = _mm_shuffle_epi8(m[14], shuffle[14]);
-            block a15 = _mm_shuffle_epi8(m[15], shuffle[15]);
+            block a00 = shuffle_epi8(m[0], shuffle[0]);
+            block a01 = shuffle_epi8(m[1], shuffle[1]);
+            block a02 = shuffle_epi8(m[2], shuffle[2]);
+            block a03 = shuffle_epi8(m[3], shuffle[3]);
+            block a04 = shuffle_epi8(m[4], shuffle[4]);
+            block a05 = shuffle_epi8(m[5], shuffle[5]);
+            block a06 = shuffle_epi8(m[6], shuffle[6]);
+            block a07 = shuffle_epi8(m[7], shuffle[7]);
+            block a08 = shuffle_epi8(m[8], shuffle[8]);
+            block a09 = shuffle_epi8(m[9], shuffle[9]);
+            block a10 = shuffle_epi8(m[10], shuffle[10]);
+            block a11 = shuffle_epi8(m[11], shuffle[11]);
+            block a12 = shuffle_epi8(m[12], shuffle[12]);
+            block a13 = shuffle_epi8(m[13], shuffle[13]);
+            block a14 = shuffle_epi8(m[14], shuffle[14]);
+            block a15 = shuffle_epi8(m[15], shuffle[15]);
 
             a00 = a00 ^ a08;
             a01 = a01 ^ a09;
@@ -404,9 +405,9 @@ namespace secJoin
 
             a00 = a00 ^ a01;
 
-            a00 = _mm_slli_epi16(a00, 7);
+            a00 = slli_epi16<7>(a00);
 
-            u16 ap = _mm_movemask_epi8(a00);
+            u16 ap = movemask_epi8(a00);
 
             *aIter16++ = ap;
             m += 16;
@@ -466,22 +467,22 @@ namespace secJoin
             }
 
 
-            block a00 = _mm_shuffle_epi8(sendMsg[0], shuffle[0]);
-            block a01 = _mm_shuffle_epi8(sendMsg[1], shuffle[1]);
-            block a02 = _mm_shuffle_epi8(sendMsg[2], shuffle[2]);
-            block a03 = _mm_shuffle_epi8(sendMsg[3], shuffle[3]);
-            block a04 = _mm_shuffle_epi8(sendMsg[4], shuffle[4]);
-            block a05 = _mm_shuffle_epi8(sendMsg[5], shuffle[5]);
-            block a06 = _mm_shuffle_epi8(sendMsg[6], shuffle[6]);
-            block a07 = _mm_shuffle_epi8(sendMsg[7], shuffle[7]);
-            block a08 = _mm_shuffle_epi8(sendMsg[8], shuffle[8]);
-            block a09 = _mm_shuffle_epi8(sendMsg[9], shuffle[9]);
-            block a10 = _mm_shuffle_epi8(sendMsg[10], shuffle[10]);
-            block a11 = _mm_shuffle_epi8(sendMsg[11], shuffle[11]);
-            block a12 = _mm_shuffle_epi8(sendMsg[12], shuffle[12]);
-            block a13 = _mm_shuffle_epi8(sendMsg[13], shuffle[13]);
-            block a14 = _mm_shuffle_epi8(sendMsg[14], shuffle[14]);
-            block a15 = _mm_shuffle_epi8(sendMsg[15], shuffle[15]);
+            block a00 = shuffle_epi8(sendMsg[0], shuffle[0]);
+            block a01 = shuffle_epi8(sendMsg[1], shuffle[1]);
+            block a02 = shuffle_epi8(sendMsg[2], shuffle[2]);
+            block a03 = shuffle_epi8(sendMsg[3], shuffle[3]);
+            block a04 = shuffle_epi8(sendMsg[4], shuffle[4]);
+            block a05 = shuffle_epi8(sendMsg[5], shuffle[5]);
+            block a06 = shuffle_epi8(sendMsg[6], shuffle[6]);
+            block a07 = shuffle_epi8(sendMsg[7], shuffle[7]);
+            block a08 = shuffle_epi8(sendMsg[8], shuffle[8]);
+            block a09 = shuffle_epi8(sendMsg[9], shuffle[9]);
+            block a10 = shuffle_epi8(sendMsg[10], shuffle[10]);
+            block a11 = shuffle_epi8(sendMsg[11], shuffle[11]);
+            block a12 = shuffle_epi8(sendMsg[12], shuffle[12]);
+            block a13 = shuffle_epi8(sendMsg[13], shuffle[13]);
+            block a14 = shuffle_epi8(sendMsg[14], shuffle[14]);
+            block a15 = shuffle_epi8(sendMsg[15], shuffle[15]);
 
             s = sendMsg.data();
             m -= 16;
@@ -502,22 +503,22 @@ namespace secJoin
                 m += 8;
             }
 
-            block b00 = _mm_shuffle_epi8(sendMsg[0], shuffle[0]);
-            block b01 = _mm_shuffle_epi8(sendMsg[1], shuffle[1]);
-            block b02 = _mm_shuffle_epi8(sendMsg[2], shuffle[2]);
-            block b03 = _mm_shuffle_epi8(sendMsg[3], shuffle[3]);
-            block b04 = _mm_shuffle_epi8(sendMsg[4], shuffle[4]);
-            block b05 = _mm_shuffle_epi8(sendMsg[5], shuffle[5]);
-            block b06 = _mm_shuffle_epi8(sendMsg[6], shuffle[6]);
-            block b07 = _mm_shuffle_epi8(sendMsg[7], shuffle[7]);
-            block b08 = _mm_shuffle_epi8(sendMsg[8], shuffle[8]);
-            block b09 = _mm_shuffle_epi8(sendMsg[9], shuffle[9]);
-            block b10 = _mm_shuffle_epi8(sendMsg[10], shuffle[10]);
-            block b11 = _mm_shuffle_epi8(sendMsg[11], shuffle[11]);
-            block b12 = _mm_shuffle_epi8(sendMsg[12], shuffle[12]);
-            block b13 = _mm_shuffle_epi8(sendMsg[13], shuffle[13]);
-            block b14 = _mm_shuffle_epi8(sendMsg[14], shuffle[14]);
-            block b15 = _mm_shuffle_epi8(sendMsg[15], shuffle[15]);
+            block b00 = shuffle_epi8(sendMsg[0], shuffle[0]);
+            block b01 = shuffle_epi8(sendMsg[1], shuffle[1]);
+            block b02 = shuffle_epi8(sendMsg[2], shuffle[2]);
+            block b03 = shuffle_epi8(sendMsg[3], shuffle[3]);
+            block b04 = shuffle_epi8(sendMsg[4], shuffle[4]);
+            block b05 = shuffle_epi8(sendMsg[5], shuffle[5]);
+            block b06 = shuffle_epi8(sendMsg[6], shuffle[6]);
+            block b07 = shuffle_epi8(sendMsg[7], shuffle[7]);
+            block b08 = shuffle_epi8(sendMsg[8], shuffle[8]);
+            block b09 = shuffle_epi8(sendMsg[9], shuffle[9]);
+            block b10 = shuffle_epi8(sendMsg[10], shuffle[10]);
+            block b11 = shuffle_epi8(sendMsg[11], shuffle[11]);
+            block b12 = shuffle_epi8(sendMsg[12], shuffle[12]);
+            block b13 = shuffle_epi8(sendMsg[13], shuffle[13]);
+            block b14 = shuffle_epi8(sendMsg[14], shuffle[14]);
+            block b15 = shuffle_epi8(sendMsg[15], shuffle[15]);
 
             a00 = a00 ^ a08;
             a01 = a01 ^ a09;
@@ -556,11 +557,11 @@ namespace secJoin
             a00 = a00 ^ a01;
             b00 = b00 ^ b01;
 
-            a00 = _mm_slli_epi16(a00, 7);
-            b00 = _mm_slli_epi16(b00, 7);
+            a00 = slli_epi16<7>(a00);
+            b00 = slli_epi16<7>(b00);
 
-            u16 ap = _mm_movemask_epi8(a00);
-            u16 bp = _mm_movemask_epi8(b00);
+            u16 ap = movemask_epi8(a00);
+            u16 bp = movemask_epi8(b00);
 
             assert(aIter16 < (u16*)(mult.data() + mult.size()));
             assert(bIter16 < (u16*)(add.data() + add.size()));

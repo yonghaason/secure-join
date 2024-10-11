@@ -96,7 +96,7 @@ namespace secJoin
 		}
 	}
 
-	inline void cPerfectUnshuffle(span<u8> input, span<u8> output0, span<u8> output1)
+	inline void cPerfectUnshuffle(span<const u8> input, span<u8> output0, span<u8> output1)
 	{
 		assert(output0.size() == output1.size());
 		assert(output0.size() == (input.size() + 1) / 2);

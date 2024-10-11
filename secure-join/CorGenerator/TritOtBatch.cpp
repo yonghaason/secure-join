@@ -2,6 +2,7 @@
 #include "CorGenerator.h"
 #include "secure-join/Util/match.h"
 #include "secure-join/Prf/mod3.h"
+#include "secure-join/Util/Simd.h"
 
 namespace secJoin
 {
@@ -407,14 +408,14 @@ namespace secJoin
 			auto m = &A[i];
 
 			// extract the choice bit from the LSB of m
-			_mm_storeu_si32(&choice[0], m[0] & OneBlock);
-			_mm_storeu_si32(&choice[1], m[1] & OneBlock);
-			_mm_storeu_si32(&choice[2], m[2] & OneBlock);
-			_mm_storeu_si32(&choice[3], m[3] & OneBlock);
-			_mm_storeu_si32(&choice[4], m[4] & OneBlock);
-			_mm_storeu_si32(&choice[5], m[5] & OneBlock);
-			_mm_storeu_si32(&choice[6], m[6] & OneBlock);
-			_mm_storeu_si32(&choice[7], m[7] & OneBlock);
+			storeu_si32(&choice[0], m[0] & OneBlock);
+			storeu_si32(&choice[1], m[1] & OneBlock);
+			storeu_si32(&choice[2], m[2] & OneBlock);
+			storeu_si32(&choice[3], m[3] & OneBlock);
+			storeu_si32(&choice[4], m[4] & OneBlock);
+			storeu_si32(&choice[5], m[5] & OneBlock);
+			storeu_si32(&choice[6], m[6] & OneBlock);
+			storeu_si32(&choice[7], m[7] & OneBlock);
 
 			assert(choice[0] == (m[0].get<u64>(0) & 1));
 
