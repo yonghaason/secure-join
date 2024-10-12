@@ -369,7 +369,7 @@ void Average_avg_BigKey_Test(const oc::CLP& cmd)
     //bool isBin;
 
     //std::vector<ColumnInfo> lColInfo, rColInfo;
-    //getFileInfo(visaMetaDataPath, lColInfo, lRowCount, lColCount, isBin);
+    //getFileInfo(primaryMetaDataPath, lColInfo, lRowCount, lColCount, isBin);
     //getFileInfo(clientMetaDataPath, rColInfo, rRowCount, rColCount, isBin);
 
     //Table L, R;
@@ -377,8 +377,8 @@ void Average_avg_BigKey_Test(const oc::CLP& cmd)
     //L.init(lRowCount, lColInfo);
     //R.init(rRowCount, rColInfo);
 
-    //populateTable(L, visaCsvPath, lRowCount, isBin);
-    //populateTable(R, bankCsvPath, rRowCount, isBin);
+    //populateTable(L, primaryCsvPath, lRowCount, isBin);
+    //populateTable(R, secondatyCsvPath, rRowCount, isBin);
 
     //// Get Select Col Refs
     //std::vector<secJoin::ColRef> selectColRefs = getSelectColRef(selectCols, L, R);

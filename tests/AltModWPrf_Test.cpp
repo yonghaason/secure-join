@@ -1,7 +1,5 @@
 #include "AltModWPrf_Test.h"
-#include "secure-join/Prf/DarkMatter22Prf.h"
-#include "secure-join/Prf/DarkMatter32Prf.h"
-#include "secure-join/Prf/AltModWPrf.h"
+#include "secure-join/Prf/AltModPrfProto.h"
 #include "secure-join/Prf/AltModSimd.h"
 #include "secure-join/Prf/mod3.h"
 #include "cryptoTools/Crypto/PRNG.h"

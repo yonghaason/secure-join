@@ -10,8 +10,8 @@ void secret_share_table_test()
     u64 colCount = 0;
     bool isBin;
 
-    std::string filename = "Visa Meta File";
-    std::istream in(visa_meta_text.rdbuf());
+    std::string filename = "primary Meta File";
+    std::istream in(primary_meta_text.rdbuf());
     getFileInfo(filename, in, columnInfo, rowCount, colCount, isBin);
 
     Table table(rowCount, columnInfo);
@@ -21,7 +21,7 @@ void secret_share_table_test()
 
     PRNG prng(block(0, 0));
 
-    std::istream in1(visa_csv.rdbuf());
+    std::istream in1(primary_csv.rdbuf());
     populateTable(table, in1, rowCount, isBin);
 
     share(table, shareTables, prng);
@@ -78,12 +78,12 @@ void table_write_csv_test()
     u64 rowCount = 0, colCount = 0;
     bool isBin;
 
-    std::string filename = "Visa Meta File";
-    std::istream in(visa_meta_text.rdbuf());
+    std::string filename = "primary Meta File";
+    std::istream in(primary_meta_text.rdbuf());
     getFileInfo(filename, in, columnInfo, rowCount, colCount, isBin);
 
     Table table(rowCount, columnInfo);
-    std::istream in1(visa_csv.rdbuf());
+    std::istream in1(primary_csv.rdbuf());
 
     populateTable(table, in1, rowCount, isBin);
 
@@ -101,17 +101,17 @@ void table_write_bin_csv_test()
 {
     throw oc::UnitTestSkipped("needs fixing");
     std::string rootPath(SEC_JOIN_ROOT_DIRECTORY);
-    std::string visaCsvPath = rootPath + "/tests/tables/visa.csv";
-    std::string visaMetaDataPath = rootPath + "/tests/tables/visa_meta.txt";
+    std::string primaryCsvPath = rootPath + "/tests/tables/primary.csv";
+    std::string primaryMetaDataPath = rootPath + "/tests/tables/primary_meta.txt";
 
     oc::u64 lRowCount = 0, lColCount = 0;
     bool isBin;
 
     std::vector<ColumnInfo> lColInfo, rColInfo;
-    getFileInfo(visaMetaDataPath, lColInfo, lRowCount, lColCount, isBin);
+    getFileInfo(primaryMetaDataPath, lColInfo, lRowCount, lColCount, isBin);
 
     Table table(lRowCount, lColInfo);
-    populateTable(table, visaCsvPath, lRowCount, isBin);
+    populateTable(table, primaryCsvPath, lRowCount, isBin);
 
     std::string csvMetaFileNm1 = rootPath + "/tests/tables/joindata_meta.txt";
     std::string csvFileNm1 = rootPath + "/tests/tables/joindata.csv";

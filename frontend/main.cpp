@@ -8,6 +8,7 @@
 #include "macoro/when_all.h"
 #include "coproto/Socket/AsioSocket.h"
 #include "cryptoTools/Common/Timer.h"
+#include "tests_cryptoTools/UnitTests.h"
 
 
 
@@ -24,7 +25,7 @@ int main(int argc, char** argv)
 
     if (!clp.isSet("u"))
         clp.set("u");
-
+    
 
     //buildMod3Table2();
     //buildMod3Table4();
@@ -88,8 +89,14 @@ int main(int argc, char** argv)
         return 0;
     }
 
+    oc::TestCollection tests;
+    if(clp.isSet("cryptoTools"))
+    {
+        tests = tests_cryptoTools::Tests;
+    }
 
-    secJoin_Tests::Tests.runIf(clp);
+    tests += secJoin_Tests::Tests;
+    tests.runIf(clp);
     // secJoin_Tests::Tests.runAll();
     return 0;
 }

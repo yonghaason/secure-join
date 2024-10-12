@@ -1,5 +1,5 @@
 #include "benchmark.h"
-#include "secure-join/Prf/AltModWPrf.h"
+#include "secure-join/Prf/AltModPrfProto.h"
 #include "secure-join/Sort/RadixSort.h"
 #include "secure-join/Join/OmJoin.h"
 #include "secure-join/Perm/PprfPermGen.h"

@@ -6,4 +6,4 @@ set( SRCS
 
 add_executable(secJoinfrontend  ${SRCS})
 
-target_link_libraries(secJoinfrontend secureJoin_Tests)
+target_link_libraries(secJoinfrontend secureJoin_Tests tests_cryptoTools)

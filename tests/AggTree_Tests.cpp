@@ -937,7 +937,7 @@ void AggTree_dup_upstream_cir_Test(const oc::CLP& cmd)
 
         cir.levelByAndDepth(BetaCircuit::LevelizeType::Reorder);
 
-        eval(cir, 10, 10, true, ~0ull, cmd.getOr("mock", 1));
+        eval(cir, 10, 10, true, false, ~0ull);
     }
 
 }
@@ -1142,7 +1142,7 @@ void AggTree_dup_pre_downstream_cir_Test(const oc::CLP& cmd)
     auto c1 = cir;
     cir.levelByAndDepth();
     compare(c1, cir);
-    eval(cir, 10, 10, false, ~0ull, cmd.getOr("mock", 1));
+    eval(cir, 10, 10, true, false, ~0ull);
 }
 
 // std::string hex(const oc::span<u8>& bb)

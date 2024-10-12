@@ -1,7 +1,7 @@
 #pragma once
 
 #include "secure-join/Defines.h"
-#include "secure-join/Prf/AltModWPrf.h"
+#include "secure-join/Prf/AltModPrfProto.h"
 #include "secure-join/Perm/Permutation.h"
 #include "secure-join/Perm/PermCorrelation.h"
 

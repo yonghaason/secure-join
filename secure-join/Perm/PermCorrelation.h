@@ -63,19 +63,15 @@ namespace secJoin
             Perm newPerm,
             coproto::Socket& chl)
         {
-            MC_BEGIN(macoro::task<>, this, 
-                d = std::move(newPerm), &chl,
-                delta = Perm{});
+            auto delta = Perm{};
 
             // delta = newPerm^-1 o mPerm
             // they are going to update their correlation using delta
             // to translate it to a correlation of pi.
-            delta = d.inverse().compose(mPerm);
-            MC_AWAIT(chl.send(std::move(delta.mPi)));
+            delta = newPerm.inverse().compose(mPerm);
+            co_await chl.send(std::move(delta.mPi));
 
-            mPerm = std::move(d);
-
-            MC_END();
+            mPerm = std::move(newPerm);
         }
 
         // for debugging, check that the correlated randomness is correct.
@@ -119,8 +115,7 @@ namespace secJoin
         // Only do this if the old perm was random.
         macoro::task<> derandomize(coproto::Socket& chl)
         {
-            MC_BEGIN(macoro::task<>, this, &chl,
-                delta = Perm{});
+            auto delta = Perm{};
 
             // we current have the correlation 
             // 
@@ -138,14 +133,11 @@ namespace secJoin
             // where mA' = (pi^-1 o pre)(mA)
             //           = delta(mA)
             delta.mPi.resize(size());
-            MC_AWAIT(chl.recv(delta.mPi));
+            co_await chl.recv(delta.mPi);
 
-            {
-                oc::Matrix<oc::block> AA(mA.rows(), mA.cols());
-                delta.apply<oc::block>(mA, AA);
-                std::swap(mA, AA);
-            }
-            MC_END();
+            oc::Matrix<oc::block> AA(mA.rows(), mA.cols());
+            delta.apply<oc::block>(mA, AA);
+            std::swap(mA, AA);
         }
 
     };

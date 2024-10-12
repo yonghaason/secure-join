@@ -76,8 +76,9 @@ void F4Vole_Silent_test_impl(u64 n, oc::MultType type, bool debug, bool doFakeBa
 
 	for (u64 tt = 0; tt < 10; ++tt)
 	{
-		block x = prng.get();
-		block y = prng.get();
+		block x,y; 
+		ctx.fromBlock(x, prng.get());
+		ctx.fromBlock(y, prng.get());
 		for (u64 i = 0; i < 4; ++i)
 		{
 			F4 r{ u8(i) };

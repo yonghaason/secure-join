@@ -136,10 +136,8 @@ namespace secJoin
     }
 
     macoro::task<> OtBatch::getTask(BatchThreadState& threadState) {
-        MC_BEGIN(macoro::task<>, this,&threadState,
-            t = macoro::task<>{},
-            msg = std::vector<std::array<block, 2>>{}
-        );
+            auto t = macoro::task<>{};
+            auto msg = std::vector<std::array<block, 2>>{};
 
         if (mGenState->mMock)
         {
@@ -161,14 +159,14 @@ namespace secJoin
             {
                 if (mSendRecv.index() == 0)
                 {
-                    MC_AWAIT(mSock.send(coproto::copy(std::get<0>(mSendRecv).mSender.mGen.mBaseOTs)));
+                    co_await mSock.send(coproto::copy(std::get<0>(mSendRecv).mSender.mGen.mBaseOTs));
 
                 }
                 else
                 {
 
                     msg.resize(std::get<1>(mSendRecv).mReceiver.silentBaseOtCount());
-                    MC_AWAIT(mSock.recv(msg));
+                    co_await mSock.recv(msg);
 
                     {
                         auto& recv = std::get<1>(mSendRecv);
@@ -200,7 +198,7 @@ namespace secJoin
                 }
             };
 
-            MC_AWAIT(t);
+            co_await t;
 
 
             mSendRecv | match{
@@ -224,7 +222,7 @@ namespace secJoin
             if (mSendRecv.index() == 0)
             {
                 //std::cout << " checking ot send " << mIndex << std::endl;
-                MC_AWAIT(mSock.send(coproto::copy(std::get<0>(mSendRecv).mMsg2)));
+                co_await mSock.send(coproto::copy(std::get<0>(mSendRecv).mMsg2));
 
             }
             else
@@ -232,7 +230,7 @@ namespace secJoin
                 //std::cout << " checking ot recv " << mIndex << std::endl;
 
                 msg.resize(std::get<1>(mSendRecv).mMsg.size());
-                MC_AWAIT(mSock.recv(msg));
+                co_await mSock.recv(msg);
 
                 {
                     auto& recv = std::get<1>(mSendRecv);
@@ -250,7 +248,6 @@ namespace secJoin
 
 
         mCorReady.set();
-        MC_END();
     }
 
     void OtBatch::clear()

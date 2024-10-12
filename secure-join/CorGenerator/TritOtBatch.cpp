@@ -280,7 +280,7 @@ namespace secJoin
 		macoro::async_manual_reset_event& corReady,
 		BatchThreadState& threadState)
 	{
-		//MC_BEGIN(macoro::task<>, this, state, batchIdx, size, &prng,
+		//M_C_BEGIN(macoro::task<>, this, state, batchIdx, size, &prng,
 			//&sock, &corReady, &threadState,
 		std::vector<std::array<block, 2>> baseSend;
 
@@ -340,7 +340,7 @@ namespace secJoin
 		macoro::async_manual_reset_event& corReady,
 		BatchThreadState& threadState)
 	{
-		//MC_BEGIN(macoro::task<>, this, state, batchIdx, size, &prng,
+		//M_C_BEGIN(macoro::task<>, this, state, batchIdx, size, &prng,
 		//	&sock, &corReady, &threadState);
 
 		if (state->mMock)

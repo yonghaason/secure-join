@@ -185,9 +185,7 @@ namespace secJoin
         macoro::async_manual_reset_event& corReady,
         BatchThreadState& threadState)
     {
-        MC_BEGIN(macoro::task<>, this, state, batchIdx, size, &prng,
-            &sock, &add, &mult, &corReady,&threadState,
-            baseSend = std::vector<std::array<block, 2>>{});
+        auto baseSend = std::vector<std::array<block, 2>>{};
 
         add.resize(oc::divCeil(size, 128));
         mult.resize(oc::divCeil(size, 128));
@@ -201,7 +199,7 @@ namespace secJoin
             if (state->mDebug)
             {
                 baseSend.resize(mReceiver.silentBaseOtCount());
-                MC_AWAIT(sock.recv(baseSend));
+                co_await sock.recv(baseSend);
 
                 {
                     for (u64 i = 0; i < baseSend.size(); ++i)
@@ -222,7 +220,7 @@ namespace secJoin
             mReceiver.mGen.mTempBuffer = std::move(threadState.mPprfTemp);
             mReceiver.mGen.mEagerSend = false;
 
-            MC_AWAIT(mReceiver.silentReceiveInplace(mReceiver.mRequestNumOts, prng, sock, oc::ChoiceBitPacking::True));
+            co_await mReceiver.silentReceiveInplace(mReceiver.mRequestNumOts, prng, sock, oc::ChoiceBitPacking::True);
             compressRecver(mReceiver.mA, add, mult);
 
             threadState.mA = std::move(mReceiver.mA);
@@ -232,7 +230,6 @@ namespace secJoin
         }
 
         corReady.set();
-        MC_END();
     }
 
     macoro::task<>  OleBatch::SendBatch::sendTask(
@@ -246,9 +243,6 @@ namespace secJoin
         macoro::async_manual_reset_event& corReady,
         BatchThreadState& threadState)
     {
-        MC_BEGIN(macoro::task<>, this, state, batchIdx, size, &prng, 
-            &sock, &add, &mult, &corReady, &threadState);
-
 
         add.resize(oc::divCeil(size, 128));
         mult.resize(oc::divCeil(size, 128));
@@ -261,7 +255,7 @@ namespace secJoin
 
             if (state->mDebug)
             {
-                MC_AWAIT(sock.send(coproto::copy(mSender.mGen.mBaseOTs)));
+                co_await sock.send(coproto::copy(mSender.mGen.mBaseOTs));
             }
 
             assert(mSender.mGen.hasBaseOts());
@@ -273,7 +267,7 @@ namespace secJoin
             mSender.mGen.mTempBuffer = std::move(threadState.mPprfTemp);
             mSender.mGen.mEagerSend = false;
 
-            MC_AWAIT(mSender.silentSendInplace(prng.get(), mSender.mRequestNumOts, prng, sock));
+            co_await mSender.silentSendInplace(prng.get(), mSender.mRequestNumOts, prng, sock);
             compressSender(mSender.mDelta, mSender.mB, add, mult);
 
             threadState.mB = std::move(mSender.mB);
@@ -283,7 +277,6 @@ namespace secJoin
 
 
         corReady.set();
-        MC_END();
     }
 
 

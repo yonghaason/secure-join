@@ -48,7 +48,7 @@ namespace secJoin
             u8 mask = ~(-i8(bi >> 7));
             u8 idx = bi & 15;
 
-            dst.set(i, a.get<i8>(idx));
+            dst.set<i8>(i, a.get<i8>(idx) & mask);
         }
         return dst;
     }

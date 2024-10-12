@@ -314,9 +314,6 @@ namespace secJoin
         Level& root,
         span<SplitLevel> levels)
     {
-        MC_BEGIN(macoro::task<>, this, &src, &controlBits, comm, &root, levels,&prng,
-            lvl = u64{}
-        );
         if (src.numEntries() != controlBits.numEntries())
             throw RTE_LOC;
 
@@ -332,7 +329,7 @@ namespace secJoin
             levels[0].reshape(mLevelSizes[0]);
         }
         // we start at the preSuf and move up.
-        for (lvl = 0; lvl < mUpGmw.size(); ++lvl)
+        for (u64 lvl = 0; lvl < mUpGmw.size(); ++lvl)
         {
 
             {
@@ -364,7 +361,7 @@ namespace secJoin
             }
 
             // eval
-            MC_AWAIT(mUpGmw[lvl].run(comm));
+            co_await mUpGmw[lvl].run(comm);
             mUpGmw[lvl] = {};
 
             if (lvl != mUpGmw.size() - 1)
@@ -397,10 +394,6 @@ namespace secJoin
 
             }
         }
-
-
-
-        MC_END();
     }
 
 
@@ -557,11 +550,9 @@ namespace secJoin
         PRNG& prng,
         std::vector<SplitLevel>* debugLevels)
     {
-        MC_BEGIN(macoro::task<>, this, &src, &root, levels, &newVals, &comm, debugLevels, &prng,
-            pLvl = u64{},
-            cLvl = u64{},
-            temp = SplitLevel{}
-        );
+        /*pLvl = u64{},
+            cLvl = u64{},*/
+        auto temp = SplitLevel{};
 
 
         if(debugLevels)
@@ -576,11 +567,11 @@ namespace secJoin
         // we start at the root and move down. We store intermidate 
         // levels in `temp`. levels is only read from. Once the children 
         // are computed, we combine them and write the result to `root`
-        for (pLvl = mDownGmw.size(); pLvl != 0; --pLvl)
+        for (u64 pLvl = mDownGmw.size(); pLvl != 0; --pLvl)
         {
             // how many parents are here at this level.
             // For the last level this might not be a power of 2.
-            cLvl = pLvl - 1;
+            u64 cLvl = pLvl - 1;
 
             {
 
@@ -623,7 +614,7 @@ namespace secJoin
             }
 
             // eval
-            MC_AWAIT(mDownGmw[cLvl].run(comm));
+            co_await mDownGmw[cLvl].run(comm);
             mDownGmw[cLvl] = {};
 
             // for unit testing, we want to save these intermediate values.
@@ -775,8 +766,7 @@ namespace secJoin
             }
         }
 
-        levels[0].reshape(mN16);
-        MC_END();
+        levels[0].reshape(mN16); 
     }
 
 
@@ -890,13 +880,7 @@ namespace secJoin
         coproto::Socket& comm)
     {
 
-        MC_BEGIN(macoro::task<>, this, &leaves, &preSuf, &dst, &comm, &prng
-        );
-
-        //bitsPerEntry = (type & Type::Prefix) ? leaves[0].mPreVal.bitsPerEntry() : leaves[0].mSufVal.bitsPerEntry();
-        //size = (type & Type::Prefix) ? leaves[0].mPreBit.numEntries() : leaves[0].mSufBit.numEntries();
-
-
+    
 
         {
 
@@ -939,7 +923,7 @@ namespace secJoin
             }
         }
 
-        MC_AWAIT(mLeafGmw.run(comm));
+        co_await mLeafGmw.run(comm);
 
         {
             BinMatrix leftOut(mLeafGmw.mN, mBitsPerEntry), rghtOut(mLeafGmw.mN, mBitsPerEntry);
@@ -971,7 +955,7 @@ namespace secJoin
             }
         }
 
-        MC_END();
+
     }
 
 

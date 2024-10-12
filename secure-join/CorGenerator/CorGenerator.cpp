@@ -127,8 +127,8 @@ namespace secJoin
 
 			for (auto i = 0ull; i < mReqs.size(); ++i)
 			{
-				co_await(mSock.send(coproto::copy(mReqs)));
-				co_await(mSock.recvResize(theirReq));
+				co_await mSock.send(coproto::copy(mReqs));
+				co_await mSock.recvResize(theirReq);
 				for (i = 0; i < theirReq.size(); ++i)
 					theirReq[i].mRole ^= 1;
 			}
@@ -235,11 +235,11 @@ namespace secJoin
 			else
 				tasks.emplace_back(std::move(protos[i]) | macoro::make_eager());
 
-			//co_await(tasks.back());
+			//co_await tasks.back());
 		}
 
 		for (auto i = 0ull; i < tasks.size(); ++i)
-			co_await(tasks[i]);
+			co_await tasks[i];
 
 		setTimePoint("GenState::base");
 
@@ -251,7 +251,7 @@ namespace secJoin
 		{
 			if (i < mBatches.size())
 			{
-				co_await(mBatches[i]->mStart);
+				co_await mBatches[i]->mStart;
 
 				if (mBatches[i]->mAbort == false)
 				{
@@ -282,7 +282,7 @@ namespace secJoin
 			if (j < mBatches.size())
 			{
 				if (threadState[j % mNumConcurrent].mTask.handle())
-					co_await(threadState[j % mNumConcurrent].mTask);
+					co_await threadState[j % mNumConcurrent].mTask;
 
 				setTimePoint("GenState::batch.end " + std::to_string(j));
 				mBatches[j] = {};

@@ -313,7 +313,7 @@ namespace secJoin
 		macoro::async_manual_reset_event& corReady,
 		BatchThreadState& threadState)
 	{
-		//MC_BEGIN(macoro::task<>, this, state, batchIdx, size, &prng,
+		//M_C_BEGIN(macoro::task<>, this, state, batchIdx, size, &prng,
 			//&sock, &corReady, &threadState,
 			auto baseSend = std::vector<std::array<block, 2>>{};
 			auto baseB = std::vector<block>{};

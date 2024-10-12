@@ -1,7 +1,0 @@
-Type;Text
-Rows;100
-Cols;4
-Date;STRING;10
-PAN;INT;8
-Balance;INT;4
-Risk_Score;INT;4

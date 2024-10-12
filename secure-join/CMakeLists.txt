@@ -6,10 +6,9 @@ set(SRCS
     "Prf/ConvertToF3.cpp"
     "Prf/AltModPrf.cpp"
     "Prf/AltModKeyMult.cpp"
-    "Prf/AltModWPrf.cpp"
+    "Prf/AltModPrfProto.cpp"
     "Prf/F2LinearCode.cpp"
     "Prf/F3LinearCode.cpp"
-    "Prf/DarkMatter22Prf.cpp"
 
     
     "CorGenerator/CorGenerator.cpp"
@@ -110,7 +109,7 @@ endif()
 if(MSVC)
     target_compile_definitions(secureJoin PUBLIC "_ENABLE_EXTENDED_ALIGNED_STORAGE")
 else()
-    target_compile_options(secureJoin PUBLIC -mavx)
+    #target_compile_options(secureJoin PUBLIC -mavx)
 endif()
 
 #target_compile_features(secureJoin PUBLIC cxx_std_17)
