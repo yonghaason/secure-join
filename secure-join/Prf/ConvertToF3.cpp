@@ -5,8 +5,6 @@
 
 namespace secJoin
 {
-	//u64 printIdx = 16384;
-
 	macoro::task<> ConvertToF3Recver::convert(
 		span<const block> x,
 		coproto::Socket& sock,

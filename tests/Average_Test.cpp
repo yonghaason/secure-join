@@ -318,7 +318,7 @@ void Average_avg_Test(const oc::CLP& cmd)
     {
         Perm p0(exp.rows(), prng0);
         Perm p1(exp.rows(), prng1);
-        Perm pi = p0.composeSwap(p1);
+        Perm pi = p1.compose(p0);
 
         Table out[2];
         auto r = macoro::sync_wait(macoro::when_all_ready(

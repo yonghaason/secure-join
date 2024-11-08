@@ -6,7 +6,8 @@
 namespace secJoin
 {
 
-
+	// this is a partially implemented version of the Chase et al permutation protocol.
+	// Only used for benchmarking.
 	struct PprfPermGenSender
 	{
 		oc::RegularPprfSender<oc::block> mSender;
@@ -29,6 +30,8 @@ namespace secJoin
 		}
 	};
 
+	// this is a partially implemented version of the Chase et al permutation protocol.
+	// Only used for benchmarking.
 	struct PprfPermGenReceiver
 	{
 		oc::RegularPprfReceiver<oc::block> mRecver;

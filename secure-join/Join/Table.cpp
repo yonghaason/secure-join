@@ -27,7 +27,7 @@ namespace secJoin
                 for(u64 j = 0; j < out.cols(); j++)
                 {
                     auto bytes = out.mColumns[j].getByteCount();
-                    memcpy(out.mColumns[j].mData.data(curPtr), &data.mData(i, byteStartIdx) ,bytes);
+                    copyBytes(out.mColumns[j].mData[curPtr], data.mData[i].subspan(byteStartIdx, bytes));
                     byteStartIdx += bytes;
                 }
                 curPtr++;
@@ -144,7 +144,8 @@ namespace secJoin
         for (u64 i = 0; i < tb.cols(); i++)
             totalBytes += tb.mColumns[i].getByteCount();
 
-        std::vector<char> buffer(totalBytes * BATCH_READ_ENTRIES, 0);
+        std::vector<char> b(totalBytes * BATCH_READ_ENTRIES, 0);
+        span<char> buffer = b;
         u64 rowPtr = 0;
         while (!in.eof()) {
             in.read(buffer.data(), buffer.size());
@@ -165,9 +166,9 @@ namespace secJoin
                 for (oc::u64 colNum = 0; colNum < tb.cols(); colNum++)
                 {
                     u64 bytes = tb.mColumns[colNum].getByteCount();
-                    memcpy(tb.mColumns[colNum].mData.data(rowPtr),
-                        &buffer[buffptr],
-                        bytes);
+                    copyBytes(
+                        tb.mColumns[colNum].mData[rowPtr],
+                        buffer.subspan(buffptr, bytes));
                     buffptr += bytes;
                 }
             }
@@ -191,22 +192,19 @@ namespace secJoin
             {
                 if (tb.mColumns[colNum].getTypeID() == TypeID::StringID)
                 {
-                    oc::u64 minSize = tb.mColumns[colNum].getByteCount() > word.size() ?
-                        word.size() : tb.mColumns[colNum].getByteCount();
-
-                    memcpy(tb.mColumns[colNum].mData.data(rowNum), word.data(), minSize);
+                    copyBytesMin(tb.mColumns[colNum].mData[rowNum], word);
                 }
                 else if (tb.mColumns[colNum].getTypeID() == TypeID::IntID)
                 {
                     if (tb.mColumns[colNum].getByteCount() <= 4)
                     {
                         oc::i32 number = stoi(word);
-                        memcpy(tb.mColumns[colNum].mData.data(rowNum), &number, sizeof(i32));
+                        copyBytes(tb.mColumns[colNum].mData[rowNum], number);
                     }
                     else if (tb.mColumns[colNum].getByteCount() <= 8)
                     {
                         oc::i64 number = stoll(word);
-                        memcpy(tb.mColumns[colNum].mData.data(rowNum), &number, sizeof(i64));
+                        copyBytes(tb.mColumns[colNum].mData[rowNum], number);
                     }
                     else
                     {
@@ -286,29 +284,10 @@ namespace secJoin
         return true;
     }
 
-    // bool lessThan(span<const u8> l, span<const u8> r)
-    // {
-    //     assert(l.size() == r.size());
-    //     for (u64 i = l.size() - 1; i < l.size(); --i)
-    //         if (l[i] < r[i])
-    //             return true;
-    //     return false;
-    // }
+
     Perm sort(const ColRef& x)
     {
         return sort(x.mCol.mData);
-        // Perm res(x.mCol.rows());
-
-        // std::stable_sort(res.begin(), res.end(),
-        //     [&](const auto& a, const auto& b) {
-        //         return lessThan(x.mCol.mData[a], x.mCol.mData[b]);
-        //         // return (k64[a] < k64[b]);
-        //         // for (u64 i = x.mCol.cols() - 1; i < x.mCol.cols(); --i)
-        //         //     if (x.mCol.mData(a, i) < x.mCol.mData(b, i))
-        //         //         return true;
-        //         // return false;
-        //     });
-        // return res;
     }
 
     Table average(ColRef groupByCol,
@@ -468,9 +447,9 @@ namespace secJoin
             {
                 for(u64 j = 0; j < T.cols(); j++)
                 {
-                    memcpy( out.mColumns[j].mData.data(curPtr) ,
-                            T.mColumns[j].mData.data(i),
-                            T.mColumns[j].getByteCount());
+                    copyBytes( 
+                        out.mColumns[j].mData[curPtr],
+                        T.mColumns[j].mData[i]);
                 }
                 out.mIsActive[curPtr] = T.mIsActive[i];
                 curPtr++;
@@ -525,9 +504,9 @@ namespace secJoin
             {
                 for (u64 k = 0; k < T.mColumns.size(); k++)
                 {
-                    memcpy(out.mColumns[k].mData.data(j),
-                        T.mColumns[k].mData.data(j),
-                        T.mColumns[k].getByteCount());
+                    copyBytes(
+                        out.mColumns[k].mData[j],
+                        T.mColumns[k].mData[j]);
                 }
                 out.mIsActive[j] = 1;
             }
@@ -569,22 +548,23 @@ namespace secJoin
         u64 m = avgCol.size();
         assert(row < out.rows());
         // Copying the groupby column
-        assert(out.mColumns[0].mData.cols() == groupByCol.mCol.mData.cols());
-        memcpy(out.mColumns[0].mData.data(row),
-            groupByCol.mCol.mData.data(row ),
-            groupByCol.mCol.mData.cols());
+        copyBytes(
+            out.mColumns[0].mData[row],
+            groupByCol.mCol.mData[row]);
 
         // Copying the average column
         for (u64 col = 0; col < m; col++)
         {
             assert(out.mColumns[col + 1].mData.bytesPerEntry() == inputs[2 * col].sizeBytes());
-            memcpy(out.mColumns[col + 1].mData.data(row),
-                inputs[2 * col].data(), inputs[2 * col].sizeBytes());
+            copyBytes(
+                out.mColumns[col + 1].mData[row],
+                inputs[2 * col]);
         }
 
         // Copying the ones column 
-        memcpy(out.mColumns[m + 1].mData.data(row),
-            inputs[2 * m].data(), inputs[2 * m].sizeBytes());
+        copyBytes(
+            out.mColumns[m + 1].mData[row],
+            inputs[2 * m]);
 
     }
 
@@ -634,10 +614,6 @@ namespace secJoin
         inputs[1].reset(rem);
         inputs[1].append(data, bits);
 
-        // i64 cc = 0;
-        // memcpy(&cc, inputs[0].data(), inputs[0].sizeBytes());  
-        // std::cout << " input1: " << cc;                  
-
         std::vector<oc::BitVector> tempOutputs = { output };
         cir->evaluate(inputs, tempOutputs);
 
@@ -648,18 +624,10 @@ namespace secJoin
     {
         if (l.mCol.getBitCount() != r.mCol.getBitCount())
             throw RTE_LOC;
-        // std::unordered_map<oc::block, u64>
         auto LPerm = sort(l);
         auto RPerm = sort(r);
 
-        // std::cout << " L " << std::endl;
-        // for (u64 i = 0; i < LPerm.size(); ++i)
-        // {
-        //     std::cout << i << ": " << hex(l.mCol.mData[LPerm[i]]) << std::endl;
-        // }
-
         std::vector<std::array<u64, 3>> I;
-//        std::vector<u64> rIdx(r.mCol.rows());
         I.reserve(r.mCol.rows());
 
         u64 lIdx = 0;
@@ -682,17 +650,9 @@ namespace secJoin
                 if (eq(l.mCol.mData[LPerm[lIdx]], r.mCol.mData[RPerm[i]]))
                 {
                     I.push_back({ LPerm[lIdx], RPerm[i], i });
-//                    rIdx[RPerm[i]] = 1;
                 }
             }
         }
-
-//        for (u64 i = 1; i < rIdx.size(); ++i)
-//        {
-//            rIdx[i] += rIdx[i - 1];
-//        }
-//        if (rIdx.back() != I.size())
-//            throw RTE_LOC;
 
         std::vector<ColumnInfo> colInfo(select.size());
         for (u64 i = 0; i < colInfo.size(); ++i)
@@ -708,17 +668,17 @@ namespace secJoin
 
         for (u64 i = 0; i < I.size(); ++i)
         {
-//           auto d = rIdx[I[i][1]] - 1;
             auto d = I[i][2];
             for (u64 j = 0; j < colInfo.size(); ++j)
             {
 
                 auto lr = (&select[j].mTable == &r.mTable) ? 1 : 0;
-                auto src = select[j].mCol.mData.data(I[i][lr]);
-                auto dst = ret.mColumns[j].mData.data(d);
-                auto size = ret.mColumns[j].mData.cols();
+                // auto src = select[j].mCol.mData.data(I[i][lr]);
+                // auto dst = ret.mColumns[j].mData.data(d);
+                // auto size = ret.mColumns[j].mData.cols();
+                // m emcpy(dst, src, size);
 
-                memcpy(dst, src, size);
+                copyBytes(ret.mColumns[j].mData[d], select[j].mCol.mData[I[i][lr]]);
             }
             ret.mIsActive[d] = 1;
 

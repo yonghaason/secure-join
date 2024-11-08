@@ -18,78 +18,9 @@
 
 namespace secJoin
 {
-    //struct SendBase
-    //{
-    //    std::vector<std::array<PRNG, 2>> mBase;
-
-    //    std::vector<std::array<oc::block, 2>> get()
-    //    {
-    //        std::vector<std::array<oc::block, 2>> r(mBase.size());
-    //        for (u64 i = 0;i < r.size();++i)
-    //        {
-    //            r[i][0] = mBase[i][0].get();
-    //            r[i][1] = mBase[i][1].get();
-    //        }
-    //        return r;
-    //    }
-
-
-    //    void resize(u64 n)
-    //    {
-    //        mBase.resize(n);
-    //    }
-
-    //    SendBase fork()
-    //    {
-    //        SendBase s;
-    //        s.resize(mBase.size());
-    //        for (u64 i = 0;i < mBase.size();++i)
-    //        {
-    //            s.mBase[i][0].SetSeed(mBase[i][0].get<oc::block>());
-    //            s.mBase[i][1].SetSeed(mBase[i][1].get<oc::block>());
-    //        }
-
-    //        return s;
-    //    }
-    //};
-
-    //struct RecvBase
-    //{
-    //    std::vector<PRNG> mBase;
-    //    oc::BitVector mChoice;
-
-    //    std::vector<oc::block> get()
-    //    {
-    //        std::vector<oc::block> r(mBase.size());
-    //        for (u64 i = 0;i < r.size();++i)
-    //        {
-    //            r[i] = mBase[i].get();
-    //        }
-    //        return r;
-    //    }
-
-    //    void resize(u64 n)
-    //    {
-    //        mBase.resize(n);
-    //        mChoice.resize(n);
-    //    }
-    //    
-    //    RecvBase fork()
-    //    {
-    //        RecvBase s;
-    //        s.resize(mBase.size());
-    //        for (u64 i = 0;i < mBase.size();++i)
-    //        {
-    //            s.mBase[i].SetSeed(mBase[i].get<oc::block>());
-    //        }
-
-    //        s.mChoice = mChoice;
-    //        return s;
-    //    }
-    //};
-
-
-
+    // A struct used to track base correlations requests.
+    // These requests will be used as inputs to the batches
+    // that will generate the end user correlations.
     struct BaseRequest
     {
         // the choice bits requested for recv base OTs
@@ -108,6 +39,8 @@ namespace secJoin
         BaseRequest(const BaseRequest&) = default;
         BaseRequest(BaseRequest&&) = default;
         BaseRequest& operator=(BaseRequest&&) = default;
+
+        // combine many base requests into one.
         BaseRequest(span<BaseRequest> reqs)
         {
             u64 s = 0;
@@ -118,8 +51,6 @@ namespace secJoin
                 mChoice.append(reqs[i].mChoice);
             mSendSize = std::accumulate(reqs.begin(), reqs.end(), 0ull,
                 [](auto c, auto& v) { return c + v.mSendSize; });
-
-
 
             s = 0;
             for (u64 i = 0; i < reqs.size(); ++i)
@@ -135,18 +66,29 @@ namespace secJoin
         }
     };
 
+    // A struct used to hold the base correlations used to generate
+    // the batches.
     struct BaseCor
     {
+        // the index of the next recv OT that can be consumed.
         u64 mOtRecvIndex = 0;
+
+        // the recv OTs
         oc::BitVector mOtRecvChoice;
         oc::AlignedUnVector<block> mOtRecvMsg;
 
+        // the index of the next send OT that can be consumed.
         u64 mOtSendIndex = 0;
+        // the send OTs
         oc::AlignedUnVector<std::array<block, 2>> mOtSendMsg;
 
+        // the index of the next send VOLE that can be consumed.
         u64 mVoleSendIndex = 0;
+
+        // the index of the next recv VOLE that can be consumed.
         u64 mVoleRecvIndex = 0;
         
+        // the recv VOLE delta.
         block mVoleDelta;
 
         // mVoleA = mVoleB + mVoleChoice * mVoleDelta

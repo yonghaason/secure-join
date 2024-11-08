@@ -54,73 +54,43 @@ namespace secJoin
 		using Level = AggTreeLevel;
 		using SplitLevel = AggTreeSplitLevel;
 
+		// the circuits that are used for the various phases.
 		oc::BetaCircuit mUpCir, mDownCir, mLeafCir;
 
+		// The GMW subprotocols used for the upstream and downstream levels, 
+		// one for each lvl of the tree.
 		std::vector<Gmw> mUpGmw, mDownGmw;
+
+		// the GMW subprotocol used to update the leaf values at the end.
 		Gmw mLeafGmw;
-		Type mType;
+
+		// the type of aggregation to be performed.
+		Type mType = Type::Prefix;
+
+		// the number of bits each entry will have. Not counting the control bit.
 		u64 mBitsPerEntry = 0;
 
+		// initialize an agg tree with n leaves, each with bitsPerEntry bits.
+		// The agggregation of `type` is performed and aggraegated using `op`.
+		// the ole correlations used to evalute the circuit are obtained from
+		// `gen`.
 		void init(
 			u64 n,
 			u64 bitsPerEntry,
 			Type type,
 			const Operator& op,
-			CorGenerator& gen)
-		{
-			computeTreeSizes(n);
-			mBitsPerEntry = bitsPerEntry;
-			mType = type;
+			CorGenerator& gen);
 
-			mUpCir = upstreamCir(bitsPerEntry, type, op);
-			mDownCir = downstreamCir(bitsPerEntry, op, type);
-			mLeafCir = leafCircuit(bitsPerEntry, op, type);
-
-			mUpGmw.resize(mLevelSizes.size() - 1);
-			mDownGmw.resize(mLevelSizes.size() - 1);
-
-			// we start at the preSuf and move up.
-			for (u64 lvl = 0; lvl < mUpGmw.size(); ++lvl)
-			{
-				mUpGmw[lvl].init(mLevelSizes[lvl] / 2, mUpCir, gen);
-			}
-
-			// we start at the preSuf and move up.
-			for (u64 lvl = mDownGmw.size() - 1; lvl < mDownGmw.size(); --lvl)
-			{
-				mDownGmw[lvl].init(mLevelSizes[lvl] / 2, mDownCir, gen);
-			}
-
-			mLeafGmw.init(mN16 / 2, mLeafCir, gen);
-		}
-
+		// perform the actual protocol. `src` are the input data, 
+		// `controlBits` are the bits that determine the regions.
+		// communication is performed via `comm`. The output is
+		// written to `dst`.
 		macoro::task<> apply(
 			const BinMatrix& src,
 			const BinMatrix& controlBits,
 			coproto::Socket& comm,
 			PRNG& prng,
-			BinMatrix& dst)
-		{
-			auto root = Level{};
-			auto upLevels = std::vector<SplitLevel>{};
-			auto newVals = SplitLevel{};
-
-			computeTreeSizes(src.numEntries());
-
-			upLevels.resize(mLevelSizes.size());
-
-			co_await upstream(src, controlBits, comm, prng, root, upLevels);
-			co_await downstream(src, root, upLevels, newVals, comm, prng);
-
-			upLevels.resize(1);
-
-			if (dst.numEntries() != mN || dst.bitsPerEntry() != src.bitsPerEntry())
-				dst.resize(mN, src.bitsPerEntry());
-
-			co_await computeLeaf(upLevels[0], newVals, dst, prng, comm);
-
-		}
-
+			BinMatrix& dst);
 
 		// take the rows
 		//  in[srcRowStartIdx]
@@ -233,7 +203,4 @@ namespace secJoin
 
 
 	};
-
-
-
 }

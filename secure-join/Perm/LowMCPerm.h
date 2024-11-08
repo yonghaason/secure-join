@@ -114,7 +114,8 @@ namespace secJoin
 		for (u64 i = 0; i < n; ++i)
 		{
 			xEncrypted[counterMode + blocksPerRow - 1] = 0;
-			memcpy(&xEncrypted[counterMode], &x1(i, 0), x1.cols());
+            std::copy(x1[i].begin(), x1[i].end(), (u8*)&xEncrypted[counterMode]);
+			// m emcpy(&xEncrypted[counterMode], &x1(i, 0), x1.cols());
 
 			for (u64 j = 0; j < blocksPerRow; ++j)
 			{
@@ -144,7 +145,13 @@ namespace secJoin
 			roundkeysMatrix[i].resize((n * blocksPerRow), sizeof(lowMc.roundkeys[i]));
 
 			for (u64 j = 0; j < (n * blocksPerRow); j++)
-				memcpy(roundkeysMatrix[i][j].data(), &lowMc.roundkeys[i], sizeof(lowMc.roundkeys[i]));
+            {
+                std::copy(
+                    (u8*)&lowMc.roundkeys[i], 
+                    (u8*)(&lowMc.roundkeys[i]+1), 
+                    roundkeysMatrix[i][j].data());
+            }
+				// m emcpy(roundkeysMatrix[i][j].data(), &lowMc.roundkeys[i], sizeof(lowMc.roundkeys[i]));
 
 			// Adding the round keys to the evaluation circuit
 			gmw0.setInput(2 + i, roundkeysMatrix[i]);
@@ -168,7 +175,8 @@ namespace secJoin
 			//sout.resize(n, bytesPerRow, oc::AllocType::Uninitialized);
 			for (u64 i = 0; i < n; ++i)
 			{
-				memcpy(sout.data(i), temp.data(i), bytesPerRow);
+                copyBytesMin(sout[i], temp[i]);
+				// m emcpy(sout.data(i), temp.data(i), bytesPerRow);
 			}
 		}
 	}
@@ -278,7 +286,8 @@ namespace secJoin
 			//sout.resize(n, bytesPerRow, oc::AllocType::Uninitialized);
 			for (u64 i = 0; i < n; ++i)
 			{
-				memcpy(sout.data(i), temp.data(i), bytesPerRow);
+                copyBytesMin(sout[i], temp[i]);
+				//m emcpy(sout.data(i), temp.data(i), bytesPerRow);
 			}
 		}
 	}
@@ -326,9 +335,9 @@ namespace secJoin
 		for (u64 i = 0; i < n; ++i)
 		{
 			if (op == PermOp::Regular)
-				memcpy(x2Perm.data(i), x2.data(pi[i]), bytesPerRow);
+                copyBytes(x2Perm[i], x2[pi[i]]);
 			else
-				memcpy(x2Perm.data(pi[i]), x2.data(i), bytesPerRow);
+                copyBytes(x2Perm[pi[i]], x2[i]);
 		}
 
 		for (u64 i = 0; i < sout.rows(); ++i)

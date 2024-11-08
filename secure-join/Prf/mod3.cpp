@@ -8,159 +8,6 @@
 namespace secJoin
 {
 
-	void sampleMod3(PRNG& prng, span<u8> mBuffer)
-	{
-		auto n = mBuffer.size();
-		auto dst = mBuffer.data();
-		block m[8], t[8], eq[8];
-		block allOne = oc::AllOneBlock;
-		block block1 = block::allSame<u16>(1);
-		block block3 = block::allSame<u16>(3);
-
-		static constexpr int batchSize = 16;
-		std::array<std::array<block, 8>, 64> buffer;
-		std::array<u8* __restrict, 64> iters;
-
-		for (u64 i = 0; i < n;)
-		{
-			for (u64 j = 0; j < 64; ++j)
-				iters[j] = (u8*)buffer[j].data();
-
-			for (u64 bb = 0; bb < batchSize; ++bb)
-			{
-				prng.mAes.ecbEncCounterMode(prng.mBlockIdx, 8, m);
-				prng.mBlockIdx += 8;
-
-
-				for (u64 j = 0; j < 8; ++j)
-				{
-					if (j)
-					{
-						m[0] = m[0] >> 2;
-						m[1] = m[1] >> 2;
-						m[2] = m[2] >> 2;
-						m[3] = m[3] >> 2;
-						m[4] = m[4] >> 2;
-						m[5] = m[5] >> 2;
-						m[6] = m[6] >> 2;
-						m[7] = m[7] >> 2;
-					}
-
-					t[0] = m[0] & block3;
-					t[1] = m[1] & block3;
-					t[2] = m[2] & block3;
-					t[3] = m[3] & block3;
-					t[4] = m[4] & block3;
-					t[5] = m[5] & block3;
-					t[6] = m[6] & block3;
-					t[7] = m[7] & block3;
-
-					eq[0] = cmpeq_epi16(t[0], block3);
-					eq[1] = cmpeq_epi16(t[1], block3);
-					eq[2] = cmpeq_epi16(t[2], block3);
-					eq[3] = cmpeq_epi16(t[3], block3);
-					eq[4] = cmpeq_epi16(t[4], block3);
-					eq[5] = cmpeq_epi16(t[5], block3);
-					eq[6] = cmpeq_epi16(t[6], block3);
-					eq[7] = cmpeq_epi16(t[7], block3);
-
-					eq[0] = eq[0] ^ allOne;
-					eq[1] = eq[1] ^ allOne;
-					eq[2] = eq[2] ^ allOne;
-					eq[3] = eq[3] ^ allOne;
-					eq[4] = eq[4] ^ allOne;
-					eq[5] = eq[5] ^ allOne;
-					eq[6] = eq[6] ^ allOne;
-					eq[7] = eq[7] ^ allOne;
-
-					eq[0] = eq[0] & block1;
-					eq[1] = eq[1] & block1;
-					eq[2] = eq[2] & block1;
-					eq[3] = eq[3] & block1;
-					eq[4] = eq[4] & block1;
-					eq[5] = eq[5] & block1;
-					eq[6] = eq[6] & block1;
-					eq[7] = eq[7] & block1;
-
-					auto t16 = (u16 * __restrict)t;
-					auto e16 = (u16 * __restrict)eq;
-					for (u64 j = 0; j < 64; ++j)
-					{
-						iters[j][0] = t16[j];
-						iters[j] += e16[j];
-					}
-				}
-			}
-
-			for (u64 j = 0; j < 64 && i < n; ++j)
-			{
-				auto b = (u8*)buffer[j].data();
-
-				auto size = iters[j] - b;
-				auto min = std::min<u64>(size, n - i);
-				if (min)
-				{
-					memcpy(dst + i, b, min);
-					i += min;
-				}
-			}
-		}
-	}
-
-	void sampleMod3(PRNG& prng, span<block> msb, span<block> lsb, oc::AlignedUnVector<u8>& b)
-	{
-		b.resize(msb.size() * 128);
-		sampleMod3(prng, b);
-		block block1 = block::allSame<u8>(1);
-		block block2 = block::allSame<u8>(2);
-
-		for (u64 i = 0; i < msb.size(); ++i)
-		{
-			auto bb = (block*)&b.data()[i * 128];
-			assert((u64)bb % 16 == 0);
-
-			block tt[8];
-			tt[0] = bb[0] & block1;
-			tt[1] = bb[1] & block1;
-			tt[2] = bb[2] & block1;
-			tt[3] = bb[3] & block1;
-			tt[4] = bb[4] & block1;
-			tt[5] = bb[5] & block1;
-			tt[6] = bb[6] & block1;
-			tt[7] = bb[7] & block1;
-
-			lsb[i] =
-				tt[0] << 0 ^
-				tt[1] << 1 ^
-				tt[2] << 2 ^
-				tt[3] << 3 ^
-				tt[4] << 4 ^
-				tt[5] << 5 ^
-				tt[6] << 6 ^
-				tt[7] << 7;
-
-
-			tt[0] = bb[0] & block2;
-			tt[1] = bb[1] & block2;
-			tt[2] = bb[2] & block2;
-			tt[3] = bb[3] & block2;
-			tt[4] = bb[4] & block2;
-			tt[5] = bb[5] & block2;
-			tt[6] = bb[6] & block2;
-			tt[7] = bb[7] & block2;
-
-			msb[i] =
-				tt[0] >> 1 ^
-				tt[1] << 0 ^
-				tt[2] << 1 ^
-				tt[3] << 2 ^
-				tt[4] << 3 ^
-				tt[5] << 4 ^
-				tt[6] << 5 ^
-				tt[7] << 6;
-		}
-	}
-
 	// generated using buildMod3Tabel. Each of the first 243=3^5 positions
 	// contains 5 mod-3 values. the first byte of each entry contains the 
 	//5 lsb. the second byte contains the 5 msb. The third byte contains a 
@@ -460,42 +307,6 @@ namespace secJoin
 		}
 	};
 
-	void sampleMod3Lookup1(PRNG& prng, span<block> msb, span<block> lsb)
-	{
-		u64 n = msb.size() * 128;
-		auto msbIter = (u64*)msb.data();
-		auto lsbIter = (u64*)lsb.data();
-		span<u8> rands = prng.getBufferSpan(256);
-		u64 rIdx = 0;
-		u64 e = rands.size();
-		for (u64 i = 0; i < n; i += 64)
-		{
-			u64 lsb = 0, msb = 0;
-			u64 j = 0;
-			while (j < 64)
-			{
-				if (rIdx == e)
-				{
-					rands = prng.getBufferSpan(256);
-					rIdx = 0;
-					e = rands.size();
-				}
-				auto b = rands.data()[rIdx++];
-				//auto b = prng.get<u8>();
-				auto v = mod3Table[b];
-				auto lsbj = v & 255ull;
-				auto msbj = (v >> 8) & 255ull;
-				auto flag = v >> 16;
-				//__assume(flag <= 1);
-				lsb |= lsbj << j;
-				msb |= msbj << j;
-				j += flag * 5;
-			}
-			*lsbIter++ = lsb;
-			*msbIter++ = msb;
-		}
-	}
-
 #ifdef ENABLE_SSE
 	struct SampleBlock256
 	{
@@ -692,7 +503,7 @@ namespace secJoin
 	};
 #endif
 
-	void sampleMod3Lookup3(PRNG& prng, span<block> msbVec, span<block> lsbVec)
+	void sampleMod3Lookup(PRNG& prng, span<block> msbVec, span<block> lsbVec)
 	{
 		//if ((u64)msbVec.data() % 32)
 		//    throw RTE_LOC;// must be aligned.
@@ -702,8 +513,8 @@ namespace secJoin
 			throw RTE_LOC;// must have same size.
 
 		u64 n = msbVec.size();
-		auto msbIter = (block*)msbVec.data();
-		auto lsbIter = (block*)lsbVec.data();
+		auto msbIter = msbVec.data();
+		auto lsbIter = lsbVec.data();
 
 		oc::AlignedArray<block, 128> rands;
 		oc::AlignedArray<block, 8> rands2;
@@ -841,18 +652,11 @@ namespace secJoin
 			auto s = std::min<u64>(msbVec.size() - i, lsbSum.size() * 2);
 			assert(lsbIter + s <= lsbVec.data() + lsbVec.size());
 			assert(msbIter + s <= msbVec.data() + msbVec.size());
-			memcpy(lsbIter, lsbSum.data(), s * sizeof(block));
-			memcpy(msbIter, msbSum.data(), s * sizeof(block));
+			std::copy((u8*)lsbSum.data(), (u8*)lsbSum.data() + s * sizeof(block), (u8*)lsbIter);
+			std::copy((u8*)msbSum.data(), (u8*)msbSum.data() + s * sizeof(block), (u8*)msbIter);
 			lsbIter += s;
 			msbIter += s;
 
-			//for (u64 j = 0; j < s; ++j)
-			//{
-			//    _mm256_store_si256(lsbIter, lsbSum[j]);
-			//    _mm256_store_si256(msbIter, msbSum[j]);
-			//    ++lsbIter;
-			//    ++msbIter;
-			//}
 		}
 	}
 
@@ -905,7 +709,5 @@ namespace secJoin
 			sample8Mod3(seed.data() + i, *msbIter++, *lsbIter++);
 		}
 	}
-
-
 
 }

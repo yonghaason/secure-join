@@ -29,7 +29,6 @@ set(SRCS
     "Perm/AltModPerm.cpp"
     
     "Perm/PprfPermGen.cpp"
-    "Perm/PaillierPerm.cpp"
 
     "GMW/Circuit.cpp"
     "GMW/Gmw.cpp"
@@ -52,25 +51,12 @@ set(SRCS
     "Join/OoJoin.cpp"
     )
 
-if(SECUREJOIN_ENABLE_PAILLIER)
-    set(SRCS ${SRCS}
-            Aggregate/RemDummies.h)
-endif()
+
 
 add_library(secureJoin STATIC ${SRCS})
 target_link_libraries(secureJoin libOTe)
-#if(SECUREJOIN_DEV)
-#else()
-#    target_link_libraries(secureJoin oc::libOTe)
-#endif()
 
 configure_file(config.h.in "config.h" )
-
-
-if(SECUREJOIN_ENABLE_PAILLIER)
-    target_link_libraries(secureJoin Paillier)
-endif()
-
 if(APPLE)
     target_compile_options(secureJoin PUBLIC
         "-std=c++${SECUREJOIN_CPP_VER}"
@@ -82,13 +68,6 @@ if(APPLE)
 elseif(MSVC)
     message("SECUREJOIN_CPP_VER=${SECUREJOIN_CPP_VER}")
     target_compile_options(secureJoin PUBLIC "/std:c++${SECUREJOIN_CPP_VER}" "/Zc:__cplusplus")
-
-    #set_target_properties(secureJoin
-    #    PROPERTIES
-    #        CXX_STANDARD ${SECUREJOIN_CPP_VER}
-    #        CXX_STANDARD_REQUIRED YES
-    #        CXX_EXTENSIONS NO
-    #)
 
     if(SECUREJOIN_ENABLE_ASAN)
         target_compile_options(secureJoin PUBLIC "/fsanitize=address")
@@ -109,7 +88,6 @@ endif()
 if(MSVC)
     target_compile_definitions(secureJoin PUBLIC "_ENABLE_EXTENDED_ALIGNED_STORAGE")
 else()
-    #target_compile_options(secureJoin PUBLIC -mavx)
 endif()
 
 #target_compile_features(secureJoin PUBLIC cxx_std_17)

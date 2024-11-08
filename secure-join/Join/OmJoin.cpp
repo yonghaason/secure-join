@@ -25,15 +25,14 @@ namespace secJoin
 		{
 
 			auto size0 = leftJoinCol.mCol.mData.size();
-			auto size1 = rightJoinCol.mCol.mData.size();
 			BinMatrix keys(rows0 + rows1, bits);
 
-			u8* d0 = keys.data();
-			u8* d1 = keys.data() + size0;
-			u8* s0 = leftJoinCol.mCol.mData.data();
-			u8* s1 = rightJoinCol.mCol.mData.data();
-			memcpy(d0, s0, size0);
-			memcpy(d1, s1, size1);
+			auto k = span<u8>(keys);
+			auto d0 = k.subspan(0, size0);
+			auto d1 = k.subspan(size0);
+			assert(d1.data() + d1.size() == k.data() + k.size());
+			copyBytes(d0, leftJoinCol.mCol.mData);
+			copyBytes(d1, rightJoinCol.mCol.mData);
 			return keys;
 
 		}
@@ -129,9 +128,8 @@ namespace secJoin
 		sKeys.resize(data.rows() + 1, keyBitCount);
 		for (u64 i = 0; i < n; ++i)
 		{
-			memcpy(sKeys.data(i + 1), data.data(i) + keyByteOffset, keyByteSize);
+			copyBytes(sKeys[i+1], data[i].subspan(keyByteOffset, keyByteSize));
 		}
-		//bin.init(n, cir, ole);
 
 		mControlBitGmw.setInput(0, sKeys.subMatrix(0, n));
 		mControlBitGmw.setInput(1, sKeys.subMatrix(1, n));
@@ -149,32 +147,6 @@ namespace secJoin
 		span<BinMatrix*> cols,
 		span<Offset> offsets)
 	{
-		//auto m = cols.size();
-		//auto n = cols[0]->rows();
-		//auto d0 = dst.data();
-		//auto e0 = dst.data() + dst.size();
-
-		//std::vector<u64>
-		//    offsets,
-		//    sizes,
-		//    srcSteps;
-		//std::vector<u8*> srcs;
-		//u64 rem = dst.cols();
-		//for (u64 i = 0; i < m; ++i)
-		//{
-		//    if (cols[i] == nullptr)
-		//        continue;
-
-		//    sizes.push_back(oc::divCeil(cols[i]->bitsPerEntry(), 8));
-		//    if (sizes.size())
-		//        offsets.push_back(offsets.back() + sizes.back());
-		//    else
-		//        offsets.push_back(0);
-
-		//    srcs.push_back(cols[i]->data());
-		//    srcSteps.push_back(cols[i]->mData.cols());
-		//}
-
 		for (u64 j = 0; j < cols.size(); ++j)
 		{
 			if (cols[j] == nullptr)
@@ -184,19 +156,16 @@ namespace secJoin
 			assert(n <= dst.rows());
 			assert(offsets[j].mStart % 8 == 0);
 
-			auto d0 = dst.data() + offsets[j].mStart / 8;
+			auto d0 = span<u8>(dst).subspan(offsets[j].mStart / 8);
 
-			auto src = cols[j]->data();
+			auto src = span<u8>(*cols[j]);
 			auto size = cols[j]->bytesPerEntry();
 			assert(divCeil(offsets[j].mSize, 8) == size);
-			//auto step = cols[j]->bytesPerEntry();
 			for (u64 i = 0; i < n; ++i)
 			{
-				assert(d0 + size <= dst.data() + dst.size());
-				memcpy(d0, src, size);
-
-				src += size;
-				d0 += dst.cols();
+				copyBytes(d0.subspan(0, size), src.subspan(0, size));
+				src = src.subspan(size);
+				d0 = d0.subspan(dst.cols());
 			}
 		}
 	}
@@ -262,7 +231,7 @@ namespace secJoin
 		u64 m = selects.size();
 
 		std::vector<u64> sizes; //, dSteps(m);
-		std::vector<u8*> srcs, dsts;
+		std::vector<span<u8>> srcs, dsts;
 
 		out.mColumns.resize(selects.size());
 		// std::cout << "start row " << nL << std::endl;
@@ -280,8 +249,8 @@ namespace secJoin
 				oData.resize(nR, selects[i].mCol.getBitCount());
 
 				sizes.push_back(oData.bytesPerEntry());
-				dsts.push_back(oData.data());
-				srcs.push_back(&data(nL, rightOffset));
+				dsts.push_back(oData);
+				srcs.push_back(span<u8>(&data(nL, rightOffset), data.data() + data.size()));
 				rightOffset += sizes.back();
 
 				assert(rightOffset == oc::divCeil(offsets[k].mStart + offsets[k].mSize, 8));
@@ -297,31 +266,19 @@ namespace secJoin
 		assert(8 == offsets[k].mSize);
 		out.mIsActive.resize(nR);
 		sizes.push_back(1);
-		dsts.push_back(out.mIsActive.data());
-		srcs.push_back(&data(nL, rightOffset));
+		dsts.push_back(out.mIsActive);
+		srcs.push_back(span<u8>(&data(nL, rightOffset), data.data() + data.size()));
 
 		auto srcStep = data.cols();
 		for (u64 i = 0; i < nR; ++i)
 		{
-			// std::cout << "out " << i << " ";
 			for (u64 j = 0; j < sizes.size(); ++j)
 			{
-				// std::cout << hex(span<u8>(srcs[j], sizes[j])) << " ";
-				if (j != sizes.size() - 1)
-				{
-					assert(srcs[j] == &data(nL + i, offsets[j].mStart / 8));
-					assert(sizes[j] == oc::divCeil(offsets[j].mSize, 8));
-					// assert(dsts[j] == )
-				}
-
-
-				memcpy(dsts[j], srcs[j], sizes[j]);
-				dsts[j] += sizes[j];
-				srcs[j] += srcStep;
+				copyBytes(dsts[j].subspan(0, sizes[j]), srcs[j].subspan(0, sizes[j]));
+				dsts[j] = dsts[j].subspan(sizes[j]);
+				srcs[j] = srcs[j].subspan(srcStep);
 			}
-			// std::cout << std::endl;
 		}
-		// std::cout << out << std::endl;
 	}
 
 
@@ -427,7 +384,7 @@ namespace secJoin
 		out.resize(data.rows(), data.bitsPerEntry());
 		for (u64 i = 0; i < data.rows(); ++i)
 		{
-			memcpy(out[i].subspan(0, offset), data[i].subspan(0, offset));
+			copyBytes(out[i].subspan(0, offset), data[i].subspan(0, offset));
 			out(i, offset) = temp(i);
 		}
 	}
@@ -440,7 +397,7 @@ namespace secJoin
 		out.resize(n, m + 8);
 		for (u64 i = 0; i < n; ++i)
 		{
-			memcpy(out.data(i), data.data(i), m8);
+			copyBytes(out[i].subspan(0, m8), data[i].subspan(0, m8));
 			out(i, m8) = choice(i);
 		}
 	}
@@ -458,7 +415,8 @@ namespace secJoin
 
 		mPartyIdx = ole.partyIdx();
 		mDataBitsPerEntry = 0;
-		mRemDummiesFlag = remDummiesFlag;
+		if(remDummiesFlag)
+			mRemDummies.emplace(RemDummies{});
 
 		mOffsets.clear();
 		mOffsets.reserve(schema.mSelect.size() + 1);
@@ -518,7 +476,7 @@ namespace secJoin
 
 			// Here rows would be only elements in right table bcoz
 			// after the unsort entries from the left table are removed
-			mRemDummies.init(schema.mRightSize, dateBytesPerEntry, ole, false);
+			mRemDummies->init(schema.mRightSize, dateBytesPerEntry, ole, false);
 		}
 
 	}
@@ -622,6 +580,7 @@ namespace secJoin
 		if (mInsecurePrint)
 			co_await print(data, controlBits, sock, mPartyIdx, "agg", mOffsets);
 
+		// updates which rows have a match after the agg tree duplicates values.
 		co_await updateActiveFlag(data, controlBits, temp, mOffsets.back().mStart, sock);
 		std::swap(data, temp);
 
@@ -646,9 +605,9 @@ namespace secJoin
 		// unpack L' in `data` and write the result to `out`.
 		getOutput(data, query.mSelect, query.mLeftKey, out, mOffsets);
 
-		if (mRemDummiesFlag)
+		if (mRemDummies)
 		{
-			co_await mRemDummies.remDummies(out, tempTb, sock, prng);
+			co_await mRemDummies->remDummies(out, tempTb, sock, prng);
 			std::swap(tempTb, out);
 		}
 	}

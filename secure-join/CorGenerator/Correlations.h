@@ -57,21 +57,17 @@ namespace secJoin
 
         CorType mType;
 
-        // The request associated with this correlation.
-        //std::shared_ptr<RequestState> mRequest;
         std::shared_ptr<Batch> mBatch;
     };
 
     // A receiver OT correlation.
     struct OtRecv : Cor
     {
-
         OtRecv() : Cor(CorType::Ot) {}
         OtRecv(const OtRecv&) = delete;
         OtRecv& operator=(const OtRecv&) = delete;
         OtRecv(OtRecv&&) = default;
         OtRecv& operator=(OtRecv&&) = default;
-
 
         // The choice bits 
         oc::BitVector mChoice;
@@ -111,8 +107,6 @@ namespace secJoin
 
         oc::span<std::array<oc::block, 2>> msg() { return mMsg; }
     };
-
-
 
     // A 1-out-of-4 OT of bits sender correlation.
     struct F4BitOtSend : Cor
@@ -155,8 +149,6 @@ namespace secJoin
 
     };
 
-
-
     // A sender OT correlation.
     struct BinOle : Cor
     {
@@ -167,7 +159,6 @@ namespace secJoin
         BinOle(BinOle&&) = default;
         BinOle& operator=(BinOle&&) = default;
 
-
         // the ole's
         oc::span<oc::block> mAdd, mMult;
 
@@ -175,10 +166,7 @@ namespace secJoin
         {
             return mMult.size() * 128;
         }
-
-        //oc::span<std::array<oc::block, 2>> msg() { return mMsg; }
     };
-
 
     // A receiver OT correlation with F3 strings.
     struct TritOtRecv : Cor
@@ -189,7 +177,6 @@ namespace secJoin
         TritOtRecv& operator=(const TritOtRecv&) = delete;
         TritOtRecv(TritOtRecv&&) = default;
         TritOtRecv& operator=(TritOtRecv&&) = default;
-
 
         // The choice bits 
         oc::span<oc::block> mChoice;
@@ -207,8 +194,6 @@ namespace secJoin
         oc::span<oc::block> lsb() { return mLsb; }
         oc::span<oc::block> msb() { return mMsb; }
     };
-
-
 
     // A sender OT correlation with F3 strings. 
     struct TritOtSend : Cor

@@ -4,59 +4,6 @@
 namespace secJoin
 {
 
-    //void validateShares(BinMatrix& shares, CommPkg& comm, oc::BitVector& mask, bool debug);
-    //inline void randomize(TBinMatrix& d)
-    //{
-    //	static PRNG prng(oc::CCBlock);
-    //	for (u64 j = 0; j < 2; ++j)
-    //	{
-    //		prng.get(
-    //			d.mShares[j].data(),
-    //			d.mShares[j].size());
-    //	}
-    //}
-
-    //inline block hash(const TBinMatrix& d)
-    //{
-    //	oc::RandomOracle ro(sizeof(block));
-    //	for (u64 j = 0; j < 2; ++j)
-    //	{
-    //		ro.Update(
-    //			d.mShares[j].data(),
-    //			d.mShares[j].size());
-    //	}
-
-    //	block mR;
-    //	ro.Final(mR);
-    //	return mR;
-    //}
-
-    //inline std::string hexx(const TBinMatrix& d)
-    //{
-    //	std::stringstream ss;
-    //	for (u64 j = 0; j < d.bitsPerEntry(); ++j)
-    //	{
-    //		ss << j << ".0." << hex(d.mShares[0][j]) << std::endl;
-    //		ss << j << ".1." << hex(d.mShares[1][j]) << std::endl;
-    //	}
-
-    //	return ss.str();
-    //}
-    //inline block hash(const BinMatrix& d)
-    //{
-    //	oc::RandomOracle ro(sizeof(block));
-    //	for (u64 j = 0; j < 2; ++j)
-    //	{
-    //		ro.Update(
-    //			d.mShares[j].data(),
-    //			d.mShares[j].size());
-    //	}
-
-    //	block mR;
-    //	ro.Final(mR);
-    //	return mR;
-    //}
-
     inline void perfectUnshuffle(
         TBinMatrix& in,
         TBinMatrix& out0,
@@ -77,7 +24,6 @@ namespace secJoin
             throw RTE_LOC;
         if (dstShift2 > out1.numEntries())
             throw RTE_LOC;
-        //auto ss = in.() * sizeof(*in.mShares[0].data()) * 8;
         if (numEntries > in.numEntries())
             throw RTE_LOC;
         if (numEntries != out0.numEntries() + out1.numEntries() - dstShift)
@@ -85,27 +31,24 @@ namespace secJoin
 
         for (u64 i = 0; i < in.bitsPerEntry(); ++i)
         {
-            //for (u64 j = 0; j < 2; ++j)
+            auto ss = oc::divCeil(out0.numEntries() - dstShift2, 8);
+            auto inn = in[i].subspan(0, oc::divCeil(numEntries, 8));
+            auto o0 = out0[i].subspan(dstShift2 / 8, ss);
+            auto o1 = out1[i].subspan(dstShift2 / 8, ss);
+            assert(inn.data() + inn.size() <= (u8*)(in[i].data() + in[i].size()));
+            assert(o0.data() + o0.size() <= (u8*)(out0[i].data() + out0[i].size()));
+            assert(o1.data() + o1.size() <= (u8*)(out1[i].data() + out1[i].size()));
+
+            if (dstShift2)
             {
-                auto ss = oc::divCeil(out0.numEntries() - dstShift2, 8);
-                auto inn = in[i].subspan(0, oc::divCeil(numEntries, 8));
-                auto o0 = out0[i].subspan(dstShift2 / 8, ss);
-                auto o1 = out1[i].subspan(dstShift2 / 8, ss);
-                assert(inn.data() + inn.size() <= (u8*)(in[i].data() + in[i].size()));
-                assert(o0.data() + o0.size() <= (u8*)(out0[i].data() + out0[i].size()));
-                assert(o1.data() + o1.size() <= (u8*)(out1[i].data() + out1[i].size()));
-
-                if (dstShift2)
-                {
-                    memset(out0[i].data(), 0, dstShift2 / 8);
-                    memset(out1[i].data(), 0, dstShift2 / 8);
-                }
-
-                perfectUnshuffle(inn, o0, o1);
-
-
-                assert(inn.data() + inn.size() <= (u8*)(in[i].data() + in[i].size()));
+                setBytes(out0[i].subspan(0, dstShift2 / 8), 0);
+                setBytes(out1[i].subspan(0, dstShift2 / 8), 0);
             }
+
+            perfectUnshuffle(inn, o0, o1);
+
+
+            assert(inn.data() + inn.size() <= (u8*)(in[i].data() + in[i].size()));
         }
     }
 
@@ -163,42 +106,74 @@ namespace secJoin
     }
 
 
-    //void AggTree::toPackedBin(const BinMatrix& in, TBinMatrix& dest,
-    //    u64 srcRowStartIdx,
-    //    u64 numRows)
-    //{
-    //    if (numRows > dest.numEntries())
-    //        throw RTE_LOC;
-    //    if (in.bitsPerEntry() != dest.bitsPerEntry())
-    //        throw RTE_LOC;
-    //    if (numRows + srcRowStartIdx > in.numEntries())
-    //        throw RTE_LOC;
+		// initialize an agg tree with n leaves, each with bitsPerEntry bits.
+		// The agggregation of `type` is performed and aggraegated using `op`.
+		// the ole correlations used to evalute the circuit are obtained from
+		// `gen`.
+		void AggTree::init(
+			u64 n,
+			u64 bitsPerEntry,
+			Type type,
+			const Operator& op,
+			CorGenerator& gen)
+		{
+			computeTreeSizes(n);
+			mBitsPerEntry = bitsPerEntry;
+			mType = type;
 
-    //    //dest.reset(numRows, in.bitsPerEntry());
+			mUpCir = upstreamCir(bitsPerEntry, type, op);
+			mDownCir = downstreamCir(bitsPerEntry, op, type);
+			mLeafCir = leafCircuit(bitsPerEntry, op, type);
 
-    //    if (in.bitsPerEntry() == 1)
-    //        std::cout << "optimize me" << std::endl;
+			mUpGmw.resize(mLevelSizes.size() - 1);
+			mDownGmw.resize(mLevelSizes.size() - 1);
 
+			// we start at the preSuf and move up.
+			for (u64 lvl = 0; lvl < mUpGmw.size(); ++lvl)
+			{
+				mUpGmw[lvl].init(mLevelSizes[lvl] / 2, mUpCir, gen);
+			}
 
-    //    auto& s = in;
-    //    auto& d = dest;
+			// we start at the preSuf and move up.
+			for (u64 lvl = mDownGmw.size() - 1; lvl < mDownGmw.size(); --lvl)
+			{
+				mDownGmw[lvl].init(mLevelSizes[lvl] / 2, mDownCir, gen);
+			}
 
-    //    oc::MatrixView<u8> inView(
-    //        (u8*)s.data() + srcRowStartIdx * s.bytesPerEntry(),
-    //        (u8*)s.data() + (srcRowStartIdx + numRows) * s.bytesPerEntry(),
-    //        s.bytesPerEntry());
+			mLeafGmw.init(mN16 / 2, mLeafCir, gen);
+		}
 
-    //    assert(inView.data() + inView.size() <= s.data() + s.size());
+		// perform the actual protocol. `src` are the input data, 
+		// `controlBits` are the bits that determine the regions.
+		// communication is performed via `comm`. The output is
+		// written to `dst`.
+		macoro::task<> AggTree::apply(
+			const BinMatrix& src,
+			const BinMatrix& controlBits,
+			coproto::Socket& comm,
+			PRNG& prng,
+			BinMatrix& dst)
+		{
+			auto root = Level{};
+			auto upLevels = std::vector<SplitLevel>{};
+			auto newVals = SplitLevel{};
 
-    //    oc::MatrixView<u8> memView(
-    //        d.data(),
-    //        d.data() + d.size(),
-    //        d.bytesPerRow());
+			computeTreeSizes(src.numEntries());
 
-    //    assert(memView.data() + memView.size() <= d.data() + d.size());
+			upLevels.resize(mLevelSizes.size());
 
-    //    oc::transpose(inView, memView);
-    //}
+			co_await upstream(src, controlBits, comm, prng, root, upLevels);
+			co_await downstream(src, root, upLevels, newVals, comm, prng);
+
+			upLevels.resize(1);
+
+			if (dst.numEntries() != mN || dst.bitsPerEntry() != src.bitsPerEntry())
+				dst.resize(mN, src.bitsPerEntry());
+
+			co_await computeLeaf(upLevels[0], newVals, dst, prng, comm);
+
+		}
+
 
     oc::BetaCircuit AggTree::upstreamCir(
         u64 bitsPerEntry,
@@ -689,17 +664,9 @@ namespace secJoin
                 {
                     for (u64 j = 0; j < 2; ++j)
                     {
-                        auto s0 = ((u8*)src[k].data()) + srcStart;
-                        auto d0 = ((u8*)dst[k].data()) + dstStart;
-                        //auto max = src[k].size() * sizeof(*src[k].data());
-#ifndef NDEBUG
-                        auto es = (u8*)(src[k].data() + src[k].size());
-                        auto ed = (u8*)(dst[k].data() + dst[k].size());
-#endif
-                        //assert(dstStart + size < max);
-                        assert(d0 + size <= ed);
-                        assert(s0 + size <= es);
-                        memcpy(d0, s0, size);
+                        auto ss0 = src[k].subspan(srcStart, size);
+                        auto dd0 = dst[k].subspan(dstStart, size);
+                        secJoin::copyBytes(dd0, ss0);
                     }
                 }
             };
@@ -937,26 +904,30 @@ namespace secJoin
             auto ls = leftOut.bytesPerEntry();
             auto rs = rghtOut.bytesPerEntry();
             assert(ds >= ls && ds >= rs);
-
             auto n2 = mN / 2;
+
+            // bounds check
+            if(d + mN * ds > dst.data() + dst.size())
+                throw RTE_LOC;
+            if(l + n2 * ls > leftOut.data() + leftOut.size())
+                throw RTE_LOC;
+            if(r + (n2+(mN&1)) * rs > rghtOut.data() + rghtOut.size())
+                throw RTE_LOC;
+
             for (u64 i = 0; i < n2; ++i)
             {
                 assert(d + ds <= dst.data() + dst.size());
                 assert(l + ls <= leftOut.data() + leftOut.size());
                 assert(r + rs <= rghtOut.data() + rghtOut.size());
 
-                memcpy(d, l, ls); d += ds; l += ls;
-                memcpy(d, r, rs); d += ds; r += rs;
+                std::copy(l, l + ls, d); d += ds; l += ls;
+                std::copy(r, r + rs, d); d += ds; r += rs;
             }
 
             if (mN & 1)
             {
-                memcpy(d, l, ls);
+                std::copy(l, l + ls, d);
             }
         }
-
-
     }
-
-
 }

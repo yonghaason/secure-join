@@ -37,11 +37,7 @@ namespace secJoin
 	// output: aAbB cCdD eEfF gGhH iIjJ kKlL mMnN oOpP
 	inline u32 cPerfectShuffle(u16 x0, u16 x1)
 	{
-		u32 x;
-		memcpy((u8*)&x, &x0, sizeof(u16));
-		memcpy((u8*)&x + sizeof(u16), &x1, sizeof(u16));
-		//((u16*)&x)[0] = x0;
-		//((u16*)&x)[1] = x1;
+		u32 x = x0 | (u32{x1} << 16);
 		x = cPerfectShuffle_round<8>(x);
 		x = cPerfectShuffle_round<4>(x);
 		x = cPerfectShuffle_round<2>(x);
@@ -62,15 +58,19 @@ namespace secJoin
 		x = cPerfectShuffle_round<8>(x);
 
 		std::array<u16, 2> r;
-		memcpy(&r, &x, sizeof(r));
+		r[0] = x;
+		r[1] = x >> 16;
 		return r;
 	}
 
-
+	// perfect shuffle the bits of `input0` and `input1` into `output`.
+	// bits from `input0` and `input1` alternate.
 	inline void cPerfectShuffle(span<const u8> input0, span<const u8> input1, span<u8> output)
 	{
-		assert(input0.size() == input1.size());
-		assert(input0.size() == (output.size() + 1) / 2);
+		if(input0.size() != input1.size())
+			throw RTE_LOC;
+		if(input0.size() != (output.size() + 1) / 2)
+			throw RTE_LOC;
 
 		u64 n32 = output.size() / sizeof(u32);
 
@@ -82,26 +82,26 @@ namespace secJoin
 			out[i] = cPerfectShuffle(in0[i], in1[i]);
 		}
 
-
 		auto n8 = n32 * sizeof(u32);
 		if (output.size() != n8)
 		{
-			auto rem = input0.size() - n8 / 2;
 			u16 x0 = 0, x1 = 0;
-			memcpy(&x0, &input0[n8 / 2], rem);
-			memcpy(&x1, &input1[n8 / 2], rem);
-			auto t = cPerfectShuffle(x0,x1);
-
-			memcpy(&output[n8], &t, output.size() - n8);
+			copyBytesMin(x0, input0.subspan(n8 / 2));
+			copyBytesMin(x1, input1.subspan(n8 / 2));
+			auto t = cPerfectShuffle(x0, x1);
+			copyBytesMin(output.subspan(n8), t);
 		}
 	}
 
+	// perfect unshuffle the bits of `input` into `output0` and `output1`.
+	// even indexed bits of `input` go to `output0`.
 	inline void cPerfectUnshuffle(span<const u8> input, span<u8> output0, span<u8> output1)
 	{
-		assert(output0.size() == output1.size());
-		assert(output0.size() == (input.size() + 1) / 2);
+		if(output0.size() != output1.size())
+			throw RTE_LOC;
+		if(output0.size() != (input.size() + 1) / 2)
+			throw RTE_LOC;
 		u64 n32 = input.size() / sizeof(u32);
-
 		auto out0 = (u16*)output0.data();
 		auto out1 = (u16*)output1.data();
 		auto in = (u32*)input.data();
@@ -118,17 +118,12 @@ namespace secJoin
 		auto n8 = n32 * sizeof(u32);
 		if (input.size() != n8)
 		{
-			auto rem = output0.size() - n8 / 2;
+			// auto rem = output0.size() - n8 / 2;
 			u32 t = 0;
-			memcpy(&t, &input[n8], input.size() - n8);
-
+			copyBytesMin(t, input.subspan(n8));
 			auto r = cPerfectUnshuffle(t);
-
-			assert(n8 / 2 + rem == output0.size());
-			assert(n8 / 2 + rem == output1.size());
-
-			memcpy(&output0[n8 / 2], &r[0], rem);
-			memcpy(&output1[n8 / 2], &r[1], rem);
+			copyBytesMin(output0.subspan(n8 / 2), r[0]);
+			copyBytesMin(output1.subspan(n8 / 2), r[1]);
 		}
 	}
 
@@ -258,11 +253,7 @@ namespace secJoin
 		const oc::block b = _mm_set_epi8(15, 13, 11, 9, 7, 5, 3, 1, 14, 12, 10, 8, 6, 4, 2, 0);
 		y = _mm_shuffle_epi8(y, b);
 
-		std::array<u64, 2> r;
-		memcpy(&r, &y, sizeof(r));
-		return r;
-
-		//return *(std::array<u64, 2>*)&y;
+		return std::bit_cast<std::array<u64, 2>>(y);
 	}
 
 	// perfect shuffle 4 blocks on x0,x1 into 8 blocks of y.
@@ -297,7 +288,8 @@ namespace secJoin
 	inline void ssePerfectUnshuffle(const oc::block* yy, oc::block* x0, oc::block* x1)
 	{
 		std::array<oc::block, 8> y;
-		memcpy(y.data(), yy, sizeof(y));
+		std::copy(u8*)yy, (u8*)(yy + y.size()), (u8*)y.data());
+		// m emcpy(y.data(), yy, sizeof(y));
 
 		// perfect shuffle the bits. 
 		ssePerfectShuffle_round<1>(y.data());
@@ -436,26 +428,4 @@ namespace secJoin
 		cPerfectUnshuffle(input, output0, output1);
 #endif
 	}
-
-	//template<typename In, typename Out>
-	//inline void perfectShuffle(span<In> input0, span<In> input1, span<Out> output)
-	//{
-	//	static_assert(std::is_trivial<In>::value, "");
-	//	static_assert(std::is_trivial<Out>::value, "");
-	//	span<u8> in0((u8*)input0.data(), input0.size() * sizeof(In));
-	//	span<u8> in1((u8*)input1.data(), input1.size() * sizeof(In));
-	//	span<u8> out((u8*)output.data(), output.size() * sizeof(Out));
-	//	perfectShuffle(in0, in1, out);
-	//}
-
-	//template<typename In, typename Out>
-	//inline void perfectUnshuffle(span<In> input, span<Out> output0, span<Out> output1)
-	//{
-	//	static_assert(std::is_trivial<In>::value, "");
-	//	static_assert(std::is_trivial<Out>::value, "");
-	//	span<u8> in((u8*)input.data(), input.size() * sizeof(In));
-	//	span<u8> out0((u8*)output0.data(), output0.size() * sizeof(Out));
-	//	span<u8> out1((u8*)output1.data(), output1.size() * sizeof(Out));
-	//	perfectShuffle(in, out0, out1);
-	//}
 }

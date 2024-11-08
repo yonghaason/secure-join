@@ -105,18 +105,6 @@ namespace secJoin
         for (u64 i = 0; i < x1.size(); ++i)
         {
             mod3Add(z1.data()[i], z0.data()[i], x1.data()[i], x0.data()[i], y0.data()[i]);
-
-            //auto ab = x1.data()[i] ^ x0.data()[i];
-            //auto abc = ab & y0.data()[i];
-
-            //auto zz1 = x1.data()[i] ^ abc;
-
-            //auto nac = x1.data()[i].andnot_si128(y0.data()[i]);
-            //auto zz0 = x0.data()[i] ^ nac;
-
-            //z1.data()[i] = zz1;
-            //z0.data()[i] = zz0;
-
         }
     }
 
@@ -194,10 +182,6 @@ namespace secJoin
     // z += y mod 3
     OC_FORCEINLINE void mod3Add(block& z1, block& z0, const block& y0)
     {
-        //__assume(&z0 != &z1);
-        //__assume(&z0 != &y0);
-        //__assume(&z1 != &y0);
-
         auto x1 = z1;
         auto x0 = z0;
         auto x1x0 = x1 ^ x0;
@@ -217,52 +201,19 @@ namespace secJoin
         block* __restrict z0d = z0.data();
         const block* __restrict y0d = y0.data();
 
-        //auto x1x0 = x1 ^ x0;
-        //auto z1 = (1 ^ y0 ^ x0) * (x1x0 ^ y1);
-        //auto z0 = (1 ^ x1 ^ y1) * (x1x0 ^ y0);
-        //auto e = (x + y) % 3;
         for (u64 i = 0; i < z0.size(); ++i)
         {
             mod3Add(z1d[i], z0d[i], y0d[i]);
-            //auto x1i = z1d[i];
-            //auto x0i = z0d[i];
-            //auto y0i = y0d[i];
-            //auto x1x0 = x1i ^ x0i;
-            //z1d[i] = (y0i ^ x0i).andnot_si128(x1x0);
-            //z0d[i] = (x1i).andnot_si128(x1x0 ^ y0i);
         }
     }
 
-    //void sampleMod3(PRNG& prng, span<u8> mBuffer);
-    //void sampleMod3(PRNG& prng, span<block> msb, span<block> lsb, oc::AlignedUnVector<u8>& b);
-
-    void buildMod3Table();
-
-    //void buildMod3Table4();
-
-
-    // sample many mid 3 values from prng.
-    void sampleMod3Lookup1(PRNG& prng, span<block> msb, span<block> lsb);
-
-    //void sampleMod3Lookup2(PRNG& prng, span<block> msbVec, span<block> lsbVec);
-
-    // sample many mid 3 values from prng.
-    void sampleMod3Lookup3(PRNG& prng, span<block> msbVec, span<block> lsbVec);
-
-    //void sampleMod3Lookup5(PRNG& prng, span<block> msbVec, span<block> lsbVec);
-
-    //void sampleMod3Lookup4(PRNG& prng, span<block> msbVec, span<block> lsbVec);
-
-    // sample many mid 3 values from prng.
-    inline void sampleMod3Lookup(PRNG& prng, span<block> msb, span<block> lsb)
-    {
-        sampleMod3Lookup3(prng, msb, lsb);
-    }
-
+    // sample many mod 3 values in bit decomposed format.
+    void sampleMod3Lookup(PRNG& prng, span<block> msb, span<block> lsb);
 
     // sample 8 mod three values, where the i'th is sampled using seed[i]. 
     void sample8Mod3(block* seed, u8& msb, u8& lsb);
 
     // sample many mod three values, where the i'th is sampled using seed[i]. 
+    // seed.size() must be a multiple of 128.
     void sampleMod3(span<block> seed, span<block> msb, span<block> lsb);
 }

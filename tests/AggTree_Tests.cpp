@@ -55,6 +55,7 @@ void eval(BetaCircuit& cir,
                 inputs[j].resize(numInputs);
                 inputs[j][i].resize(cir.mInputs[i].size());
                 inputs[j][i].randomize(prng);
+                
                 memcpy(in[j].data(), inputs[j][i].data(), inputs[j][i].sizeBytes());
             }
 
@@ -739,8 +740,8 @@ void AggTree_dup_singleSetLeaves_Test()
                         expS.resize(nn, m);
                         expPreC.resize(nn, 1);
 
-                        memcpy<u8, u8>(expS.subMatrix(mR, mN - mN0), s.subMatrix(mN0));
-                        memcpy<u8, u8>(expPreC.subMatrix(mR, mN - mN0), c.subMatrix(mN0));
+                        copyBytes(expS.subMatrix(mR, mN - mN0), s.subMatrix(mN0));
+                        copyBytes(expPreC.subMatrix(mR, mN - mN0), c.subMatrix(mN0));
 
                         expSufC = expPreC; expSufC.resize(nn, 1);
                         for (u64 i = mR + 1; i < expSufC.size(); ++i)

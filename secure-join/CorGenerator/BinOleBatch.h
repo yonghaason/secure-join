@@ -24,15 +24,11 @@ namespace secJoin
 {
 
 
-
+    // a batch representing binary OLE correlation
+    // a * b = [c]
     struct OleBatch : Batch
     {
         OleBatch(GenState* state, bool sender, oc::Socket&& s, PRNG&& p);
-
-        //~OleBatch()
-        //{
-        //    std::cout << "~OleBatch()" << std::endl;
-        //}
 
         // The "send" specific state
         struct SendBatch
@@ -114,7 +110,6 @@ namespace secJoin
         {
             return mSendRecv.index();
         }
-
 
         void clear() override
         {

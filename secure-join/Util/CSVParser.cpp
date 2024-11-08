@@ -113,11 +113,11 @@ namespace secJoin
 
         if (columnInfo.size() != colCount)
         {
-            throw std::runtime_error("Col Count doesn't match the total \
-                number of column info " + fileName + "\n" LOCATION);
+            throw std::runtime_error(std::string("Col Count doesn't match the total \
+                number of column info ") + std::string(fileName) + "\n" LOCATION);
         }
 
-        if (SECJOIN_ENABLE_LOGGING)
+        if (false)
         {
             std::cout << "Printing " << fileName << " Meta Data" << std::endl;
             for (u64 i = 0; i < columnInfo.size(); i++)
@@ -151,7 +151,7 @@ namespace secJoin
         std::fstream file(fileName, std::ios::in);
 
         if (!file.good())
-            throw std::runtime_error("Could not open the file " + fileName + "\n" LOCATION);
+            throw std::runtime_error("Could not open the file " + std::string(fileName) + "\n" LOCATION);
 
         getFileInfo(fileName, file, columnInfo, rowCount, colCount, isBin);
         file.close();
@@ -164,7 +164,7 @@ namespace secJoin
         file.open(filePath);
 
         if (!file.is_open())
-            throw std::runtime_error("Could not open the file " + filePath + "\n" LOCATION);
+            throw std::runtime_error("Could not open the file " + std::string(filePath) + "\n" LOCATION);
 
         // Adding the Type to the file
         if (isBin)
@@ -224,7 +224,7 @@ namespace secJoin
         file.open(filePath);
 
         if (!file.is_open())
-            throw std::runtime_error("Could not open the file " + filePath + "\n" LOCATION);
+            throw std::runtime_error("Could not open the file " + std::string(filePath) + "\n" LOCATION);
 
         // Adding the Columns names to the file
         if (!isBin)
@@ -275,9 +275,9 @@ namespace secJoin
                     {
                         std::string temp(tb.mColumns[colNum].getByteCount(), '\0');
 
-                        // Is this safe?
-                        memcpy(temp.data(), tb.mColumns[colNum].mData[rowNum].data(),
-                            tb.mColumns[colNum].getByteCount());
+                        copyBytes(temp, tb.mColumns[colNum].mData[rowNum]);
+                        // memcpy(temp.data(), tb.mColumns[colNum].mData[rowNum].data(),
+                        //     tb.mColumns[colNum].getByteCount());
 
                         temp.erase(temp.find('\0'));
                         file << temp;

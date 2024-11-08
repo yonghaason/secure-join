@@ -96,7 +96,7 @@ namespace secJoin
 				   return send.sendTask(mGenState, mIndex, mSize, mPrng, mSock, mCorReady, threadState);
 			},
 			[&](RecvBatch& recv) {
-				  return  recv.recvTask(mGenState,mIndex, mSize, mPrng, mSock, mCorReady, threadState);
+				  return  recv.recvTask(mGenState, mIndex, mSize, mPrng, mSock, mCorReady, threadState);
 			}
 		};
 	}
@@ -115,8 +115,8 @@ namespace secJoin
 		{
 			for (u64 j = 0; j < 2; ++j)
 			{
-				memset<block>(mLsb[j], 0);
-				memset<block>(mMsb[j], 0);
+				setBytes(mLsb[j], 0);
+				setBytes(mMsb[j], 0);
 			}
 			return;
 		}
@@ -151,9 +151,9 @@ namespace secJoin
 		mMsb.resize(m);
 		if (0)
 		{
-			memset<block>(mChoice, 0);
-			memset<block>(mLsb, 0);
-			memset<block>(mMsb, 0);
+			setBytes(mChoice, 0);
+			setBytes(mLsb, 0);
+			setBytes(mMsb, 0);
 			return;
 		}
 		else

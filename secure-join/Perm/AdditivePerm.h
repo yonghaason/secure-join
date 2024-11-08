@@ -9,7 +9,7 @@
 
 namespace secJoin
 {
-    // and XOR sharing of a permutation
+    // an XOR sharing of a permutation
     class AdditivePerm 
     {
     public:
@@ -18,18 +18,13 @@ namespace secJoin
 
         u64 size() const { return mShare.size(); }
 
-
+        // check that the shares are actually a permutation
         macoro::task<> validate(coproto::Socket& sock)
         {
-            MC_BEGIN(macoro::task<>, this, &sock,
-                perm = Perm{}
-                );
+            Perm perm(mShare.size());
 
-            perm.mPi.resize(mShare.size());
-
-
-            MC_AWAIT(sock.send(coproto::copy(mShare)));
-            MC_AWAIT(sock.recv(perm.mPi));
+            co_await sock.send(coproto::copy(mShare));
+            co_await sock.recv(perm.mPi);
 
             for(u64 i = 0; i < perm.mPi.size(); ++i)
             {
@@ -37,8 +32,6 @@ namespace secJoin
             }
 
             perm.validate();
-
-            MC_END();
         }
     };
 }

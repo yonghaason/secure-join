@@ -6,7 +6,7 @@
 
 namespace secJoin
 {
-
+    // A protocol for converting F2 sharings into Z_{2^32} sharings.
     struct BitInject
     {
 
@@ -55,7 +55,7 @@ namespace secJoin
             mRequested = true;
         }
 
-
+        // start the preprocessing
         void preprocess();
 
         // convert each bit of the binary secret sharing `in`

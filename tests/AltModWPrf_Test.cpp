@@ -9,6 +9,7 @@
 #include "secure-join/Util/Util.h"
 #include "secure-join/Prf/F3LinearCode.h"
 #include "secure-join/Prf/ConvertToF3.h"
+#include "secure-join/AggTree/PerfectShuffle.h"
 
 using namespace secJoin;
 
@@ -65,7 +66,7 @@ void F2LinearCode_test(const oc::CLP& cmd)
 		{
 			block act;
 			auto exp = mult(x[i]);
-			code.encode((u8*)&x[i], act.data());
+			code.encode(x[i], act);
 
 			if (exp != act)
 				throw RTE_LOC;
@@ -76,6 +77,59 @@ void F2LinearCode_test(const oc::CLP& cmd)
 	}
 
 }
+
+
+	void mod3BitDecompostion(oc::MatrixView<u16> u, oc::MatrixView<block> u0, oc::MatrixView<block> u1)
+	{
+		if (u.rows() != u0.rows())
+			throw RTE_LOC;
+		if (u.rows() != u1.rows())
+			throw RTE_LOC;
+
+		if (oc::divCeil(u.cols(), 128) != u0.cols())
+			throw RTE_LOC;
+		if (oc::divCeil(u.cols(), 128) != u1.cols())
+			throw RTE_LOC;
+
+		u64 n = u.rows();
+		u64 m = u.cols();
+
+		oc::AlignedUnVector<u8> temp(oc::divCeil(m * 2, 8));
+		for (u64 i = 0; i < n; ++i)
+		{
+			auto iter = temp.data();
+
+			assert(m % 4 == 0);
+
+			for (u64 k = 0; k < m; k += 4)
+			{
+				assert(u[i][k + 0] < 3);
+				assert(u[i][k + 1] < 3);
+				assert(u[i][k + 2] < 3);
+				assert(u[i][k + 3] < 3);
+
+				// 00 01 10 11 20 21 30 31
+				*iter++ =
+					(u[i][k + 0] << 0) |
+					(u[i][k + 1] << 2) |
+					(u[i][k + 2] << 4) |
+					(u[i][k + 3] << 6);
+			}
+
+			span<u8> out0((u8*)u0.data(i), temp.size() / 2);
+			span<u8> out1((u8*)u1.data(i), temp.size() / 2);
+			perfectUnshuffle(temp, out0, out1);
+
+#ifndef NDEBUG
+			for (u64 j = 0; j < out0.size(); ++j)
+			{
+				if (out0[j] & out1[j])
+					throw RTE_LOC;
+			}
+#endif
+		}
+	}
+
 
 void AltModWPrf_mod3BitDecompostion_test()
 {
@@ -190,64 +244,11 @@ void AltModWPrf_sampleMod3_test(const oc::CLP& cmd)
 			}
 		}
 
-		//for (u64 tt = 0; tt < t; ++tt)
-		//{
-		//    std::array<int, 3> counts{ 0,0,0 };
-
-		//    for (u64 i = 0;i < n * 128;++i)
-		//    {
-		//        ++counts[prng.get<u64>() % 3];
-		//    }
-
-		//    u64 N = n * 128;
-		//    u64 exp = N / 3;
-		//    u64 eps = 2 * std::sqrt(N);
-		//    for (auto c : counts)
-		//        if (c < exp - eps || c > exp + eps)
-		//        {
-		//            std::cout << "{ " << counts[0] << ", " << counts[1] << ", " << counts[2] << "}" << std::endl;
-		//            std::cout << "exp = " << exp << " eps = " << eps << std::endl;
-		//            failed = true;
-		//        }
-
-		//    std::cout << "basic { " << counts[0] << ", " << counts[1] << ", " << counts[2] << "}" << std::endl;
-		//}
 
 		for (u64 tt = 0; tt < t; ++tt)
 		{
 			oc::AlignedUnVector<block> lsb(n), msb(n);
 			sampleMod3Lookup(prng, msb, lsb);
-			std::array<int, 3> counts{ 0,0,0 };
-			for (u64 i = 0;i < n;++i)
-			{
-				for (u64 j = 0;j < 128; ++j)
-				{
-					auto lsbj = bit(lsb[i], j);
-					auto msbj = bit(msb[i], j);
-					u64 v = lsbj + 2 * msbj;
-
-					if (v > 2)
-						throw RTE_LOC;
-
-					++counts[v];
-				}
-			}
-
-			u64 N = n * 128;
-			u64 exp = N / 3;
-			u64 eps = std::sqrt(N);
-			for (auto c : counts)
-				if ((c < (exp - eps) || c > (exp + eps)) && n > 200)
-				{
-					failed = true;
-				}
-			//std::cout << "lookup1 { " << counts[0] << ", " << counts[1] << ", " << counts[2] << "}" << std::endl;
-		}
-
-		for (u64 tt = 0; tt < t; ++tt)
-		{
-			oc::AlignedUnVector<block> lsb(n), msb(n);
-			sampleMod3Lookup3(prng, msb, lsb);
 			std::array<int, 3> counts{ 0,0,0 };
 
 			for (u64 i = 0;i < n;++i)
@@ -360,6 +361,54 @@ void AltModWPrf_AMult_test(const oc::CLP& cmd)
 
 
 
+    struct block256
+    {
+        std::array<oc::block, 2> mData;
+
+        void operator^=(const block256& x)
+        {
+            mData[0] = mData[0] ^ x.mData[0];
+            mData[1] = mData[1] ^ x.mData[1];
+        }
+        block256 operator&(const block256& x) const
+        {
+            block256 r;
+            r.mData[0] = mData[0] & x.mData[0];
+            r.mData[1] = mData[1] & x.mData[1];
+            return r;
+        }
+
+        block256 operator^(const block256& x) const
+        {
+            auto r = *this;
+            r ^= x;
+            return r;
+        }
+
+        block256 rotate(u64 i) const
+        {
+            auto xx = *(std::bitset<256>*)this;
+            auto low = xx >> i;
+            auto hgh = xx << (256 - i);
+
+            auto m = hgh ^ low;
+            block256 r;
+            memcpy(&r, &m, sizeof(r));
+            return r;
+        }
+
+        bool operator==(const block256& x) const
+        {
+            return std::memcmp(this, &x, sizeof(x)) == 0;
+        }
+        bool operator!=(const block256& x) const
+        {
+            return std::memcmp(this, &x, sizeof(x)) != 0;
+        }
+
+        oc::block& operator[](u64 i) { return mData[i]; }
+    };
+
 void AltModWPrf_BMult_test(const oc::CLP& cmd)
 {
 	u64 n = 1ull << cmd.getOr("nn", 12);
@@ -377,7 +426,7 @@ void AltModWPrf_BMult_test(const oc::CLP& cmd)
 		}
 	}
 	std::vector<oc::block> y(n);
-	compressB(v, y);
+	AltModPrf::compressB(v, y);
 
 	//oc::Matrix<u64> B(128, 256);
 	//for (u64 i = 0; i < 128; ++i)
@@ -398,7 +447,7 @@ void AltModWPrf_BMult_test(const oc::CLP& cmd)
 		//	throw RTE_LOC;
 
 		auto Y = oc::ZeroBlock;
-		AltModPrf::mBCode.encode((u8*)&V[i].mData[1], (u8*)&Y);
+		AltModPrf::mBCode.encode(V[i].mData[1], Y);
 
 		{
 			auto w = V[i];
@@ -1233,6 +1282,11 @@ void AltModWPrf_plain_test()
 	}
 }
 
+    struct block256m3
+    {
+        //std::array<oc::block, 2> mData;
+        std::array<u8, 256> mData;
+	};
 
 void AltModProtoCheck(AltModWPrfSender& sender, AltModWPrfReceiver& recver)
 {
@@ -1290,10 +1344,10 @@ void AltModProtoCheck(AltModWPrfSender& sender, AltModWPrfReceiver& recver)
 		//			std::cout << "x[" << ii << "][" << j << "] " << XShares[j] << std::endl;
 		//		}
 
-		//		auto& rkx0 = j ? recver.mKeyMultSender.mDebugXk0 : recver.mKeyMultRecver.mDebugXk0;
-		//		auto& rkx1 = j ? recver.mKeyMultSender.mDebugXk1 : recver.mKeyMultRecver.mDebugXk1;
-		//		auto& skx0 = j ? sender.mKeyMultRecver.mDebugXk0 : sender.mKeyMultSender.mDebugXk0;
-		//		auto& skx1 = j ? sender.mKeyMultRecver.mDebugXk1 : sender.mKeyMultSender.mDebugXk1;
+		//		auto& rkx0 = j ? recver.mKeyMultSender.mDebugEk0 : recver.mKeyMultRecver.mDebugEk0;
+		//		auto& rkx1 = j ? recver.mKeyMultSender.mDebugEk1 : recver.mKeyMultRecver.mDebugEk1;
+		//		auto& skx0 = j ? sender.mKeyMultRecver.mDebugEk0 : sender.mKeyMultSender.mDebugEk0;
+		//		auto& skx1 = j ? sender.mKeyMultRecver.mDebugEk1 : sender.mKeyMultSender.mDebugEk1;
 
 
 		//		for (u64 i = 0; i < AltModWPrf::KeySize; ++i)
@@ -1335,11 +1389,11 @@ void AltModProtoCheck(AltModWPrfSender& sender, AltModWPrfReceiver& recver)
 			u8 ki = bit(key, i);
 			h[i] = ki & xi;
 
-			assert(recver.mDebugXk0.cols() == oc::divCeil(x.size(), 128));
-			auto r0 = bit(recver.mDebugXk0.data(i), ii);
-			auto r1 = bit(recver.mDebugXk1.data(i), ii);
-			auto s0 = bit(sender.mDebugXk0.data(i), ii);
-			auto s1 = bit(sender.mDebugXk1.data(i), ii);
+			assert(recver.mDebugEk0.cols() == oc::divCeil(x.size(), 128));
+			auto r0 = bit(recver.mDebugEk0.data(i), ii);
+			auto r1 = bit(recver.mDebugEk1.data(i), ii);
+			auto s0 = bit(sender.mDebugEk0.data(i), ii);
+			auto s1 = bit(sender.mDebugEk1.data(i), ii);
 
 
 			auto s = 2 * s1 + s0;

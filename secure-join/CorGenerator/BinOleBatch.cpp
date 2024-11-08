@@ -6,8 +6,6 @@
 namespace secJoin
 {
 
-
-
     OleBatch::OleBatch(GenState* state, bool sender, oc::Socket&& s, PRNG&& p)
         : Batch(state, std::move(s), std::move(p))
     {
@@ -61,8 +59,6 @@ namespace secJoin
                 send.mSender.setSilentBaseOts(sMsg.getSendOt(send.mSender.silentBaseOtCount()));
             },
             [&](RecvBatch& recv) {
-                //if (sMsg.size())
-                //    std::terminate();
                 recv.mReceiver.setSilentBaseOts(sMsg.getRecvOt(recv.mReceiver.silentBaseOtCount()));
             }
         };
@@ -80,18 +76,8 @@ namespace secJoin
         };
     }
 
-    //void OleBatch::mock(u64 batchIdx)
-    //{
-
-    //    mCorReady.set();
-
-    //}
     void OleBatch::SendBatch::mock(u64 batchIdx, span<oc::block> add, span<oc::block> mult)
     {
-        //memset(add, 0);
-        //memset(mult, 0);
-        //return;
-
         auto m = add.size();
         auto m8 = m / 8 * 8;
         oc::block mm8(4532453452, 43254534);
@@ -131,11 +117,6 @@ namespace secJoin
 
     void OleBatch::RecvBatch::mock(u64 batchIdx, span<oc::block> add, span<oc::block> mult)
     {
-
-        //memset(add, 0);
-        //memset(mult, 0);
-        //return;
-
         auto m = add.size();
         auto m8 = m / 8 * 8;
         oc::block mm8(4532453452, 43254534);
@@ -252,7 +233,6 @@ namespace secJoin
         }
         else
         {
-
             if (state->mDebug)
             {
                 co_await sock.send(coproto::copy(mSender.mGen.mBaseOTs));
@@ -261,7 +241,6 @@ namespace secJoin
             assert(mSender.mGen.hasBaseOts());
             mSender.mMultType = oc::MultType::Tungsten;
             
-
             mSender.mB = std::move(threadState.mB);
             mSender.mEncodeTemp = std::move(threadState.mEncodeTemp);
             mSender.mGen.mTempBuffer = std::move(threadState.mPprfTemp);
@@ -275,13 +254,11 @@ namespace secJoin
             threadState.mPprfTemp = std::move(mSender.mGen.mTempBuffer);
         }
 
-
         corReady.set();
     }
 
 
     // the LSB of A is the choice bit of the OT.
-
     void OleBatch::RecvBatch::compressRecver(
         span<oc::block> A,
         span<oc::block> add,

@@ -1,7 +1,6 @@
 #include "UnitTests.h"
 
 #include "LowMCPerm_Test.h"
-#include "PaillierPerm_Test.h"
 #include "ComposedPerm_Test.h"
 #include "AltModWPrf_Test.h"
 #include "GMW_Test.h"
@@ -11,7 +10,6 @@
 
 #include "PermCor_Test.h"
 #include "AltModPerm_Test.h"
-#include "PaillierPerm_Test.h"
 #include "ComposedPerm_Test.h"
 #include "AdditivePerm_Test.h"
 #include "CSVParser_Test.h"

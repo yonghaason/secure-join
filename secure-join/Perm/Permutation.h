@@ -11,18 +11,13 @@
 namespace secJoin
 {
 	
-	//struct Xor
-	//{
-	//	template<typename T>
-	//	auto operator()(const T& x, const T& y) const { return x ^ y; }
-	//};
-
 	enum class PermOp
 	{
 		Regular,
 		Inverse
 	};
 
+	// a plaintext permutation.
 	class Perm
 	{
 	public:
@@ -49,12 +44,12 @@ namespace secJoin
 
 		//initializing permutation with vector 
 		Perm(std::vector<u32> perm) : mPi(std::move(perm)) {}
-		// Perm(const std::vector<u64>& perm) : mPi(perm.begin(), perm.end()) {}
+
 		Perm(u64 s, std::vector<u32> perm) : mPi(perm.begin(), perm.end()) {
 			assert(size() == s);
 		}
 
-
+		// sample a random permutation of size n
 		void randomize(u64 n, PRNG& prng)
 		{
 			mPi.resize(n);
@@ -69,20 +64,13 @@ namespace secJoin
 			}
 		}
 
-		Perm operator*(const Perm& rhs) const { return composeSwap(rhs); }
-
-		// A.composeSwap(B) computes the permutation BoA
-		Perm composeSwap(const Perm& rsh)const;
-		
 		// A.compose(B) computes the permutation AoB
 		Perm compose(const Perm& rhs) const;
 
 		// return A^-1.
 		Perm inverse()const;
 
-
 		u64 size() const { return mPi.size(); }
-
 
 		// dst[i] = src[perm[i]]
 		template <typename T>
@@ -123,24 +111,31 @@ namespace secJoin
 						T* __restrict  d6 = d + 6 * cols;
 						T* __restrict  d7 = d + 7 * cols;
 
-						std::memcpy(d0, s0, cols * sizeof(T));
-						std::memcpy(d1, s1, cols * sizeof(T));
-						std::memcpy(d2, s2, cols * sizeof(T));
-						std::memcpy(d3, s3, cols * sizeof(T));
-						std::memcpy(d4, s4, cols * sizeof(T));
-						std::memcpy(d5, s5, cols * sizeof(T));
-						std::memcpy(d6, s6, cols * sizeof(T));
-						std::memcpy(d7, s7, cols * sizeof(T));
+						assert(d7 + cols <= dst.data() + dst.size());
+						assert(s0 + cols <= src.data() + src.size());
+						assert(s1 + cols <= src.data() + src.size());
+						assert(s2 + cols <= src.data() + src.size());
+						assert(s3 + cols <= src.data() + src.size());
+						assert(s4 + cols <= src.data() + src.size());
+						assert(s5 + cols <= src.data() + src.size());
+						assert(s6 + cols <= src.data() + src.size());
+						assert(s7 + cols <= src.data() + src.size());
 
+						std::copy(s0, s0 + cols, d0);
+						std::copy(s1, s1 + cols, d1);
+						std::copy(s2, s2 + cols, d2);
+						std::copy(s3, s3 + cols, d3);
+						std::copy(s4, s4 + cols, d4);
+						std::copy(s5, s5 + cols, d5);
+						std::copy(s6, s6 + cols, d6);
+						std::copy(s7, s7 + cols, d7);
 
 						d = d7 + cols;
 					}
 
 					for (; i < size(); i++)
 					{
-						auto s = &src(mPi[i], 0);
-						std::memcpy(d, s, cols * sizeof(T));
-						d += cols;
+						copyBytes(dst[i], src[mPi[i]]);
 					}
 				}
 				else
@@ -181,24 +176,31 @@ namespace secJoin
 						const T* __restrict  s6 = s + 6 * cols;
 						const T* __restrict  s7 = s + 7 * cols;
 
-						std::memcpy(d0, s0, cols * sizeof(T));
-						std::memcpy(d1, s1, cols * sizeof(T));
-						std::memcpy(d2, s2, cols * sizeof(T));
-						std::memcpy(d3, s3, cols * sizeof(T));
-						std::memcpy(d4, s4, cols * sizeof(T));
-						std::memcpy(d5, s5, cols * sizeof(T));
-						std::memcpy(d6, s6, cols * sizeof(T));
-						std::memcpy(d7, s7, cols * sizeof(T));
+						assert(s7 + cols <= src.data() + src.size());
+						assert(d0 + cols <= dst.data() + dst.size());
+						assert(d1 + cols <= dst.data() + dst.size());
+						assert(d2 + cols <= dst.data() + dst.size());
+						assert(d3 + cols <= dst.data() + dst.size());
+						assert(d4 + cols <= dst.data() + dst.size());
+						assert(d5 + cols <= dst.data() + dst.size());
+						assert(d6 + cols <= dst.data() + dst.size());
+						assert(d7 + cols <= dst.data() + dst.size());
 
+						std::copy(s0, s0 + cols, d0);
+						std::copy(s1, s1 + cols, d1);
+						std::copy(s2, s2 + cols, d2);
+						std::copy(s3, s3 + cols, d3);
+						std::copy(s4, s4 + cols, d4);
+						std::copy(s5, s5 + cols, d5);
+						std::copy(s6, s6 + cols, d6);
+						std::copy(s7, s7 + cols, d7);
 
 						s = s7 + cols;
 					}
 
 					for (; i < size(); i++)
 					{
-						auto d = &dst(mPi[i], 0);
-						std::memcpy(d, s, cols * sizeof(T));
-						s += cols;
+						copyBytes(dst[mPi[i]], src[i]);
 					}
 				}
 				else

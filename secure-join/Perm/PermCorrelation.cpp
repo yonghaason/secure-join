@@ -162,14 +162,28 @@ namespace secJoin
 			xorShare(mA, mByteOffset, input, xEncrypted);
 			co_await chl.send(std::move(xEncrypted));
 			for (u64 i = 0; i < size(); ++i)
-				memcpy(sout.data(i), (u8*)mB.data(i) + mByteOffset, sout.cols());
+			{
+				std::copy(
+					(u8*)mB.data(i) + mByteOffset,
+					(u8*)mB.data(i) + mByteOffset + sout.cols(),
+					sout.data(i)
+				);
+				//m emcpy(sout.data(i), (u8*)mB.data(i) + mByteOffset, sout.cols());
+			}
 		}
 		else
 		{
 			xorShare(mB, mByteOffset, input, xEncrypted);
 			co_await chl.send(std::move(xEncrypted));
 			for (u64 i = 0; i < size(); ++i)
-				memcpy(sout.data(i), (u8*)mA.data(i) + mByteOffset, sout.cols());
+			{
+				std::copy(
+					(u8*)mA.data(i) + mByteOffset,
+					(u8*)mA.data(i) + mByteOffset + sout.cols(),
+					sout.data(i)
+				);
+				//m emcpy(sout.data(i), (u8*)mA.data(i) + mByteOffset, sout.cols());
+			}
 		}
 
 		mByteOffset += sout.cols();

@@ -706,7 +706,7 @@ void Where_join_where_csv_Test(const oc::CLP& cmd)
 
         Perm p2(joinExp.rows(), prng0);
         Perm p3(joinExp.rows(), prng1);
-        Perm pi1 = p2.composeSwap(p3);
+        Perm pi1 =  p3.compose(p2);
 
         std::vector<secJoin::ColRef> lSelectColRefs = getSelectColRef(selectCols, Ls[0], Rs[0]);
         std::vector<secJoin::ColRef> rSelectColRefs = getSelectColRef(selectCols, Ls[1], Rs[1]);
@@ -758,7 +758,7 @@ void Where_join_where_csv_Test(const oc::CLP& cmd)
 
         Perm p0(exp.rows(), prng0);
         Perm p1(exp.rows(), prng1);
-        Perm pi = p0.composeSwap(p1);
+        Perm pi = p1.compose(p0);
 
         Where wh0, wh1;
         wh0.mInsecureMockSubroutines = mock;
@@ -897,7 +897,7 @@ void Where_avg_where_csv_Test(const oc::CLP& cmd)
 
         Perm p4(joinExp.rows(), prng0);
         Perm p5(joinExp.rows(), prng1);
-        Perm pi2 = p4.composeSwap(p5);
+        Perm pi2 = p5.compose(p4);
 
         std::vector<secJoin::ColRef> lSelectColRefs = getSelectColRef(selectCols, Ls[0], Rs[0]);
         std::vector<secJoin::ColRef> rSelectColRefs = getSelectColRef(selectCols, Ls[1], Rs[1]);
@@ -937,7 +937,7 @@ void Where_avg_where_csv_Test(const oc::CLP& cmd)
 
         Perm p0(whExp.rows(), prng0);
         Perm p1(whExp.rows(), prng1);
-        Perm pi = p0.composeSwap(p1);
+        Perm pi = p1.compose(p0);
         throw oc::UnitTestSkipped("needs harshal");// not impl
 
         //auto r1 = macoro::sync_wait(macoro::when_all_ready(

@@ -4,6 +4,7 @@
 
 namespace secJoin
 {
+    // a value in the range {0,1,2,3}.
     struct F4 
     {
         u8 mVal;
@@ -20,44 +21,27 @@ namespace secJoin
         }
     };
 
-    // block does not use operator*
+    // A coefficient context for GF4 used in the VOLE protocol.
     struct CoeffCtxGF4 : oc::CoeffCtxInteger
     {
-
-
+        // the subfield as GF4
         using G = F4;
+
+        // the extension field as GF(2^128)
         using F = block;
 
         template<typename T>
         OC_FORCEINLINE void plus(T& ret, const T& lhs, const T& rhs) {
-            //if constexpr (std::is_same_v<T, F>)
-            //{
-            //    assert((lhs.get<u64>(0) & 3) == 0);
-            //    assert((rhs.get<u64>(0) & 3) == 0);
-            //}
-
             ret = lhs ^ rhs;
         }
+
         template<typename T>
         OC_FORCEINLINE void minus(T& ret, const T& lhs, const T& rhs) {
-            //if constexpr (std::is_same_v<T, F>)
-            //{
-            //    assert((lhs.get<u64>(0) & 3) == 0);
-            //    assert((rhs.get<u64>(0) & 3) == 0);
-            //}
             ret = lhs ^ rhs;
         }
-        //template<typename F>
-        //OC_FORCEINLINE void mul(F& ret, const F& lhs, const F& rhs) {
-        //    throw RTE_LOC;//not impl
-        //    //ret = lhs & rhs;
-        //}
 
-        //template<typename F>
         OC_FORCEINLINE void mul(F& ret, const F& lhs, const G& rhs) {
             assert(rhs.mVal < 4);
-            //assert((lhs.get<u64>(0) & 3) == 0);
-
             switch (rhs.mVal)
             {
             case 0:
@@ -93,13 +77,7 @@ namespace secJoin
             }
             default:
                 assert(0);
-                //__assume(0);
             }
-
-            //{
-            //    assert((lhs.get<u64>(0) & 3) == 0);
-            //    assert((ret.get<u64>(0) & 3) == 0);
-            //}
         }
 
         OC_FORCEINLINE void mul(G& ret, const G& lhs, const G& rhs) {
@@ -139,7 +117,6 @@ namespace secJoin
             }
             default:
                 assert(0);
-                //__assume(0);
             }
         }
 
@@ -154,7 +131,6 @@ namespace secJoin
         {
             mul(ret, x, G{ 3 });
         }
-
 
         // the bit size require to prepresent F
         // the protocol will perform binary decomposition
@@ -179,7 +155,7 @@ namespace secJoin
         {
             static_assert(std::is_trivially_copyable<F>::value, "memset is used so must be trivially_copyable.");
             F r;
-            memset(&r, 0, sizeof(F));
+            setBytes(r, 0);
             return r;
         }
 
@@ -198,10 +174,7 @@ namespace secJoin
             }
             else
             {
-
-                std::cout << "request type not supported" << LOCATION << std::endl;
-                std::terminate();
-                //static_assert(0, "unknown type");
+                static_assert(std::is_same<T, F>::value ||std::is_same<T, G>::value, "request type not supported");
             }
         }
 

@@ -145,6 +145,8 @@ namespace secJoin
             ::secJoin::trim(mData, mBitCount);
         }
 
+        // return the submatrix starting at row `rowIdx`
+        // and going for the next `count` rows.
         oc::MatrixView<u8> subMatrix(u64 rowIdx, u64 count)
         {
             if (rowIdx >= mData.rows())
@@ -154,11 +156,15 @@ namespace secJoin
             return oc::MatrixView<u8>(mData.data(rowIdx), count, mData.cols());
         }
 
+        // return the submatrix starting at row `rowIdx`
+        // and going to the end.
         oc::MatrixView<u8> subMatrix(u64 rowIdx)
         {
             return subMatrix(rowIdx, mData.rows() - rowIdx);
         }
 
+        // return the submatrix starting at row `rowIdx`
+        // and going for the next `count` rows.
         oc::MatrixView<const u8> subMatrix(u64 rowIdx, u64 count) const
         {
             if (rowIdx >= mData.rows())
@@ -168,6 +174,8 @@ namespace secJoin
             return oc::MatrixView<const u8>(mData.data(rowIdx), count, mData.cols());
         }
 
+        // return the submatrix starting at row `rowIdx`
+        // and going to the end.
         oc::MatrixView<const u8> subMatrix(u64 rowIdx) const
         {
             return subMatrix(rowIdx, mData.rows() - rowIdx);
@@ -182,42 +190,6 @@ namespace secJoin
             return oc::MatrixView<const u8>(mData.data(), mData.rows(), mData.cols());
         }
     };
-
-    // struct BinMatrixView : oc::MatrixView<u8>
-    // {
-    //     u64 mBitCount = 0;
-
-    //     BinMatrixView() = default;
-    //     BinMatrixView(const BinMatrixView&) = default;
-    //     BinMatrixView(BinMatrixView&&) = default;
-    //     BinMatrixView& operator=(const BinMatrixView&) = default;
-    //     BinMatrixView& operator=(BinMatrixView&&) = default;
-
-    //     BinMatrixView(const BinMatrix& m)
-    //         : oc::MatrixView<u8>(m.mData)
-    //         , mBitCount(m.mBitCount)
-    //     {}
-
-    //     BinMatrixView(const oc::MatrixView<u8>& m)
-    //         : oc::MatrixView<u8>(m)
-    //         , mBitCount(m.cols() * 8)
-    //     {}
-
-    //     BinMatrixView& operator=(const BinMatrix& m)
-    //     {
-    //         (oc::MatrixView<u8>&)(*this) = (m.mData);
-    //         mBitCount = (m.mBitCount);
-
-    //     }
-
-    //     BinMatrixView& operator=(const oc::MatrixView<u8>& m)
-    //     {
-    //         (oc::MatrixView<u8>&)(*this) = m;
-    //         mBitCount = (m.cols() * 8);
-    //     }
-
-    //     u64 bitsPerEntry() const { return mBitCount; }
-    // };
 
     // represents a binary matrix in bit transpose format.
     // the i'th row shorts the i'th bit of the elements.

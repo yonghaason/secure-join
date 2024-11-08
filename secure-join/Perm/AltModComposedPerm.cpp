@@ -23,9 +23,9 @@ namespace secJoin
         auto t0 = macoro::task<>{};
         auto t1 = macoro::task<>{};
 
-#ifndef NDEBUG
-        perm.validate();
-#endif
+// #ifndef NDEBUG
+//         perm.validate();
+// #endif
 
         chl2 = chl.fork();
         dst.mPartyIdx = mPartyIdx;

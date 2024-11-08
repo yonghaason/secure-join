@@ -11,18 +11,7 @@ namespace secJoin
 {
     struct GenState;
 
-    //struct Session
-    //{
-    //    // true if the base OTs has been started. This 
-    //    // will guard starting them to ensure only one 
-    //    // thread does it.
-    //    std::atomic<bool> mBaseStarted = false;
-
-    //    u64 mReqIndex = 0;
-    //};
-
-
-    struct RequestState : std::enable_shared_from_this<RequestState>
+    struct RequestState// : std::enable_shared_from_this<RequestState>
     {
         RequestState(CorType t, bool sender, u64 size, std::shared_ptr<GenState>&, u64 idx);
 
@@ -53,9 +42,6 @@ namespace secJoin
         // The core state.
         std::shared_ptr<GenState> mGenState;
 
-        // a session is a object that tracts per base OT batch information.
-        //std::shared_ptr<Session> mSession;
-
         // starts the preprocessing.
         void startReq();
 
@@ -74,35 +60,38 @@ namespace secJoin
     {
         std::shared_ptr<RequestState> mReqState;
 
+        // returns a task that can be awaited to get
+        // the requested correlation. If the correlation 
+        // has not been started, it will be started.
+        // The request may be split across multiple requests
+        // in which case get(...) should be called multiple time.
         macoro::task<> get(Cor& d)
         {
-            MC_BEGIN(macoro::task<>, this, &d,
-                batch = (BatchSegment*)nullptr
-            );
-
             if (mReqState->mNextBatchIdx >= mReqState->mBatches_.size())
                 throw std::runtime_error("get was call more times than there are batches. " LOCATION);
 
             // make sure the request has been started.
             start();
 
-            batch = &mReqState->mBatches_[mReqState->mNextBatchIdx++];
-            MC_AWAIT(batch->mBatch->mCorReady);
+            auto batch = &mReqState->mBatches_[mReqState->mNextBatchIdx++];
+            co_await batch->mBatch->mCorReady;
 
             batch->mBatch->getCor(&d, batch->mBegin, batch->mSize);
             d.mBatch = std::move(batch->mBatch);
-
-            MC_END();
         }
 
+        // eagerly start the generation of the correlation.
         void start() {
             return mReqState->startReq();
         }
 
+        // the number of batches that this request is split over.
         u64 batchCount() const { return  initialized() ? mReqState->batchCount() : 0; }
 
+        // the total size of the requested correlation.
         u64 size() const { return  initialized() ? mReqState->mSize : 0; }
 
+        // returns true if this represents an actual request.
         bool initialized() const { return mReqState.get() != nullptr; }
 
         void clear() { 

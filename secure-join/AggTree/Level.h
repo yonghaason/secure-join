@@ -13,6 +13,8 @@ namespace secJoin
         Full = 3
     };
 
+    // a helper struct used to track the size of the agg tree. mostly
+    // useful when the tree is not full.
     struct AggTreeParam
     {
         // the number of real inputs
@@ -65,10 +67,10 @@ namespace secJoin
             auto mLogfn = oc::log2floor(mN16);
             // log 2 ceiling
             auto mLogn = oc::log2ceil(mN16);
-             
+
             mCompleteTree = mLogfn == mLogn;
 
-            mLevelSizes.resize(mLogn+1);
+            mLevelSizes.resize(mLogn + 1);
 
             // the size of the second level
             auto secondPartial = (1ull << mLogfn);
@@ -93,6 +95,9 @@ namespace secJoin
         }
     };
 
+    // A level in the tree. data is stored in transposed format.
+    // prefix and suffix may not both be used at the same time
+    // depending on the type.
     struct AggTreeLevel
     {
         TBinMatrix mPreVal, mSufVal, mPreBit, mSufBit;
@@ -135,8 +140,14 @@ namespace secJoin
                 mLeftRight[0].mPreVal.bitsPerEntry(),
                 mLeftRight[0].mSufVal.bitsPerEntry());
         }
+
+        // the size of the level.
         u64 size() const { return std::max(prefixSize(), suffixSize()); }
+
+        // the size of the level if we only consider prefix values.
         u64 prefixSize() const { return mLeftRight[0].mPreBit.numEntries() + mLeftRight[1].mPreBit.numEntries(); }
+
+        // the size of the level if we only consider suffix values.
         u64 suffixSize() const { return mLeftRight[0].mSufBit.numEntries() + mLeftRight[1].mSufBit.numEntries(); }
 
         AggTreeLevel& operator[](u64 i)
@@ -164,8 +175,6 @@ namespace secJoin
                 throw RTE_LOC;
             if (offset & 1)
                 throw RTE_LOC;
-            // if (size() > offset + available)
-            //	throw RTE_LOC;
 
             if (prefixSize())
             {
@@ -177,8 +186,8 @@ namespace secJoin
                 // for the first even number of rows split te values into left and right
                 for (; i < available2; i += 2, ++d)
                 {
-                    memcpy(vals[0][d], src[i + 0].subspan(0, byteCount));
-                    memcpy(vals[1][d], src[i + 1].subspan(0, byteCount));
+                    copyBytes(vals[0][d], src[i + 0].subspan(0, byteCount));
+                    copyBytes(vals[1][d], src[i + 1].subspan(0, byteCount));
 
                     assert(mLeftRight[0].mPreBit.size() > d / 8);
                     assert(mLeftRight[1].mPreBit.size() > d / 8);
@@ -191,8 +200,8 @@ namespace secJoin
                 if (available & 1)
                 {
                     assert(i == src.rows() - 1);
-                    memcpy(vals[0][d], src[i].subspan(0, byteCount));
-                    memset(vals[1][d], 0);
+                    copyBytes(vals[0][d], src[i].subspan(0, byteCount));
+                    setBytes(vals[1][d], 0);
                     assert(mLeftRight[0].mPreBit.size() > d / 8);
                     *oc::BitIterator(mLeftRight[0].mPreBit.data(), d) = controlBits[i];
                     *oc::BitIterator(mLeftRight[1].mPreBit.data(), d) = 0;
@@ -203,8 +212,8 @@ namespace secJoin
                 // if there is space left over fill with zeros
                 for (; d < n / 2; ++d)
                 {
-                    memset(vals[0][d], 0);
-                    memset(vals[1][d], 0);
+                    setBytes(vals[0][d], 0);
+                    setBytes(vals[1][d], 0);
                     *oc::BitIterator(mLeftRight[0].mPreBit.data(), d) = 0;
                     *oc::BitIterator(mLeftRight[1].mPreBit.data(), d) = 0;
                 }
@@ -216,96 +225,68 @@ namespace secJoin
 
             if (suffixSize())
             {
+                std::array<BinMatrix, 2> vals;
+                vals[0].resize(oc::divCeil(n, 2), bitCount);
+                vals[1].resize(n / 2, bitCount);
 
-                // if (preSize)
-                //{
-                //	mLeftRight[0].mSufVal = mLeftRight[0].mPreVal;
-                //	mLeftRight[1].mSufVal = mLeftRight[1].mPreVal;
-
-                //	auto n0 = mLeftRight[0].mPreBit.size() - 1;
-                //	auto n1 = mLeftRight[1].mPreBit.size() - 1;
-                //	for (u64 i = 0; i < n0; ++i)
-                //	{
-                //		mLeftRight[0].mSufBit(i) =
-                //			mLeftRight[0].mPreBit(i) >> 1 |
-                //			mLeftRight[0].mPreBit(i + 1) << 7;
-                //	}
-
-                //	for (u64 i = 0; i < n1; ++i)
-                //	{
-                //		mLeftRight[1].mSufBit(i) =
-                //			mLeftRight[1].mPreBit(i) >> 1 |
-                //			mLeftRight[1].mPreBit(i + 1) << 7;
-                //	}
-
-                //	mLeftRight[0].mSufBit(n0) = mLeftRight[0].mPreBit(n0) >> 1;
-                //	mLeftRight[1].mSufBit(n1) = mLeftRight[1].mPreBit(n1) >> 1;
-                //}
-                // else
+                auto n = available / 2;
+                u64 i = 0, d = offset / 2;
+                // std::cout << "d " << d << std::endl;
+                for (; i < available2 - 2; i += 2, ++d)
                 {
-                    std::array<BinMatrix, 2> vals;
-                    vals[0].resize(oc::divCeil(n, 2), bitCount);
-                    vals[1].resize(n / 2, bitCount);
-
-                    auto n = available / 2;
-                    u64 i = 0, d = offset / 2;
-                    // std::cout << "d " << d << std::endl;
-                    for (; i < available2 - 2; i += 2, ++d)
-                    {
-                        memcpy(vals[0][d], src[i + 0].subspan(0, byteCount));
-                        memcpy(vals[1][d], src[i + 1].subspan(0, byteCount));
-                        *oc::BitIterator(mLeftRight[0].mSufBit.data(), d) = controlBits[i + 1];
-                        *oc::BitIterator(mLeftRight[1].mSufBit.data(), d) = controlBits[i + 2];
-                    }
-
-                    {
-                        memcpy(vals[0][d], src[i + 0].subspan(0, byteCount));
-                        memcpy(vals[1][d], src[i + 1].subspan(0, byteCount));
-
-                        auto cLast = 0;
-                        if (i + 2 < controlBits.size())
-                        {
-                            cLast = controlBits[i + 2];
-                            // std::cout << "act clast " << d*2+1<< ": " << (int)cLast << " = c[" << i + 2 << "]" << std::endl;
-                        }
-
-                        *oc::BitIterator(mLeftRight[0].mSufBit.data(), d) = controlBits[i + 1];
-                        *oc::BitIterator(mLeftRight[1].mSufBit.data(), d) = cLast;
-
-                        i += 2;
-                        ++d;
-                    }
-
-                    if (available & 1)
-                    {
-                        memcpy(vals[0][d], src[i + 0].subspan(0, byteCount));
-                        memset(vals[1][d], 0);
-
-                        auto cLast = 0;
-                        if (i + 1 < controlBits.size())
-                        {
-                            cLast = controlBits[i + 1];
-                            std::cout << "act clast* " << (int)cLast << std::endl;
-                        }
-
-                        *oc::BitIterator(mLeftRight[0].mSufBit.data(), d) = cLast;
-                        *oc::BitIterator(mLeftRight[1].mSufBit.data(), d) = 0;
-
-                        ++d;
-                    }
-
-                    // if there is space left over fill with zeros
-                    for (; d < n / 2; ++d)
-                    {
-                        memset(vals[0][d], 0);
-                        memset(vals[1][d], 0);
-                        *oc::BitIterator(mLeftRight[0].mPreBit.data(), d) = 0;
-                        *oc::BitIterator(mLeftRight[1].mPreBit.data(), d) = 0;
-                    }
-
-                    vals[0].transpose(mLeftRight[0].mSufVal);
-                    vals[1].transpose(mLeftRight[1].mSufVal);
+                    copyBytes(vals[0][d], src[i + 0].subspan(0, byteCount));
+                    copyBytes(vals[1][d], src[i + 1].subspan(0, byteCount));
+                    *oc::BitIterator(mLeftRight[0].mSufBit.data(), d) = controlBits[i + 1];
+                    *oc::BitIterator(mLeftRight[1].mSufBit.data(), d) = controlBits[i + 2];
                 }
+
+                {
+                    copyBytes(vals[0][d], src[i + 0].subspan(0, byteCount));
+                    copyBytes(vals[1][d], src[i + 1].subspan(0, byteCount));
+
+                    auto cLast = 0;
+                    if (i + 2 < controlBits.size())
+                    {
+                        cLast = controlBits[i + 2];
+                        // std::cout << "act clast " << d*2+1<< ": " << (int)cLast << " = c[" << i + 2 << "]" << std::endl;
+                    }
+
+                    *oc::BitIterator(mLeftRight[0].mSufBit.data(), d) = controlBits[i + 1];
+                    *oc::BitIterator(mLeftRight[1].mSufBit.data(), d) = cLast;
+
+                    i += 2;
+                    ++d;
+                }
+
+                if (available & 1)
+                {
+                    copyBytes(vals[0][d], src[i + 0].subspan(0, byteCount));
+                    setBytes(vals[1][d], 0);
+
+                    auto cLast = 0;
+                    if (i + 1 < controlBits.size())
+                    {
+                        cLast = controlBits[i + 1];
+                        std::cout << "act clast* " << (int)cLast << std::endl;
+                    }
+
+                    *oc::BitIterator(mLeftRight[0].mSufBit.data(), d) = cLast;
+                    *oc::BitIterator(mLeftRight[1].mSufBit.data(), d) = 0;
+
+                    ++d;
+                }
+
+                // if there is space left over fill with zeros
+                for (; d < n / 2; ++d)
+                {
+                    setBytes(vals[0][d], 0);
+                    setBytes(vals[1][d], 0);
+                    *oc::BitIterator(mLeftRight[0].mPreBit.data(), d) = 0;
+                    *oc::BitIterator(mLeftRight[1].mPreBit.data(), d) = 0;
+                }
+
+                vals[0].transpose(mLeftRight[0].mSufVal);
+                vals[1].transpose(mLeftRight[1].mSufVal);
             }
         }
 
@@ -370,13 +351,17 @@ namespace secJoin
 
             resize(dstSize, src.bitsPerEntry(), src.type());
 
-            auto doCopy = [destOffset, srcOffset, srcSize](const auto& src, auto& dst)
-                {
+            auto doCopy = [destOffset, srcOffset, srcSize](const auto& src, auto& dst) {
+                    if (src.size() == 0)
+                        return;
+                    auto size = srcSize / 16;
+                    auto dOffset = destOffset / 16;
+                    auto sOffset = srcOffset / 16;
                     for (u64 i = 0; i < src.bitsPerEntry(); ++i)
                     {
-                        auto d = &dst.mData(i, destOffset / 16);
-                        auto s = &src.mData(i, srcOffset / 16);
-                        memcpy(d, s, srcSize / 16);
+                        auto d = dst.mData[i].subspan(dOffset, size);
+                        auto s = src.mData[i].subspan(sOffset, size);
+                        copyBytes(d, s);
                     }
                 };
             for (u64 j = 0; j < 2; ++j)
@@ -437,132 +422,11 @@ namespace secJoin
         }
     };
 
-    // struct DLevel
-    //{
-    //	BinMatrix mPreVal, mSufVal, mPreBit, mSufBit;
-
-    //	void load(std::array<AggTreeLevel, 2>& tvs)
-    //	{
-    //		//Sh3Converter conv;
-
-    //		throw RTE_LOC;
-    //		//auto m = std::max<u64>(tvs[0].mPreVal.bitsPerEntry(), tvs[1].mSufVal.bitsPerEntry());
-
-    //		//BinMatrix preVal[2], sufVal[2], preBit[2], sufBit[2];
-    //		//conv.toBinaryMatrix(tvs[0].mPreVal, preVal[0]);
-    //		//conv.toBinaryMatrix(tvs[1].mPreVal, preVal[1]);
-    //		//conv.toBinaryMatrix(tvs[0].mPreBit, preBit[0]);
-    //		//conv.toBinaryMatrix(tvs[1].mPreBit, preBit[1]);
-    //		//conv.toBinaryMatrix(tvs[0].mSufVal, sufVal[0]);
-    //		//conv.toBinaryMatrix(tvs[1].mSufVal, sufVal[1]);
-    //		//conv.toBinaryMatrix(tvs[0].mSufBit, sufBit[0]);
-    //		//conv.toBinaryMatrix(tvs[1].mSufBit, sufBit[1]);
-
-    //		//preVal[0].trim();
-    //		//preVal[1].trim();
-    //		//preBit[0].trim();
-    //		//preBit[1].trim();
-
-    //		//sufVal[0].trim();
-    //		//sufVal[1].trim();
-    //		//sufBit[0].trim();
-    //		//sufBit[1].trim();
-
-    //		//mPreVal.resize(preVal[0].rows() + preVal[1].rows(), m);
-    //		//mPreBit.resize(preBit[0].rows() + preBit[1].rows(), 1);
-    //		//mSufVal.resize(sufVal[0].rows() + sufVal[1].rows(), m);
-    //		//mSufBit.resize(sufBit[0].rows() + sufBit[1].rows(), 1);
-
-    //		//for (u64 j = 0; j < mPreVal[0].rows(); ++j)
-    //		//{
-    //		//	for (u64 l = 0; l < 2; ++l)
-    //		//	{
-    //		//		for (u64 k = 0; k < mPreVal.i64Cols(); ++k)
-    //		//			mPreVal.mShares[l](j, k) = preVal[j & 1].mShares[l](j / 2, k);
-
-    //		//		if (mPreBit.rows())
-    //		//			mPreBit.mShares[l](j) = preBit[j & 1].mShares[l](j / 2);
-    //		//	}
-    //		//}
-    //		//for (u64 j = 0; j < mSufVal[0].rows(); ++j)
-    //		//{
-    //		//	for (u64 l = 0; l < 2; ++l)
-    //		//	{
-    //		//		for (u64 k = 0; k < mSufVal.i64Cols(); ++k)
-    //		//			mSufVal.mShares[l](j, k) = sufVal[j & 1].mShares[l](j / 2, k);
-
-    //		//		if (mSufBit.rows())
-    //		//			mSufBit.mShares[l](j) = sufBit[j & 1].mShares[l](j / 2);
-    //		//	}
-    //		//}
-    //	}
-
-    //	void load(AggTreeLevel& tvs)
-    //	{
-    //		//throw RTE_LOC;
-    //		//Sh3Converter conv;
-    //		tvs.mPreVal.transpose(mPreVal);
-    //		tvs.mPreBit.transpose(mPreBit);
-    //		tvs.mSufVal.transpose(mSufVal);
-    //		tvs.mSufBit.transpose(mSufBit);
-    //	}
-    //};
-
-    // struct Level
-    //{
-    //	TBinMatrix mPreVal, mSufVal, mPreBit, mSufBit;
-
-    //	void resize(u64 n, u64 bitCount, Type type)
-    //	{
-    //		if (type & Type::Prefix)
-    //		{
-    //			throw RTE_LOC;
-    //			//mPreVal.reset(n, bitCount, 4);
-    //			//mPreBit.reset(n, 1, 4);
-    //		}
-    //		if (type & Type::Suffix)
-    //		{
-    //			throw RTE_LOC;
-    //			//mSufVal.reset(n, bitCount, 4);
-    //			//mSufBit.reset(n, 1, 4);
-    //		}
-    //	}
-
-    //};
-
-    struct PLevelNew
-    {
-        BinMatrix mPreVal, mSufVal;
-        BinMatrix mPreBit, mSufBit;
-
-        u64 numEntries() { return mPreVal.numEntries(); }
-
-        void resize(u64 n, u64 elementBitCount)
-        {
-            mPreVal.resize(n, elementBitCount);
-            mPreVal.resize(n, elementBitCount);
-            mSufVal.resize(n, elementBitCount);
-            mSufVal.resize(n, elementBitCount);
-            mPreBit.resize(n, 1);
-            mSufBit.resize(n, 1);
-        }
-
-        // void load(DLevel* dl);
-
-        // void validate(TBinMatrix& tvs0, TBinMatrix& tvs1, TBinMatrix& tvs2);
-
-        // void validate(AggTreeLevel& tvs0, AggTreeLevel& tvs1, AggTreeLevel& tvs2);
-
-        void reveal(std::array<AggTreeLevel, 2>& tvs0, std::array<AggTreeLevel, 2>& tvs1);
-        void reveal(AggTreeLevel& tvs0, AggTreeLevel& tvs1);
-
-        void perfectUnshuffle(PLevelNew& l0, PLevelNew& l1);
-        // void load(AggTreeLevel& tvs0);
-    };
-
+    // a level of the plaintext agg tree.
     struct PLevel
     {
         std::vector<oc::BitVector> mPreVal, mSufVal;
+
         oc::BitVector mPreBit, mSufBit;
 
         u64 numEntries() { return mPreVal.size(); }
@@ -579,16 +443,10 @@ namespace secJoin
             mSufBit.resize(n);
         }
 
-        // void load(DLevel* dl);
-
-        // void validate(TBinMatrix& tvs0, TBinMatrix& tvs1, TBinMatrix& tvs2);
-
-        // void validate(AggTreeLevel& tvs0, AggTreeLevel& tvs1, AggTreeLevel& tvs2);
-
         void reveal(AggTreeSplitLevel& tvs0, AggTreeSplitLevel& tvs1);
+
         void reveal(AggTreeLevel& tvs0, AggTreeLevel& tvs1);
 
         void perfectUnshuffle(PLevel& l0, PLevel& l1);
-        // void load(AggTreeLevel& tvs0);
     };
 }

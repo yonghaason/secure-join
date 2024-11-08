@@ -688,7 +688,7 @@ namespace secJoin
 			auto b = timer.setTimePoint("begin");
 			for (u64 i = 0; i < n; ++i)
 			{
-				AltModPrf::mBCode.encode(v[i].data(), y[i].data());
+				AltModPrf::mBCode.encode(v[i], y[i]);
 			}
 			//compressB(v, y);
 			auto e = timer.setTimePoint("end");
@@ -706,7 +706,7 @@ namespace secJoin
 			oc::Matrix<oc::block> v(256, n / 128);
 			oc::Timer timer;
 			auto b = timer.setTimePoint("begin");
-			compressB(v, y);
+			AltModPrf::compressB(v, y);
 			auto e = timer.setTimePoint("end");
 			oc::block bb;
 			for (u64 i = 0; i < n; ++i)
@@ -775,30 +775,30 @@ namespace secJoin
 			}
 		}
 
-		if (cmd.isSet("e3"))
-		{
+		// if (cmd.isSet("e3"))
+		// {
 
-			for (u64 tt : stdv::iota(0, t))
-			{
-				(void)tt;
-				oc::AlignedUnVector<block>x(n);
-				oc::Matrix<block>y(4 * 128, n / 128);
+		// 	for (u64 tt : stdv::iota(0, t))
+		// 	{
+		// 		(void)tt;
+		// 		oc::AlignedUnVector<block>x(n);
+		// 		oc::Matrix<block>y(4 * 128, n / 128);
 
 
-				oc::Timer timer;
-				AltModPrf prf;
-				prf.initExpandInputPermuteLinear();
+		// 		oc::Timer timer;
+		// 		AltModPrf prf;
+		// 		prf.initExpandInputPermuteLinear();
 
-				auto b = timer.setTimePoint("begin");
+		// 		auto b = timer.setTimePoint("begin");
 
-				prf.expandInputPermuteLinear(x, y);
+		// 		prf.expandInputPermuteLinear(x, y);
 
-				auto e = timer.setTimePoint("end");
+		// 		auto e = timer.setTimePoint("end");
 
-				std::cout << "expand3 n:" << n << ", " <<
-					std::chrono::duration_cast<std::chrono::milliseconds>(e - b).count() << "ms " << std::endl;;
-			}
-		}
+		// 		std::cout << "expand3 n:" << n << ", " <<
+		// 			std::chrono::duration_cast<std::chrono::milliseconds>(e - b).count() << "ms " << std::endl;;
+		// 	}
+		// }
 	}
 
 	void AltMod_expandA_benchmark(const oc::CLP& cmd)
@@ -843,18 +843,18 @@ namespace secJoin
 		oc::AlignedUnVector<block> msb(n), lsb(n);
 		PRNG prng(oc::ZeroBlock);
 
-		if (cmd.isSet("old"))
-		{
+		// if (cmd.isSet("old"))
+		// {
 
-			oc::Timer timer;
-			auto b = timer.setTimePoint("begin");
-			for (u64 k = 0; k < t; ++k)
-				sampleMod3Lookup(prng, msb, lsb);
-			auto e = timer.setTimePoint("end");
+		// 	oc::Timer timer;
+		// 	auto b = timer.setTimePoint("begin");
+		// 	for (u64 k = 0; k < t; ++k)
+		// 		sampleMod3Lookup(prng, msb, lsb);
+		// 	auto e = timer.setTimePoint("end");
 
-			std::cout << "mod3lookup n:" << n << ", " <<
-				std::chrono::duration_cast<std::chrono::milliseconds>(e - b).count() << "ms " << std::endl;;
-		}
+		// 	std::cout << "mod3lookup n:" << n << ", " <<
+		// 		std::chrono::duration_cast<std::chrono::milliseconds>(e - b).count() << "ms " << std::endl;;
+		// }
 		//if(0)
 		//{
 
@@ -874,7 +874,7 @@ namespace secJoin
 			auto b = timer.setTimePoint("begin");
 
 			for (u64 k = 0; k < t; ++k)
-				sampleMod3Lookup3(prng, msb, lsb);
+				sampleMod3Lookup(prng, msb, lsb);
 			auto e = timer.setTimePoint("end");
 
 			std::cout << "mod3lookup3 n:" << n << ", " <<

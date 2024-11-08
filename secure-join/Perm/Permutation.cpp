@@ -21,10 +21,10 @@ namespace secJoin
         return apply(rhs.mPi);
     }
 
-    // A.composeSwap(B) computes the permutation B o A
-    Perm Perm::composeSwap(const Perm& rhs) const
-    {
-        return rhs.apply(mPi);
-    }
+    // // A.composeSwap(B) computes the permutation B o A
+    // Perm Perm::composeSwap(const Perm& rhs) const
+    // {
+    //     return rhs.apply(mPi);
+    // }
 
 }

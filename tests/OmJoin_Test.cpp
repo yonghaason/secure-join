@@ -150,7 +150,7 @@ void OmJoin_concatColumns_Test()
     OmJoin j{};
     CorGenerator ole;
     auto sock = coproto::LocalAsyncSocket::makePair();
-    ole.init(std::move(sock[0]), prng, 0, 1, 1<<16, true);
+    ole.init(std::move(sock[0]), prng, 0, 1, 1 << 16, true);
 
     JoinQuery query{ t0[0], t1[0], select };
 
@@ -215,7 +215,7 @@ void OmJoin_getOutput_Test()
     R.init(nR, { {
             ColumnInfo{"r1", TypeID::IntID, 8},
         } }
-    );
+        );
 
     PRNG prng(oc::ZeroBlock);
     for (u64 i = 0; i < mL; ++i)
@@ -334,7 +334,7 @@ void OmJoin_join_Test(const oc::CLP& cmd)
     share(L, Ls, prng);
     share(R, Rs, prng);
 
-    for (auto remDummies : { true, false})
+    for (auto remDummies : { true, false })
     {
         OmJoin join0, join1;
 
@@ -364,8 +364,8 @@ void OmJoin_join_Test(const oc::CLP& cmd)
         join0.init(query0, ole0, remDummies);
         join1.init(query1, ole1, remDummies);
 
-        join0.mRemDummies.mCachePerm = remDummies;
-        join1.mRemDummies.mCachePerm = remDummies;
+        join0.mRemDummies->mCachePerm = remDummies;
+        join1.mRemDummies->mCachePerm = remDummies;
 
         auto r = macoro::sync_wait(macoro::when_all_ready(
             ole0.start(),
@@ -382,8 +382,8 @@ void OmJoin_join_Test(const oc::CLP& cmd)
         Perm pi;
         if (remDummies)
         {
-            ComposedPerm p0 = join0.mRemDummies.mPermutation;
-            ComposedPerm p1 = join1.mRemDummies.mPermutation;
+            ComposedPerm p0 = join0.mRemDummies->mPermutation;
+            ComposedPerm p1 = join1.mRemDummies->mPermutation;
             pi = p1.permShare().compose(p0.permShare());
         }
 
@@ -459,7 +459,7 @@ void OmJoin_join_BigKey_Test(const oc::CLP& cmd)
     share(L, Ls, prng);
     share(R, Rs, prng);
 
-    for (auto remDummies : { true, false})
+    for (auto remDummies : { true, false })
     {
         OmJoin join0, join1;
 
@@ -469,13 +469,13 @@ void OmJoin_join_BigKey_Test(const oc::CLP& cmd)
         join0.mInsecureMockSubroutines = mock;
         join1.mInsecureMockSubroutines = mock;
 
-    CorGenerator ole0, ole1;
-    auto sock = coproto::LocalAsyncSocket::makePair();
-    ole0.init(sock[0].fork(), prng, 0, 1,  1 << 18, mock);
-    ole1.init(sock[1].fork(), prng, 1, 1,  1 << 18, mock);
+        CorGenerator ole0, ole1;
+        auto sock = coproto::LocalAsyncSocket::makePair();
+        ole0.init(sock[0].fork(), prng, 0, 1, 1 << 18, mock);
+        ole1.init(sock[1].fork(), prng, 1, 1, 1 << 18, mock);
 
-        join0.mRemDummies.mCachePerm = remDummies;
-        join1.mRemDummies.mCachePerm = remDummies;
+        join0.mRemDummies->mCachePerm = remDummies;
+        join1.mRemDummies->mCachePerm = remDummies;
 
         PRNG prng0(oc::ZeroBlock);
         PRNG prng1(oc::OneBlock);
@@ -491,15 +491,15 @@ void OmJoin_join_BigKey_Test(const oc::CLP& cmd)
         join1.mStatSecParam = 4;
         JoinQuery query0{ Ls[0][0], Rs[0][0], { Ls[0][0], Rs[0][1], Ls[0][1] } };
         JoinQuery query1{ Ls[1][0], Rs[1][0], { Ls[1][0], Rs[1][1], Ls[1][1] } };
-        join0.init(query0, ole0);
-        join1.init(query1, ole1);
-        
+        join0.init(query0, ole0, remDummies);
+        join1.init(query1, ole1, remDummies);
+
 
         auto r = macoro::sync_wait(macoro::when_all_ready(
-                ole0.start(),
-                ole1.start(),
-                join0.join(query0, out[0], prng0, sock[0]),
-                join1.join(query1, out[1], prng1, sock[1])
+            ole0.start(),
+            ole1.start(),
+            join0.join(query0, out[0], prng0, sock[0]),
+            join1.join(query1, out[1], prng1, sock[1])
         ));
         std::get<0>(r).result();
         std::get<1>(r).result();
@@ -509,8 +509,8 @@ void OmJoin_join_BigKey_Test(const oc::CLP& cmd)
         Perm pi;
         if (remDummies)
         {
-            ComposedPerm p0 = join0.mRemDummies.mPermutation;
-            ComposedPerm p1 = join1.mRemDummies.mPermutation;
+            ComposedPerm p0 = join0.mRemDummies->mPermutation;
+            ComposedPerm p1 = join1.mRemDummies->mPermutation;
             pi = p1.permShare().compose(p0.permShare());
         }
 
@@ -593,8 +593,8 @@ void OmJoin_join_Reveal_Test(const oc::CLP& cmd)
 
     CorGenerator ole0, ole1;
     auto sock = coproto::LocalAsyncSocket::makePair();
-    ole0.init(sock[0].fork(), prng, 0,1,  1 << 18, mock);
-    ole1.init(sock[1].fork(), prng, 1,1,  1 << 18, mock);
+    ole0.init(sock[0].fork(), prng, 0, 1, 1 << 18, mock);
+    ole1.init(sock[1].fork(), prng, 1, 1, 1 << 18, mock);
 
 
     PRNG prng0(oc::ZeroBlock);

@@ -13,10 +13,6 @@ include(cmake/buildOptions.cmake)
 # find all the dependancies.
 include(cmake/findDependancies.cmake)
 
-if(SECUREJOIN_ENABLE_PAILLIER)
-	add_subdirectory(Paillier)
-endif()
-
 # build secureJoin
 add_subdirectory(secure-join)
 

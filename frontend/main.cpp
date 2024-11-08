@@ -98,5 +98,7 @@ int main(int argc, char** argv)
     tests += secJoin_Tests::Tests;
     tests.runIf(clp);
     // secJoin_Tests::Tests.runAll();
+
     return 0;
+
 }

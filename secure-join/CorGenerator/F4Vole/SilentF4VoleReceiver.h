@@ -29,6 +29,7 @@
 namespace secJoin
 {
 
+    // A specialized VOLE protocol for GF(4) subfield.
 	class SilentF4VoleReceiver : public oc::TimerAdapter
 	{
 	public:
@@ -38,8 +39,6 @@ namespace secJoin
 		using Ctx = CoeffCtxGF4;
 
 		static constexpr bool MaliciousSupported = false;
-		//std::is_same_v<F, block>&& std::is_same_v<Ctx, CoeffCtxGF128>;
-
 
 		enum class State
 		{
@@ -90,9 +89,6 @@ namespace secJoin
 		// The internal buffers for holding the expanded vectors.
 		// mA  = mB + mC * delta
 		VecF mA;
-
-		// mA = mB + mC * delta
-		//VecG mC;
 
 		u64 mNumThreads = 1;
 

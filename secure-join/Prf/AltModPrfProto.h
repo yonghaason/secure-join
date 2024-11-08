@@ -22,24 +22,37 @@
 namespace secJoin
 {
 
-
+    // The "sender" half of the AltMod PRF protocol.
+    // The sender will hold the key either in plaintext
+    // for in secret shared format.
+    // The sender will either know nothing about the input or 
+    // have it in secret shared format.
+    // The output will always be a secret sharing of 
+    // 
+    //    y = AltModPrf(k, x)
+    //
     class AltModWPrfSender : public oc::TimerAdapter
     {
     public:
+
+        AltModWPrfSender() = default;
+        AltModWPrfSender(const AltModWPrfSender&) = delete;
+        AltModWPrfSender(AltModWPrfSender&&) noexcept = default;
+        AltModWPrfSender& operator=(const AltModWPrfSender&) = delete;
+        AltModWPrfSender& operator=(AltModWPrfSender&&) noexcept = default;
+
+
+        // enables additional debugging, insecure if true.
         bool mDebug = false;
 
-        // The key OTs, one for each bit of the key mPrf.mKey
+        // The key OTs, one for each bit of the sender's key [share].
         AltModKeyMultReceiver mKeyMultRecver;
 
-        // if in fully secret shared mode, we need to multiply our input with their key.
+        //  The key OTs, if in fully secret shared mode, we need to multiply our input with their key.
         AltModKeyMultSender mKeyMultSender;
 
         // The number of input we will have.
         u64 mInputSize = 0;
-
-
-        // The Ole request that will be used for the input*key operation
-        BinOleRequest mKeyMultOleReq;
 
         // The Ole request that will be used for the mod2 operation
         BinOleRequest mMod2OleReq;
@@ -47,127 +60,77 @@ namespace secJoin
         // the 1-oo-4 OT request that will be used for the mod2 operations
         Request<F4BitOtSend> mMod2F4Req;
 
+        // a flag used to control which mod2 protocol to use, F4 is faster.
         bool mUseMod2F4Ot = true;
 
+        // when the input & key is shared, we need to convert the expanded input
+        // from a F2 sharing to an F3 sharing. This is acheived using this subproto.
         ConvertToF3Sender mConvToF3;
 
+        // A flag to determine if the key will be secret shared.
         AltModPrfKeyMode mKeyMode = AltModPrfKeyMode::SenderOnly;
 
+        // A flag to determine if the input will be secret shared.
         AltModPrfInputMode mInputMode = AltModPrfInputMode::ReceiverOnly;
 
         // variables that are used for debugging.
         std::vector<block> mDebugInput;
         oc::Matrix<oc::block> 
-            mDebugXk0, mDebugXk1,
+            mDebugEk0, mDebugEk1,
             mDebugU0, mDebugU1, 
             mDebugV;
 
-        AltModWPrfSender() = default;
-        AltModWPrfSender(const AltModWPrfSender&) = default;
-        AltModWPrfSender(AltModWPrfSender&&) noexcept = default;
-        AltModWPrfSender& operator=(const AltModWPrfSender&) = default;
-        AltModWPrfSender& operator=(AltModWPrfSender&&) noexcept = default;
-
         // initialize the protocol to perform inputSize prf evals.
-        // set keyGen if you explicitly want to perform (or not) the 
-        // key generation. default = perform if not already set.
+        // correlations will be obtained from ole.
+        // The caller can specify the key [share] and optionally
+        // OTs associated with the key [share]. If not specify, they
+        // will be generated internally.
         void init(
             u64 inputSize,
             CorGenerator& ole,
             AltModPrfKeyMode keyMode = AltModPrfKeyMode::SenderOnly,
             AltModPrfInputMode inputMode = AltModPrfInputMode::ReceiverOnly,
             macoro::optional<AltModPrf::KeyType> key = {},
-            span<block> keyRecvOts = {},
-            span<std::array<block, 2>> keySendOts = {})
-        {
-            mInputSize = inputSize;
-            mKeyMode = keyMode;
-            mInputMode = inputMode;
-
-            if (key.has_value() ^ (AltModPrf::KeySize == keyRecvOts.size()))
-                throw RTE_LOC;
-
-            mKeyMultRecver.init(ole, key, keyRecvOts);
-            auto n128 = oc::roundUpTo(mInputSize, 128);
-
-            if (mKeyMode == AltModPrfKeyMode::Shared &&
-                mInputMode == AltModPrfInputMode::Shared)
-            {
-                mKeyMultSender.init(ole, key, keySendOts);
-                mKeyMultOleReq = ole.binOleRequest(n128 * AltModPrf::KeySize);
-                mConvToF3.init(n128 * AltModPrf::KeySize, ole);
-            }
-
-            if (mUseMod2F4Ot)
-            {
-                auto num = n128 * AltModPrf::MidSize;
-                mMod2F4Req = ole.request<F4BitOtSend>(num);
-            }
-            else
-            {
-                auto numOle = n128 * AltModPrf::MidSize * 2;
-                mMod2OleReq = ole.binOleRequest(numOle);
-            }
-        }
+            span<const block> keyRecvOts = {},
+            span<const std::array<block, 2>> keySendOts = {});
 
         // clear the state. Removes any key that is set can cancels the prepro (if any).
-        void clear()
-        {
-            mMod2F4Req.clear();
-            mMod2OleReq.clear();
-            mKeyMultRecver.clear();
-            mKeyMultSender.clear();
-            mInputSize = 0;
-        }
+        void clear();
 
         // perform the correlated randomness generation. 
-        void preprocess()
-        {
+        void preprocess();
 
-            mKeyMultRecver.preprocess();
-            mKeyMultSender.preprocess();
-
-            if (mUseMod2F4Ot)
-                mMod2F4Req.start();
-            else
-                mMod2OleReq.start();
-
-        }
-
-        // explicitly set the key and key OTs.
+        // explicitly set the key and key OTs. sendOTs are required only for shared key mode.
         void setKeyOts(
             AltModPrf::KeyType k, 
             span<const oc::block> ots,
             span<const std::array<block, 2>> sendOts = {});
 
         // return the key that is currently set.
-        AltModPrf::KeyType getKey() const
-        {
-            return mKeyMultRecver.mKey;
-        }
+        AltModPrf::KeyType getKey() const { return mKeyMultRecver.mKey; }
 
         // Run the prf protocol and write the result to y. Requires that correlated 
         // randomness has already been requested using the request() function.
         // if in shared input mode, x should be a share of the input. Otherwise empty.
         coproto::task<> evaluate(
+            span<const oc::block> x,
             span<oc::block> y,
-            span<oc::block> x,
             coproto::Socket& sock,
             PRNG& _);
 
 
-        // the mod 2 subprotocol based on OLE.
+        // the mod 2 subprotocol based on OLE. 
         macoro::task<> mod2Ole(
-            oc::MatrixView<oc::block> u0,
-            oc::MatrixView<oc::block> u1,
+            oc::MatrixView<const oc::block> u0,
+            oc::MatrixView<const oc::block> u1,
             oc::MatrixView<oc::block> out,
             coproto::Socket& sock);
 
 
         // the mod 2 subprotocol based on F4 OT.
         macoro::task<> mod2OtF4(
-            oc::MatrixView<oc::block> u0,
-            oc::MatrixView<oc::block> u1,
+            oc::MatrixView<const oc::block> u0,
+            oc::MatrixView<const oc::block> u1,
             oc::MatrixView<oc::block> out,
             coproto::Socket& sock);
 
@@ -176,18 +139,33 @@ namespace secJoin
 
 
 
+    // The "receiver" half of the AltMod PRF protocol.
+    // The receiver will hold the input either in plaintext
+    // for in secret shared format.
+    // The receiver will either know nothing about the key or 
+    // have it in secret shared format.
+    // The output will always be a secret sharing of 
+    // 
+    //    y = AltModPrf(k, x)
+    //
     class AltModWPrfReceiver : public oc::TimerAdapter
     {
     public:
+
+        AltModWPrfReceiver() = default;
+        AltModWPrfReceiver(const AltModWPrfReceiver&) = delete;
+        AltModWPrfReceiver(AltModWPrfReceiver&&) = default;
+        AltModWPrfReceiver& operator=(const AltModWPrfReceiver&) = delete;
+        AltModWPrfReceiver& operator=(AltModWPrfReceiver&&) noexcept = default;
+
+        // enables additional debugging, insecure if true.
         bool mDebug = false;
 
-        // base OTs, where the sender has the OT msg based on the bits of their key
+        // The key OTs, we need to multiply our input with their key.
         AltModKeyMultSender mKeyMultSender;
 
+        // When the key is shared, this will hold the OTs with one for each bit of our key.
         AltModKeyMultReceiver mKeyMultRecver;
-
-        // The Ole request that will be used for the input*key operation
-        BinOleRequest mKeyMultOleReq;
 
         // The number of input we will have.
         u64 mInputSize = 0;
@@ -195,42 +173,33 @@ namespace secJoin
         // The Ole request that will be used for the mod2 operation
         BinOleRequest mMod2OleReq;
 
+        // The F4Bit OTs request that will be used for the mod2 operation
         Request<F4BitOtRecv> mMod2F4Req;
 
+        // a flag to control which mod 2 protocol to use. F4 is faster.
         bool mUseMod2F4Ot = true;
 
+        // When the inputs/key are shared, we need to convert the F2 
+        // expanded into into F3 shares. This is acheived using this proto.
         ConvertToF3Recver mConvToF3;
 
+        // a flag determining if the key is shared.
         AltModPrfKeyMode mKeyMode = AltModPrfKeyMode::SenderOnly;
 
+        // a flag determining if the input is shared.
         AltModPrfInputMode mInputMode = AltModPrfInputMode::ReceiverOnly;
 
         // variables that are used for debugging.
         oc::Matrix<oc::block> 
-            mDebugXk0, mDebugXk1,
+            mDebugEk0, mDebugEk1,
             mDebugU0, mDebugU1, 
-            mDebugV,
-            mDebugXKa0, mDebugXKa1,
-            mDebugXKb0, mDebugXKb1,
-            mDebugXc0, mDebugXc1;
+            mDebugV;
 
         std::vector<block> mDebugInput;
 
-        AltModWPrfReceiver() = default;
-        AltModWPrfReceiver(const AltModWPrfReceiver&) = default;
-        AltModWPrfReceiver(AltModWPrfReceiver&&) = default;
-        AltModWPrfReceiver& operator=(const AltModWPrfReceiver&) = default;
-        AltModWPrfReceiver& operator=(AltModWPrfReceiver&&) noexcept = default;
 
         // clears any internal state.
-        void clear()
-        {
-            mMod2F4Req.clear();
-            mMod2OleReq.clear();
-            mKeyMultRecver.clear();
-            mKeyMultSender.clear();
-            mInputSize = 0;
-        }
+        void clear();
 
         // initialize the protocol to perform inputSize prf evals.
         // set keyGen if you explicitly want to perform (or not) the 
@@ -243,80 +212,38 @@ namespace secJoin
             AltModPrfKeyMode keyMode = AltModPrfKeyMode::SenderOnly,
             AltModPrfInputMode inputMode = AltModPrfInputMode::ReceiverOnly,
             std::optional<AltModPrf::KeyType> keyShare = {},
-            span<std::array<block, 2>> keyOts = {},
-            span<block> keyRecvOts = {})
-        {
-            if (keyOts.size() != AltModPrf::KeySize && keyOts.size() != 0)
-                throw RTE_LOC;
-            if (!size)
-                throw RTE_LOC;
-            if (mInputSize)
-                throw RTE_LOC;
-
-            mInputSize = size;
-            mKeyMode = keyMode;
-            mInputMode = inputMode;
-            auto n128 = oc::roundUpTo(mInputSize, 128);
-
-            mKeyMultSender.init(ole, keyShare, keyOts);
-
-            if (mKeyMode == AltModPrfKeyMode::Shared &&
-                mInputMode == AltModPrfInputMode::Shared)
-            {
-                mKeyMultRecver.init(ole, keyShare, keyRecvOts);
-                mKeyMultOleReq = ole.binOleRequest(n128 * AltModPrf::KeySize);
-                mConvToF3.init(n128 * AltModPrf::KeySize, ole);
-            }
-            
-            if (mUseMod2F4Ot)
-            {
-                auto numOle = n128 * AltModPrf::MidSize;
-                mMod2F4Req = ole.request<F4BitOtRecv>(numOle);
-            }
-            else
-            {
-                auto numOle = n128 * AltModPrf::MidSize * 2;
-                mMod2OleReq = ole.binOleRequest(numOle);
-            }
-        }
+            span<const std::array<block, 2>> keyOts = {},
+            span<const block> keyRecvOts = {});
 
         // Perform the preprocessing for the correlated randomness and key gen (if requested).
-        void preprocess()
-        {
-            if (mUseMod2F4Ot)
-                mMod2F4Req.start();
-            else
-                mMod2OleReq.start();
-
-            mKeyMultRecver.preprocess();
-            mKeyMultRecver.preprocess();
-        }
+        void preprocess();
 
         // Run the prf protocol and write the result to y. Requires that correlated 
         // randomness has already been requested using the request() function.
         coproto::task<> evaluate(
-            span<oc::block> x,
+            span<const oc::block> x,
             span<oc::block> y,
             coproto::Socket& sock,
             PRNG&);
 
         // the mod 2 subprotocol based on ole.
         macoro::task<> mod2Ole(
-            oc::MatrixView<oc::block> u0,
-            oc::MatrixView<oc::block> u1,
+            oc::MatrixView<const oc::block> u0,
+            oc::MatrixView<const oc::block> u1,
             oc::MatrixView<oc::block> out,
             coproto::Socket& sock);
 
         // the mod 2 subprotocol based on ole.
         macoro::task<> mod2OtF4(
-            oc::MatrixView<oc::block> u0,
-            oc::MatrixView<oc::block> u1,
+            oc::MatrixView<const oc::block> u0,
+            oc::MatrixView<const oc::block> u1,
             oc::MatrixView<oc::block> out,
             coproto::Socket& sock);
 
-        void setKeyOts(span<std::array<block, 2>> ots,
+        void setKeyOts(
+            span<const std::array<block, 2>> ots,
             std::optional<AltModPrf::KeyType> keyShare = {},
-            span<block> recvOts = {});
+            span<const block> recvOts = {});
 
 
         // return the key that is currently set.

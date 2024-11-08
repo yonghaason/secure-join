@@ -3,27 +3,12 @@
 
 namespace secJoin
 {
-	//void OoJoin::init(u64 idx, Session& prev, Session& next, PRNG& prng)
-	//{
-	//    mIdx = idx;
-
-	//    aby3::CommPkg comm{ prev.addChannel(), next.addChannel() };
-	//    mRt.init(idx, comm);
-
-	//    mPrng.SetSeed(prng.get());
-
-
-	//}
-
-
 	void OoJoin::init(
 		JoinQuerySchema schema,
 		CorGenerator& ole,
 		PRNG& prng,
 		bool remDummiesFlag)
 	{
-		//u64 rows = schema.mLeftSize + schema.mRightSize;
-
 		auto keySize = std::min<u64>(
 			schema.mKey.mBitCount,
 			mStatSecParam + log2(schema.mLeftSize) + log2(schema.mRightSize));
@@ -232,15 +217,15 @@ namespace secJoin
 			{
 				auto inputIdx = cuckoo.mBins[i].idx();
 				perm.mPi[inputIdx] = i;
-				auto dest = &share0(i, 0);
+				auto dest = share0[i];
 
 				for (u64 j = 0; j < selects.size(); ++j)
 				{
-					auto& t = selects[j].mCol;
-
-					auto src = &t.mData(inputIdx, 0);
-					memcpy(dest, src, strides[j]);
-					dest += strides[j];
+					auto src = selects[j].mCol.mData[inputIdx];
+					copyBytes(dest.subspan(0, src.size()), src);
+					dest = dest.subspan(src.size());
+					// memcpy(dest, src, strides[j]);
+					// dest += strides[j];
 				}
 			}
 			else

@@ -28,7 +28,7 @@
 
 namespace secJoin
 {
-
+    // A specialized VOLE protocol for GF(4) subfield.
     class SilentF4VoleSender : public oc::TimerAdapter
     {
     public:
@@ -40,7 +40,6 @@ namespace secJoin
         static constexpr u64 mScaler = 2;
 
         static constexpr bool MaliciousSupported = false;
-            //std::is_same_v<F, block>&& std::is_same_v<Ctx, CoeffCtxGF128>;
 
         enum class State
         {
@@ -304,7 +303,6 @@ namespace secJoin
             co_await silentSendInplace(delta, b.size(), prng, chl);
 
             mCtx.copy(mB.begin(), mB.begin() + b.size(), b.begin());
-            //std::memcpy(b.data(), mB.data(), b.size() * mCtx.bytesF);
             clear();
 
             setTimePoint("SilentVoleSender.expand.ldpc.msgCpy");

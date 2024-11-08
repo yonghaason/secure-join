@@ -128,12 +128,13 @@ namespace secJoin
 
                 for (u64 i = 0; i < mN; ++i)
                 {
+                    static_assert(is_container<oc::span<block>&>::value);
                     auto pi = mPerms.back()[i];
-                    memcpy(
+                    copyBytes(
                         outLsb[i].subspan(begin, s), 
                         lsb[pi].subspan(begin, s));
 
-                    memcpy(
+                    copyBytes(
                         outMsb[i].subspan(begin, s),
                         msb[pi].subspan(begin, s));
                 }

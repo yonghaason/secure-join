@@ -22,10 +22,16 @@ namespace secJoin
         mG.setZero();
         for (u64 i = 0; i < g.rows(); ++i)
         {
-            memcpy(mG[i], g[i]);
+            copyBytes(mG[i], g[i]);
         }
 
         generateSubcodes();
+
+        const u64 codeSize = mSubcodes.cols();
+        if (codeSize != 1)
+            throw RTE_LOC;// not impl.
+        if (mInputByteSize != sizeof(block))
+            throw RTE_LOC;//not impl
     }
 
     //void F2LinearCode::random(PRNG& prng, u64 inputSize, u64 outputSize)

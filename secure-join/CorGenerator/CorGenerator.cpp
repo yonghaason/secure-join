@@ -7,6 +7,48 @@
 namespace secJoin
 {
 
+
+	void CorGenerator::init(
+		coproto::Socket&& sock,
+		PRNG& prng,
+		u64 partyIdx,
+		u64 numConcurrent,
+		u64 batchSize,
+		bool mock)
+	{
+		mGenState = std::make_shared<GenState>(partyIdx, prng.fork(), std::move(sock), numConcurrent, batchSize, mock);
+	}
+
+
+	bool CorGenerator::initialized()const
+	{
+		return mGenState.get();
+	}
+
+	u64 CorGenerator::partyIdx() const
+	{
+		if (!mGenState)
+			throw RTE_LOC;
+		return mGenState->mPartyIdx;
+	}
+
+	macoro::task<> CorGenerator::start()
+	{
+		mStarted.push_back(mGenState);
+		auto gen = std::exchange(mGenState, nullptr);
+		return gen->start(gen);
+	}
+
+
+	void CorGenerator::abort()
+	{
+		for (auto& s : mStarted)
+			if (auto genState = s.lock())
+				genState->abort();
+	}
+
+
+
 	std::shared_ptr<RequestState> CorGenerator::implRequest(CorType t, u64 role, u64  n)
 	{
 		if (mGenState == nullptr)
@@ -56,26 +98,26 @@ namespace secJoin
 					}
 				}();
 
-				if (batch == nullptr)
-				{
-					auto ss = mGenState->mSock.fork();
-					mGenState->mBatches.push_back(makeBatch(mGenState.get(), r->mSender, r->mType, std::move(ss), mGenState->mPrng.fork()));
-					mGenState->mBatches.back()->mIndex = mGenState->mBatches.size() - 1;
-					batch = mGenState->mBatches.back();
-				}
+			if (batch == nullptr)
+			{
+				auto ss = mGenState->mSock.fork();
+				mGenState->mBatches.push_back(makeBatch(mGenState.get(), r->mSender, r->mType, std::move(ss), mGenState->mPrng.fork()));
+				mGenState->mBatches.back()->mIndex = mGenState->mBatches.size() - 1;
+				batch = mGenState->mBatches.back();
+			}
 
-				auto begin = batch->mSize;
-				auto remReq = r->mSize - j;
-				auto remAvb = mGenState->mBatchSize - begin;
-				auto size = oc::roundUpTo(std::min<u64>(remReq, remAvb), 128);
-				assert(size <= remAvb);
+			auto begin = batch->mSize;
+			auto remReq = r->mSize - j;
+			auto remAvb = mGenState->mBatchSize - begin;
+			auto size = oc::roundUpTo(std::min<u64>(remReq, remAvb), 128);
+			assert(size <= remAvb);
 
-				batch->mSize += size;
-				r->addBatch(BatchSegment{ batch, begin, size });
-				j += size;
+			batch->mSize += size;
+			r->addBatch(BatchSegment{ batch, begin, size });
+			j += size;
 
-				if (remAvb == size)
-					batch = nullptr;
+			if (remAvb == size)
+				batch = nullptr;
 		}
 
 		return r;

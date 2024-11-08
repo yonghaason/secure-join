@@ -18,12 +18,7 @@
 
 namespace secJoin
 {
-
-	struct GenState;
-	struct RequestState;
-
-
-	struct GenState : std::enable_shared_from_this<GenState>, oc::TimerAdapter
+	struct GenState : oc::TimerAdapter
 	{
 		GenState() = delete;
 		GenState(u64 partyIdx, PRNG&& prng, oc::Socket s, u64 numConcurrent, u64 batchSize, bool mock)
@@ -86,10 +81,6 @@ namespace secJoin
 			}
 		};
 		std::vector<ReqInfo> mReqs;
-		//std::shared_ptr<Session> mSession;
-
-		// all of the requests. These are broken down into mBatches.
-		//std::vector<std::shared_ptr<RequestState>> mRequests;
 
 		// randomness source
 		PRNG mPrng;
@@ -159,6 +150,9 @@ namespace secJoin
 		}
 	};
 
+
+	struct RequestState;
+
 	struct CorGenerator
 	{
 		std::shared_ptr<GenState> mGenState;
@@ -171,10 +165,7 @@ namespace secJoin
 			u64 partyIdx,
 			u64 numConcurrent,
 			u64 batchSize,
-			bool mock)
-		{
-			mGenState = std::make_shared<GenState>(partyIdx, prng.fork(), std::move(sock), numConcurrent, batchSize, mock);
-		}
+			bool mock);
 
 
 		template<typename T>
@@ -201,7 +192,7 @@ namespace secJoin
 			}
 			else if constexpr (std::is_same_v<T, BinOle>)
 			{
-				return Request<BinOle>{implRequest(CorType::Ole, mGenState->mPartyIdx, oc::roundUpTo(n, 128))};
+				return Request<BinOle>{implRequest(CorType::Ole, partyIdx(), oc::roundUpTo(n, 128))};
 			}
 			else if constexpr (std::is_same_v<T, TritOtRecv>)
 			{
@@ -211,15 +202,13 @@ namespace secJoin
 			{
 				return Request<TritOtSend>{implRequest(CorType::TritOt, 1, oc::roundUpTo(n, 128))};
 			}
-			else
+			else 
 			{
 				std::cout << "request type not supported" << LOCATION << std::endl;
 				std::terminate();
 				//static_assert(0, "request type not supported");
 			}
 		}
-
-
 
 		Request<OtRecv> recvOtRequest(u64 n) {
 			return request<OtRecv>(n);
@@ -231,50 +220,19 @@ namespace secJoin
 			return request<BinOle>(n);
 		}
 
-		//void setBaseOts(SendBase& sb, RecvBase& rb)
-		//{
-		//    mGenState->set(sb);
-		//    mGenState->set(rb);
-		//}
+		bool initialized()const;
 
-		bool initialized()const
-		{
-			return mGenState.get();
-		}
+		u64 partyIdx() const;
 
-		u64 partyIdx() const
-		{
-			if (!mGenState)
-				throw RTE_LOC;
-			return mGenState->mPartyIdx;
-		}
+		macoro::task<> start();
 
-		macoro::task<> start()
-		{
-			mStarted.push_back(mGenState);
-			auto gen = std::exchange(mGenState, nullptr);
-			return gen->start(gen);
-		}
-
-		void startBatch(Batch* b)
-		{
-			mGenState->startBatch(b);
-		}
-
-		void abort()
-		{
-			for (auto& s : mStarted)
-				if (auto genState = s.lock())
-					genState->abort();
-		}
-
+		void abort();
 
 	private:
 
 		std::shared_ptr<RequestState> implRequest(CorType, u64 role, u64 size);
 
 	};
-
 
 	using OtRecvRequest = Request<OtRecv>;
 	using OtSendRequest = Request<OtSend>;

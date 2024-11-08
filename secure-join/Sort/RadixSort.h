@@ -31,6 +31,9 @@ namespace secJoin
         return false;
     }
 
+    // The Radix sorting protocol. The protocol can be executed by calling
+    // init(...) and then co_await genPerm(...). This will produce the 
+    // inverse sorting permutation.
     class RadixSort : public oc::TimerAdapter
     {
     public:
@@ -90,10 +93,6 @@ namespace secJoin
             // 1 << mL, the size of the "one-hot" key
             u64 mExpandedBitSize = 0;
 
-            //
-            //bool mPrecomputePerm = false;
-            //bool mPreproDone = false;
-
             // the sorting permutation for this round.
             // We will preprocess this as a random perm
             // and then derandomize it to the sorting perm.
@@ -126,12 +125,6 @@ namespace secJoin
             bool mDebug = false;
 
             bool mPerPermStarted = false;
-
-            // the socket that the random perm will be generated on.
-            //coproto::Socket mChl;
-
-            // the PRNG that the random perm will be generated with.
-            //PRNG mPrng;
 
             Round() = default;
             Round(const Round&) = delete;
@@ -186,6 +179,12 @@ namespace secJoin
         // The correlated randomness for each round.
         std::vector<Round> mRounds;
 
+        // Public API
+        ////////////////////////////
+
+        RadixSort() = default;
+        RadixSort(RadixSort&&) = default;
+
         // Sets various parameters for the protocol. role should be 0,1. n is the list size, bitCount is
         // the number of bits per element. bytesPerElem is an optional parameter
         // that will initialize the output permutation with enough correlated
@@ -196,21 +195,33 @@ namespace secJoin
             u64 bitCount,
             CorGenerator& gen);
 
-        // Once init it called, this will request the required correlated randomness
-        // from CorGenerator. To start the generation of the randomness, call preprocess().
-        //void request();
-
+        // starts the generation for correlated randomness by CorGenerator.
         void preprocess();
 
         // Start the generation of the requested correlated randomness.
+        // This protocol converts the correlated randomness from CorGenerator
+        // into permutation correlations that are used by the actual sorting
+        // protocol. It can optionally be called by the caller
+        // if they want this processes to begin prior to the actual sorting.
         macoro::task<> genPrePerm(
             coproto::Socket& comm,
             PRNG& prng);
 
+
+        // generate the (inverse) permutation that sorts the keys k.
+        macoro::task<> genPerm(
+            const BinMatrix& k,
+            AdditivePerm& dst,
+            coproto::Socket& comm,
+            PRNG& prng);
+
+
+
+        // Internal API
+        ////////////////////////////
+
         using Matrix32 = oc::Matrix<u32>;
 
-        RadixSort() = default;
-        RadixSort(RadixSort&&) = default;
 
 
         macoro::task<> hadamardSumSend(
@@ -264,31 +275,6 @@ namespace secJoin
         BinMatrix extract(u64 begin, u64 size, const BinMatrix& k);
 
 
-        // generate the (inverse) permutation that sorts the keys k.
-        macoro::task<> genPerm(
-            const BinMatrix& k,
-            AdditivePerm& dst,
-            coproto::Socket& comm,
-            PRNG& prng);
-
-        //// sort `src` based on the key `k`. The sorted values are written to `dst`
-        //// and the sorting (inverse) permutation is written to `dstPerm`.
-        //BinMatrix sort(
-        //	u64 keyBitCount,
-        //	const BinMatrix& k,
-        //	const BinMatrix& src,
-        //	CorGenerator& gen,
-        //	coproto::Socket& comm);
-
-        //// sort `src` based on the key `k`. The sorted values are written to `dst`
-        //// and the sorting (inverse) permutation is written to `dstPerm`.
-        //void sort(
-        //	const BinMatrix& k,
-        //	const BinMatrix& src,
-        //	BinMatrix& dst,
-        //	ComposedPerm& dstPerm,
-        //	CorGenerator& gen,
-        //	coproto::Socket& comm);
 
         // this circuit takes as input a index i\in {0,1}^L and outputs
         // a binary vector o\in {0,1}^{2^L} where is one at index i.
@@ -329,8 +315,7 @@ namespace secJoin
         macoro::task<> checkAggregateSum(
             const Matrix32& f0,
             Matrix32& s0,
-            coproto::Socket& comm
-        );
+            coproto::Socket& comm);
 
         macoro::task<std::vector<Perm>> debugGenPerm(
             const BinMatrix& k,

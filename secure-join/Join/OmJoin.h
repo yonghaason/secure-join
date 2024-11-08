@@ -49,23 +49,31 @@ namespace secJoin
 
 		u64 mPartyIdx = ~0ull;
 
-        bool mRemDummiesFlag;
+		// subprotocol to remove dummy rows.
+        std::optional<RemDummies> mRemDummies;
 
-        RemDummies mRemDummies;
-
+		// initialize the protocol with the description of join.
+		// leftJoinCol should be unique
 		void init(
 			JoinQuerySchema schema,
 			CorGenerator& ole,
 			bool remDummiesFlag = false);
 
 
+		// perform the actual join protocool. 
+		macoro::task<> join(
+			JoinQuery query,
+			Table& out,
+			PRNG& prng,
+			coproto::Socket& sock);
+
+		// updates which rows have a match after the agg tree duplicates values.
 		macoro::task<> updateActiveFlag(
 			BinMatrix& data,
 			BinMatrix& choice,
 			BinMatrix& out,
 			u64 flagBitIndex,
 			coproto::Socket& sock);
-
 
 		// output a combined table that has the leftColumn
 		// concatenated with the rightColumn (doubling the
@@ -109,8 +117,9 @@ namespace secJoin
 			BinMatrix& out,
 			u8 role);
 
-		// static void appendControlBits(const BinMatrix &controlBits, const BinMatrix &data, BinMatrix &out);
 
+		// extracts the rows from the unpermuted combined table that correspond 
+		// to the output.
 		static void getOutput(
 			BinMatrix& data,
 			span<ColRef> selects,
@@ -118,24 +127,8 @@ namespace secJoin
 			Table& out,
 			std::vector<Offset>& offsets);
 
-		static AggTree::Operator getDupCircuit();
-
-		static macoro::task<> print(
-			const BinMatrix& data,
-			const BinMatrix& control,
-			coproto::Socket& sock,
-			int role,
-			std::string name,
-			std::vector<OmJoin::Offset>& offsets);
-
-		// leftJoinCol should be unique
-		macoro::task<> join(
-			JoinQuery query,
-			Table& out,
-			PRNG& prng,
-			coproto::Socket& sock);
-
-
+		// extracts the rows from the unpermuted combined table that correspond 
+		// to the output.
 		static  macoro::task<> getOutput(
 			BinMatrix& data,
 			span<ColRef> selects,
@@ -147,6 +140,19 @@ namespace secJoin
 			oc::PRNG& prng,
 			bool securePerm,
 			Perm& randPerm);
+
+
+		// returns the circuit that duplicates that left argumement.
+		static AggTree::Operator getDupCircuit();
+
+		// prints the combined table.
+		static macoro::task<> print(
+			const BinMatrix& data,
+			const BinMatrix& control,
+			coproto::Socket& sock,
+			int role,
+			std::string name,
+			std::vector<OmJoin::Offset>& offsets);
 
 	};
 

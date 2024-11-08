@@ -872,7 +872,7 @@ namespace secJoin
 
 		u16 x = 0;
 		auto s = std::min<u64>(2, k.size() - n * step - byteIdx);
-		memcpy(&x, s0, s);
+		std::copy(s0, s0 + s, (u8*)&x);
 		sk(n) = (x >> shift) & mask;
 
 		if (mDebug)
@@ -976,7 +976,7 @@ namespace secJoin
 
 				// composeSwap the current partial sort with
 				// the permutation that sorts the next L bits
-				dst = ret.back().composeSwap(dst);
+				dst = dst.compose(ret.back());
 
 				auto kk2 = kk;
 				sk.resize(kk2.rows(), kk2.bitsPerEntry());

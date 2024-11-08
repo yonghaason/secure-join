@@ -18,17 +18,9 @@
 
 namespace secJoin
 {
-
-
     struct OtBatch : Batch
     {
         OtBatch(GenState* state, bool sender, oc::Socket&& s, PRNG&& p);
-        //OtBatch(OtBatch&&) noexcept
-        //    : Batch(nullptr, {}, {})
-        //{ 
-        //    std::terminate(); 
-        //};
-
 
         struct SendOtBatch
         {
@@ -62,10 +54,7 @@ namespace secJoin
 
         bool sender() { return mSendRecv.index() == 0; }
 
-        //void mock_(u64 batchIdx) override;
-
         void clear() override;
-
 
         u64 getBatchTypeId() override
         {

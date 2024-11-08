@@ -36,11 +36,8 @@ namespace secJoin
     {
         if (mStarted.exchange(true) == false)
         {
-            //if (mStart.is_set() == false)
             mGenState->startBatch(this);
-
             assert(mStart.is_set());
-            //mStart.set();
         }
     }
 

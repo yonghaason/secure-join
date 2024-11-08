@@ -109,7 +109,7 @@ namespace secJoin {
 		{
 			if (actFlag(i, 0) == 1)
 			{
-				memcpy(out.data(curPtr), data.data(i), data.bytesPerEntry());
+				copyBytes(out[curPtr], data[i]);
 				curPtr++;
 			}
 

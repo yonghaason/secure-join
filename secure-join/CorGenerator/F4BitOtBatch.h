@@ -29,11 +29,6 @@ namespace secJoin
     {
         F4BitOtBatch(GenState* state, bool sender, oc::Socket&& s, PRNG&& p);
 
-        //~OleBatch()
-        //{
-        //    std::cout << "~OleBatch()" << std::endl;
-        //}
-
         // The "send" specific state
         struct SendBatch
         {

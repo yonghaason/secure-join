@@ -44,7 +44,6 @@ set(SRCS
 	PermCor_Test.cpp
 	LowMCPerm_Test.cpp
 	ComposedPerm_Test.cpp
-	PaillierPerm_Test.cpp
 	AdditivePerm_Test.cpp
 	AltModWPrf_Test.cpp
 	CorGenerator_Test.cpp

@@ -7,8 +7,10 @@ namespace secJoin
 {
 
 
-    // A shared permutation where P0 holds pi_0 and P1 holds pi_1
+    // A protocool to generated a shared permutation where P0 holds pi_0 and P1 holds pi_1
     // such that the combined permutation is pi = pi_1 o pi_0.
+    // init(...) should be called and then generate(...) to get the actual 
+    // permutation.
     class AltModComposedPerm
     {
     public:
@@ -22,11 +24,18 @@ namespace secJoin
         AltModPermGenReceiver mPermReceiver;
 
         AltModComposedPerm() = default;
-        AltModComposedPerm(const AltModComposedPerm&) = default;
+        AltModComposedPerm(const AltModComposedPerm&) = delete;
         AltModComposedPerm(AltModComposedPerm&&) noexcept = default;
-        AltModComposedPerm& operator=(const AltModComposedPerm&) = default;
+        AltModComposedPerm& operator=(const AltModComposedPerm&) = delete;
         AltModComposedPerm& operator=(AltModComposedPerm&&) noexcept = default;
 
+        // initialize the permutation generation protocol.
+        // `partyIdx` should be 0,1.
+        // `size` is the number of elements permutated.
+        // `bytesPerRow` is the size of each element in bytes
+        // `cor` is the source of correlated randomness
+        // `altModKey`, `altModKeySendOts`, `altModKeyRecvOts` are optional
+        // parameters that can be used to initialize the underlying AltMod PRF protocol.
         void init(
             u8 partyIdx,
             u64 size,
@@ -58,7 +67,6 @@ namespace secJoin
             PRNG& prng,
             Perm perm,
             ComposedPerm& dst);
-
 
         // generate the permutation correlation
         macoro::task<> generate(

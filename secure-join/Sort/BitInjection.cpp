@@ -6,14 +6,15 @@ namespace secJoin
 
 	inline void unpack(span<const u8> in, u64 bitCount, span<u32> out)
 	{
-		auto n = oc::divCeil(bitCount, 8);
-		if (out.size() * n != in.size())
-			throw RTE_LOC;
 
-		if (n == sizeof(u32))
-			memcpy(out.data(), in.data(), in.size());
+
+		if (bitCount == 32)
+			copyBytes(out, in);
 		else
 		{
+			auto n = oc::divCeil(bitCount, 8);
+			if (out.size() * n != in.size())
+				throw RTE_LOC;
 			for (u64 j = 0; j < out.size(); ++j)
 				out[j] = *(u32*)&in[j * n];
 		}
@@ -21,15 +22,15 @@ namespace secJoin
 	}
 	inline void pack(span<const u32> in, u64 bitCount, span<u8> out)
 	{
-		auto n = oc::divCeil(bitCount, 8);
-		if (in.size() * n != out.size())
-			throw RTE_LOC;
 
-
-		if (n == sizeof(u32))
-			memcpy(out.data(), in.data(), out.size());
+		if (bitCount == 32)
+			copyBytes(out, in);
 		else
 		{
+			auto n = oc::divCeil(bitCount, 8);
+			if (in.size() * n != out.size())
+				throw RTE_LOC;
+
 			auto s = in.data();
 			auto iter = out.begin();
 			for (u64 j = 0; j < in.size(); ++j)

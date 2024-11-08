@@ -34,7 +34,7 @@ namespace secJoin
 		// every 256 rows is a subcode.
 		oc::Matrix<oc::block> mSubcodes;
 
-		inline void encode(u8* input, u8* codeword) const 
+		inline void encode(block input, block& codeword) const 
 		{
 
 			// highlevel idea: For each byte of the input, we have preprocessed 
@@ -42,25 +42,9 @@ namespace secJoin
 			// each with input size 8. And these subcodes are precomputed
 			// in a lookup table called mSubcodes. Each sub-code takes up 256 * codeSize;
 
-			//const u64 rowSize8 = rowSize * 8;
-			//const u64 superRowCount = (mU8RowCount + 7) / 8;
-
-			const u64 codeSize = mSubcodes.cols();
-			if (codeSize != 1)
-				throw RTE_LOC;// not impl.
-			if (mInputByteSize != sizeof(block))
-				throw RTE_LOC;//not impl
-
 			const auto mInputByteSize_ = 16;
 			const auto codeSize_ = 1; // block
 			const u64 subcodeSize = 256 * codeSize_;
-
-			// in some cases below, the input array must be a
-			// multiple of 8 in length...
-			u8 _byteView[sLinearCodePlainTextMaxSize];
-			u8* byteView = _byteView;
-			memcpy(byteView, input, mInputByteSize_);
-
 
 			// create a local to store the partial codeword
 			// and zero it out.
@@ -95,14 +79,15 @@ namespace secJoin
 
 			for (u64 i = 0; i < mInputByteSize_; i += byteStep)
 			{
-				c[0] = c[0] ^ T0[byteView[i + 0]];
-				c[1] = c[1] ^ T1[byteView[i + 1]];
-				c[2] = c[2] ^ T2[byteView[i + 2]];
-				c[3] = c[3] ^ T3[byteView[i + 3]];
-				c[4] = c[4] ^ T4[byteView[i + 4]];
-				c[5] = c[5] ^ T5[byteView[i + 5]];
-				c[6] = c[6] ^ T6[byteView[i + 6]];
-				c[7] = c[7] ^ T7[byteView[i + 7]];
+				assert(mInputByteSize_ == 16);
+				c[0] = c[0] ^ T0[input.get<u8>(i + 0)];
+				c[1] = c[1] ^ T1[input.get<u8>(i + 1)];
+				c[2] = c[2] ^ T2[input.get<u8>(i + 2)];
+				c[3] = c[3] ^ T3[input.get<u8>(i + 3)];
+				c[4] = c[4] ^ T4[input.get<u8>(i + 4)];
+				c[5] = c[5] ^ T5[input.get<u8>(i + 5)];
+				c[6] = c[6] ^ T6[input.get<u8>(i + 6)];
+				c[7] = c[7] ^ T7[input.get<u8>(i + 7)];
 
 				T0 += step;
 				T1 += step;
@@ -122,9 +107,10 @@ namespace secJoin
 			c[0] = c[0] ^ c[2];
 			c[1] = c[1] ^ c[3];
 
-			c[0] = c[0] ^ c[1];
+			codeword = c[0] ^ c[1];
 
-			memcpy(codeword, c.data(), codeSize_ * sizeof(oc::block));
+			//codeword = c[0];
+			//me mcpy(codeword, c.data(), codeSize_ * sizeof(oc::block));
 
 			//    break;
 			//}
@@ -163,7 +149,7 @@ namespace secJoin
 			//    c[0] = c[0] ^ c[2];
 			//    c[1] = c[1] ^ c[3];
 
-			//    memcpy(codeword, c, codewordU8Size());
+			//    m emcpy(codeword, c, codewordU8Size());
 
 			//    break;
 			//}
@@ -202,7 +188,7 @@ namespace secJoin
 			//    c[2] = c[2] ^ c[6];
 			//    c[3] = c[3] ^ c[7];
 
-			//    memcpy(codeword, c, codewordU8Size());
+			//    m emcpy(codeword, c, codewordU8Size());
 
 
 			//    break;
@@ -233,7 +219,7 @@ namespace secJoin
 			//        c[7] = c[7] ^ g0[7];
 			//    }
 
-			//    memcpy(codeword, c, codewordU8Size());
+			//    m emcpy(codeword, c, codewordU8Size());
 
 
 			//    break;
@@ -304,7 +290,7 @@ namespace secJoin
 			//        c[4] = c[4] ^ c[6];
 			//        c[0] = c[0] ^ c[4];
 
-			//        memcpy(
+			//        m emcpy(
 			//            (codeword + sizeof(block) * j),
 			//            c,
 			//            std::min<u64>(sizeof(block), codewordU8Size() - j * sizeof(block)));
@@ -330,7 +316,7 @@ namespace secJoin
 		}
 
 		template<int N>
-		void encodeN(block* in, block* out)const
+		void encodeN(const block* in, block* out)const
 		{
 			const u64 codeSize = mSubcodes.cols();
 			if (codeSize != 1)
@@ -380,8 +366,9 @@ namespace secJoin
 
 				T += 256;
 			}
-
-			memcpy(out, c.data(), sizeof(c));
+			for (u64 i = 0; i < N; ++i)
+				out[i] = c[i];
+				
 		}
 
 	};

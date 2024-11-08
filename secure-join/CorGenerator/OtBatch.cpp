@@ -30,7 +30,7 @@ namespace secJoin
     void OtBatch::RecvOtBatch::mock(u64 batchIdx)
     {
         auto s = oc::mAesFixedKey.ecbEncBlock(oc::block(batchIdx, 0));
-        memset(mChoice.data(), s.get<u8>(0), mChoice.sizeBytes());
+        setBytes(mChoice.getSpan<u8>(), s.get<u8>(0));
 
         for (u32 i = 0; i < mMsg.size(); ++i)
         {

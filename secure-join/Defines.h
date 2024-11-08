@@ -1,56 +1,161 @@
 #pragma once
 #include "cryptoTools/Common/Defines.h"
 #include "cryptoTools/Common/block.h"
+#include "cryptoTools/Common/BitVector.h"
 #include "cryptoTools/Crypto/PRNG.h"
 #include <iostream>
 #include <sstream>
 #include <iomanip>
-#include "Paillier/Defines.h"
 #include "macoro/result.h"
-
-#ifndef SECJOIN_ENABLE_LOGGING
-#define SECJOIN_ENABLE_LOGGING false
-#endif
-
+#include "coproto/Common/TypeTraits.h"
+#include <ranges>
 
 namespace secJoin
 {
-    const char CSV_COL_DELIM = ';';
-    const std::string STRING_META_TYPE = "STRING";
-    const std::string ROWS_META_TYPE = "Rows";
-    const std::string COLS_META_TYPE = "Cols";
-    const std::string TYPE_OF_FILE = "Type";
-    const std::string TEXT_FILE_TYPE = "Text";
-    const std::string BINARY_FILE_TYPE = "Binary";
-    const u64 BATCH_READ_ENTRIES = 10000;
+
+    namespace stdr = std::ranges;
+    namespace stdv = std::views;
+
+    using u8  = oc::u8;
+    using u16 = oc::u16;
+    using u32 = oc::u32;
+    using u64 = oc::u64;
+
+    using i8  = oc::i8;
+    using i16 = oc::i16;
+    using i32 = oc::i32;
+    using i64 = oc::i64;
+
+    template<typename T> using span = oc::span<T>;
+
+
+
+
+    inline u64 divCeil(u64 x, u64 y)
+    {
+        return (x + y - 1) / y;
+    }
+
+    inline bool getSign(span<u8> val, u64 index)
+    {
+        u64 i = index >> 3;
+        u64 o = index & 7;
+        return (val[i] >> o) & 1 ;
+    }
+
+    inline void fillInplace(span<u8> val, u64 index, bool bit)
+    {
+        u64 i = index >> 3;
+        u64 o = index & 7;
+
+        if (o)
+        {
+            u8 mask = ~u8(0) << (o + 1);
+            val[i] = 
+                ((bit) * (val[i] | mask)) |
+                ((!bit) * (val[i] & ~mask));
+            ++i;
+        }
+
+        for (; i < val.size(); ++i)
+        {
+            val[i] = bit * -1;
+        }
+    }
+        
+
+
+    //template<typename T>
+    inline i64 signExtend(i64 val, u64 bit)
+    {
+        using T = i64;
+        bool sign = val & (T(1) << bit);
+
+        T mask = ~T(0) << (bit + 1);
+
+        return
+            ((sign) * (val | mask)) |
+            ((!sign) * (val & ~mask));
+    }
+
     using block = oc::block;
     using PRNG = oc::PRNG;
 
-    const std::string WHBUNDLE_COL_TYPE = "Col";
-    const std::string WHBUNDLE_NUM_TYPE = "Number";
-    const std::string WHBUNDLE_STRING_TYPE = "String";
 
-    using ::memcpy;
 
-    template<typename D, typename S>
-    OC_FORCEINLINE void memcpy(span<D> dst, span<S> src)
+
+	template<class Container, typename = void>
+	struct is_container : coproto::false_type
+	{};
+
+	template<class Container>
+	struct is_container < Container, coproto::void_t <
+		coproto::enable_if_t<coproto::has_data_member_func<typename std::remove_reference<Container>::type>::value>,
+		coproto::enable_if_t<coproto::has_size_member_func<typename std::remove_reference<Container>::type>::value>
+		>> :
+		coproto::true_type {};
+		 
+
+    template<typename T>
+    auto asSpan(T&& t)
     {
-        assert(dst.size_bytes() == src.size_bytes());
-        ::memcpy(dst.data(), src.data(), dst.size_bytes());
+        if constexpr (std::is_same_v<std::remove_cvref_t<T>, oc::BitVector>)
+        {
+            return t.template getSpan<u8>();
+        }
+        if constexpr (is_container<T>::value)
+        {
+            using U = std::remove_reference_t<decltype(*t.data())>;
+            return span<U>(t.data(), t.size());
+        }
+        else if constexpr(std::is_trivial_v<std::remove_reference_t<T>>)
+        {
+            return std::span<std::remove_reference_t<T>, 1>(&t, &t+1);
+        }
+        else
+        {
+            static_assert(
+                is_container<T>::value || 
+                std::is_trivial_v<std::remove_reference_t<T>>
+                );
+        }
     }
 
     template<typename D, typename S>
-    OC_FORCEINLINE void memcpyMin(span<D> dst, span<S> src)
+    OC_FORCEINLINE void copyBytes(D&& dst,S&& src)
     {
-        ::memcpy(dst.data(), src.data(), std::min(src.size_bytes(), dst.size_bytes()));
+        auto d = asSpan(dst);
+        auto s = asSpan(src);
+        if(d.size_bytes() != s.size_bytes())
+            throw RTE_LOC;
+        static_assert(std::is_trivially_copyable_v<std::remove_reference_t<decltype(*d.data())>>);
+        static_assert(std::is_trivially_copyable_v<std::remove_reference_t<decltype(*s.data())>>);
+        if(d.size())
+            std::memcpy(d.data(), s.data(), d.size_bytes());
     }
-    using ::memset;
+
+    template<typename D, typename S>
+    OC_FORCEINLINE void copyBytesMin(D&& dst, S&& src)
+    {
+        auto d = asSpan(dst);
+        auto s = asSpan(src);
+        auto size = std::min(s.size_bytes(), d.size_bytes());
+        static_assert(std::is_trivially_copyable_v<std::remove_reference_t<decltype(*d.data())>>);
+        static_assert(std::is_trivially_copyable_v<std::remove_reference_t<decltype(*s.data())>>);
+        if(size)
+            std::memcpy(d.data(), s.data(), size);
+    }
 
     template<typename D>
-    OC_FORCEINLINE void memset(span<D> dst, char v)
+    OC_FORCEINLINE void setBytes(D&& dst, char v)
     {
-        ::memset(dst.data(), v, dst.size_bytes());
+        auto d = asSpan(dst);
+        static_assert(std::is_trivially_copyable_v<std::remove_reference_t<decltype(*d.data())>>);
+        if(d.size())
+            std::memset(d.data(), v, d.size_bytes());
     }
+
+
 
     inline std::string hex(oc::span<const u8> d)
     {

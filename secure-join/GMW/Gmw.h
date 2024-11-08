@@ -27,6 +27,10 @@ namespace secJoin
         Silent,
         InsecureMock
     };
+
+    // The GMW MPC protocol for evaluating binary circuits.
+    // Each AND gate consumes two OLE corrleations while
+    // XOR gates are free.
     class Gmw final : public oc::TimerAdapter
     {
     public:
@@ -83,33 +87,17 @@ namespace secJoin
         // the binary triples used in by the protocol.
         BinOleRequest mTriples;
 
-        //bool mHasPreprocessing = 0;
-
-        //bool mHasRequest = 0;
-
         macoro::task<> mPreproTask;
 
-        //// initialize this gmw to eval n copies of the circuit cir.
-        //// use correlations provided by ole.
-        //void init(
-        //    u64 n,
-        //    const BetaCircuit& cir);
-
+        // init should be called first. 
+        // `n` is the number of independent copies of the circuit 
+        // that should be evlauted.
+        // `cir` is the binary circuit to be evaluted.
+        // `gen` is the source of OLE correlations.
         void init(
             u64 n,
             const BetaCircuit& cir,
             CorGenerator& gen);
-
-        //bool hasRequest()
-        //{
-        //    return mHasRequest;
-        //}
-        //void request(CorGenerator& gen);
-
-        //bool hasPreprocessing() const
-        //{
-        //    return mHasPreprocessing;
-        //}
 
         // set the i'th input. There should be mN rows of `input`, each row holding
         // mCur.mInput[i].size() bits (rounded up to 8 * sizeof(T)).
@@ -121,6 +109,8 @@ namespace secJoin
             implSetInput(i, ii, sizeof(T));
         }
 
+        // set the i'th input. There should be mN rows of `input`, each row holding
+        // mCur.mInput[i].size() bits
         void setInput(u64 i, BinMatrix input)
         {
             setInput<u8>(i, input.mData);
@@ -129,7 +119,8 @@ namespace secJoin
         // Set the i'th input to zero. Useful when only one party has input i (in plaintext).
         void setZeroInput(u64 i);
 
-
+        // Allows the caller to set the i'th input to d without copying the data.
+        // It is required that d is in transposed formapt.
         void mapInput(u64 i, TBinMatrix& d)
         {
             if (mCir.mInputs.size() <= i)
@@ -145,8 +136,9 @@ namespace secJoin
                 map(mCir.mInputs[i][j], (block*)d[j].data());
         }
 
-
-
+        // Allows the caller to preset the i'th ioutput to d without copying the data.
+        // It is required that d is in transposed formapt. This must be called prior 
+        // to the protocol being invoked.
         void mapOutput(u64 i, TBinMatrix& d)
         {
             if (mCir.mOutputs.size() <= i)
@@ -163,51 +155,14 @@ namespace secJoin
         }
 
 
-        void map(u64 wire, block* data)
-        {
-            if (mWords[wire])
-                throw RTE_LOC;
-            if ((u64)data % sizeof(block))
-                throw RTE_LOC;
-
-            mWords[wire] = data;
-            assert(mRemainingMappings);
-            --mRemainingMappings;
-        }
-
-        void finalizeMapping()
-        {
-            for (u64 i = 0; i < mCir.mInputs.size(); ++i)
-                for (u64 j = 0; j < mCir.mInputs[i].size(); ++j)
-                    if (mWords[mCir.mInputs[i][j]] == nullptr)
-                        throw std::runtime_error("GMW input wire not set. input: " + std::to_string(i) + "\n" + LOCATION);
-
-            //for (u64 i = 0; i < mCir.mOutputs.size(); ++i)
-            //    for (u64 j = 0; j < mCir.mOutputs[i].size(); ++j)
-            //        if (mWords[mCir.mOutputs[i][j]] == nullptr)
-            //            throw RTE_LOC;
-
-            if (mRemainingMappings)
-            {
-                mMem.emplace_back();
-                mMem.back().resize(mRemainingMappings, mN128, oc::AllocType::Uninitialized);
-                for (u64 i = 0, j = 0; i < mCir.mWireCount; ++i)
-                {
-                    if (mWords[i] == nullptr)
-                        map(i, mMem.back().data(j++));
-                }
-
-                assert(mRemainingMappings == 0);
-            }
-        }
-
-
-
+        // once init has been called, calling this will
+        // start the preprocessing of the OLE correlations.
         void preprocess();
 
         // run the gmw protocol.
         coproto::task<> run(coproto::Socket& chl);
 
+        // copy the i'th output to `out`
         void getOutput(u64 i, BinMatrix& out)
         {
             if (i > mCir.mOutputs.size() || out.bitsPerEntry() != mCir.mOutputs[i].size())
@@ -225,6 +180,11 @@ namespace secJoin
             implGetOutput(i, ii, sizeof(T));
         }
 
+        // return the number of rounds the GMW protocol will require.
+        u64 numRounds()
+        {
+            return mNumRounds;
+        }
 
         void implSetInput(u64 i, oc::MatrixView<u8> input, u64 alignment);
         void implGetOutput(u64 i, oc::MatrixView<u8> out, u64 alignment);
@@ -234,20 +194,16 @@ namespace secJoin
         oc::MatrixView<u8> getMemView(BetaBundle& wires);
 
 
-        u64 numRounds()
-        {
-            return mNumRounds;
-        }
-
-
         block* multSendP1(block* x, oc::GateType gt,
             block* a, block* sendIter);
+            
         block* multSendP2(block* x, oc::GateType gt,
             block* c, block* sendIter);
 
 
         block* multRecvP1(block* x, block* z, oc::GateType gt,
             block* b, block* recvIter);
+
         block* multRecvP2(block* x, block* z,
             block* c,
             block* d,
@@ -264,11 +220,13 @@ namespace secJoin
                 return multSendP1(x, y, gt, a, c, sendIter);
             else
                 return multSendP2(x, y, a, c, sendIter);
-        }
+        }\
+
         block* multSendP1(block* x, block* y, oc::GateType gt,
             block* a,
             block* c,
             block* sendIter);
+
         block* multSendP2(block* x, block* y,
             block* a,
             block* c,
@@ -293,10 +251,49 @@ namespace secJoin
             block* c,
             block* d,
             block* recvIter);
+
         block* multRecvP2(block* x, block* y, block* z,
             block* b,
             block* c,
             block* d,
             block* recvIter);
+
+
+        // The `wire` wire will use the memory pointed to by `data`.
+        // `data` must be mN128 blocks long.
+        void map(u64 wire, block* data)
+        {
+            if (mWords[wire])
+                throw RTE_LOC;
+            if ((u64)data % sizeof(block))
+                throw RTE_LOC;
+
+            mWords[wire] = data;
+            assert(mRemainingMappings);
+            --mRemainingMappings;
+        }
+
+        // an internal function used to allocate memory 
+        //for any wires that have not been mapped.
+        void finalizeMapping()
+        {
+            for (u64 i = 0; i < mCir.mInputs.size(); ++i)
+                for (u64 j = 0; j < mCir.mInputs[i].size(); ++j)
+                    if (mWords[mCir.mInputs[i][j]] == nullptr)
+                        throw std::runtime_error("GMW input wire not set. input: " + std::to_string(i) + "\n" + LOCATION);
+            if (mRemainingMappings)
+            {
+                mMem.emplace_back();
+                mMem.back().resize(mRemainingMappings, mN128, oc::AllocType::Uninitialized);
+                for (u64 i = 0, j = 0; i < mCir.mWireCount; ++i)
+                {
+                    if (mWords[i] == nullptr)
+                        map(i, mMem.back().data(j++));
+                }
+
+                assert(mRemainingMappings == 0);
+            }
+        }
+
     };
 }

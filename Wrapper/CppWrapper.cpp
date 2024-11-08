@@ -17,8 +17,8 @@ namespace secJoin
     }
 
     WrapperState* initState(std::string& csvPath,
-        std::string& visaMetaDataPath,
-        std::string& clientMetaDataPath,
+        std::string visaMetaDataPath,
+        std::string clientMetaDataPath,
         std::vector<std::string>& literals,
         std::vector<std::string>& literalsType,
         std::vector<oc::i64>& opInfo,
