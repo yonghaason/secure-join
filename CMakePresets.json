@@ -72,7 +72,7 @@
         "CMAKE_BUILD_TYPE": "RelWithDebInfo",
         "FETCH_AUTO": "ON",
         "SECUREJOIN_ENABLE_ASAN": false,
-        "SECUREJOIN_ENABLE_SSE": false,
+        "SECUREJOIN_ENABLE_SSE": true,
         "SECUREJOIN_ENABLE_BOOST": false,
         "SECUREJOIN_ENABLE_PAILLIER": false,
         "SECUREJOIN_STATIC_WRAPPER": true,
