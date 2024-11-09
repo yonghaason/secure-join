@@ -75,6 +75,7 @@ namespace secJoin
 			auto srcIdx = dst.mPerm[i];
 			for (u64 j = 0; j < blocksPerRow; j++, ++k)
 			{
+				// unchecked indexing ok due to the resize above.
 				dst.mDelta.data()[k] = oc::block(j, srcIdx);
 			}
 		}
@@ -143,7 +144,10 @@ namespace secJoin
 		for (u64 i = 0, k = 0; i < mN; i++)
 		{
 			for (u64 j = 0; j < blocksPerRow; ++j, ++k)
+			{
+				// unchecked indexing ok due to the resize above.
 				dst.mA.data()[k] = oc::block(j, i);
+			}
 		}
 		aes.ecbEncBlocks(dst.mA, dst.mA);
 

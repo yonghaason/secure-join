@@ -119,6 +119,7 @@ namespace secJoin
 
 			for (u64 j = 0; j < blocksPerRow; ++j)
 			{
+				assert(counterMode < xEncrypted.size());
 				xEncrypted[counterMode] ^= lowMc.encrypt(counterMode);
 				++counterMode;
 			}

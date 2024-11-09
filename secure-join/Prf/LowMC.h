@@ -599,6 +599,8 @@ namespace secJoin
                         }
                         LinMatrices.push_back(mat);
                         invLinMatrices.push_back(invert_Matrix(LinMatrices.back()));
+
+                        in.close();
                     }
                 }
 
@@ -651,6 +653,8 @@ namespace secJoin
                             if (rank_of_Matrix(mat) < std::min(blocksize, keysize))
                                 throw std::runtime_error(LOCATION);
                         }
+
+                        in.close();
                     }
                     KeyMatrices.push_back(mat);
                 }

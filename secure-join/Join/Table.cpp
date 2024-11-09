@@ -540,7 +540,7 @@ namespace secJoin
         u64 row)
     {
 
-        out.mIsActive[row] = oldActFlag.size() > 0 ? oldActFlag[row] : 1;
+        out.mIsActive.at(row) = oldActFlag.size() > 0 ? oldActFlag.at(row) : 1;
 
         if(out.mIsActive[row] == 0)
             return;
@@ -555,16 +555,16 @@ namespace secJoin
         // Copying the average column
         for (u64 col = 0; col < m; col++)
         {
-            assert(out.mColumns[col + 1].mData.bytesPerEntry() == inputs[2 * col].sizeBytes());
+            assert(out.mColumns.at(col + 1).mData.bytesPerEntry() == inputs.at(2 * col).sizeBytes());
             copyBytes(
-                out.mColumns[col + 1].mData[row],
-                inputs[2 * col]);
+                out.mColumns.at(col + 1).mData[row],
+                inputs.at(2 * col));
         }
 
         // Copying the ones column 
         copyBytes(
-            out.mColumns[m + 1].mData[row],
-            inputs[2 * m]);
+            out.mColumns.at(m + 1).mData[row],
+            inputs.at(2 * m));
 
     }
 
@@ -611,7 +611,7 @@ namespace secJoin
         auto size = bytes * 8;
         // Filling extra bits with zero
         u64 rem = size - bits;
-        inputs[1].reset(rem);
+        inputs.at(1).reset(rem);
         inputs[1].append(data, bits);
 
         std::vector<oc::BitVector> tempOutputs = { output };
@@ -672,15 +672,15 @@ namespace secJoin
             for (u64 j = 0; j < colInfo.size(); ++j)
             {
 
-                auto lr = (&select[j].mTable == &r.mTable) ? 1 : 0;
+                auto lr = (&select.at(j).mTable == &r.mTable) ? 1 : 0;
                 // auto src = select[j].mCol.mData.data(I[i][lr]);
                 // auto dst = ret.mColumns[j].mData.data(d);
                 // auto size = ret.mColumns[j].mData.cols();
                 // m emcpy(dst, src, size);
 
-                copyBytes(ret.mColumns[j].mData[d], select[j].mCol.mData[I[i][lr]]);
+                copyBytes(ret.mColumns.at(j).mData[d], select.at(j).mCol.mData[I.at(i).at(lr)]);
             }
-            ret.mIsActive[d] = 1;
+            ret.mIsActive.at(d) = 1;
 
         }
 

@@ -56,7 +56,8 @@ void eval(BetaCircuit& cir,
                 inputs[j][i].resize(cir.mInputs[i].size());
                 inputs[j][i].randomize(prng);
                 
-                memcpy(in[j].data(), inputs[j][i].data(), inputs[j][i].sizeBytes());
+                //m emcpy(in[j].data(), inputs[j][i].data(), inputs[j][i].sizeBytes());
+                copyBytes(in[j], inputs[j][i]);
             }
 
             share(in, cir.mInputs[i].size(), sInputs[i][0], sInputs[i][1], prng);
@@ -530,9 +531,15 @@ BinMatrix perfectShuffle(const BinMatrix& x0, const BinMatrix& x1)
 
     BinMatrix mR(x0.numEntries() + x1.numEntries(), x0.bitsPerEntry());
     for (u64 i = 0; i < x0.numEntries(); ++i)
-        memcpy(mR.data(i * 2), x0.data(i), mR.bytesPerEntry());
+    {
+        copyBytes(mR[i * 2], x0[i]);
+        //m emcpy(mR.data(i * 2), x0.data(i), mR.bytesPerEntry());
+    }
     for (u64 i = 0; i < x1.numEntries(); ++i)
-        memcpy(mR.data(i * 2 + 1), x1.data(i), mR.bytesPerEntry());
+    {
+        copyBytes(mR[i * 2 + 1], x1[i]);
+        // m emcpy(mR.data(i * 2 + 1), x1.data(i), mR.bytesPerEntry());
+    }
     return mR;
 }
 

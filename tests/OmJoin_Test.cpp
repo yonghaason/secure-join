@@ -67,7 +67,8 @@ void OmJoin_getControlBits_Test(const oc::CLP& cmd)
         exp[i] = prng.getBit();
         if (exp[i])
         {
-            memcpy(k.data(i) + offset, k.data(i - 1) + offset, k.cols() - offset);
+			copyBytes(k[i].subspan(offset), k[i - 1].subspan(offset));
+            //me mcpy(k.data(i) + offset, k.data(i - 1) + offset, k.cols() - offset);
         }
     }
 
@@ -308,7 +309,8 @@ void OmJoin_join_Test(const oc::CLP& cmd)
         auto ii = (i * 3) % mod;
         if (keys.insert(ii).second == false)
             throw RTE_LOC;
-        memcpy(&L.mColumns[0].mData.mData(i, 0), &ii, L.mColumns[0].mData.bytesPerEntry());
+        //m emcpy(&L.mColumns[0].mData.mData(i, 0), &ii, L.mColumns[0].mData.bytesPerEntry());
+		copyBytesMin(L.mColumns[0].mData.mData[i], ii);
         L.mColumns[1].mData.mData(i, 0) = i % 4;
         L.mColumns[1].mData.mData(i, 1) = i % 3;
     }
@@ -318,7 +320,8 @@ void OmJoin_join_Test(const oc::CLP& cmd)
         auto ii = i / 2 * 4 % mod;
         //if (k2.insert(ii).second == false)
         //    throw RTE_LOC;
-        memcpy(&R.mColumns[0].mData.mData(i, 0), &ii, R.mColumns[0].mData.bytesPerEntry());
+        //m emcpy(&R.mColumns[0].mData.mData(i, 0), &ii, R.mColumns[0].mData.bytesPerEntry());
+		copyBytesMin(R.mColumns[0].mData.mData[i], ii);
         // R.mColumns[0].mData.mData(i, 0) = i * 2;
         R.mColumns[1].mData.mData(i) = i % 3;
     }
@@ -364,8 +367,11 @@ void OmJoin_join_Test(const oc::CLP& cmd)
         join0.init(query0, ole0, remDummies);
         join1.init(query1, ole1, remDummies);
 
-        join0.mRemDummies->mCachePerm = remDummies;
-        join1.mRemDummies->mCachePerm = remDummies;
+        if (remDummies)
+        {
+            join0.mRemDummies->mCachePerm = remDummies;
+            join1.mRemDummies->mCachePerm = remDummies;
+        }
 
         auto r = macoro::sync_wait(macoro::when_all_ready(
             ole0.start(),
@@ -432,8 +438,10 @@ void OmJoin_join_BigKey_Test(const oc::CLP& cmd)
         // u64 k 
         auto ii = i * 3;
         assert(sizeof(ii) <= buff.size());
-        memcpy(buff.data(), &ii, sizeof(ii));
-        memcpy(&L.mColumns[0].mData.mData(i, 0), buff.data(), L.mColumns[0].mData.bytesPerEntry());
+        copyBytesMin(buff, ii);
+        //m emcpy(buff.data(), &ii, sizeof(ii));
+        //m emcpy(&L.mColumns[0].mData.mData(i, 0), buff.data(), L.mColumns[0].mData.bytesPerEntry());
+		copyBytes(L.mColumns[0].mData.mData[i], buff);
         L.mColumns[1].mData.mData(i, 0) = i % 4;
         //L.mColumns[1].mData.mData(i, 1) = i % 3;
     }
@@ -442,8 +450,11 @@ void OmJoin_join_BigKey_Test(const oc::CLP& cmd)
     {
         auto ii = i / 2 * 4;
         assert(sizeof(ii) <= buff.size());
-        memcpy(buff.data(), &ii, sizeof(ii));
-        memcpy(&R.mColumns[0].mData.mData(i, 0), buff.data(), R.mColumns[0].mData.bytesPerEntry());
+		copyBytesMin(buff, ii);
+
+        //m emcpy(buff.data(), &ii, sizeof(ii));
+        //m emcpy(&R.mColumns[0].mData.mData(i, 0), buff.data(), R.mColumns[0].mData.bytesPerEntry());
+		copyBytesMin(R.mColumns[0].mData[i], buff);
         // R.mColumns[0].mData.mData(i, 0) = i * 2;
         R.mColumns[1].mData.mData(i) = i % 3;
     }
@@ -474,8 +485,7 @@ void OmJoin_join_BigKey_Test(const oc::CLP& cmd)
         ole0.init(sock[0].fork(), prng, 0, 1, 1 << 18, mock);
         ole1.init(sock[1].fork(), prng, 1, 1, 1 << 18, mock);
 
-        join0.mRemDummies->mCachePerm = remDummies;
-        join1.mRemDummies->mCachePerm = remDummies;
+
 
         PRNG prng0(oc::ZeroBlock);
         PRNG prng1(oc::OneBlock);
@@ -494,6 +504,11 @@ void OmJoin_join_BigKey_Test(const oc::CLP& cmd)
         join0.init(query0, ole0, remDummies);
         join1.init(query1, ole1, remDummies);
 
+        if (remDummies)
+        {
+            join0.mRemDummies->mCachePerm = remDummies;
+            join1.mRemDummies->mCachePerm = remDummies;
+        }
 
         auto r = macoro::sync_wait(macoro::when_all_ready(
             ole0.start(),
@@ -777,7 +792,7 @@ void OmJoin_join_round_Test(const oc::CLP& cmd)
     for (u64 i = 0; i < nL; ++i)
     {
         // u64 k 
-        memcpy(&L.mColumns[0].mData.mData(i, 0), &i, L.mColumns[0].mData.bytesPerEntry());
+        copyBytesMin(L.mColumns[0].mData.mData[i], i);
         L.mColumns[1].mData.mData(i, 0) = i % 4;
         //L.mColumns[1].mData.mData(i, 1) = i % 3;
     }
@@ -785,7 +800,7 @@ void OmJoin_join_round_Test(const oc::CLP& cmd)
     for (u64 i = 0; i < nR; ++i)
     {
         auto ii = i * 2;
-        memcpy(&R.mColumns[0].mData.mData(i, 0), &ii, R.mColumns[0].mData.bytesPerEntry());
+        copyBytesMin(R.mColumns[0].mData.mData[i], ii);
         // R.mColumns[0].mData.mData(i, 0) = i * 2;
         R.mColumns[1].mData.mData(i) = i % 3;
     }

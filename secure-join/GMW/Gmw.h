@@ -263,6 +263,8 @@ namespace secJoin
         // `data` must be mN128 blocks long.
         void map(u64 wire, block* data)
         {
+            if (mWords.size() <= wire)
+                throw RTE_LOC;
             if (mWords[wire])
                 throw RTE_LOC;
             if ((u64)data % sizeof(block))

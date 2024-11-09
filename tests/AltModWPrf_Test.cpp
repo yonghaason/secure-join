@@ -392,9 +392,7 @@ void AltModWPrf_AMult_test(const oc::CLP& cmd)
             auto hgh = xx << (256 - i);
 
             auto m = hgh ^ low;
-            block256 r;
-            memcpy(&r, &m, sizeof(r));
-            return r;
+			return std::bit_cast<block256>(m);
         }
 
         bool operator==(const block256& x) const

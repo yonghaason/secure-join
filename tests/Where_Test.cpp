@@ -114,7 +114,7 @@ void Where_genWhBundle_Test(const oc::CLP& cmd)
         {
             BitVector bitVector = wh.mWhBundle[i].mVal;
             oc::u64 exp = 0;
-            memcpy(&exp, bitVector.data(), oc::divCeil(bitVector.size(), 8));
+            copyBytesMin(exp, bitVector);
             oc::u64 act = stoll(literals[i]);
 
             if (act != exp)
@@ -125,7 +125,8 @@ void Where_genWhBundle_Test(const oc::CLP& cmd)
             BitVector bitVector = wh.mWhBundle[i].mVal;
             std::string exp;
             exp.resize(bitVector.size() / 8);
-            memcpy(exp.data(), bitVector.data(), bitVector.size() / 8);
+            //m emcpy(exp.data(), bitVector.data(), bitVector.size() / 8);
+            copyBytes(exp, bitVector);
 
             std::string act = literals[i];
             if (act.compare(exp) != 0)
@@ -167,11 +168,11 @@ void Where_ArrType_Greater_Than_Equals_Test(const oc::CLP& cmd)
         T.mColumns[2].mData.mData(i, 0) = i % 4;
         T.mColumns[3].mData.mData(i, 0) = -1 * (i % 5);
         if (i % 3 == 0)
-            memcpy(T.mColumns[4].mData.data(i), comparisionString.data(), comparisionString.size());
+            copyBytesMin(T.mColumns[4].mData, comparisionString);
         else
-            memcpy(T.mColumns[4].mData.data(i), comparisionString1.data(), comparisionString1.size());
+            copyBytesMin(T.mColumns[4].mData, comparisionString1);
         if (i % 4 == 0)
-            memcpy(T.mColumns[5].mData.data(i), comparisionString.data(), comparisionString.size());
+            copyBytesMin(T.mColumns[5].mData, comparisionString);
     }
 
     std::vector<std::string> literals = { "T0", "T1", "T2", "T3", "T4", "T5", comparisionString,
@@ -352,12 +353,13 @@ void Where_ArrType_Less_Than_Test(const oc::CLP& cmd)
         T.mColumns[1].mData.mData(i, 0) = i % 4;
         T.mColumns[2].mData.mData(i, 0) = i % 4;
         T.mColumns[3].mData.mData(i, 0) = -1 * (i % 5);
+
         if (i % 3 == 0)
-            memcpy(T.mColumns[4].mData.data(i), comparisionString.data(), comparisionString.size());
+            copyBytesMin(T.mColumns[4].mData, comparisionString);
         else
-            memcpy(T.mColumns[4].mData.data(i), comparisionString1.data(), comparisionString1.size());
+            copyBytesMin(T.mColumns[4].mData, comparisionString1);
         if (i % 4 == 0)
-            memcpy(T.mColumns[5].mData.data(i), comparisionString.data(), comparisionString.size());
+            copyBytesMin(T.mColumns[5].mData, comparisionString);
     }
 
     std::vector<std::string> literals = { "T0", "T1", "T2", "T3", "T4", "T5", comparisionString,
@@ -419,11 +421,11 @@ void Where_ArrType_Equals_Test(const oc::CLP& cmd)
         T.mColumns[2].mData.mData(i, 0) = i % 4;
         T.mColumns[3].mData.mData(i, 0) = -1 * (i % 5);
         if (i % 3 == 0)
-            memcpy(T.mColumns[4].mData.data(i), comparisionString.data(), comparisionString.size());
+            copyBytesMin(T.mColumns[4].mData, comparisionString);
         else
-            memcpy(T.mColumns[4].mData.data(i), comparisionString1.data(), comparisionString1.size());
+            copyBytesMin(T.mColumns[4].mData, comparisionString1);
         if (i % 4 == 0)
-            memcpy(T.mColumns[5].mData.data(i), comparisionString.data(), comparisionString.size());
+            copyBytesMin(T.mColumns[5].mData, comparisionString);
     }
 
     std::vector<std::string> literals = { "T0", "T1", "T2", "T3", "T4", "T5", comparisionString,
@@ -484,11 +486,11 @@ void Where_ArrType_Not_Equals_Test(const oc::CLP& cmd)
         T.mColumns[2].mData.mData(i, 0) = i % 4;
         T.mColumns[3].mData.mData(i, 0) = -1 * (i % 5);
         if (i % 3 == 0)
-            memcpy(T.mColumns[4].mData.data(i), comparisionString.data(), comparisionString.size());
+            copyBytesMin(T.mColumns[4].mData, comparisionString);
         else
-            memcpy(T.mColumns[4].mData.data(i), comparisionString1.data(), comparisionString1.size());
+            copyBytesMin(T.mColumns[4].mData, comparisionString1);
         if (i % 4 == 0)
-            memcpy(T.mColumns[5].mData.data(i), comparisionString.data(), comparisionString.size());
+            copyBytesMin(T.mColumns[5].mData, comparisionString);
     }
 
     std::vector<std::string> literals = { "T0", "T1", "T2", "T3", "T4", "T5", comparisionString,
@@ -550,12 +552,12 @@ void Where_Cross_ArrType_Test(const oc::CLP& cmd)
     //    T.mColumns[1].mData.mData(i, 0) = i % 4;
     //    T.mColumns[2].mData.mData(i, 0) = i % 4;
     //    T.mColumns[3].mData.mData(i, 0) = -1 * (i % 5);
-    //    if (i % 3 == 0)
-    //        memcpy(T.mColumns[4].mData.data(i), comparisionString.data(), comparisionString.size());
-    //    else
-    //        memcpy(T.mColumns[4].mData.data(i), comparisionString1.data(), comparisionString1.size());
-    //    if (i % 4 == 0)
-    //        memcpy(T.mColumns[5].mData.data(i), comparisionString.data(), comparisionString.size());
+    //if (i % 3 == 0)
+    //    copyBytes(T.mColumns[4].mData, comparisionString);
+    //else
+    //    copyBytes(T.mColumns[4].mData, comparisionString1);
+    //if (i % 4 == 0)
+    //    copyBytes(T.mColumns[5].mData, comparisionString);
     //}
 
     //std::vector<std::string> literals = { "T0", "T1", "T2", "T3", "T4", "T5", comparisionString,

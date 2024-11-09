@@ -161,12 +161,14 @@ namespace secJoin
 			auto src = span<u8>(*cols[j]);
 			auto size = cols[j]->bytesPerEntry();
 			assert(divCeil(offsets[j].mSize, 8) == size);
-			for (u64 i = 0; i < n; ++i)
+			for (u64 i = 1; i < n; ++i)
 			{
 				copyBytes(d0.subspan(0, size), src.subspan(0, size));
 				src = src.subspan(size);
 				d0 = d0.subspan(dst.cols());
 			}
+			copyBytes(d0.subspan(0, size), src.subspan(0, size));
+
 		}
 	}
 
@@ -274,9 +276,12 @@ namespace secJoin
 		{
 			for (u64 j = 0; j < sizes.size(); ++j)
 			{
+				if (i)
+				{
+					dsts[j] = dsts[j].subspan(sizes[j]);
+					srcs[j] = srcs[j].subspan(srcStep);
+				}
 				copyBytes(dsts[j].subspan(0, sizes[j]), srcs[j].subspan(0, sizes[j]));
-				dsts[j] = dsts[j].subspan(sizes[j]);
-				srcs[j] = srcs[j].subspan(srcStep);
 			}
 		}
 	}

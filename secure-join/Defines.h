@@ -99,6 +99,8 @@ namespace secJoin
     template<typename T>
     auto asSpan(T&& t)
     {
+        static_assert(std::is_pointer_v<T> == false);
+
         if constexpr (std::is_same_v<std::remove_cvref_t<T>, oc::BitVector>)
         {
             return t.template getSpan<u8>();

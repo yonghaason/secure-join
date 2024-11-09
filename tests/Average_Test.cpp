@@ -224,7 +224,8 @@ void Average_getControlBits_Test(const oc::CLP& cmd)
         exp[i] = prng.getBit();
         if (exp[i])
         {
-            memcpy(keys.data(i), keys.data(i - 1), keys.cols());
+            copyBytes(keys[i], keys[i - 1]);
+            // m emcpy(keys.data(i), keys.data(i - 1), keys.cols());
         }
     }
 

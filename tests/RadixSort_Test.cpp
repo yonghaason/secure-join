@@ -486,17 +486,20 @@ void RadixSort_genBitPerm_test(const oc::CLP& cmd)
                             ke[jj](i) = v;
 
                             u64 kk = 0;
-                            memcpy(&kk, k[i].data(), k[i].size());
+                            copyBytesMin(kk, k[i]);
+                            //m emcpy(&kk, k[i].data(), k[i].size());
 
                             kk = kk << shift | v;
 
-                            memcpy(k[i].data(), &kk, k[i].size());
+							copyBytesMin(k[i], kk);
+                            // m emcpy(k[i].data(), &kk, k[i].size());
 
                             vals[v].push_back(i);
                         }
                         for (u64 i = 0; i < vals.size(); ++i)
                             exp[jj].mPi.insert(exp[jj].mPi.end(), vals[i].begin(), vals[i].end());
 
+                        assert(jj < exp.size());
                         exp[jj] = exp[jj].inverse();
                     }
 
@@ -681,7 +684,8 @@ void RadixSort_genPerm_test(const oc::CLP& cmd)
                         assert(bitCount < 64);
                         u64 v = prng.get<u64>() & mask;
                         k64[i] = v;
-                        memcpy(k[i].data(), &v, k[i].size());
+                        // m emcpy(k[i].data(), &v, k[i].size());
+						copyBytesMin(k[i], v);
                     }
 
                     std::stable_sort(exp.begin(), exp.end(),
@@ -763,7 +767,8 @@ void RadixSort_mock_test(const oc::CLP& cmd)
                     assert(bitCount < 64);
                     u64 v = prng.get<u64>() & mask;
                     k64[i] = v;
-                    memcpy(k[i].data(), &v, k[i].size());
+                    //m emcpy(k[i].data(), &v, k[i].size());
+					copyBytesMin(k[i], v);
                 }
 
                 std::stable_sort(exp.begin(), exp.end(),

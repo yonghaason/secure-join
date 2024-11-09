@@ -276,7 +276,7 @@ namespace secJoin
                         std::string temp(tb.mColumns[colNum].getByteCount(), '\0');
 
                         copyBytes(temp, tb.mColumns[colNum].mData[rowNum]);
-                        // memcpy(temp.data(), tb.mColumns[colNum].mData[rowNum].data(),
+                        // m emcpy(temp.data(), tb.mColumns[colNum].mData[rowNum].data(),
                         //     tb.mColumns[colNum].getByteCount());
 
                         temp.erase(temp.find('\0'));

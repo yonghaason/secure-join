@@ -279,6 +279,7 @@ namespace secJoin
                 isActive = t0.mIsActive[i] ^ t1.mIsActive[i];
             if (removeNulls == false)
             {
+                assert(j < ret.mIsActive.size());
                 ret.mIsActive[j] = isActive;
             }
 

@@ -61,7 +61,8 @@ namespace secJoin
                 {
                     auto pi = mPerms[j][i];
                     auto pi1 = mPerms[j][i - 1];
-
+                    assert(pi < in.size());
+                    assert(pi1 < in.size());
                     in[pi] = (in[pi] + in[pi1]) % 3;
                 }
             }

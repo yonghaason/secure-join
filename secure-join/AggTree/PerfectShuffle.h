@@ -288,7 +288,7 @@ namespace secJoin
 	inline void ssePerfectUnshuffle(const oc::block* yy, oc::block* x0, oc::block* x1)
 	{
 		std::array<oc::block, 8> y;
-		std::copy(u8*)yy, (u8*)(yy + y.size()), (u8*)y.data());
+		std::copy((u8*)yy, (u8*)(yy + y.size()), (u8*)y.data());
 		// m emcpy(y.data(), yy, sizeof(y));
 
 		// perfect shuffle the bits. 
@@ -354,14 +354,17 @@ namespace secJoin
 		{
 			auto min = std::min<u64>(rem, sizeof(u64));
 			u64 x0 = 0, x1 = 0;
-			memcpy(&x0, &input0[n8 / 2], min);
-			memcpy(&x1, &input1[n8 / 2], min);
+			std::copy(input0.data() + n8 / 2, input0.data() + n8 / 2 + min, (u8*)&x0);
+			std::copy(input1.data() + n8 / 2, input1.data() + n8 / 2 + min, (u8*)&x1);
+			//m emcpy(&x0, &input0[n8 / 2], min);
+			//m emcpy(&x1, &input1[n8 / 2], min);
 			rem -= min;
 
 			auto t = ssePerfectShuffle(x0, x1);
 
 			auto min2 = std::min<u64>(output.size() - n8, sizeof(oc::block));
-			memcpy(&output[n8], &t, min2);
+			std::copy((u8*)&t, (u8*)&t + min2, output.data() + n8);
+			//m emcpy(&output[n8], &t, min2);
 			n8 += min2;
 		}
 	}
@@ -398,13 +401,16 @@ namespace secJoin
 			auto rem = input.size() - n8;
 			auto min = std::min<u64>(rem, sizeof(oc::block));
 			oc::block t = oc::ZeroBlock;
-			memcpy(&t, &input[n8], min);
+			// m emcpy(&t, &input[n8], min);
+			std::copy(&input[n8], &input[n8] + min, (u8*)&t);
 
 			auto r = ssePerfectUnshuffle(t);
 
 			auto min2 = std::min<u64>(output0.size() - n8 / 2, sizeof(u64));
-			memcpy(&output0[n8 / 2], &r[0], min2);
-			memcpy(&output1[n8 / 2], &r[1], min2);
+			// m emcpy(&output0[n8 / 2], &r[0], min2);
+			std::copy((u8*)&r[0], (u8*)&r[0] + min2, output0.data() + n8 / 2);
+			//m emcpy(&output1[n8 / 2], &r[1], min2);
+			std::copy((u8*)&r[1], (u8*)&r[1] + min2, output1.data() + n8 / 2);
 
 			n8 += min;
 		}

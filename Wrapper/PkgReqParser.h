@@ -302,6 +302,8 @@ namespace secJoin{
         for(oc::u64 i = 0; i < selectCols.size(); i++)
         {
             oc::u64 colIndex = selectCols[i];
+            if (colIndex >= map.size())
+                throw RTE_LOC;
             map[colIndex] = i;
         }
     }
