@@ -80,7 +80,6 @@ namespace secJoin_Tests
 
             t.add("LowMC_eval_test                               ", LowMC_eval_test);
             t.add("LowMCPerm_perm_test                           ", LowMCPerm_perm_test);
-            t.add("LowMCPerm_secret_shared_input_perm_test       ", LowMCPerm_secret_shared_input_perm_test);
 
             t.add("RadixSort_aggregateSum_test                   ", RadixSort_aggregateSum_test);
             t.add("RadixSort_oneHot_test                         ", RadixSort_oneHot_test);

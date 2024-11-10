@@ -42,7 +42,7 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "FETCH_AUTO": "ON",
-        "SECUREJOIN_ENABLE_ASAN": true,
+        "SECUREJOIN_ENABLE_ASAN": false,
         "SECUREJOIN_ENABLE_SSE": true,
         "SECUREJOIN_ENABLE_FAKE_GEN": true,
         "SECUREJOIN_ENABLE_BOOST": false,

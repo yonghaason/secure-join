@@ -48,13 +48,11 @@ namespace secJoin
 		if (mPrfRecver.mInputSize == 0)
 			throw RTE_LOC;
 
-		auto aesCipher = oc::Matrix<oc::block>();
-		auto blocksPerRow = u64{};
-		auto aes = oc::AES();
-		auto key = block();
-		auto debugB = oc::Matrix<oc::block>{};
-		auto debugInput = oc::Matrix<oc::block>{};
-		auto debugKey = AltModPrf::KeyType{};
+		//auto aesCipher = oc::Matrix<oc::block>();
+		//auto blocksPerRow = u64{};
+		//auto aes = oc::AES();
+		//auto key = block();
+
 
 		if (mN == 0)
 			throw std::runtime_error("AltModPermGenSender::init() must be called before setup. " LOCATION);
@@ -62,11 +60,11 @@ namespace secJoin
 			throw std::runtime_error("AltModPermGenSender::generate() permutaiton size does not match. " LOCATION);
 		dst.mPerm = std::move(pi);
 
-		blocksPerRow = oc::divCeil(mBytesPerRow, sizeof(oc::block));
+		auto blocksPerRow = oc::divCeil(mBytesPerRow, sizeof(oc::block));
 
 		// sample a hashing key.
-		key = prng.get();
-		aes.setKey(key);
+		block key = prng.get();
+		oc::AES aes(key);
 		co_await chl.send(std::move(key));
 
 		dst.mDelta.resize(mN, blocksPerRow);
@@ -83,13 +81,15 @@ namespace secJoin
 		// randomized the blocks using AES. We only have a weak PRF.
 		aes.ecbEncBlocks(dst.mDelta, dst.mDelta);
 
-		if (mDebug)
-			debugInput = dst.mDelta;
-
 		co_await mPrfRecver.evaluate(dst.mDelta, dst.mDelta, chl, prng);
 
 		if (mDebug)
 		{
+			auto debugB = oc::Matrix<oc::block>{};
+			auto debugInput = oc::Matrix<oc::block>{};
+			auto debugKey = AltModPrf::KeyType{};
+			debugInput = dst.mDelta;
+
 			debugB.resize(dst.mDelta.rows(), dst.mDelta.cols());
 			co_await chl.recv(debugKey);
 			co_await chl.recv(debugB);
@@ -114,16 +114,12 @@ namespace secJoin
 		coproto::Socket& chl,
 		PermCorReceiver& dst)
 	{
-		auto blocksPerRow = u64();
-			auto aes = oc::AES();
-			auto key = block();
-			auto altMod = AltModPrf{};
-
 		if (mN == 0)
 			throw std::runtime_error("AltModPermGenReceiver::init() must be called before setup. " LOCATION);
 
-		blocksPerRow = oc::divCeil(mBytesPerRow, sizeof(oc::block));
+		auto blocksPerRow = oc::divCeil(mBytesPerRow, sizeof(oc::block));
 
+		auto key = block();
 		co_await chl.recv(key);
 
 
@@ -138,7 +134,7 @@ namespace secJoin
 		}
 
 		// A = (AltMod(k,AES(k', 0)), ..., (AltMod(k,AES(k', n-1))))
-		aes.setKey(key);
+		oc::AES aes(key);
 
 		dst.mA.resize(mN, blocksPerRow);
 		for (u64 i = 0, k = 0; i < mN; i++)
@@ -151,6 +147,7 @@ namespace secJoin
 		}
 		aes.ecbEncBlocks(dst.mA, dst.mA);
 
+		auto altMod = AltModPrf{};
 		altMod.setKey(mPrfSender.getKey());
 		altMod.eval(dst.mA, dst.mA);
 	}

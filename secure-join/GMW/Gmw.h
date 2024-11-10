@@ -70,7 +70,7 @@ namespace secJoin
         std::vector<oc::Matrix<block>> mMem;
 
         // total number of rounds.
-        u64 mNumRounds;
+        u64 mNumRounds = 0;
 
         // the circuit being evaluated
         BetaCircuit mCir;
@@ -89,10 +89,27 @@ namespace secJoin
 
         macoro::task<> mPreproTask;
 
+        void clear()
+        {
+            mTriples.clear();
+            mPrint = {};
+            mCir = {};
+            mGates = {};
+            mNumRounds = 0;
+            mMem = {};
+            mWords = {};
+            mO = {};
+            mLevelize = BetaCircuit::LevelizeType::Reorder;
+            mN = 0;
+            mN128 = 0;
+            mRemainingMappings = 0;
+            mRole = ~0ull;
+        }
+
         // init should be called first. 
         // `n` is the number of independent copies of the circuit 
-        // that should be evlauted.
-        // `cir` is the binary circuit to be evaluted.
+        // that should be evaluated.
+        // `cir` is the binary circuit to be evaluated.
         // `gen` is the source of OLE correlations.
         void init(
             u64 n,
