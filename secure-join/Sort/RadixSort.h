@@ -323,7 +323,11 @@ namespace secJoin
     };
 
 
+    bool lessThan(span<const char> l, span<const char> r);
     bool lessThan(span<const u8> l, span<const u8> r);
+
+
+    // returns the sorting permutation. The smallest comes first.
     Perm sort(const BinMatrix& x);
 
 }

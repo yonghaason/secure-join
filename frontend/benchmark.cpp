@@ -266,18 +266,18 @@ namespace secJoin
 		Table L, R;
 
 		L.init(nL, { {
-			{"L1", TypeID::IntID, keySize},
-			{"L2", TypeID::IntID, 16}
+			{"L1", ColumnType::Int, keySize},
+			{"L2", ColumnType::Int, 16}
 		} });
 		R.init(nR, { {
-			{"R1", TypeID::IntID, keySize},
-			{"R2", TypeID::IntID, 7}
+			{"R1", ColumnType::Int, keySize},
+			{"R2", ColumnType::Int, 7}
 		} });
 
 		PRNG prng(oc::ZeroBlock);
 		std::array<Table, 2> Ls, Rs;
-		share(L, Ls, prng);
-		share(R, Rs, prng);
+		L.share(Ls, prng);
+		R.share(Rs, prng);
 
 
 		auto sock = coproto::LocalAsyncSocket::makePair();

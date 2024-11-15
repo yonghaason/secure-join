@@ -5,8 +5,8 @@
 #include "secure-join/AggTree/AggTree.h"
 #include "secure-join/Sort/RadixSort.h"
 #include "secure-join/Util/Util.h"
-#include "secure-join/Aggregate/RemDummies.h"
-
+#include "secure-join/Aggregate/Extract.h"
+#include "secure-join/Join/JoinQuery.h"
 
 namespace secJoin
 {
@@ -50,7 +50,7 @@ namespace secJoin
 		u64 mPartyIdx = ~0ull;
 
 		// subprotocol to remove dummy rows.
-        std::optional<RemDummies> mRemDummies;
+        std::optional<Extract> mRemoveInactive;
 
 		// initialize the protocol with the description of join.
 		// leftJoinCol should be unique

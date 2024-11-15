@@ -1,5 +1,0 @@
-#pragma once
-
-
-// build with wrapper
-#cmakedefine SECUREJOIN_ENABLE_JNI @SECUREJOIN_ENABLE_JNI@

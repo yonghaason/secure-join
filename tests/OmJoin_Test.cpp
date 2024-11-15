@@ -5,7 +5,6 @@
 #include "secure-join/Util/Util.h" 
 #include "cryptoTools/Common/TestCollection.h"
 #include "coproto/Socket/BufferingSocket.h"
-#include "secure-join/Util/CSVParser.h"
 
 using namespace secJoin;
 
@@ -16,8 +15,8 @@ void OmJoin_loadKeys_Test()
     u64 n1 = 423;
     u64 m = 17;
     Table leftTable, rightTable;
-    leftTable.mColumns.emplace_back("name", TypeID::IntID, m);
-    rightTable.mColumns.emplace_back("name", TypeID::IntID, m);
+    leftTable.mColumns.emplace_back("name", ColumnType::Int, m);
+    rightTable.mColumns.emplace_back("name", ColumnType::Int, m);
 
     leftTable.mColumns[0].mData.resize(n0, m);
     rightTable.mColumns[0].mData.resize(n1, m);
@@ -118,12 +117,12 @@ void OmJoin_concatColumns_Test()
     Table t0, t1;
     u64 m = 13;
     BinMatrix keys(n0 + n1, m);
-    t0.mColumns.emplace_back("c0", TypeID::IntID, 11);
-    t0.mColumns.emplace_back("c1", TypeID::IntID, 31);
-    t0.mColumns.emplace_back("c2", TypeID::IntID, 1);
-    t1.mColumns.emplace_back("r0", TypeID::IntID, 11);
-    t1.mColumns.emplace_back("r1", TypeID::IntID, 31);
-    t1.mColumns.emplace_back("r2", TypeID::IntID, 1);
+    t0.mColumns.emplace_back("c0", ColumnType::Int, 11);
+    t0.mColumns.emplace_back("c1", ColumnType::Int, 31);
+    t0.mColumns.emplace_back("c2", ColumnType::Int, 1);
+    t1.mColumns.emplace_back("r0", ColumnType::Int, 11);
+    t1.mColumns.emplace_back("r1", ColumnType::Int, 31);
+    t1.mColumns.emplace_back("r2", ColumnType::Int, 1);
 
     t0.resize(n0);
     t1.resize(n1);
@@ -209,12 +208,12 @@ void OmJoin_getOutput_Test()
 
     Table L, R;
     L.init(nL + nR, { {
-        ColumnInfo{"l1", TypeID::IntID, 33},
-        ColumnInfo{"l2", TypeID::IntID, 1},
-        ColumnInfo{"l3", TypeID::IntID, 5}
+        ColumnInfo{"l1", ColumnType::Int, 33},
+        ColumnInfo{"l2", ColumnType::Int, 1},
+        ColumnInfo{"l3", ColumnType::Int, 5}
         } });
     R.init(nR, { {
-            ColumnInfo{"r1", TypeID::IntID, 8},
+            ColumnInfo{"r1", ColumnType::Int, 8},
         } }
         );
 
@@ -294,12 +293,12 @@ void OmJoin_join_Test(const oc::CLP& cmd)
     Table L, R;
 
     L.init(nL, { {
-        {"L1", TypeID::IntID, keySize},
-        {"L2", TypeID::IntID, 16}
+        {"L1", ColumnType::Int, keySize},
+        {"L2", ColumnType::Int, 16}
     } });
     R.init(nR, { {
-        {"R1", TypeID::IntID, keySize},
-        {"R2", TypeID::IntID, 7}
+        {"R1", ColumnType::Int, keySize},
+        {"R2", ColumnType::Int, 7}
     } });
 
     std::unordered_set<u64> keys, k2;
@@ -334,8 +333,8 @@ void OmJoin_join_Test(const oc::CLP& cmd)
 
     PRNG prng(oc::ZeroBlock);
     std::array<Table, 2> Ls, Rs;
-    share(L, Ls, prng);
-    share(R, Rs, prng);
+    L.share(Ls, prng);
+    R.share(Rs, prng);
 
     for (auto remDummies : { true, false })
     {
@@ -367,12 +366,6 @@ void OmJoin_join_Test(const oc::CLP& cmd)
         join0.init(query0, ole0, remDummies);
         join1.init(query1, ole1, remDummies);
 
-        if (remDummies)
-        {
-            join0.mRemDummies->mCachePerm = remDummies;
-            join1.mRemDummies->mCachePerm = remDummies;
-        }
-
         auto r = macoro::sync_wait(macoro::when_all_ready(
             ole0.start(),
             ole1.start(),
@@ -385,21 +378,19 @@ void OmJoin_join_Test(const oc::CLP& cmd)
         std::get<2>(r).result();
         std::get<3>(r).result();
 
-        Perm pi;
-        if (remDummies)
-        {
-            ComposedPerm p0 = join0.mRemDummies->mPermutation;
-            ComposedPerm p1 = join1.mRemDummies->mPermutation;
-            pi = p1.permShare().compose(p0.permShare());
-        }
-
-        auto exp = join(L[0], R[0], { L[0], R[1], L[1] }, remDummies, pi);
+        auto exp = join(L[0], R[0], { L[0], R[1], L[1] });
 
         auto res = reveal(out[0], out[1], remDummies);
 
+        if (remDummies)
+        {
+            exp.extractActive();
+            exp.sort();
+            res.sort();
+        }
+
         if (res != exp)
         {
-            if (printSteps)
             {
                 std::cout << "exp \n" << exp << std::endl;
                 std::cout << "act \n" << res << std::endl;
@@ -424,12 +415,12 @@ void OmJoin_join_BigKey_Test(const oc::CLP& cmd)
     Table L, R;
 
     L.init(nL, { {
-        {"L1", TypeID::IntID, keySize},
-        {"L2", TypeID::IntID, 8}
+        {"L1", ColumnType::Int, keySize},
+        {"L2", ColumnType::Int, 8}
     } });
     R.init(nR, { {
-        {"R1", TypeID::IntID, keySize},
-        {"R2", TypeID::IntID, 8}
+        {"R1", ColumnType::Int, keySize},
+        {"R2", ColumnType::Int, 8}
     } });
 
     std::vector<u8> buff(L[0].mCol.getByteCount());
@@ -467,8 +458,8 @@ void OmJoin_join_BigKey_Test(const oc::CLP& cmd)
 
     PRNG prng(oc::ZeroBlock);
     std::array<Table, 2> Ls, Rs;
-    share(L, Ls, prng);
-    share(R, Rs, prng);
+    L.share(Ls, prng);
+    R.share(Rs, prng);
 
     for (auto remDummies : { true, false })
     {
@@ -504,12 +495,6 @@ void OmJoin_join_BigKey_Test(const oc::CLP& cmd)
         join0.init(query0, ole0, remDummies);
         join1.init(query1, ole1, remDummies);
 
-        if (remDummies)
-        {
-            join0.mRemDummies->mCachePerm = remDummies;
-            join1.mRemDummies->mCachePerm = remDummies;
-        }
-
         auto r = macoro::sync_wait(macoro::when_all_ready(
             ole0.start(),
             ole1.start(),
@@ -521,17 +506,16 @@ void OmJoin_join_BigKey_Test(const oc::CLP& cmd)
         std::get<2>(r).result();
         std::get<3>(r).result();
 
-        Perm pi;
-        if (remDummies)
-        {
-            ComposedPerm p0 = join0.mRemDummies->mPermutation;
-            ComposedPerm p1 = join1.mRemDummies->mPermutation;
-            pi = p1.permShare().compose(p0.permShare());
-        }
-
-        auto exp = join(L[0], R[0], { L[0], R[1], L[1] }, remDummies, pi);
+        auto exp = join(L[0], R[0], { L[0], R[1], L[1] });
 
         auto res = reveal(out[0], out[1], remDummies);
+
+        if (remDummies)
+        {
+            res.sort();
+            exp.extractActive();
+            exp.sort();
+        }
 
         if (res != exp)
         {
@@ -563,21 +547,21 @@ void OmJoin_join_Reveal_Test(const oc::CLP& cmd)
     Table L, R, LP, RP;
 
     L.init(nL, { {
-        {"L1", TypeID::IntID, 6},
-        {"L2", TypeID::IntID, 16}
+        {"L1", ColumnType::Int, 6},
+        {"L2", ColumnType::Int, 16}
     } });
     R.init(nR, { {
-        {"R1", TypeID::IntID, 6},
-        {"R2", TypeID::IntID, 7}
+        {"R1", ColumnType::Int, 6},
+        {"R2", ColumnType::Int, 7}
     } });
 
     LP.init(nL, { {
-        {"L1", TypeID::IntID, 6},
-        {"L2", TypeID::IntID, 16}
+        {"L1", ColumnType::Int, 6},
+        {"L2", ColumnType::Int, 16}
     } });
     RP.init(nR, { {
-        {"R1", TypeID::IntID, 6},
-        {"R2", TypeID::IntID, 7}
+        {"R1", ColumnType::Int, 6},
+        {"R2", ColumnType::Int, 7}
     } });
 
     for (u64 i = 0; i < nL; ++i)
@@ -638,18 +622,12 @@ void OmJoin_join_Reveal_Test(const oc::CLP& cmd)
     // auto res = reveal(out[0], out[1]);
 
     Table outTable;
-
-    auto proto1 = revealLocal(out[0], sock[0], outTable);
-    auto proto2 = revealRemote(out[1], sock[1]);
-
     auto res = macoro::sync_wait(macoro::when_all_ready(
-        std::move(proto2),
-        std::move(proto1)));
+        out[0].revealLocal(sock[0], outTable),
+        out[1].revealRemote(sock[1])));
 
     std::get<1>(res).result();
     std::get<0>(res).result();
-
-
 
     if (outTable != exp)
     {
@@ -781,12 +759,12 @@ void OmJoin_join_round_Test(const oc::CLP& cmd)
     Table L, R;
 
     L.init(nL, { {
-        {"L1", TypeID::IntID, 9},
-        {"L2", TypeID::IntID, 8}
+        {"L1", ColumnType::Int, 9},
+        {"L2", ColumnType::Int, 8}
     } });
     R.init(nR, { {
-        {"R1", TypeID::IntID, 9},
-        {"R2", TypeID::IntID, 7}
+        {"R1", ColumnType::Int, 9},
+        {"R2", ColumnType::Int, 7}
     } });
 
     for (u64 i = 0; i < nL; ++i)
@@ -807,8 +785,8 @@ void OmJoin_join_round_Test(const oc::CLP& cmd)
 
     PRNG prng(oc::ZeroBlock);
     std::array<Table, 2> Ls, Rs;
-    share(L, Ls, prng);
-    share(R, Rs, prng);
+    L.share(Ls, prng);
+    R.share(Rs, prng);
 
     OmJoin join0, join1;
 
@@ -832,6 +810,8 @@ void OmJoin_join_round_Test(const oc::CLP& cmd)
     Table out[2];
 
     auto exp = join(L[0], R[0], { L[0], R[1], L[1] });
+    exp.extractActive();
+
     oc::Timer timer;
     join0.setTimer(timer);
     // join1.setTimer(timer);
@@ -862,7 +842,7 @@ void OmJoin_join_round_Test(const oc::CLP& cmd)
 
     auto res = reveal(out[0], out[1]);
 
-    if (res != exp.removeDummies())
+    if (res != exp)
     {
         std::cout << "exp \n" << exp << std::endl;
         std::cout << "act \n" << res << std::endl;

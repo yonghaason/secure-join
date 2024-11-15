@@ -157,8 +157,6 @@ namespace secJoin
             std::memset(d.data(), v, d.size_bytes());
     }
 
-
-
     inline std::string hex(oc::span<const u8> d)
     {
         std::stringstream ss;

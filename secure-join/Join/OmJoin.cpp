@@ -420,8 +420,7 @@ namespace secJoin
 
 		mPartyIdx = ole.partyIdx();
 		mDataBitsPerEntry = 0;
-		if(remDummiesFlag)
-			mRemDummies.emplace(RemDummies{});
+		
 
 		mOffsets.clear();
 		mOffsets.reserve(schema.mSelect.size() + 1);
@@ -469,19 +468,15 @@ namespace secJoin
 
 		if (remDummiesFlag)
 		{
-			u64 dateBytesPerEntry = 0;
-			// Setting up the offset for OmJoin::concatColumns
+			mRemoveInactive.emplace(Extract{});
+
+			u64 dateBytesPerEntry = 1; // active flag
 			for (u64 i = 0; i < schema.mSelect.size(); ++i)
-			{
-				auto bytes = schema.mSelect[i].getByteCount();
-				dateBytesPerEntry += bytes;
-			}
-			// Adding Active Flag
-			dateBytesPerEntry += 1;
+				dateBytesPerEntry += schema.mSelect[i].getByteCount();
 
 			// Here rows would be only elements in right table bcoz
 			// after the unsort entries from the left table are removed
-			mRemDummies->init(schema.mRightSize, dateBytesPerEntry, ole, false);
+			mRemoveInactive->init(schema.mRightSize, dateBytesPerEntry, ole);
 		}
 
 	}
@@ -500,7 +495,6 @@ namespace secJoin
 		auto controlBits = BinMatrix{};
 		auto data = BinMatrix{};
 		auto temp = BinMatrix{};
-		auto tempTb = Table{};
 		auto offsets_ = std::vector<Offset>{};
 		auto prepro = macoro::eager_task<>{};
 
@@ -610,10 +604,9 @@ namespace secJoin
 		// unpack L' in `data` and write the result to `out`.
 		getOutput(data, query.mSelect, query.mLeftKey, out, mOffsets);
 
-		if (mRemDummies)
+		if (mRemoveInactive)
 		{
-			co_await mRemDummies->remDummies(out, tempTb, sock, prng);
-			std::swap(tempTb, out);
+			co_await mRemoveInactive->apply(out, out, sock, prng);
 		}
 	}
 

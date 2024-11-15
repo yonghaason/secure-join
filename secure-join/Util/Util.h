@@ -250,11 +250,12 @@ namespace secJoin
 
     inline Table reveal(const Table& t0, const Table& t1, bool removeNulls = true)
     {
-        u64 size = 0;
         if (t0.getColumnInfo() != t1.getColumnInfo() || t0.rows() != t1.rows())
         {
             throw RTE_LOC;
         }
+
+        u64 size = t0.rows();
         if (t0.mIsActive.size() && removeNulls)
         {
             for (u64 i = 0; i < t0.rows(); ++i)
@@ -263,49 +264,31 @@ namespace secJoin
                 size += t0.mIsActive[i] ^ t1.mIsActive[i];
             }
         }
-        else
-            size = t0.rows();
-
 
         Table ret;
         ret.init(size, t0.getColumnInfo());
-        if (removeNulls == false)
-            ret.mIsActive.resize(size);
+        ret.mIsActive.resize(size);
+
         u64 outPtr = 0;
         for (u64 i = 0, j = 0; i < t0.rows(); ++i)
         {
-            bool isActive = true;
-            if(t0.mIsActive.size() > 0 && t1.mIsActive.size() > 0)
-                isActive = t0.mIsActive[i] ^ t1.mIsActive[i];
-            if (removeNulls == false)
-            {
-                assert(j < ret.mIsActive.size());
-                ret.mIsActive[j] = isActive;
-            }
+            ret.mIsActive[j] = t0.mIsActive.size() == 0 || (t0.mIsActive[i] ^ t1.mIsActive[i]);
 
-            if(isActive == false)
-                continue;
-            else if(isActive && removeNulls)
+			if (ret.mIsActive[j] == 1 || removeNulls == false)
             {
-                outPtr = j;
-                j++;
-            }
-            else if(isActive)
-                outPtr = i;
-            else
-                throw RTE_LOC;
-
-
-            for (u64 k = 0; k < t0.mColumns.size(); ++k)
-            {
-                for (u64 l = 0;l < ret.mColumns[k].mData.cols(); ++l)
+                for (u64 k = 0; k < t0.mColumns.size(); ++k)
                 {
-                    ret.mColumns[k].mData(outPtr, l) =
-                        t0.mColumns[k].mData(i, l) ^
-                        t1.mColumns[k].mData(i, l);
-                }
-            }
+                    for (u64 l = 0;l < ret.mColumns[k].mData.cols(); ++l)
+                    {
+						ret.mColumns[k].mData(j, l) = 0;
+					}
+				}
 
+                ++j;
+			}
+
+            if (removeNulls)
+                ret.mIsActive.resize(0);
 
         }
 

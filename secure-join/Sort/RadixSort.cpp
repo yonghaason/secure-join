@@ -1379,6 +1379,19 @@ namespace secJoin
 	}
 
 
+	bool lessThan(span<const char> l, span<const char> r)
+	{
+		assert(l.size() == r.size());
+		for (u64 i = l.size() - 1; i < l.size(); --i)
+		{
+			if (l[i] < r[i])
+				return true;
+			if (l[i] > r[i])
+				return false;
+		}
+		return false;
+
+	}
 	bool lessThan(span<const u8> l, span<const u8> r)
 	{
 		assert(l.size() == r.size());

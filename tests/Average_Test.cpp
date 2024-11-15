@@ -1,6 +1,9 @@
 #include "Average_Test.h"
 #include "cryptoTools/Common/TestCollection.h"
 
+#include "secure-join/Aggregate/Average.h"
+#include "secure-join/Util/Util.h"
+
 using namespace secJoin;
 
 void evalAverage
@@ -16,7 +19,7 @@ void evalAverage
     PRNG prng1(oc::OneBlock);
 
     std::array<Table, 2> Ts;
-    share(T, Ts, prng0);
+    T.share(Ts, prng0);
 
     u64 rows = T.rows();
 
@@ -55,8 +58,8 @@ void evalAverage
         avg0.init(Ts[0][grpByColIdx], shAvgColRef0, ole0, remDummies);
         avg1.init(Ts[1][grpByColIdx], shAvgColRef1, ole1, remDummies);
 
-        avg0.mRemDummies.mCachePerm = remDummies;
-        avg1.mRemDummies.mCachePerm = remDummies;
+        //avg0.mRemoveInactive.mCachePerm = remDummies;
+        //avg1.mRemoveInactive.mCachePerm = remDummies;
 
         Table out[2];
         auto r = macoro::sync_wait(macoro::when_all_ready(
@@ -75,12 +78,12 @@ void evalAverage
 
         res = reveal(out[0], out[1], false);
 
-        auto exp = average(T[0], { T[1], T[2] });
+        T.average(T[0], { T[1], T[2] });
 
-        if (res != exp)
+        if (res != T)
         {
             std::cout << "remove dummies flag = " << remDummies << std::endl;
-            std::cout << "exp \n" << exp << std::endl;
+            std::cout << "exp \n" << T << std::endl;
             std::cout << "act \n" << res << std::endl;
             std::cout << "ful \n" << reveal(out[0], out[1], false) << std::endl;
             throw RTE_LOC;
@@ -99,9 +102,9 @@ void Average_concatColumns_Test()
 
     u64 n0 = 2345;
     Table t0;
-    t0.mColumns.emplace_back("c0", TypeID::IntID, 11);
-    t0.mColumns.emplace_back("c1", TypeID::IntID, 31);
-    t0.mColumns.emplace_back("c2", TypeID::IntID, 5);
+    t0.mColumns.emplace_back("c0", ColumnType::Int, 11);
+    t0.mColumns.emplace_back("c1", ColumnType::Int, 31);
+    t0.mColumns.emplace_back("c2", ColumnType::Int, 5);
     t0.mIsActive.resize(n0);
     t0.resize(n0);
 
@@ -271,9 +274,9 @@ void Average_avg_Test(const oc::CLP& cmd)
     bool mock = cmd.getOr("mock", 1);
 
     T.init(nT, { {
-        {"L1", TypeID::IntID, 12},
-        {"L2", TypeID::IntID, 16},
-        {"L3", TypeID::IntID, 16}
+        {"L1", ColumnType::Int, 12},
+        {"L2", ColumnType::Int, 16},
+        {"L3", ColumnType::Int, 16}
     } });
 
     for (u64 i = 0; i < nT; ++i)
@@ -299,7 +302,7 @@ void Average_avg_Test(const oc::CLP& cmd)
     PRNG prng1(oc::OneBlock);
 
     std::array<Table, 2> Ts;
-    share(T, Ts, prng0);
+    T.share(Ts, prng0);
 
     Ts[0].mIsActive.resize(nT);
     Ts[1].mIsActive.resize(nT);
@@ -309,7 +312,7 @@ void Average_avg_Test(const oc::CLP& cmd)
         Ts[1].mIsActive[i] = 0;
     }
 
-    auto exp = average(T[0], { T[1], T[2] });
+    T.average(T[0], { T[1], T[2] });
 
     CorGenerator ole0, ole1;
     ole0.init(sock[0].fork(), prng0, 0, 1, 1 << 16, mock);
@@ -317,8 +320,8 @@ void Average_avg_Test(const oc::CLP& cmd)
 
     for (auto remDummies : { false, true })
     {
-        Perm p0(exp.rows(), prng0);
-        Perm p1(exp.rows(), prng1);
+        Perm p0(T.rows(), prng0);
+        Perm p1(T.rows(), prng1);
         Perm pi = p1.compose(p0);
 
         Table out[2];
@@ -340,10 +343,10 @@ void Average_avg_Test(const oc::CLP& cmd)
             //std::swap(exp, tmp);
         }
 
-        if (res != exp)
+        if (res != T)
         {
             std::cout << "remove dummies flag = " << remDummies << std::endl;
-            std::cout << "exp \n" << exp << std::endl;
+            std::cout << "exp \n" << T << std::endl;
             std::cout << "act \n" << res << std::endl;
             std::cout << "ful \n" << reveal(out[0], out[1], false) << std::endl;
             throw RTE_LOC;

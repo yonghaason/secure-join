@@ -21,6 +21,7 @@
 #include "Average_Test.h"
 #include "Where_Test.h"
 #include "F4Vole_Test.h"
+#include "Extract_Test.h"
 
 namespace secJoin_Tests
 {
@@ -91,11 +92,6 @@ namespace secJoin_Tests
             t.add("RadixSort_mock_test                           ", RadixSort_mock_test);
 
 
-            t.add("secret_share_table_test                       ", secret_share_table_test);
-            t.add("table_write_csv_test                          ", table_write_csv_test);
-            t.add("table_write_bin_csv_test                      ", table_write_bin_csv_test);
-
-
             t.add("AggTree_plain_Test                            ", AggTree_plain_Test);
             t.add("AggTree_levelReveal_Test                      ", AggTree_levelReveal_Test);
             t.add("AggTree_dup_pre_levelReveal_Test              ", AggTree_dup_pre_levelReveal_Test);
@@ -110,6 +106,8 @@ namespace secJoin_Tests
             t.add("AggTree_dup_pre_full_Test                     ", AggTree_dup_pre_full_Test);
             t.add("AggTree_xor_pre_full_Test                     ", AggTree_xor_pre_full_Test);
 
+			t.add("Extract_extract_Test                          ", Extract_extract_Test);
+
             t.add("OmJoin_loadKeys_Test                          ", OmJoin_loadKeys_Test);
             t.add("OmJoin_getControlBits_Test                    ", OmJoin_getControlBits_Test);
             t.add("OmJoin_concatColumns_Test                     ", OmJoin_concatColumns_Test);
@@ -119,9 +117,9 @@ namespace secJoin_Tests
             t.add("OmJoin_join_Reveal_Test                       ", OmJoin_join_Reveal_Test);
             t.add("OmJoin_join_round_Test                        ", OmJoin_join_round_Test);
 
-            t.add("OmJoin_wrapper_join_test                      ", OmJoin_wrapper_join_test);
-            t.add("OmJoin_wrapper_avg_test                       ", OmJoin_wrapper_avg_test);
-            t.add("OmJoin_wrapper_where_test                     ", OmJoin_wrapper_where_test);
+            //t.add("OmJoin_wrapper_join_test                      ", OmJoin_wrapper_join_test);
+            //t.add("OmJoin_wrapper_avg_test                       ", OmJoin_wrapper_avg_test);
+            //t.add("OmJoin_wrapper_where_test                     ", OmJoin_wrapper_where_test);
 
 
             t.add("Average_concatColumns_Test                    ", Average_concatColumns_Test);
@@ -129,14 +127,22 @@ namespace secJoin_Tests
             t.add("Average_avg_Test                              ", Average_avg_Test);
             t.add("Average_avg_BigKey_Test                       ", Average_avg_BigKey_Test);
 
-            t.add("Where_genWhBundle_Test                        ", Where_genWhBundle_Test);
-            t.add("Where_ArrType_Equals_Test                     ", Where_ArrType_Equals_Test);
-            t.add("Where_ArrType_Not_Equals_Test                 ", Where_ArrType_Not_Equals_Test);
-            t.add("Where_ArrType_Less_Than_Test                  ", Where_ArrType_Less_Than_Test);
-            t.add("Where_ArrType_Greater_Than_Equals_Test        ", Where_ArrType_Greater_Than_Equals_Test);
-            t.add("Where_ArrType_Addition_Test                   ", Where_ArrType_Addition_Test);
-            t.add("Where_ArrType_And_Or_Test                     ", Where_ArrType_And_Or_Test);
-            t.add("Where_Cross_ArrType_Test                      ", Where_Cross_ArrType_Test);
+            t.add("where_cir_test                                ", where_cir_test);
+
+            t.add("WhereParser_IntOps_Test                       ", WhereParser_IntOps_Test);
+            t.add("WhereParser_IntAdd_Test                       ", WhereParser_IntAdd_Test);
+            t.add("WhereParser_StringOps_Test                    ", WhereParser_StringOps_Test);
+            t.add("WhereParser_BoolOps_Test                      ", WhereParser_BoolOps_Test);
+            t.add("WhereParser_Big_Test                          ", WhereParser_Big_Test);
+            
+            //t.add("Where_genWhBundle_Test                        ", WhereParser_genWhBundle_Test);
+            //t.add("WhereParser_ArrType_Equals_Test               ", WhereParser_ArrType_Equals_Test);
+            //t.add("WhereParser_ArrType_Not_Equals_Test           ", WhereParser_ArrType_Not_Equals_Test);
+            //t.add("WhereParser_ArrType_Less_Than_Test            ", WhereParser_ArrType_Less_Than_Test);
+            //t.add("WhereParser_ArrType_Greater_Than_Equals_Test  ", WhereParser_ArrType_Greater_Than_Equals_Test);
+            //t.add("WhereParser_ArrType_Addition_Test             ", WhereParser_ArrType_Addition_Test);
+            //t.add("WhereParser_ArrType_And_Or_Test               ", WhereParser_ArrType_And_Or_Test);
+            //t.add("WhereParser_Cross_ArrType_Test                ", WhereParser_Cross_ArrType_Test);
 
 
         });

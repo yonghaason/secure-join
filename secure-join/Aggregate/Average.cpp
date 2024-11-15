@@ -1,6 +1,8 @@
 #include "Average.h"
 
-namespace secJoin {
+namespace secJoin 
+{
+
 
 	// Removes the groupBy, activeFlag & compressKeys from the data
 	// keys = groupByData + ActiveFlag
@@ -313,16 +315,13 @@ namespace secJoin {
 		auto cir = updateActiveFlagCir(1, 1, 1);
 		mUpdateActiveFlagGmw.init(rows, cir, ole);
 
-		mRemDummiesFlag = remDummiesFlag;
 
 		if (remDummiesFlag)
 		{
-			u64 permRand = oc::divCeil(dataBitsPerEntry - compressKeySize, 8)
-				+ (mInsecurePrint == true) * 1; // Permuting the control Bits
-			mRemDummies.init(rows, permRand, ole, mInsecurePrint);
+			mRemoveInactive.emplace();
+			u64 size = oc::divCeil(dataBitsPerEntry - compressKeySize, 8);
+			mRemoveInactive->init(rows, size, ole);
 		}
-
-
 	}
 
 
@@ -443,38 +442,38 @@ namespace secJoin {
 			OmJoin::Offset{ (tempNum + sortedgroupByData.bytesPerEntry()) * 8, actFlag.bitsPerEntry(), "Act Flag" });
 
 
-		if (mRemDummiesFlag)
+		if (mRemoveInactive)
 		{
 			// Permuting the data
-			co_await mRemDummies.remDummies(data, temp,
-				dataOffsets[dataOffsets.size() - 1].mStart / 8, sock, prng);
-			std::swap(data, temp);
+			throw RTE_LOC;// need to modify this to work with the new extract function
+			//co_await mRemoveInactive->apply(data, data, sock, prng);
+				//data, temp,
+				//dataOffsets[dataOffsets.size() - 1].mStart / 8, sock, prng);
+			//std::swap(data, temp);
 
 			// Can't apply Perm to controlBits bcoz controBits & data will be of different sizes
-			if (mInsecurePrint)
-			{
-				temp.resize(controlBits.rows(), controlBits.bitsPerEntry());
-				co_await mRemDummies.mPermutation.apply<u8>(mRemDummies.mPermOp, controlBits, temp, sock);
-				std::swap(controlBits, temp);
-				co_await OmJoin::print(data, controlBits, sock, mPartyIdx, "Rand Perm", dataOffsets);
-			}
+			//if (mInsecurePrint)
+			//{
+			//	temp.resize(controlBits.rows(), controlBits.bitsPerEntry());
+			//	co_await mRemoveInactive.mPermutation.apply<u8>(mRemoveInactive.mPermOp, controlBits, temp, sock);
+			//	std::swap(controlBits, temp);
+			//	co_await OmJoin::print(data, controlBits, sock, mPartyIdx, "Rand Perm", dataOffsets);
+			//}
 
 
 		}
 		else
 		{
 			// Permuting the data
-			temp.resize(data.numEntries(), data.bitsPerEntry());
-			co_await perm.apply<u8>(PermOp::Regular, data, temp, sock);
-			std::swap(data, temp);
+			co_await perm.apply<u8>(PermOp::Regular, data, data, sock);
 
-			if (mInsecurePrint)
-			{
-				temp.resize(controlBits.numEntries(), controlBits.bitsPerEntry());
-				co_await perm.apply<u8>(PermOp::Regular, controlBits, temp, sock);
-				std::swap(controlBits, temp);
-				co_await OmJoin::print(data, controlBits, sock, mPartyIdx, "unsort", dataOffsets);
-			}
+			//if (mInsecurePrint)
+			//{
+			//	temp.resize(controlBits.numEntries(), controlBits.bitsPerEntry());
+			//	co_await perm.apply<u8>(PermOp::Regular, controlBits, temp, sock);
+			//	std::swap(controlBits, temp);
+			//	co_await OmJoin::print(data, controlBits, sock, mPartyIdx, "unsort", dataOffsets);
+			//}
 		}
 
 		getOutput(out, avgCol, groupByCol, data, dataOffsets);
@@ -585,6 +584,11 @@ namespace secJoin {
 		out.mData(0) = 0;
 
 	}
+
+
+
+
+
 
 
 }

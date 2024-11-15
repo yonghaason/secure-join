@@ -15,7 +15,7 @@ namespace secJoin
 
 		mPartyIdx = ole.partyIdx();
 		u64 mDataBitsPerEntry = 0;
-		mRemDummiesFlag = remDummiesFlag;
+		//mRemDummiesFlag = remDummiesFlag;
 
 		mOffsets.clear();
 		mOffsets.reserve(schema.mSelect.size() + 1);

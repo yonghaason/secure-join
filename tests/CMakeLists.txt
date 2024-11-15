@@ -41,6 +41,7 @@ endfunction()
 
 set(SRCS
 	UnitTests.cpp
+    Extract_Test.cpp
 	PermCor_Test.cpp
 	LowMCPerm_Test.cpp
 	ComposedPerm_Test.cpp
@@ -61,10 +62,4 @@ set(SRCS
 
 	
 add_library(secureJoin_Tests ${SRCS})
-if(NOT TARGET WrapperSecJoin)
-	message(FATAL_ERROR "WrapperSecJoin not a target")
-else()
-    #print_target_properties(WrapperSecJoin)
-endif()
-
-target_link_libraries(secureJoin_Tests secureJoin WrapperSecJoin)
+target_link_libraries(secureJoin_Tests secureJoin)

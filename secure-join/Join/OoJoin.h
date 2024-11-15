@@ -11,6 +11,7 @@
 #include "secure-join/Join/Table.h"
 #include "secure-join/CorGenerator/CorGenerator.h"
 #include "secure-join/Perm/AltModPerm.h"
+#include "secure-join/Join/JoinQuery.h"
 
 namespace secJoin
 {
@@ -40,7 +41,7 @@ namespace secJoin
         //u64 mDataBitsPerEntry = 0;
 
         // remove the dummy rows at the end of the protocol.
-        bool mRemDummiesFlag = false;
+        bool mRemoveInactiveFlag = false;
 
         // the offset of the columns in the data matrix.
         std::vector<Offset> mOffsets;

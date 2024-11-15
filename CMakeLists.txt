@@ -16,8 +16,6 @@ include(cmake/findDependancies.cmake)
 # build secureJoin
 add_subdirectory(secure-join)
 
-add_subdirectory(Wrapper)
-
 # build the tests.
 add_subdirectory(tests)
 

@@ -5,7 +5,7 @@
 #include "cryptoTools/Circuit/BetaLibrary.h"
 #include "secure-join/Util/Util.h"
 #include "libOTe/Tools/LinearCode.h"
-#include "RemDummies.h"
+#include "Extract.h"
 
 namespace secJoin
 {
@@ -36,9 +36,8 @@ namespace secJoin
 
 		u64 mPartyIdx = -1;
 
-        bool mRemDummiesFlag;
 
-        RemDummies mRemDummies;
+        std::optional<Extract> mRemoveInactive;
 
 
         void extractKeyInfo(
@@ -57,7 +56,7 @@ namespace secJoin
             ColRef groupByCol,
             std::vector<ColRef> avgCol,
             CorGenerator& ole,
-            bool remDummiesFlag = false);
+            bool removeInactiveFlag = false);
 
         void concatColumns(
             ColRef groupByCol,
@@ -105,4 +104,16 @@ namespace secJoin
 
     };
 
+
+    //Table average(
+    //    ColRef groupByCol,
+    //    std::vector<ColRef> avgCol,
+    //    bool removeInactiveFlag = false);
+
+
+    void populateOutTable(
+        Table& out,
+        std::vector<ColRef> avgCol,
+        ColRef groupByCol,
+        u64 nOutRows);
 }

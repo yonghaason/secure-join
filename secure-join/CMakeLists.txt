@@ -41,10 +41,10 @@ set(SRCS
     "AggTree/PlainAggTree.cpp"
     "Aggregate/Average.cpp"
     "Aggregate/Where.cpp"
-    "Aggregate/RemDummies.cpp"
+    "Aggregate/WhereParser.cpp"
+    "Aggregate/Extract.cpp"
     
     "Util/Trim.cpp"
-    "Util/CSVParser.cpp"
     
     "Join/Table.cpp"
     "Join/OmJoin.cpp"
