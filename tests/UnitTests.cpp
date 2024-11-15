@@ -16,12 +16,12 @@
 
 #include "AggTree_Tests.h"
 #include "OmJoin_Test.h"
-#include "CWrapper_Test.h"
 #include "CorGenerator_Test.h"
-#include "Average_Test.h"
+#include "GroupBy_Test.h"
 #include "Where_Test.h"
 #include "F4Vole_Test.h"
 #include "Extract_Test.h"
+#include "CSVParser_Test.h"
 
 namespace secJoin_Tests
 {
@@ -108,24 +108,22 @@ namespace secJoin_Tests
 
 			t.add("Extract_extract_Test                          ", Extract_extract_Test);
 
+            t.add("table_csvIo_test                              ", table_csvIo_test);
+            t.add("table_binIo_test                              ", table_binIo_test);
+            
+
             t.add("OmJoin_loadKeys_Test                          ", OmJoin_loadKeys_Test);
             t.add("OmJoin_getControlBits_Test                    ", OmJoin_getControlBits_Test);
             t.add("OmJoin_concatColumns_Test                     ", OmJoin_concatColumns_Test);
             t.add("OmJoin_getOutput_Test                         ", OmJoin_getOutput_Test);
             t.add("OmJoin_join_Test                              ", OmJoin_join_Test);
             t.add("OmJoin_join_BigKey_Test                       ", OmJoin_join_BigKey_Test);
-            t.add("OmJoin_join_Reveal_Test                       ", OmJoin_join_Reveal_Test);
             t.add("OmJoin_join_round_Test                        ", OmJoin_join_round_Test);
 
-            //t.add("OmJoin_wrapper_join_test                      ", OmJoin_wrapper_join_test);
-            //t.add("OmJoin_wrapper_avg_test                       ", OmJoin_wrapper_avg_test);
-            //t.add("OmJoin_wrapper_where_test                     ", OmJoin_wrapper_where_test);
-
-
-            t.add("Average_concatColumns_Test                    ", Average_concatColumns_Test);
-            t.add("Average_getControlBits_Test                   ", Average_getControlBits_Test);
-            t.add("Average_avg_Test                              ", Average_avg_Test);
-            t.add("Average_avg_BigKey_Test                       ", Average_avg_BigKey_Test);
+            t.add("GroupBy_concatColumns_Test                    ", GroupBy_concatColumns_Test);
+            t.add("GroupBy_getControlBits_Test                   ", GroupBy_getControlBits_Test);
+            t.add("GroupBy_avg_Test                              ", GroupBy_avg_Test);
+            t.add("GroupBy_avg_BigKey_Test                       ", GroupBy_avg_BigKey_Test);
 
             t.add("where_cir_test                                ", where_cir_test);
 

@@ -21,6 +21,7 @@ namespace secJoin
 
 
     BetaCircuit isZeroCircuit(u64 bits);
+    void evaluate(oc::BetaCircuit& parent, const oc::BetaCircuit& cir, span<BetaBundle> inputs, span<BetaBundle> outputs);
 
     void isZeroCircuit_Test();
 }

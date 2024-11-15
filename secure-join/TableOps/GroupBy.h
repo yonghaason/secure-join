@@ -9,7 +9,12 @@
 
 namespace secJoin
 {
-    struct Average
+	// This protocol perform a group by operation on the input table.
+    // Currently, the reduce operation is hard coded to be addition
+	// but this could be generalized in the future.
+    // Additionally, a extra "count" column is added that records
+	// the number of rows that were grouped together.
+    struct GroupBy
     {
         bool mInsecurePrint = false, mInsecureMockSubroutines = false;
 
@@ -39,6 +44,30 @@ namespace secJoin
 
         std::optional<Extract> mRemoveInactive;
 
+        // initialize the protocol. The table will be
+		// grouped by the `groupByCol` column. The `avgCol`
+		// columns will be added together. The `ole` object
+		// is used to generate the correlated randomness.
+        void init(
+            ColRef groupByCol,
+            std::vector<ColRef> avgCol,
+            CorGenerator& ole,
+            bool removeInactiveFlag = false);
+
+
+		// This is the main protocol function. It will group the input table
+		// by the `groupByCol` column. The `avgCol` columns will be added together.
+		// The output is written to the `out` table.
+        macoro::task<> groupBy(
+            ColRef groupByCol,
+            std::vector<ColRef> avgCol,
+            SharedTable& out,
+            oc::PRNG& prng,
+            coproto::Socket& sock);
+
+
+        // internal functions
+        // -----------------------------------------
 
         void extractKeyInfo(
             BinMatrix& data,
@@ -51,12 +80,6 @@ namespace secJoin
             ColRef groupByCol,
             std::vector<u8>& actFlagVec,
             BinMatrix& compressKeys);
-
-        void init(
-            ColRef groupByCol,
-            std::vector<ColRef> avgCol,
-            CorGenerator& ole,
-            bool removeInactiveFlag = false);
 
         void concatColumns(
             ColRef groupByCol,
@@ -71,12 +94,6 @@ namespace secJoin
             BinMatrix& actFlag,
             BinMatrix& ret);
 
-        macoro::task<> avg(
-            ColRef groupByCol, 
-            std::vector<ColRef> avgCol, 
-            SharedTable& out,
-            oc::PRNG& prng,
-            coproto::Socket& sock);
 
         macoro::task<> getControlBits(
             BinMatrix& keys,

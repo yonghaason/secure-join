@@ -1,5 +1,5 @@
 #include "Extract_Test.h"
-#include "secure-join/Aggregate/Extract.h"
+#include "secure-join/TableOps/Extract.h"
 #include "secure-join/Join/Table.h"
 
 using namespace secJoin;
@@ -52,7 +52,7 @@ void Extract_extract_Test(const oc::CLP& cmd)
 
 	auto res = reveal(shares[0], shares[1]);
 	auto exp = table; 
-	std::cout << "\n\nres " << res << std::endl;
+	//std::cout << "\n\nres " << res << std::endl;
 
 	res.sort();
 	exp.extractActive();

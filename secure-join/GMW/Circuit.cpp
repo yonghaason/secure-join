@@ -78,4 +78,64 @@ namespace secJoin
 
 
     }
+
+    // add the evaluation of `cir` to the `parent` circuit where
+    // `inputs` are the input wires to the circuit and 
+    // `outputs` are the output wires.
+    void evaluate(oc::BetaCircuit& parent, const oc::BetaCircuit& cir, span<BetaBundle> inputs, span<BetaBundle> outputs)
+    {
+        if (cir.mInputs.size() != inputs.size())
+            throw std::runtime_error(LOCATION);
+        if (cir.mOutputs.size() != outputs.size())
+            throw std::runtime_error(LOCATION);
+
+        // count the number of internal wires in the circuit.
+        u64 tempCount = cir.mWireCount;
+        for (u64 i = 0; i < inputs.size(); i++)
+        {
+            if (cir.mInputs[i].size() != inputs[i].size())
+                throw std::runtime_error(LOCATION);
+
+            tempCount -= inputs[i].size();
+        }
+
+        for (u64 i = 0; i < outputs.size(); i++)
+        {
+            if (cir.mOutputs[i].size() != outputs[i].size())
+                throw std::runtime_error(LOCATION);
+
+            tempCount -= outputs[i].size();
+        }
+
+        // allocate the internal wires
+        oc::BetaBundle temp(tempCount);
+        parent.addTempWireBundle(temp);
+
+        // flatten all the wires for cir into an array.
+        oc::BetaBundle wires(cir.mWireCount);
+        for (u64 i = 0; i < inputs.size(); i++)
+        {
+            for (u64 j = 0; j < inputs[i].size(); j++)
+                wires[cir.mInputs[i][j]] = inputs[i][j];
+        }
+        for (u64 i = 0; i < outputs.size(); i++)
+            for (u64 j = 0; j < outputs[i].size(); j++)
+                wires[cir.mOutputs[i][j]] = outputs[i][j];
+        for (u64 i = 0; i < temp.size(); i++)
+            wires[i + cir.mWireCount - tempCount] = temp[i];
+
+        // evaluate the circuit.
+        for (u64 i = 0; i < cir.mGates.size(); i++)
+        {
+            auto& gate = cir.mGates[i];
+            auto& in0 = wires[gate.mInput[0]];
+            auto& in1 = wires[gate.mInput[1]];
+            auto& out = wires[gate.mOutput];
+            if (gate.mType == oc::GateType::a)
+                parent.addCopy(in0, out);
+            else
+                parent.addGate(in0, in1, gate.mType, out);
+        }
+    }
+
 }

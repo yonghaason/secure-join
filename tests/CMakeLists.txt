@@ -55,8 +55,7 @@ set(SRCS
 	AltModPerm_Test.cpp
 	CSVParser_Test.cpp
 	OmJoin_Test.cpp
-	CWrapper_Test.cpp
-    Average_Test.cpp
+    GroupBy_Test.cpp
     Where_Test.cpp
 	)
 

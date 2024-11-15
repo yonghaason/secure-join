@@ -1,12 +1,12 @@
-#include "Average_Test.h"
+#include "GroupBy_Test.h"
 #include "cryptoTools/Common/TestCollection.h"
 
-#include "secure-join/Aggregate/Average.h"
+#include "secure-join/TableOps/GroupBy.h"
 #include "secure-join/Util/Util.h"
 
 using namespace secJoin;
 
-void evalAverage
+void evalGroupBy
     ( Table& T,
     const u64 grpByColIdx,
     const std::vector<u64> avgColIdxs,
@@ -47,7 +47,7 @@ void evalAverage
         ole0.init(sock[0].fork(), prng0, 0, 1, 1 << 16, mock);
         ole1.init(sock[1].fork(), prng1, 1, 1, 1 << 16, mock);
 
-        Average avg0, avg1;
+        GroupBy avg0, avg1;
 
         avg0.mInsecurePrint = printSteps;
         avg1.mInsecurePrint = printSteps;
@@ -64,8 +64,8 @@ void evalAverage
         Table out[2];
         auto r = macoro::sync_wait(macoro::when_all_ready(
                ole0.start(), ole1.start(),
-               avg0.avg(Ts[0][grpByColIdx], shAvgColRef0, out[0], prng0, sock[0]),
-               avg1.avg(Ts[1][grpByColIdx], shAvgColRef1, out[1], prng1, sock[1])
+               avg0.groupBy(Ts[0][grpByColIdx], shAvgColRef0, out[0], prng0, sock[0]),
+               avg1.groupBy(Ts[1][grpByColIdx], shAvgColRef1, out[1], prng1, sock[1])
            )
         );
 
@@ -96,7 +96,7 @@ void evalAverage
 }
 
 
-void Average_concatColumns_Test()
+void GroupBy_concatColumns_Test()
 {
     throw oc::UnitTestSkipped("not functional");
 
@@ -110,7 +110,7 @@ void Average_concatColumns_Test()
 
     auto sock = coproto::LocalAsyncSocket::makePair();
 
-    Average avg;
+    GroupBy avg;
 
     PRNG prng(oc::ZeroBlock);
     for (u64 i = 0; i < t0.mColumns.size(); ++i)
@@ -138,7 +138,7 @@ void Average_concatColumns_Test()
     {
         auto iter = oc::BitIterator(y.mData[i].data());
         
-        // Checking the Average Columns
+        // Checking the GroupBy Columns
         for (u64 j = 0; j < avgCols.size(); ++j)
         {
             auto expIter = oc::BitIterator(avgCols[j].mCol.mData.data(i));
@@ -208,7 +208,7 @@ void Average_concatColumns_Test()
 
 
 
-void Average_getControlBits_Test(const oc::CLP& cmd)
+void GroupBy_getControlBits_Test(const oc::CLP& cmd)
 {
     throw oc::UnitTestSkipped("not functional");
     u64 n = 342;
@@ -238,7 +238,7 @@ void Average_getControlBits_Test(const oc::CLP& cmd)
     ole0.init(sock[0].fork(), prng, 0, 1, 1 << 16, mock);
     ole1.init(sock[1].fork(), prng, 1, 1, 1 << 16, mock);
 
-    Average avg[2];
+    GroupBy avg[2];
 
     avg[0].mControlBitGmw.init(n, OmJoin::getControlBitsCircuit(keyBitCount), ole0);
     avg[1].mControlBitGmw.init(n, OmJoin::getControlBitsCircuit(keyBitCount), ole1);
@@ -264,7 +264,7 @@ void Average_getControlBits_Test(const oc::CLP& cmd)
     }
 }
 
-void Average_avg_Test(const oc::CLP& cmd)
+void GroupBy_avg_Test(const oc::CLP& cmd)
 {
     throw oc::UnitTestSkipped("not functional");
     u64 nT = cmd.getOr("nT", 10);
@@ -288,7 +288,7 @@ void Average_avg_Test(const oc::CLP& cmd)
         T.mColumns[2].mData.mData(i, 1) = i % 4;
     }
 
-    Average avg1, avg2;
+    GroupBy avg1, avg2;
 
     avg1.mInsecurePrint = printSteps;
     avg2.mInsecurePrint = printSteps;
@@ -326,8 +326,8 @@ void Average_avg_Test(const oc::CLP& cmd)
 
         Table out[2];
         auto r = macoro::sync_wait(macoro::when_all_ready(
-            avg1.avg(Ts[0][0], { Ts[0][1], Ts[0][2] }, out[0], prng0, sock[0]),
-            avg2.avg(Ts[1][0], { Ts[1][1], Ts[1][2] }, out[1], prng1, sock[1])
+            avg1.groupBy(Ts[0][0], { Ts[0][1], Ts[0][2] }, out[0], prng0, sock[0]),
+            avg2.groupBy(Ts[1][0], { Ts[1][1], Ts[1][2] }, out[1], prng1, sock[1])
         ));
         std::get<0>(r).result();
         std::get<1>(r).result();
@@ -355,7 +355,7 @@ void Average_avg_Test(const oc::CLP& cmd)
 
 }
 
-void Average_avg_BigKey_Test(const oc::CLP& cmd)
+void GroupBy_avg_BigKey_Test(const oc::CLP& cmd)
 {
     throw oc::UnitTestSkipped("not functional");
     //u64 nT = cmd.getOr("nT", 10);
@@ -414,6 +414,6 @@ void Average_avg_BigKey_Test(const oc::CLP& cmd)
     //    T.mColumns[2].mData.mData(i, 1) = i % 4;
     //}
 
-    //evalAverage( T, 0, {1 ,2} , printSteps, mock);
+    //evalGroupBy( T, 0, {1 ,2} , printSteps, mock);
 
 }

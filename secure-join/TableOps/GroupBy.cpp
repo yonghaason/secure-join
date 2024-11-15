@@ -1,4 +1,4 @@
-#include "Average.h"
+#include "GroupBy.h"
 
 namespace secJoin 
 {
@@ -7,7 +7,7 @@ namespace secJoin
 	// Removes the groupBy, activeFlag & compressKeys from the data
 	// keys = groupByData + ActiveFlag
 	// compressKeys = encode(keys);
-	void Average::extractKeyInfo(
+	void GroupBy::extractKeyInfo(
 		BinMatrix& data,
 		BinMatrix& grpByData,
 		BinMatrix& compressKeys,
@@ -40,7 +40,7 @@ namespace secJoin
 	// compressKeys is used to generate the sorting Perm & getting controlBits
 	// keys = groupByData + ActiveFlag
 	// compressKeys = encode(keys);
-	void Average::loadKeys(
+	void GroupBy::loadKeys(
 		ColRef groupByCol,
 		std::vector<u8>& actFlagVec,
 		BinMatrix& compressKeys)
@@ -90,7 +90,7 @@ namespace secJoin
 	// Then append ActFlag to the end
 	// keys = groupByData + ActiveFlag
 	// compressKeys = encode(keys);
-	void Average::concatColumns(
+	void GroupBy::concatColumns(
 		ColRef groupByCol,
 		std::vector<ColRef> avgCol,
 		std::vector<u8>& actFlagVec,
@@ -166,7 +166,7 @@ namespace secJoin
 	// Call this concat columns when you want to apply PermBackwards
 	// All the average data is in data
 	// GroupBy Data & updated Active Flag is also present
-	void Average::concatColumns(
+	void GroupBy::concatColumns(
 		BinMatrix& data,
 		BinMatrix& groupByData,
 		BinMatrix& actFlag,
@@ -198,7 +198,7 @@ namespace secJoin
 
 
 	// Active Flag = (Controlbits)^-1 & Active Flag
-	macoro::task<> Average::updateActiveFlag(
+	macoro::task<> GroupBy::updateActiveFlag(
 		BinMatrix& actFlag,
 		BinMatrix& choice,
 		BinMatrix& out,
@@ -243,7 +243,7 @@ namespace secJoin
 		return cd;
 	}
 
-	void Average::init(
+	void GroupBy::init(
 		ColRef groupByCol,
 		std::vector<ColRef> avgCol,
 		CorGenerator& ole,
@@ -319,8 +319,8 @@ namespace secJoin
 		if (remDummiesFlag)
 		{
 			mRemoveInactive.emplace();
-			u64 size = oc::divCeil(dataBitsPerEntry - compressKeySize, 8);
-			mRemoveInactive->init(rows, size, ole);
+			auto cols = groupByCol.mTable.getColumnInfo();
+			mRemoveInactive->init(rows, cols, ole);
 		}
 	}
 
@@ -329,7 +329,7 @@ namespace secJoin
 	// Assumptions: 
 	// 1) Both Average Col & Group by Col are not null
 	// 2) Currently one group by column is supported
-	macoro::task<> Average::avg(
+	macoro::task<> GroupBy::groupBy(
 		ColRef groupByCol,
 		std::vector<ColRef> avgCol,
 		SharedTable& out,
@@ -367,8 +367,6 @@ namespace secJoin
 		// get the stable sorting permutation sPerm
 		co_await mSort.genPerm(compressKeys, sPerm, sock, prng);
 
-		co_await sPerm.validate(sock);
-
 		mPerm.preprocess();
 		co_await prepro;
 
@@ -382,8 +380,6 @@ namespace secJoin
 		temp.resize(data.numEntries(), data.bitsPerEntry());
 
 		co_await mPerm.generate(sock, prng, data.rows(), perm);
-
-		co_await perm.validate(sock);
 
 		co_await perm.derandomize(sPerm, sock);
 
@@ -441,46 +437,17 @@ namespace secJoin
 		dataOffsets.emplace_back(
 			OmJoin::Offset{ (tempNum + sortedgroupByData.bytesPerEntry()) * 8, actFlag.bitsPerEntry(), "Act Flag" });
 
+		co_await perm.apply<u8>(PermOp::Regular, data, data, sock);
+		getOutput(out, avgCol, groupByCol, data, dataOffsets);
 
 		if (mRemoveInactive)
 		{
-			// Permuting the data
-			throw RTE_LOC;// need to modify this to work with the new extract function
-			//co_await mRemoveInactive->apply(data, data, sock, prng);
-				//data, temp,
-				//dataOffsets[dataOffsets.size() - 1].mStart / 8, sock, prng);
-			//std::swap(data, temp);
-
-			// Can't apply Perm to controlBits bcoz controBits & data will be of different sizes
-			//if (mInsecurePrint)
-			//{
-			//	temp.resize(controlBits.rows(), controlBits.bitsPerEntry());
-			//	co_await mRemoveInactive.mPermutation.apply<u8>(mRemoveInactive.mPermOp, controlBits, temp, sock);
-			//	std::swap(controlBits, temp);
-			//	co_await OmJoin::print(data, controlBits, sock, mPartyIdx, "Rand Perm", dataOffsets);
-			//}
-
-
+			co_await mRemoveInactive->apply(out, out, sock, prng);
 		}
-		else
-		{
-			// Permuting the data
-			co_await perm.apply<u8>(PermOp::Regular, data, data, sock);
-
-			//if (mInsecurePrint)
-			//{
-			//	temp.resize(controlBits.numEntries(), controlBits.bitsPerEntry());
-			//	co_await perm.apply<u8>(PermOp::Regular, controlBits, temp, sock);
-			//	std::swap(controlBits, temp);
-			//	co_await OmJoin::print(data, controlBits, sock, mPartyIdx, "unsort", dataOffsets);
-			//}
-		}
-
-		getOutput(out, avgCol, groupByCol, data, dataOffsets);
 	}
 
 
-	void Average::getOutput(
+	void GroupBy::getOutput(
 		SharedTable& out,
 		std::vector<ColRef> avgCol,
 		ColRef groupByCol,
@@ -519,7 +486,7 @@ namespace secJoin
 
 	}
 
-	AggTree::Operator Average::getAddCircuit(std::vector<OmJoin::Offset>& offsets,
+	AggTree::Operator GroupBy::getAddCircuit(std::vector<OmJoin::Offset>& offsets,
 		oc::BetaLibrary::Optimized op)
 	{
 		return [&, op](
@@ -558,7 +525,7 @@ namespace secJoin
 			};
 	}
 
-	macoro::task<> Average::getControlBits(
+	macoro::task<> GroupBy::getControlBits(
 		BinMatrix& keys,
 		coproto::Socket& sock,
 		BinMatrix& out)

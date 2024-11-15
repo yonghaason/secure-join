@@ -1,7 +1,7 @@
 #include "Table.h"
 #include "secure-join/Util/Util.h"
 #include "secure-join/Sort/RadixSort.h"
-#include "secure-join/Aggregate/Where.h"
+#include "secure-join/TableOps/Where.h"
 #include "secure-join/Join/OmJoin.h"
 
 namespace secJoin
@@ -69,23 +69,26 @@ namespace secJoin
 	void Table::readBin(std::istream& in)
 	{
 		u64 cols = 0, rows = 0;
-		in.read((char*)cols, sizeof(cols));
-		in.read((char*)rows, sizeof(rows));
+		in.read((char*)&cols, sizeof(cols));
+		in.read((char*)&rows, sizeof(rows));
 		mColumns.resize(cols);
 		for (u64 i = 0; i < cols; ++i)
 		{
 			std::string name;
-			u64 type = 0, nameSize = 0, bits = 0;
-			in.read((char*)nameSize, sizeof(nameSize));
+			u64 nameSize = 0, bits = 0;
+			ColumnType type;
+			in.read((char*)&nameSize, sizeof(nameSize));
 			if (nameSize > 512)
 				throw RTE_LOC;
 			name.resize(nameSize);
-			in.read((char*)name.data(), nameSize);
-			in.read((char*)type, sizeof(type));
-			in.read((char*)bits, sizeof(bits));
+			in.read((char*)name.data(), name.size());
+			in.read((char*)&type, sizeof(type));
+			if((u64)type > (u64)ColumnType::Bin)
+				throw RTE_LOC;
+			in.read((char*)&bits, sizeof(bits));
 			if (bits > (1 << 14))
 				throw RTE_LOC;
-			mColumns[i] = { name, (ColumnType)type, bits };
+			mColumns[i] = { name, type, bits };
 		}
 
 		for (u64 i = 0; i < cols; ++i)
@@ -97,10 +100,10 @@ namespace secJoin
 
 	void Table::writeCSV(std::ostream& out)
 	{
-		out << mColumns.size() << ";" << rows() << ";\n";
+		out << mColumns.size() << " " << rows() << "\n";
 		for (u64 i = 0; i < mColumns.size(); ++i)
 		{
-			out << mColumns[i].mName << ";" << (int)mColumns[i].mType << ";" << mColumns[i].mBitCount << ";\n";
+			out << mColumns[i].mName << " " << (int)mColumns[i].mType << " " << mColumns[i].mBitCount << "\n";
 		}
 
 		for (u64 i = 0; i < rows(); ++i)
@@ -113,7 +116,11 @@ namespace secJoin
 						throw RTE_LOC; // too big of an int to serialize
 					i64 v = 0;
 					copyBytesMin(v, mColumns[j].mData[i]);
-					out << v << ";";
+					out << v << " ";
+				}
+				else if (mColumns[j].mType == ColumnType::Boolean)
+				{
+					out << (mColumns[j].mData(i, 0) & 1) << " ";
 				}
 				else if (mColumns[j].mType == ColumnType::String)
 				{
@@ -123,17 +130,17 @@ namespace secJoin
 						throw RTE_LOC; // ; is the delimiter, not allowed as data.
 
 					auto e = std::find(b.begin(), b.end(), 0);
-					if (e == b.end())
+					if (e != b.end())
 					{
 						for (auto i = e + 1; i != b.end(); ++i)
 							if (*i != 0)
 								throw RTE_LOC; // after the null terminator, all elements must be 0
 					}
-					out << std::string(b.begin(), e);
+					out << std::string(b.begin(), e) << ';';
 				}
-				if (mColumns[j].mType == ColumnType::Bin)
+				else if (mColumns[j].mType == ColumnType::Bin)
 				{
-					out << hex(mColumns[j].mData[i]) << ";";
+					out << hex(mColumns[j].mData[i]) << " ";
 				}
 				else
 				{
@@ -145,14 +152,33 @@ namespace secJoin
 	}
 
 	void Table::readCSV(std::istream& in) {
-		u64 cols, rows;
-		in >> cols >> rows;
+		std::string buffer;
+
+		std::getline(in, buffer, ' ');
+		u64 cols = std::stoll(buffer);
+		if (buffer != std::to_string(cols))
+			throw RTE_LOC;
+		std::getline(in, buffer, '\n');
+		u64 rows = std::stoll(buffer);
+		if (buffer != std::to_string(rows))
+			throw RTE_LOC;
+
 		mColumns.resize(cols);
 		for (u64 i = 0; i < cols; ++i)
 		{
 			std::string name;
-			u64 type, size;
-			in >> name >> type >> size;
+			std::getline(in, name, ' ');
+			std::getline(in, buffer, ' ');
+			u64 type = std::stoll(buffer);
+			if (type > (u64)ColumnType::Bin)
+				throw RTE_LOC;
+			if (std::to_string(type) != buffer)
+				throw RTE_LOC;
+			std::getline(in, buffer, '\n');
+			u64 size = std::stoll(buffer);
+			if (std::to_string(size) != buffer)
+				throw RTE_LOC;
+
 			mColumns[i] = { name, (ColumnType)type, size };
 			mColumns[i].mData.resize(rows, size);
 		}
@@ -165,32 +191,47 @@ namespace secJoin
 				{
 					if (mColumns[j].mBitCount > 64)
 						throw RTE_LOC;
-					i64 v;
-					in >> v;
-					copyBytesMin(v, mColumns[j].mData[i]);
+					std::getline(in, buffer, ' ');
+					auto v = std::stoll(buffer);
+					if (std::to_string(v) != buffer)
+						throw RTE_LOC;
+
+					copyBytesMin(mColumns[j].mData[i], v);
+				}
+				else if(mColumns[j].mType == ColumnType::Boolean)
+				{
+					std::getline(in, buffer, ' ');
+					auto v = std::stoll(buffer);
+					if (v > 1 || std::to_string(v) != buffer)
+						throw RTE_LOC;
+					mColumns[j].mData(i, 0) = v;
 				}
 				else if (mColumns[j].mType == ColumnType::String)
 				{
-					std::string v;
-					std::getline(in, v, ';');
+					std::getline(in, buffer, ';');
 					auto b = mColumns[j].mData[i];
-					if (v.size() > b.size())
+					if (buffer.size() > b.size())
+					{
+						std::cout << "intput `" << buffer << "` is too long, max=" << b.size() << std::endl;
 						throw RTE_LOC;
-					std::copy(v.begin(), v.end(), b.begin());
-					std::fill(b.begin() + v.size(), b.end(), 0);
+					}
+					std::copy(buffer.begin(), buffer.end(), b.begin());
+					std::fill(b.begin() + buffer.size(), b.end(), 0);
 				}
 				else if (mColumns[j].mType == ColumnType::Bin)
 				{
-					std::string v;
-					std::getline(in, v, ';');
+					std::getline(in, buffer, ' ');
 					auto b = mColumns[j].mData[i];
-					fromHex(v, b);
+					fromHex(buffer, b);
 				}
 				else
 				{
 					throw std::runtime_error(LOCATION);
 				}
 			}
+			std::getline(in, buffer, '\n');
+			if (buffer.size())
+				throw RTE_LOC;
 		}
 	}
 
@@ -795,6 +836,14 @@ namespace secJoin
 			{
 				if (t.mColumns[j].mType == ColumnType::String)
 					printElem(std::string((const char*)t.mColumns[j].mData.data(i), t.mColumns[j].getByteCount()));
+				else if (t.mColumns[j].mType == ColumnType::Int)
+				{
+					if (t.mColumns[j].getBitCount() > 64)
+						throw RTE_LOC;
+					i64 v = 0;
+					copyBytesMin(v, t.mColumns[j].mData[i]);
+					printElem(v);
+				}
 				else
 					printElem(hex(t.mColumns[j].mData.data(i), t.mColumns[j].getByteCount()));
 			}

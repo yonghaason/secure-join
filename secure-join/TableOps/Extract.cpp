@@ -1,6 +1,6 @@
 #include "Extract.h"
 #include "secure-join/Join/OmJoin.h"
-#include "Average.h"
+#include "GroupBy.h"
 
 namespace secJoin {
 

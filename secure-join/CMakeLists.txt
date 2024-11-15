@@ -39,10 +39,10 @@ set(SRCS
     "AggTree/AggTree.cpp"
     "AggTree/Level.cpp"
     "AggTree/PlainAggTree.cpp"
-    "Aggregate/Average.cpp"
-    "Aggregate/Where.cpp"
-    "Aggregate/WhereParser.cpp"
-    "Aggregate/Extract.cpp"
+    "TableOps/GroupBy.cpp"
+    "TableOps/Where.cpp"
+    "TableOps/WhereParser.cpp"
+    "TableOps/Extract.cpp"
     
     "Util/Trim.cpp"
     

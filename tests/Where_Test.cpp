@@ -3,11 +3,11 @@
 #include "cryptoTools/Common/BitVector.h"
 // #include <cstdlib>
 #include "secure-join/config.h"
-#include "secure-join/Aggregate/Where.h"
+#include "secure-join/TableOps/Where.h"
 #include "secure-join/Join/OmJoin.h"
 #include "secure-join/Util/Util.h"
-#include "secure-join/Aggregate/Average.h"
-#include "secure-join/Aggregate/WhereParser.h"
+#include "secure-join/TableOps/GroupBy.h"
+#include "secure-join/TableOps/WhereParser.h"
 
 
 using namespace secJoin;
@@ -726,7 +726,6 @@ void WhereParser_Big_Test(const oc::CLP& cmd)
 		cirIn[0].pushBack(b0);
 		cirIn[1].pushBack(b1);
 		auto r0 = b0 && b1;
-		std::cout << r0 << " = " << b0 << " && " << b1 << std::endl;
 
 		// ints
 		i64 int0 = prng.get();
@@ -738,7 +737,6 @@ void WhereParser_Big_Test(const oc::CLP& cmd)
 		cirIn[2].append((u8*)&int0, cols[2].getBitCount());
 		cirIn[3].append((u8*)&int1, cols[3].getBitCount());
 		auto r1 = int0 < int1;
-		std::cout << r1 << " = " << int0 << " < " << int1 << std::endl;
 
 		// string
 		std::string str0, str1;
@@ -767,9 +765,7 @@ void WhereParser_Big_Test(const oc::CLP& cmd)
 
 
 		bool exp = r0 ^ r1 ^ r2^ r3;
-		std::cout << "exp " << exp << " = " << r0 << " xor " << r1 << std::endl;
 		cir.evaluate(cirIn, cirOut);
-		std::cout << std::endl;
 		//for (u64 k = 0; k < inputs.size(); ++k)
 		//{
 		//	std::cout << "input[" << k << "] = " << inputs[k];

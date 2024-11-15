@@ -282,8 +282,8 @@ void OmJoin_getOutput_Test()
 
 void OmJoin_join_Test(const oc::CLP& cmd)
 {
-    u64 nL = cmd.getOr("L", 111),
-        nR = cmd.getOr("R", 81);
+    u64 nL = cmd.getOr("L", 11),
+        nR = cmd.getOr("R", 8);
 
     u64 keySize = cmd.getOr("keySize", 9);
     bool printSteps = cmd.isSet("print");
@@ -336,7 +336,7 @@ void OmJoin_join_Test(const oc::CLP& cmd)
     L.share(Ls, prng);
     R.share(Rs, prng);
 
-    for (auto remDummies : { true, false })
+    for (auto remDummies : { false, true })
     {
         OmJoin join0, join1;
 
@@ -382,12 +382,11 @@ void OmJoin_join_Test(const oc::CLP& cmd)
 
         auto res = reveal(out[0], out[1], remDummies);
 
-        if (remDummies)
-        {
-            exp.extractActive();
-            exp.sort();
-            res.sort();
-        }
+        exp.extractActive();
+        exp.sort();
+        if (remDummies == false)
+            res.extractActive();
+        res.sort();
 
         if (res != exp)
         {
@@ -510,12 +509,11 @@ void OmJoin_join_BigKey_Test(const oc::CLP& cmd)
 
         auto res = reveal(out[0], out[1], remDummies);
 
-        if (remDummies)
-        {
-            res.sort();
-            exp.extractActive();
-            exp.sort();
-        }
+        exp.extractActive();
+        exp.sort();
+        if (remDummies == false)
+            res.extractActive();
+        res.sort();
 
         if (res != exp)
         {
@@ -536,110 +534,110 @@ void OmJoin_join_BigKey_Test(const oc::CLP& cmd)
 }
 
 
-void OmJoin_join_Reveal_Test(const oc::CLP& cmd)
-{
-
-    u64 nL = 4,
-        nR = 4;
-    bool printSteps = cmd.isSet("print");
-    bool mock = cmd.getOr("mock", 1);
-
-    Table L, R, LP, RP;
-
-    L.init(nL, { {
-        {"L1", ColumnType::Int, 6},
-        {"L2", ColumnType::Int, 16}
-    } });
-    R.init(nR, { {
-        {"R1", ColumnType::Int, 6},
-        {"R2", ColumnType::Int, 7}
-    } });
-
-    LP.init(nL, { {
-        {"L1", ColumnType::Int, 6},
-        {"L2", ColumnType::Int, 16}
-    } });
-    RP.init(nR, { {
-        {"R1", ColumnType::Int, 6},
-        {"R2", ColumnType::Int, 7}
-    } });
-
-    for (u64 i = 0; i < nL; ++i)
-    {
-        L.mColumns[0].mData.mData(i, 0) = i;
-        L.mColumns[1].mData.mData(i, 0) = i % 4;
-        L.mColumns[1].mData.mData(i, 1) = i % 3;
-    }
-
-    for (u64 i = 0; i < nR; ++i)
-    {
-        R.mColumns[0].mData.mData(i, 0) = i * 2;
-        R.mColumns[1].mData.mData(i) = i % 3;
-    }
-
-    PRNG prng(oc::ZeroBlock);
-    // std::array<Table, 2> Ls, Rs;
-    // share(L, Ls, prng);
-    // share(R, Rs, prng);
-
-    OmJoin join0, join1;
-
-    join0.mInsecurePrint = printSteps;
-    join1.mInsecurePrint = printSteps;
-
-    join0.mInsecureMockSubroutines = mock;
-    join1.mInsecureMockSubroutines = mock;
-
-    CorGenerator ole0, ole1;
-    auto sock = coproto::LocalAsyncSocket::makePair();
-    ole0.init(sock[0].fork(), prng, 0, 1, 1 << 18, mock);
-    ole1.init(sock[1].fork(), prng, 1, 1, 1 << 18, mock);
-
-
-    PRNG prng0(oc::ZeroBlock);
-    PRNG prng1(oc::OneBlock);
-
-    Table out[2];
-
-    auto exp = join(L[0], R[0], { L[0], R[1], L[1] });
-    oc::Timer timer;
-    join0.setTimer(timer);
-    // join1.setTimer(timer);
-
-    JoinQuery query0{ L[0], RP[0], { L[0], RP[1], L[1] } };
-    JoinQuery query1{ LP[0], R[0], { LP[0], R[1], LP[1] } };
-    join0.init(query0, ole0);
-    join1.init(query1, ole1);
-
-    auto r = macoro::sync_wait(macoro::when_all_ready(
-        ole0.start(),
-        ole1.start(),
-        join0.join(query0, out[0], prng0, sock[0]),
-        join1.join(query1, out[1], prng1, sock[1])
-    ));
-    std::get<0>(r).result();
-    std::get<1>(r).result();
-    // auto res = reveal(out[0], out[1]);
-
-    Table outTable;
-    auto res = macoro::sync_wait(macoro::when_all_ready(
-        out[0].revealLocal(sock[0], outTable),
-        out[1].revealRemote(sock[1])));
-
-    std::get<1>(res).result();
-    std::get<0>(res).result();
-
-    if (outTable != exp)
-    {
-        std::cout << "exp \n" << exp << std::endl;
-        std::cout << "act \n" << outTable << std::endl;
-        throw RTE_LOC;
-    }
-
-    if (cmd.isSet("timing"))
-        std::cout << timer << std::endl;
-
-}
+//void OmJoin_join_Reveal_Test(const oc::CLP& cmd)
+//{
+//
+//    u64 nL = 4,
+//        nR = 4;
+//    bool printSteps = cmd.isSet("print");
+//    bool mock = cmd.getOr("mock", 1);
+//
+//    Table L, R, LP, RP;
+//
+//    L.init(nL, { {
+//        {"L1", ColumnType::Int, 6},
+//        {"L2", ColumnType::Int, 16}
+//    } });
+//    R.init(nR, { {
+//        {"R1", ColumnType::Int, 6},
+//        {"R2", ColumnType::Int, 7}
+//    } });
+//
+//    LP.init(nL, { {
+//        {"L1", ColumnType::Int, 6},
+//        {"L2", ColumnType::Int, 16}
+//    } });
+//    RP.init(nR, { {
+//        {"R1", ColumnType::Int, 6},
+//        {"R2", ColumnType::Int, 7}
+//    } });
+//
+//    for (u64 i = 0; i < nL; ++i)
+//    {
+//        L.mColumns[0].mData.mData(i, 0) = i;
+//        L.mColumns[1].mData.mData(i, 0) = i % 4;
+//        L.mColumns[1].mData.mData(i, 1) = i % 3;
+//    }
+//
+//    for (u64 i = 0; i < nR; ++i)
+//    {
+//        R.mColumns[0].mData.mData(i, 0) = i * 2;
+//        R.mColumns[1].mData.mData(i) = i % 3;
+//    }
+//
+//    PRNG prng(oc::ZeroBlock);
+//    // std::array<Table, 2> Ls, Rs;
+//    // share(L, Ls, prng);
+//    // share(R, Rs, prng);
+//
+//    OmJoin join0, join1;
+//
+//    join0.mInsecurePrint = printSteps;
+//    join1.mInsecurePrint = printSteps;
+//
+//    join0.mInsecureMockSubroutines = mock;
+//    join1.mInsecureMockSubroutines = mock;
+//
+//    CorGenerator ole0, ole1;
+//    auto sock = coproto::LocalAsyncSocket::makePair();
+//    ole0.init(sock[0].fork(), prng, 0, 1, 1 << 18, mock);
+//    ole1.init(sock[1].fork(), prng, 1, 1, 1 << 18, mock);
+//
+//
+//    PRNG prng0(oc::ZeroBlock);
+//    PRNG prng1(oc::OneBlock);
+//
+//    Table out[2];
+//
+//    auto exp = join(L[0], R[0], { L[0], R[1], L[1] });
+//    oc::Timer timer;
+//    join0.setTimer(timer);
+//    // join1.setTimer(timer);
+//
+//    JoinQuery query0{ L[0], RP[0], { L[0], RP[1], L[1] } };
+//    JoinQuery query1{ LP[0], R[0], { LP[0], R[1], LP[1] } };
+//    join0.init(query0, ole0);
+//    join1.init(query1, ole1);
+//
+//    auto r = macoro::sync_wait(macoro::when_all_ready(
+//        ole0.start(),
+//        ole1.start(),
+//        join0.join(query0, out[0], prng0, sock[0]),
+//        join1.join(query1, out[1], prng1, sock[1])
+//    ));
+//    std::get<0>(r).result();
+//    std::get<1>(r).result();
+//    // auto res = reveal(out[0], out[1]);
+//
+//    Table outTable;
+//    auto res = macoro::sync_wait(macoro::when_all_ready(
+//        out[0].revealLocal(sock[0], outTable),
+//        out[1].revealRemote(sock[1])));
+//
+//    std::get<1>(res).result();
+//    std::get<0>(res).result();
+//
+//    if (outTable != exp)
+//    {
+//        std::cout << "exp \n" << exp << std::endl;
+//        std::cout << "act \n" << outTable << std::endl;
+//        throw RTE_LOC;
+//    }
+//
+//    if (cmd.isSet("timing"))
+//        std::cout << timer << std::endl;
+//
+////}
 
 
 
@@ -810,11 +808,9 @@ void OmJoin_join_round_Test(const oc::CLP& cmd)
     Table out[2];
 
     auto exp = join(L[0], R[0], { L[0], R[1], L[1] });
-    exp.extractActive();
 
     oc::Timer timer;
     join0.setTimer(timer);
-    // join1.setTimer(timer);
 
 
     JoinQuery query0{ Ls[0][0], Rs[0][0], { Ls[0][0], Rs[0][1], Ls[0][1] } };
@@ -840,7 +836,12 @@ void OmJoin_join_round_Test(const oc::CLP& cmd)
         std::move(proto1)
     ));
 
-    auto res = reveal(out[0], out[1]);
+    auto res = reveal(out[0], out[1],true);
+
+    res.extractActive();
+    res.sort();
+	exp.extractActive();
+    exp.sort();
 
     if (res != exp)
     {

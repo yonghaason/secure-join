@@ -5,7 +5,7 @@
 #include "secure-join/AggTree/AggTree.h"
 #include "secure-join/Sort/RadixSort.h"
 #include "secure-join/Util/Util.h"
-#include "secure-join/Aggregate/Extract.h"
+#include "secure-join/TableOps/Extract.h"
 #include "secure-join/Join/JoinQuery.h"
 
 namespace secJoin
