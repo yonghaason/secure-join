@@ -1,12 +1,13 @@
 # Secure Join
 
+Secure Join implements oblivious two party database joins on secret shared table. It include the permutation protocols of [iacr/2024/547](https://eprint.iacr.org/2024/547) and the Alternating Moduli secret shared PRF protocols of [iacr/2024/582](https://eprint.iacr.org/2024/582).
 
 ### Build
 
 The library can be cloned and built with networking support as
 ```
-git clone ...
-cd secure-join
+git clone https://github.com/Visa-Research/secure-join.git
+cd SecureJoin
 python3 build.py 
 ```
 
