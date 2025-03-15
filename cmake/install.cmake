@@ -4,7 +4,6 @@
 #            Install                        #
 #############################################
 
-#############################################
 configure_file("${CMAKE_CURRENT_LIST_DIR}/findDependancies.cmake" "findDependancies.cmake" COPYONLY)
 configure_file("${CMAKE_CURRENT_LIST_DIR}/preamble.cmake" "preamble.cmake" COPYONLY)
 
@@ -63,4 +62,11 @@ install(EXPORT secureJoinTargets
  export(EXPORT secureJoinTargets
        FILE "${CMAKE_CURRENT_BINARY_DIR}/secureJoinTargets.cmake"
        NAMESPACE visa::
+)
+
+install(DIRECTORY secure-join DESTINATION include/secureJoin)
+
+install(FILES 
+    out/build/linux/secure-join/config.h   # Install the generated config.h
+    DESTINATION include/secureJoin/secure-join
 )
