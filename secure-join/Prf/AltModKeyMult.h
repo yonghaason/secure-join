@@ -194,7 +194,7 @@ namespace secJoin
         {
             mKeyRecvOTs.clear();
             mRecvKeyReq.clear();
-            setBytes(mKey, 0);
+            osuCrypto::setBytes(mKey, 0);
         }
 
         // starts the preprocessing, if any.

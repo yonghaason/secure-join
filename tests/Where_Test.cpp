@@ -93,14 +93,14 @@ void where_cir_test(const oc::CLP& cmd)
 	for (u64 i = 0; i < n; ++i)
 	{
 		table.mIsActive[i] = 1;//prng.getBit();
-		copyBytesMin(table.mColumns[0].mData.mData[i], i);
+		osuCrypto::copyBytesMin(table.mColumns[0].mData.mData[i], i);
 
 		if ((i % 3) == 0)
-			copyBytesMin(table.mColumns[1].mData.mData[i], std::string("hello world"));
+			osuCrypto::copyBytesMin(table.mColumns[1].mData.mData[i], std::string("hello world"));
 		else if ((i % 3) == 1)
-			copyBytesMin(table.mColumns[1].mData.mData[i], std::string("goodbye world"));
+			osuCrypto::copyBytesMin(table.mColumns[1].mData.mData[i], std::string("goodbye world"));
 		else
-			copyBytesMin(table.mColumns[1].mData.mData[i], std::string("what world"));
+			osuCrypto::copyBytesMin(table.mColumns[1].mData.mData[i], std::string("what world"));
 
 		bool w = (i % 3 < 2) && (((i ^ (i >> 1)) & 1));
 		exp[i] = (table.mIsActive[i] == 1) && w;
@@ -278,7 +278,7 @@ void WhereParser_genWhBundle_Test(const oc::CLP& cmd)
 	//    {
 	//        BitVector bitVector = wh.mWhBundle[i].mVal;
 	//        oc::u64 exp = 0;
-	//        copyBytesMin(exp, bitVector);
+	//        osuCrypto::copyBytesMin(exp, bitVector);
 	//        oc::u64 act = stoll(literals[i]);
 
 	//        if (act != exp)
@@ -290,7 +290,7 @@ void WhereParser_genWhBundle_Test(const oc::CLP& cmd)
 	//        std::string exp;
 	//        exp.resize(bitVector.size() / 8);
 	//        //m emcpy(exp.data(), bitVector.data(), bitVector.size() / 8);
-	//        copyBytes(exp, bitVector);
+	//        osuCrypto::copyBytes(exp, bitVector);
 
 	//        std::string act = literals[i];
 	//        if (act.compare(exp) != 0)

@@ -141,9 +141,9 @@ namespace secJoin
 		for (u64 i = 0; i < n; ++i)
 		{
 			if (op == PermOp::Regular)
-				copyBytes(x2Perm[i], x2[pi[i]]);
+				osuCrypto::copyBytes(x2Perm[i], x2[pi[i]]);
 			else
-				copyBytes(x2Perm[pi[i]], x2[i]);
+				osuCrypto::copyBytes(x2Perm[pi[i]], x2[i]);
 		}
 
 		for (u64 i = 0; i < sout.rows(); ++i)

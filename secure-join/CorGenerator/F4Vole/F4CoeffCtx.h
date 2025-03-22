@@ -155,7 +155,7 @@ namespace secJoin
         {
             static_assert(std::is_trivially_copyable<F>::value, "memset is used so must be trivially_copyable.");
             F r;
-            setBytes(r, 0);
+            osuCrypto::setBytes(r, 0);
             return r;
         }
 

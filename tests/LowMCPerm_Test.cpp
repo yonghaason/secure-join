@@ -36,7 +36,7 @@ void LowMC_eval_test(const oc::CLP& cmd)
 	{
 		k[i].resize(n, sizeBlock);
 		for (u64 j = 0; j < n; ++j)
-			copyBytes(k[i][j], bytes(lowMc.roundkeys[i]));
+			osuCrypto::copyBytes(k[i][j], bytes(lowMc.roundkeys[i]));
 	}
 
 	PRNG prng0(oc::block(0, 0));
@@ -79,8 +79,8 @@ void LowMC_eval_test(const oc::CLP& cmd)
 			y0(i, j) ^= y1(i, j);
 
 		LowMC2<>::block xx, zz;
-		copyBytes(bytes(xx), x[i]);
-		copyBytes(bytes(zz), y0[i]);
+		osuCrypto::copyBytes(bytes(xx), x[i]);
+		osuCrypto::copyBytes(bytes(zz), y0[i]);
 		auto yy = lowMc.encrypt(xx);
 		if (yy != zz)
 		{

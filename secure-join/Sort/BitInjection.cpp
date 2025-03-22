@@ -9,7 +9,7 @@ namespace secJoin
 
 
 		if (bitCount == 32)
-			copyBytes(out, in);
+			osuCrypto::copyBytes(out, in);
 		else
 		{
 			auto n = oc::divCeil(bitCount, 8);
@@ -24,7 +24,7 @@ namespace secJoin
 	{
 
 		if (bitCount == 32)
-			copyBytes(out, in);
+			osuCrypto::copyBytes(out, in);
 		else
 		{
 			auto n = oc::divCeil(bitCount, 8);

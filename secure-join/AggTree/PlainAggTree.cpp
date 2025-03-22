@@ -36,7 +36,7 @@ namespace secJoin
 
 			oc::Matrix<u8> v(ret[0].numEntries(), ret[0].bytesPerEntry());
 			for (u64 i = 0; i < v.rows(); ++i)
-				copyBytes(v[i], mInput[i]);
+				osuCrypto::copyBytes(v[i], mInput[i]);
 
 			share(v, ret[0].bitsPerEntry(), ret[0], ret[1], prng);
 

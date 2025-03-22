@@ -131,11 +131,11 @@ namespace secJoin
                 {
                     static_assert(is_container<oc::span<block>&>::value);
                     auto pi = mPerms.back()[i];
-                    copyBytes(
+                    osuCrypto::copyBytes(
                         outLsb[i].subspan(begin, s), 
                         lsb[pi].subspan(begin, s));
 
-                    copyBytes(
+                    osuCrypto::copyBytes(
                         outMsb[i].subspan(begin, s),
                         msb[pi].subspan(begin, s));
                 }

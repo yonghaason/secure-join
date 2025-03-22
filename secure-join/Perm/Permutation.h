@@ -135,7 +135,7 @@ namespace secJoin
 
 					for (; i < size(); i++)
 					{
-						copyBytes(dst[i], src[mPi[i]]);
+						osuCrypto::copyBytes(dst[i], src[mPi[i]]);
 					}
 				}
 				else
@@ -200,7 +200,7 @@ namespace secJoin
 
 					for (; i < size(); i++)
 					{
-						copyBytes(dst[mPi[i]], src[i]);
+						osuCrypto::copyBytes(dst[mPi[i]], src[i]);
 					}
 				}
 				else

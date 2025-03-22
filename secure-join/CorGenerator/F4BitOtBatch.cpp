@@ -110,8 +110,8 @@ namespace secJoin
 	//}
 	void F4BitOtBatch::SendBatch::mock(u64 batchIdx, u64 n)
 	{
-		//setBytes(add, 0);
-		//setBytes(mult, 0);
+		//osuCrypto::setBytes(add, 0);
+		//osuCrypto::setBytes(mult, 0);
 		//return;
 		assert(n % 128 == 0);
 		auto  m = n / 128;
@@ -123,7 +123,7 @@ namespace secJoin
 		if (1)
 		{
 			for (u64 j = 0; j < 4; ++j)
-				setBytes(mOts[j], 0);
+				osuCrypto::setBytes(mOts[j], 0);
 			return;
 		}
 
@@ -192,8 +192,8 @@ namespace secJoin
 	void F4BitOtBatch::RecvBatch::mock(u64 batchIdx, u64 n)
 	{
 
-		//setBytes(add, 0);
-		//setBytes(mult, 0);
+		//osuCrypto::setBytes(add, 0);
+		//osuCrypto::setBytes(mult, 0);
 		//return;
 		//throw RTE_LOC;
 		assert(n % 128 == 0);
@@ -203,9 +203,9 @@ namespace secJoin
 		mChoiceMsb.resize(m);
 		if (1)
 		{
-			setBytes(mOts, 0);
-			setBytes(mChoiceLsb, 0);
-			setBytes(mChoiceMsb, 0);
+			osuCrypto::setBytes(mOts, 0);
+			osuCrypto::setBytes(mChoiceLsb, 0);
+			osuCrypto::setBytes(mChoiceMsb, 0);
 			return;
 		}
 
@@ -454,7 +454,7 @@ namespace secJoin
 		auto msbIter8 = (u8*)mChoiceMsb.data();
 
 		auto shuffle = std::array<block, 16>{};
-		setBytes(shuffle, static_cast<u8>(1 << 7));
+		osuCrypto::setBytes(shuffle, static_cast<u8>(1 << 7));
 		for (u64 i = 0; i < 16; ++i)
 			shuffle[i].set<u8>(i, 0);
 
@@ -604,7 +604,7 @@ namespace secJoin
 		using block = oc::block;
 
 		auto shuffle = std::array<block, 16>{};
-		setBytes(shuffle, static_cast<char>(1 << 7));
+		osuCrypto::setBytes(shuffle, static_cast<char>(1 << 7));
 		for (u64 i = 0; i < 16; ++i)
 			shuffle[i].set<u8>(i, 0);
 

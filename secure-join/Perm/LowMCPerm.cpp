@@ -56,7 +56,7 @@ namespace secJoin
 		dst.mDelta.resize(mN, divCeil(mBytesPerRow, sizeof(block)));
 		for (u64 i = 0; i < mN; ++i)
 		{
-			copyBytesMin(dst.mDelta[i], d.subspan(i * blocksPerRow, blocksPerRow));
+			osuCrypto::copyBytesMin(dst.mDelta[i], d.subspan(i * blocksPerRow, blocksPerRow));
 		}
 	}
 
@@ -107,7 +107,7 @@ namespace secJoin
 		dst.mA.resize(mN, divCeil(mBytesPerRow, sizeof(block)));
 		for (u64 i = 0; i < mN; ++i)
 		{
-			copyBytesMin(dst.mB[i], b.subspan(i * blocksPerRow, blocksPerRow));
+			osuCrypto::copyBytesMin(dst.mB[i], b.subspan(i * blocksPerRow, blocksPerRow));
 		}
 
 		std::vector<lowBlock> a(blocksPerRow);
@@ -121,7 +121,7 @@ namespace secJoin
 				a.data()[j] = lowMc.encrypt(a.data()[j]);
 			}
 
-			copyBytesMin(dst.mA[i], a);
+			osuCrypto::copyBytesMin(dst.mA[i], a);
 		}
 
 	}

@@ -31,8 +31,8 @@ namespace secJoin
 			auto d0 = k.subspan(0, size0);
 			auto d1 = k.subspan(size0);
 			assert(d1.data() + d1.size() == k.data() + k.size());
-			copyBytes(d0, leftJoinCol.mCol.mData);
-			copyBytes(d1, rightJoinCol.mCol.mData);
+			osuCrypto::copyBytes(d0, leftJoinCol.mCol.mData);
+			osuCrypto::copyBytes(d1, rightJoinCol.mCol.mData);
 			return keys;
 
 		}
@@ -128,7 +128,7 @@ namespace secJoin
 		sKeys.resize(data.rows() + 1, keyBitCount);
 		for (u64 i = 0; i < n; ++i)
 		{
-			copyBytes(sKeys[i+1], data[i].subspan(keyByteOffset, keyByteSize));
+			osuCrypto::copyBytes(sKeys[i+1], data[i].subspan(keyByteOffset, keyByteSize));
 		}
 
 		mControlBitGmw.setInput(0, sKeys.subMatrix(0, n));
@@ -163,11 +163,11 @@ namespace secJoin
 			assert(divCeil(offsets[j].mSize, 8) == size);
 			for (u64 i = 1; i < n; ++i)
 			{
-				copyBytes(d0.subspan(0, size), src.subspan(0, size));
+				osuCrypto::copyBytes(d0.subspan(0, size), src.subspan(0, size));
 				src = src.subspan(size);
 				d0 = d0.subspan(dst.cols());
 			}
-			copyBytes(d0.subspan(0, size), src.subspan(0, size));
+			osuCrypto::copyBytes(d0.subspan(0, size), src.subspan(0, size));
 
 		}
 	}
@@ -281,7 +281,7 @@ namespace secJoin
 					dsts[j] = dsts[j].subspan(sizes[j]);
 					srcs[j] = srcs[j].subspan(srcStep);
 				}
-				copyBytes(dsts[j].subspan(0, sizes[j]), srcs[j].subspan(0, sizes[j]));
+				osuCrypto::copyBytes(dsts[j].subspan(0, sizes[j]), srcs[j].subspan(0, sizes[j]));
 			}
 		}
 	}
@@ -389,7 +389,7 @@ namespace secJoin
 		out.resize(data.rows(), data.bitsPerEntry());
 		for (u64 i = 0; i < data.rows(); ++i)
 		{
-			copyBytes(out[i].subspan(0, offset), data[i].subspan(0, offset));
+			osuCrypto::copyBytes(out[i].subspan(0, offset), data[i].subspan(0, offset));
 			out(i, offset) = temp(i);
 		}
 	}
@@ -402,7 +402,7 @@ namespace secJoin
 		out.resize(n, m + 8);
 		for (u64 i = 0; i < n; ++i)
 		{
-			copyBytes(out[i].subspan(0, m8), data[i].subspan(0, m8));
+			osuCrypto::copyBytes(out[i].subspan(0, m8), data[i].subspan(0, m8));
 			out(i, m8) = choice(i);
 		}
 	}

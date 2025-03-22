@@ -32,7 +32,7 @@ namespace secJoin
 				for (u64 j = 0; j < out.cols(); j++)
 				{
 					auto bytes = out.mColumns[j].getByteCount();
-					copyBytes(out.mColumns[j].mData[curPtr], data.mData[i].subspan(byteStartIdx, bytes));
+					osuCrypto::copyBytes(out.mColumns[j].mData[curPtr], data.mData[i].subspan(byteStartIdx, bytes));
 					byteStartIdx += bytes;
 				}
 				curPtr++;
@@ -115,7 +115,7 @@ namespace secJoin
 					if (mColumns[j].mBitCount > 64)
 						throw RTE_LOC; // too big of an int to serialize
 					i64 v = 0;
-					copyBytesMin(v, mColumns[j].mData[i]);
+					osuCrypto::copyBytesMin(v, mColumns[j].mData[i]);
 					out << v << " ";
 				}
 				else if (mColumns[j].mType == ColumnType::Boolean)
@@ -196,7 +196,7 @@ namespace secJoin
 					if (std::to_string(v) != buffer)
 						throw RTE_LOC;
 
-					copyBytesMin(mColumns[j].mData[i], v);
+					osuCrypto::copyBytesMin(mColumns[j].mData[i], v);
 				}
 				else if(mColumns[j].mType == ColumnType::Boolean)
 				{
@@ -301,7 +301,7 @@ namespace secJoin
 				{
 					for (u64 j = 0; j < cols(); j++)
 					{
-						copyBytes(
+						osuCrypto::copyBytes(
 							mColumns[j].mData[curPtr],
 							mColumns[j].mData[i]);
 					}
@@ -374,7 +374,7 @@ namespace secJoin
 		{
 			inputs[0][0] = mIsActive[j];
 			for (u64 i = 0; i < inputColumns.size(); ++i)
-				copyBytes(inputs[1 + i], mColumns[inputColumns[i]].mData[j]);
+				osuCrypto::copyBytes(inputs[1 + i], mColumns[inputColumns[i]].mData[j]);
 
 			cir.evaluate(inputs, outputs);
 			mIsActive[j] = outputs[0][0];
@@ -419,7 +419,7 @@ namespace secJoin
 	//            for (oc::u64 colNum = 0; colNum < tb.cols(); colNum++)
 	//            {
 	//                u64 bytes = tb.mColumns[colNum].getByteCount();
-	//                copyBytes(
+	//                osuCrypto::copyBytes(
 	//                    tb.mColumns[colNum].mData[rowPtr],
 	//                    buffer.subspan(buffptr, bytes));
 	//                buffptr += bytes;
@@ -445,19 +445,19 @@ namespace secJoin
 	//        {
 	//            if (tb.mColumns[colNum].getTypeID() == ColumnType::String)
 	//            {
-	//                copyBytesMin(tb.mColumns[colNum].mData[rowNum], word);
+	//                osuCrypto::copyBytesMin(tb.mColumns[colNum].mData[rowNum], word);
 	//            }
 	//            else if (tb.mColumns[colNum].getTypeID() == ColumnType::Int)
 	//            {
 	//                if (tb.mColumns[colNum].getByteCount() <= 4)
 	//                {
 	//                    oc::i32 number = stoi(word);
-	//                    copyBytes(tb.mColumns[colNum].mData[rowNum], number);
+	//                    osuCrypto::copyBytes(tb.mColumns[colNum].mData[rowNum], number);
 	//                }
 	//                else if (tb.mColumns[colNum].getByteCount() <= 8)
 	//                {
 	//                    oc::i64 number = stoll(word);
-	//                    copyBytes(tb.mColumns[colNum].mData[rowNum], number);
+	//                    osuCrypto::copyBytes(tb.mColumns[colNum].mData[rowNum], number);
 	//                }
 	//                else
 	//                {
@@ -528,7 +528,7 @@ namespace secJoin
 		u64 m = avgCol.size();
 		assert(row < out.rows());
 		// Copying the groupby column
-		copyBytes(
+		osuCrypto::copyBytes(
 			out.mColumns[0].mData[row],
 			groupByCol.mCol.mData[row]);
 
@@ -536,13 +536,13 @@ namespace secJoin
 		for (u64 col = 0; col < m; col++)
 		{
 			assert(out.mColumns.at(col + 1).mData.bytesPerEntry() == inputs.at(2 * col).sizeBytes());
-			copyBytes(
+			osuCrypto::copyBytes(
 				out.mColumns.at(col + 1).mData[row],
 				inputs.at(2 * col));
 		}
 
 		// Copying the ones column 
-		copyBytes(
+		osuCrypto::copyBytes(
 			out.mColumns.at(m + 1).mData[row],
 			inputs.at(2 * m));
 
@@ -800,7 +800,7 @@ namespace secJoin
 				// auto size = ret.mColumns[j].mData.cols();
 				// m emcpy(dst, src, size);
 
-				copyBytes(ret.mColumns.at(j).mData[d], select.at(j).mCol.mData[I.at(i).at(lr)]);
+				osuCrypto::copyBytes(ret.mColumns.at(j).mData[d], select.at(j).mCol.mData[I.at(i).at(lr)]);
 			}
 			ret.mIsActive.at(d) = 1;
 
@@ -841,7 +841,7 @@ namespace secJoin
 					if (t.mColumns[j].getBitCount() > 64)
 						throw RTE_LOC;
 					i64 v = 0;
-					copyBytesMin(v, t.mColumns[j].mData[i]);
+					osuCrypto::copyBytesMin(v, t.mColumns[j].mData[i]);
 					printElem(v);
 				}
 				else
