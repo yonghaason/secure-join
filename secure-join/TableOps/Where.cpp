@@ -83,7 +83,7 @@ namespace secJoin {
 		if(input.rows() != mRows)
 			throw RTE_LOC;
 		for (auto i : oc::rng(input.mColumns.size()))
-			if (input.mColumns[i] != mColumns[i])
+			if (input.mColumns[i].getColumnInfo() != mColumns[i])
 				throw std::runtime_error(LOCATION);
 
 		// set the inputs
