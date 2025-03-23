@@ -70,7 +70,7 @@ namespace secJoin {
 			auto d = dst.mData[i];
 			for (u64 j = 0; j < input.size(); ++j)
 			{
-				copyBytes(d.subspan(0, input[j].cols()), input[j][i]);
+				osuCrypto::copyBytes(d.subspan(0, input[j].cols()), input[j][i]);
 				d = d.subspan(input[j].cols());
 			}
 		}
@@ -102,7 +102,7 @@ namespace secJoin {
 			auto d = input[i];
 			for (u64 j = 0; j < output.size(); ++j)
 			{
-				copyBytes(output[j][i], d.subspan(0, output[j].cols()));
+				osuCrypto::copyBytes(output[j][i], d.subspan(0, output[j].cols()));
 				d = d.subspan(output[j].cols());
 			}
 		}
@@ -174,7 +174,7 @@ namespace secJoin {
 				auto src = combined[i].subspan(1);
 				for (u64 j = 0; j < output.size(); ++j)
 				{
-					copyBytes((*output[j])[d], src.subspan(0, output[j]->bytesPerEntry()));
+					osuCrypto::copyBytes((*output[j])[d], src.subspan(0, output[j]->bytesPerEntry()));
 					src = src.subspan(output[j]->bytesPerEntry());
 				}
 				++d;

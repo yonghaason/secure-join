@@ -115,8 +115,8 @@ namespace secJoin
 		{
 			for (u64 j = 0; j < 2; ++j)
 			{
-				setBytes(mLsb[j], 0);
-				setBytes(mMsb[j], 0);
+				osuCrypto::setBytes(mLsb[j], 0);
+				osuCrypto::setBytes(mMsb[j], 0);
 			}
 			return;
 		}
@@ -151,9 +151,9 @@ namespace secJoin
 		mMsb.resize(m);
 		if (0)
 		{
-			setBytes(mChoice, 0);
-			setBytes(mLsb, 0);
-			setBytes(mMsb, 0);
+			osuCrypto::setBytes(mChoice, 0);
+			osuCrypto::setBytes(mLsb, 0);
+			osuCrypto::setBytes(mMsb, 0);
 			return;
 		}
 		else

@@ -66,7 +66,7 @@ void OmJoin_getControlBits_Test(const oc::CLP& cmd)
         exp[i] = prng.getBit();
         if (exp[i])
         {
-			copyBytes(k[i].subspan(offset), k[i - 1].subspan(offset));
+			osuCrypto::copyBytes(k[i].subspan(offset), k[i - 1].subspan(offset));
             //me mcpy(k.data(i) + offset, k.data(i - 1) + offset, k.cols() - offset);
         }
     }
@@ -309,7 +309,7 @@ void OmJoin_join_Test(const oc::CLP& cmd)
         if (keys.insert(ii).second == false)
             throw RTE_LOC;
         //m emcpy(&L.mColumns[0].mData.mData(i, 0), &ii, L.mColumns[0].mData.bytesPerEntry());
-		copyBytesMin(L.mColumns[0].mData.mData[i], ii);
+		osuCrypto::copyBytesMin(L.mColumns[0].mData.mData[i], ii);
         L.mColumns[1].mData.mData(i, 0) = i % 4;
         L.mColumns[1].mData.mData(i, 1) = i % 3;
     }
@@ -320,7 +320,7 @@ void OmJoin_join_Test(const oc::CLP& cmd)
         //if (k2.insert(ii).second == false)
         //    throw RTE_LOC;
         //m emcpy(&R.mColumns[0].mData.mData(i, 0), &ii, R.mColumns[0].mData.bytesPerEntry());
-		copyBytesMin(R.mColumns[0].mData.mData[i], ii);
+		osuCrypto::copyBytesMin(R.mColumns[0].mData.mData[i], ii);
         // R.mColumns[0].mData.mData(i, 0) = i * 2;
         R.mColumns[1].mData.mData(i) = i % 3;
     }
@@ -428,10 +428,10 @@ void OmJoin_join_BigKey_Test(const oc::CLP& cmd)
         // u64 k 
         auto ii = i * 3;
         assert(sizeof(ii) <= buff.size());
-        copyBytesMin(buff, ii);
+        osuCrypto::copyBytesMin(buff, ii);
         //m emcpy(buff.data(), &ii, sizeof(ii));
         //m emcpy(&L.mColumns[0].mData.mData(i, 0), buff.data(), L.mColumns[0].mData.bytesPerEntry());
-		copyBytes(L.mColumns[0].mData.mData[i], buff);
+		osuCrypto::copyBytes(L.mColumns[0].mData.mData[i], buff);
         L.mColumns[1].mData.mData(i, 0) = i % 4;
         //L.mColumns[1].mData.mData(i, 1) = i % 3;
     }
@@ -440,11 +440,11 @@ void OmJoin_join_BigKey_Test(const oc::CLP& cmd)
     {
         auto ii = i / 2 * 4;
         assert(sizeof(ii) <= buff.size());
-		copyBytesMin(buff, ii);
+		osuCrypto::copyBytesMin(buff, ii);
 
         //m emcpy(buff.data(), &ii, sizeof(ii));
         //m emcpy(&R.mColumns[0].mData.mData(i, 0), buff.data(), R.mColumns[0].mData.bytesPerEntry());
-		copyBytesMin(R.mColumns[0].mData[i], buff);
+		osuCrypto::copyBytesMin(R.mColumns[0].mData[i], buff);
         // R.mColumns[0].mData.mData(i, 0) = i * 2;
         R.mColumns[1].mData.mData(i) = i % 3;
     }
@@ -768,7 +768,7 @@ void OmJoin_join_round_Test(const oc::CLP& cmd)
     for (u64 i = 0; i < nL; ++i)
     {
         // u64 k 
-        copyBytesMin(L.mColumns[0].mData.mData[i], i);
+        osuCrypto::copyBytesMin(L.mColumns[0].mData.mData[i], i);
         L.mColumns[1].mData.mData(i, 0) = i % 4;
         //L.mColumns[1].mData.mData(i, 1) = i % 3;
     }
@@ -776,7 +776,7 @@ void OmJoin_join_round_Test(const oc::CLP& cmd)
     for (u64 i = 0; i < nR; ++i)
     {
         auto ii = i * 2;
-        copyBytesMin(R.mColumns[0].mData.mData[i], ii);
+        osuCrypto::copyBytesMin(R.mColumns[0].mData.mData[i], ii);
         // R.mColumns[0].mData.mData(i, 0) = i * 2;
         R.mColumns[1].mData.mData(i) = i % 3;
     }

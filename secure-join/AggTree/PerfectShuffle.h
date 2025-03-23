@@ -86,10 +86,10 @@ namespace secJoin
 		if (output.size() != n8)
 		{
 			u16 x0 = 0, x1 = 0;
-			copyBytesMin(x0, input0.subspan(n8 / 2));
-			copyBytesMin(x1, input1.subspan(n8 / 2));
+			osuCrypto::copyBytesMin(x0, input0.subspan(n8 / 2));
+			osuCrypto::copyBytesMin(x1, input1.subspan(n8 / 2));
 			auto t = cPerfectShuffle(x0, x1);
-			copyBytesMin(output.subspan(n8), t);
+			osuCrypto::copyBytesMin(output.subspan(n8), t);
 		}
 	}
 
@@ -120,10 +120,10 @@ namespace secJoin
 		{
 			// auto rem = output0.size() - n8 / 2;
 			u32 t = 0;
-			copyBytesMin(t, input.subspan(n8));
+			osuCrypto::copyBytesMin(t, input.subspan(n8));
 			auto r = cPerfectUnshuffle(t);
-			copyBytesMin(output0.subspan(n8 / 2), r[0]);
-			copyBytesMin(output1.subspan(n8 / 2), r[1]);
+			osuCrypto::copyBytesMin(output0.subspan(n8 / 2), r[0]);
+			osuCrypto::copyBytesMin(output1.subspan(n8 / 2), r[1]);
 		}
 	}
 

@@ -222,7 +222,7 @@ namespace secJoin
 				for (u64 j = 0; j < selects.size(); ++j)
 				{
 					auto src = selects[j].mCol.mData[inputIdx];
-					copyBytes(dest.subspan(0, src.size()), src);
+					osuCrypto::copyBytes(dest.subspan(0, src.size()), src);
 					dest = dest.subspan(src.size());
 					// memcpy(dest, src, strides[j]);
 					// dest += strides[j];

@@ -25,8 +25,8 @@ namespace secJoin
 
 		for (u64 i = 0; i < n; ++i)
 		{
-			copyBytes(grpByData[i], data[i].subspan(offsets[0].mStart / 8, grpByData.bytesPerEntry()));
-			copyBytes(compressKeys[i], data[i].subspan(offsets[1].mStart / 8, compressKeys.bytesPerEntry()));
+			osuCrypto::copyBytes(grpByData[i], data[i].subspan(offsets[0].mStart / 8, grpByData.bytesPerEntry()));
+			osuCrypto::copyBytes(compressKeys[i], data[i].subspan(offsets[1].mStart / 8, compressKeys.bytesPerEntry()));
 			
 			*oc::BitIterator((u8*)actFlag.data(i), 0) =
 				*oc::BitIterator((u8*)data.data(i), offsets[2].mStart);
@@ -56,7 +56,7 @@ namespace secJoin
 		assert(rows == actFlagVec.size());
 		for (u64 i = 0; i < keys.rows(); ++i)
 		{
-			copyBytes(keys[i].subspan(0, grpByBytes), grpByData[i]);
+			osuCrypto::copyBytes(keys[i].subspan(0, grpByBytes), grpByData[i]);
 			*oc::BitIterator((u8*)keys.data(i), grpByBits) =
 				*oc::BitIterator((u8*)&actFlagVec[0] + i, 0);
 		}
@@ -466,7 +466,7 @@ namespace secJoin
 			// Copying the average columns
 			for (u64 j = 0; j < offsets.size() - 2; j++)
 			{
-				copyBytes(
+				osuCrypto::copyBytes(
 					out.mColumns[j + 1].mData[i],
 					data[i].subspan(offsets[j].mStart / 8,
 						out.mColumns[j + 1].getByteCount()));
@@ -474,7 +474,7 @@ namespace secJoin
 			}
 
 			// Storing the Group By Column
-			copyBytes(
+			osuCrypto::copyBytes(
 				out.mColumns[0].mData[i],
 				data[i].subspan(offsets[offsets.size() - 2].mStart / 8,
 					out.mColumns[0].getByteCount()));
@@ -539,7 +539,7 @@ namespace secJoin
 		keyBitCount = keys.bitsPerEntry();
 
 		sKeys.resize(n + 1, keyBitCount);
-		copyBytes(sKeys.subMatrix(1), keys.subMatrix(0, n));
+		osuCrypto::copyBytes(sKeys.subMatrix(1), keys.subMatrix(0, n));
 
 		mControlBitGmw.setInput(0, sKeys.subMatrix(0, n));
 		mControlBitGmw.setInput(1, sKeys.subMatrix(1, n));

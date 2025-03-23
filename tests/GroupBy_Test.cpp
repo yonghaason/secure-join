@@ -227,7 +227,7 @@ void GroupBy_getControlBits_Test(const oc::CLP& cmd)
         exp[i] = prng.getBit();
         if (exp[i])
         {
-            copyBytes(keys[i], keys[i - 1]);
+            osuCrypto::copyBytes(keys[i], keys[i - 1]);
             // m emcpy(keys.data(i), keys.data(i - 1), keys.cols());
         }
     }

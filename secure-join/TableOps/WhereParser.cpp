@@ -127,14 +127,14 @@ namespace secJoin
 
 		auto intPrint = [](const oc::BitVector& v) {
 			i64 val = 0;
-			copyBytesMin(val, v);
+			osuCrypto::copyBytesMin(val, v);
 			val = signExtend(val, v.size() - 1);
 			return std::to_string(val);
 			};
 
 		auto strPrint = [](const oc::BitVector& v) {
 			std::string s(v.sizeBytes(), 'a');
-			copyBytes(s, v);
+			osuCrypto::copyBytes(s, v);
 			return s;
 			};
 

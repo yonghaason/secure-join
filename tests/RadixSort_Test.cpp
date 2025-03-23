@@ -486,12 +486,12 @@ void RadixSort_genBitPerm_test(const oc::CLP& cmd)
                             ke[jj](i) = v;
 
                             u64 kk = 0;
-                            copyBytesMin(kk, k[i]);
+                            osuCrypto::copyBytesMin(kk, k[i]);
                             //m emcpy(&kk, k[i].data(), k[i].size());
 
                             kk = kk << shift | v;
 
-							copyBytesMin(k[i], kk);
+							osuCrypto::copyBytesMin(k[i], kk);
                             // m emcpy(k[i].data(), &kk, k[i].size());
 
                             vals[v].push_back(i);
@@ -581,7 +581,7 @@ void RadixSort_genBitPerm_test(const oc::CLP& cmd)
 //    std::cout << "send buffers: " << std::endl;
 //    for (auto& b : s0.mImpl->mSendBuffers)
 //    {
-//        std::cout << "name: " << name(*b) << " local: " << b->mLocalId << " remote: " << (i32)b->mRemoteId << " size: " << b->mSendOps2_.begin()->mSendBuff.asSpan().size() << std::endl;
+//        std::cout << "name: " << name(*b) << " local: " << b->mLocalId << " remote: " << (i32)b->mRemoteId << " size: " << b->mSendOps2_.begin()->mSendBuff.osuCrypto::asSpan().size() << std::endl;
 //    }
 //
 //
@@ -630,7 +630,7 @@ void RadixSort_genBitPerm_test(const oc::CLP& cmd)
 //    printStatus(s1);
 //    //for (auto& b : s0.mImpl->m)
 //    //{
-//    //    std::cout << "local: " << b->mLocalId << " remote: " << b->mRemoteId << " size: " << b->mSendOps2_.begin()->mSendBuff.asSpan().size() << std::endl;
+//    //    std::cout << "local: " << b->mLocalId << " remote: " << b->mRemoteId << " size: " << b->mSendOps2_.begin()->mSendBuff.osuCrypto::asSpan().size() << std::endl;
 //    //}
 //
 //}
@@ -685,7 +685,7 @@ void RadixSort_genPerm_test(const oc::CLP& cmd)
                         u64 v = prng.get<u64>() & mask;
                         k64[i] = v;
                         // m emcpy(k[i].data(), &v, k[i].size());
-						copyBytesMin(k[i], v);
+						osuCrypto::copyBytesMin(k[i], v);
                     }
 
                     std::stable_sort(exp.begin(), exp.end(),
@@ -768,7 +768,7 @@ void RadixSort_mock_test(const oc::CLP& cmd)
                     u64 v = prng.get<u64>() & mask;
                     k64[i] = v;
                     //m emcpy(k[i].data(), &v, k[i].size());
-					copyBytesMin(k[i], v);
+					osuCrypto::copyBytesMin(k[i], v);
                 }
 
                 std::stable_sort(exp.begin(), exp.end(),

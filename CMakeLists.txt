@@ -24,3 +24,14 @@ add_subdirectory(frontend)
 
 # setup the install
 include(cmake/install.cmake)
+
+configure_package_config_file(
+  "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Config.cmake.in"
+  "${CMAKE_CURRENT_BINARY_DIR}/secureJoinConfig.cmake"
+  INSTALL_DESTINATION lib/cmake/secureJoin
+)
+
+install(
+  FILES "${CMAKE_CURRENT_BINARY_DIR}/secureJoinConfig.cmake"
+  DESTINATION lib/cmake/secureJoin
+)

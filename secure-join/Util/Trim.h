@@ -24,7 +24,7 @@ namespace secJoin
 		const span<T>& b,
 		u64 bitCount)
 	{
-		return areEqualImpl(asSpan<u8>(a), asSpan<u8>(b), bitCount);
+		return areEqualImpl(osuCrypto::asSpan<u8>(a), osuCrypto::asSpan<u8>(b), bitCount);
 	}
 
 	bool areEqualImpl(

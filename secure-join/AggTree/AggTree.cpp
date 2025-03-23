@@ -41,8 +41,8 @@ namespace secJoin
 
             if (dstShift2)
             {
-                setBytes(out0[i].subspan(0, dstShift2 / 8), 0);
-                setBytes(out1[i].subspan(0, dstShift2 / 8), 0);
+                osuCrypto::setBytes(out0[i].subspan(0, dstShift2 / 8), 0);
+                osuCrypto::setBytes(out1[i].subspan(0, dstShift2 / 8), 0);
             }
 
             perfectUnshuffle(inn, o0, o1);
@@ -666,7 +666,7 @@ namespace secJoin
                     {
                         auto ss0 = src[k].subspan(srcStart, size);
                         auto dd0 = dst[k].subspan(dstStart, size);
-                        secJoin::copyBytes(dd0, ss0);
+                        osuCrypto::copyBytes(dd0, ss0);
                     }
                 }
             };

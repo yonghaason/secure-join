@@ -7,7 +7,7 @@ namespace secJoin
 
 	auto makeAltModWPrfB() {
 		std::array<block, 128> r;
-		setBytes(r, 0);
+		osuCrypto::setBytes(r, 0);
 		PRNG prng(block(234532451234512134, 214512345123455437));
 		for (u64 i = 0; i < r.size(); ++i)
 		{
@@ -22,7 +22,7 @@ namespace secJoin
 		oc::Matrix<u8> g(128, sizeof(block)), gt(128, sizeof(block));
 		g.resize(128, sizeof(block));
 		for (u64 i = 0; i < 128; ++i)
-			copyBytes(g[i], AltModPrf::mB[i]);
+			osuCrypto::copyBytes(g[i], AltModPrf::mB[i]);
 		oc::transpose(g, gt);
 		F2LinearCode r;
 		r.init(gt);
@@ -313,12 +313,12 @@ namespace secJoin
 			// TODO, make this branch free.
 			if (bit(mExpandedKey, i))
 			{
-				copyBytes(xk0[i], xt[i]);
+				osuCrypto::copyBytes(xk0[i], xt[i]);
 			}
 			else
-				setBytes(xk0[i], 0);
+				osuCrypto::setBytes(xk0[i], 0);
 
-			setBytes(xk1[i], 0);
+			osuCrypto::setBytes(xk1[i], 0);
 		}
 
 		// u = A * xk mod 3

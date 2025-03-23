@@ -186,8 +186,8 @@ namespace secJoin
                 // for the first even number of rows split te values into left and right
                 for (; i < available2; i += 2, ++d)
                 {
-                    copyBytes(vals[0][d], src[i + 0].subspan(0, byteCount));
-                    copyBytes(vals[1][d], src[i + 1].subspan(0, byteCount));
+                    osuCrypto::copyBytes(vals[0][d], src[i + 0].subspan(0, byteCount));
+                    osuCrypto::copyBytes(vals[1][d], src[i + 1].subspan(0, byteCount));
 
                     assert(mLeftRight[0].mPreBit.size() > d / 8);
                     assert(mLeftRight[1].mPreBit.size() > d / 8);
@@ -200,8 +200,8 @@ namespace secJoin
                 if (available & 1)
                 {
                     assert(i == src.rows() - 1);
-                    copyBytes(vals[0][d], src[i].subspan(0, byteCount));
-                    setBytes(vals[1][d], 0);
+                    osuCrypto::copyBytes(vals[0][d], src[i].subspan(0, byteCount));
+                    osuCrypto::setBytes(vals[1][d], 0);
                     assert(mLeftRight[0].mPreBit.size() > d / 8);
                     *oc::BitIterator(mLeftRight[0].mPreBit.data(), d) = controlBits[i];
                     *oc::BitIterator(mLeftRight[1].mPreBit.data(), d) = 0;
@@ -212,8 +212,8 @@ namespace secJoin
                 // if there is space left over fill with zeros
                 for (; d < n / 2; ++d)
                 {
-                    setBytes(vals[0][d], 0);
-                    setBytes(vals[1][d], 0);
+                    osuCrypto::setBytes(vals[0][d], 0);
+                    osuCrypto::setBytes(vals[1][d], 0);
                     *oc::BitIterator(mLeftRight[0].mPreBit.data(), d) = 0;
                     *oc::BitIterator(mLeftRight[1].mPreBit.data(), d) = 0;
                 }
@@ -234,15 +234,15 @@ namespace secJoin
                 // std::cout << "d " << d << std::endl;
                 for (; i < available2 - 2; i += 2, ++d)
                 {
-                    copyBytes(vals[0][d], src[i + 0].subspan(0, byteCount));
-                    copyBytes(vals[1][d], src[i + 1].subspan(0, byteCount));
+                    osuCrypto::copyBytes(vals[0][d], src[i + 0].subspan(0, byteCount));
+                    osuCrypto::copyBytes(vals[1][d], src[i + 1].subspan(0, byteCount));
                     *oc::BitIterator(mLeftRight[0].mSufBit.data(), d) = controlBits[i + 1];
                     *oc::BitIterator(mLeftRight[1].mSufBit.data(), d) = controlBits[i + 2];
                 }
 
                 {
-                    copyBytes(vals[0][d], src[i + 0].subspan(0, byteCount));
-                    copyBytes(vals[1][d], src[i + 1].subspan(0, byteCount));
+                    osuCrypto::copyBytes(vals[0][d], src[i + 0].subspan(0, byteCount));
+                    osuCrypto::copyBytes(vals[1][d], src[i + 1].subspan(0, byteCount));
 
                     auto cLast = 0;
                     if (i + 2 < controlBits.size())
@@ -260,8 +260,8 @@ namespace secJoin
 
                 if (available & 1)
                 {
-                    copyBytes(vals[0][d], src[i + 0].subspan(0, byteCount));
-                    setBytes(vals[1][d], 0);
+                    osuCrypto::copyBytes(vals[0][d], src[i + 0].subspan(0, byteCount));
+                    osuCrypto::setBytes(vals[1][d], 0);
 
                     auto cLast = 0;
                     if (i + 1 < controlBits.size())
@@ -279,8 +279,8 @@ namespace secJoin
                 // if there is space left over fill with zeros
                 for (; d < n / 2; ++d)
                 {
-                    setBytes(vals[0][d], 0);
-                    setBytes(vals[1][d], 0);
+                    osuCrypto::setBytes(vals[0][d], 0);
+                    osuCrypto::setBytes(vals[1][d], 0);
                     *oc::BitIterator(mLeftRight[0].mPreBit.data(), d) = 0;
                     *oc::BitIterator(mLeftRight[1].mPreBit.data(), d) = 0;
                 }
@@ -361,7 +361,7 @@ namespace secJoin
                     {
                         auto d = dst.mData[i].subspan(dOffset, size);
                         auto s = src.mData[i].subspan(sOffset, size);
-                        copyBytes(d, s);
+                        osuCrypto::copyBytes(d, s);
                     }
                 };
             for (u64 j = 0; j < 2; ++j)

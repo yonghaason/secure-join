@@ -57,7 +57,7 @@ void eval(BetaCircuit& cir,
                 inputs[j][i].randomize(prng);
                 
                 //m emcpy(in[j].data(), inputs[j][i].data(), inputs[j][i].sizeBytes());
-                copyBytes(in[j], inputs[j][i]);
+                osuCrypto::copyBytes(in[j], inputs[j][i]);
             }
 
             share(in, cir.mInputs[i].size(), sInputs[i][0], sInputs[i][1], prng);
@@ -532,12 +532,12 @@ BinMatrix perfectShuffle(const BinMatrix& x0, const BinMatrix& x1)
     BinMatrix mR(x0.numEntries() + x1.numEntries(), x0.bitsPerEntry());
     for (u64 i = 0; i < x0.numEntries(); ++i)
     {
-        copyBytes(mR[i * 2], x0[i]);
+        osuCrypto::copyBytes(mR[i * 2], x0[i]);
         //m emcpy(mR.data(i * 2), x0.data(i), mR.bytesPerEntry());
     }
     for (u64 i = 0; i < x1.numEntries(); ++i)
     {
-        copyBytes(mR[i * 2 + 1], x1[i]);
+        osuCrypto::copyBytes(mR[i * 2 + 1], x1[i]);
         // m emcpy(mR.data(i * 2 + 1), x1.data(i), mR.bytesPerEntry());
     }
     return mR;
@@ -747,8 +747,8 @@ void AggTree_dup_singleSetLeaves_Test()
                         expS.resize(nn, m);
                         expPreC.resize(nn, 1);
 
-                        copyBytes(expS.subMatrix(mR, mN - mN0), s.subMatrix(mN0));
-                        copyBytes(expPreC.subMatrix(mR, mN - mN0), c.subMatrix(mN0));
+                        osuCrypto::copyBytes(expS.subMatrix(mR, mN - mN0), s.subMatrix(mN0));
+                        osuCrypto::copyBytes(expPreC.subMatrix(mR, mN - mN0), c.subMatrix(mN0));
 
                         expSufC = expPreC; expSufC.resize(nn, 1);
                         for (u64 i = mR + 1; i < expSufC.size(); ++i)

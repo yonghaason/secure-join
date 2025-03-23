@@ -22,7 +22,7 @@ namespace secJoin
         mG.setZero();
         for (u64 i = 0; i < g.rows(); ++i)
         {
-            copyBytes(mG[i], g[i]);
+            osuCrypto::copyBytes(mG[i], g[i]);
         }
 
         generateSubcodes();

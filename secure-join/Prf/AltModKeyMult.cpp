@@ -310,7 +310,7 @@ namespace secJoin
 			else
 			{
 				AltModPrf::KeyType k;
-				setBytes(k, 0);
+				osuCrypto::setBytes(k, 0);
 				co_await sock.send(k);
 			}
 

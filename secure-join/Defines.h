@@ -94,68 +94,6 @@ namespace secJoin
 		coproto::enable_if_t<coproto::has_size_member_func<typename std::remove_reference<Container>::type>::value>
 		>> :
 		coproto::true_type {};
-		 
-
-    template<typename T>
-    auto asSpan(T&& t)
-    {
-        static_assert(std::is_pointer_v<T> == false);
-
-        if constexpr (std::is_same_v<std::remove_cvref_t<T>, oc::BitVector>)
-        {
-            return t.template getSpan<u8>();
-        }
-        if constexpr (is_container<T>::value)
-        {
-            using U = std::remove_reference_t<decltype(*t.data())>;
-            return span<U>(t.data(), t.size());
-        }
-        else if constexpr(std::is_trivial_v<std::remove_reference_t<T>>)
-        {
-            return std::span<std::remove_reference_t<T>, 1>(&t, &t+1);
-        }
-        else
-        {
-            static_assert(
-                is_container<T>::value || 
-                std::is_trivial_v<std::remove_reference_t<T>>
-                );
-        }
-    }
-
-    template<typename D, typename S>
-    OC_FORCEINLINE void copyBytes(D&& dst,S&& src)
-    {
-        auto d = asSpan(dst);
-        auto s = asSpan(src);
-        if(d.size_bytes() != s.size_bytes())
-            throw RTE_LOC;
-        static_assert(std::is_trivially_copyable_v<std::remove_reference_t<decltype(*d.data())>>);
-        static_assert(std::is_trivially_copyable_v<std::remove_reference_t<decltype(*s.data())>>);
-        if(d.size())
-            std::memcpy(d.data(), s.data(), d.size_bytes());
-    }
-
-    template<typename D, typename S>
-    OC_FORCEINLINE void copyBytesMin(D&& dst, S&& src)
-    {
-        auto d = asSpan(dst);
-        auto s = asSpan(src);
-        auto size = std::min(s.size_bytes(), d.size_bytes());
-        static_assert(std::is_trivially_copyable_v<std::remove_reference_t<decltype(*d.data())>>);
-        static_assert(std::is_trivially_copyable_v<std::remove_reference_t<decltype(*s.data())>>);
-        if(size)
-            std::memcpy(d.data(), s.data(), size);
-    }
-
-    template<typename D>
-    OC_FORCEINLINE void setBytes(D&& dst, char v)
-    {
-        auto d = asSpan(dst);
-        static_assert(std::is_trivially_copyable_v<std::remove_reference_t<decltype(*d.data())>>);
-        if(d.size())
-            std::memset(d.data(), v, d.size_bytes());
-    }
 
     inline std::string hex(oc::span<const u8> d)
     {
