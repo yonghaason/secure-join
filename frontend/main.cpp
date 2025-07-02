@@ -23,10 +23,11 @@ int main(int argc, char** argv)
 {
     oc::CLP clp(argc, argv);
 
-    if (!clp.isSet("u"))
-        clp.set("u");
+    // if (!clp.isSet("u"))
+    //     clp.set("u");
     
-
+    if (clp.isSet("u"))
+        clp.set("u");
     //buildMod3Table2();
     //buildMod3Table4();
 
@@ -85,6 +86,22 @@ int main(int argc, char** argv)
         if (clp.isSet("mod3"))
         {
             AltMod_sampleMod3_benchmark(clp);
+        }
+        if (clp.isSet("altpsu"))
+        {
+            AltModPsu_benchmark(clp);
+        }
+        if (clp.isSet("altpsu_debug"))
+        {
+            AltModPsu_debug_benchmark(clp);
+        }
+        if (clp.isSet("altpsu_correctness"))
+        {
+            AltModPsu_correctness_benchmark(clp);
+        }
+        if (clp.isSet("altpsu_gmw_test"))
+        {
+            AltModPsu_run_gmw_test_benchmark(clp);
         }
         return 0;
     }
