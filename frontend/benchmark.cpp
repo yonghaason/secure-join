@@ -3,9 +3,285 @@
 #include "secure-join/Sort/RadixSort.h"
 #include "secure-join/Join/OmJoin.h"
 #include "secure-join/Perm/PprfPermGen.h"
+#include "secure-join/AltPsu/AltPsu.h"
 
 namespace secJoin
 {
+	void AltModPsu_benchmark(const oc::CLP& cmd)
+	{
+
+		u64 n = cmd.getOr("n", 1ull << cmd.getOr("nn", 10));
+		// u64 trials = cmd.getOr("trials", 1);
+		// bool nt = cmd.getOr("nt", 1);
+		// auto useOle = cmd.isSet("ole");
+
+		// auto socket = coproto::AsioSocket::makePair();
+		auto socket = coproto::LocalAsyncSocket::makePair(); 
+		oc::Timer timer;
+
+		PRNG prng0(oc::ZeroBlock);
+		PRNG prng(oc::ZeroBlock);
+
+		std::vector<block> recvSet(n), sendSet(n);
+		prng.get<block>(recvSet);
+		prng.get<block>(sendSet);
+
+		AltModPsuSender send;
+		AltModPsuReceiver recv;
+
+		for (u64 i = 0; i < 1; ++i)
+			{	
+
+				auto p0 = send.run(sendSet, prng, socket[0]);
+				auto p1 = recv.run(recvSet, prng, socket[1]);
+				
+				auto r = macoro::sync_wait(macoro::when_all_ready(std::move(p0), std::move(p1)));
+				std::get<0>(r).result();
+				std::get<1>(r).result();
+				
+				//ev.eval(p0, p1);
+			}
+		timer.setTimePoint("end");
+		
+		if (cmd.isSet("v"))
+		{
+			std::cout << timer << "\nr"<< std::endl;
+			std::cout << "comm " << socket[0].bytesSent() << " + " << socket[1].bytesSent()
+				<< " = " << (socket[0].bytesSent() + socket[1].bytesSent())
+				<< std::endl;
+
+		}
+	}
+
+	void AltModPsu_debug_benchmark(const oc::CLP& cmd)
+	{
+		std::cout << "start AltPsu debug version\n";
+
+		u64 n = cmd.getOr("n", 1ull << cmd.getOr("nn", 10));
+		// u64 trials = cmd.getOr("trials", 1);
+		// bool nt = cmd.getOr("nt", 1);
+		// auto useOle = cmd.isSet("ole");
+
+		// auto socket = coproto::AsioSocket::makePair();
+		auto socket = coproto::LocalAsyncSocket::makePair(); 
+		auto socket_gmw = coproto::LocalAsyncSocket::makePair(); 
+		oc::Timer timer;
+
+		PRNG prng0(oc::ZeroBlock);
+		PRNG prng(oc::ZeroBlock);
+
+		std::vector<block> recvSet(n), sendSet(n);
+		prng.get<block>(recvSet);
+		prng.get<block>(sendSet);
+
+		AltModPsuSender send;
+		AltModPsuReceiver recv;
+
+		for (u64 i = 0; i < 1; ++i)
+			{	
+
+				auto p0 = send.run_debug(sendSet, prng, socket[0], socket_gmw[0]);
+				auto p1 = recv.run_debug(recvSet, prng, socket[1], socket_gmw[1]);
+				
+				auto r = macoro::sync_wait(macoro::when_all_ready(std::move(p0), std::move(p1)));
+				std::get<0>(r).result();
+				std::get<1>(r).result();
+				
+				//ev.eval(p0, p1);
+			}
+		timer.setTimePoint("end");
+		
+		if (cmd.isSet("v"))
+		{
+			std::cout << timer << "\nr"<< std::endl;
+			std::cout << "comm " << socket[0].bytesSent() << " + " << socket[1].bytesSent()
+				<< " = " << (socket[0].bytesSent() + socket[1].bytesSent())
+				<< std::endl;
+
+		}
+	}
+
+	void AltModPsu_correctness_benchmark(const oc::CLP& cmd)
+	{
+		// std::cout << "start AltPsu debug version\n";
+
+		u64 n = cmd.getOr("n", 1ull << cmd.getOr("nn", 10));
+		// u64 trials = cmd.getOr("trials", 1);
+		// bool nt = cmd.getOr("nt", 1);
+		// auto useOle = cmd.isSet("ole");
+
+		// auto socket = coproto::AsioSocket::makePair();
+		auto socket = coproto::LocalAsyncSocket::makePair(); 
+		auto socket_gmw = coproto::LocalAsyncSocket::makePair(); 
+		oc::Timer timer;
+
+		PRNG prng0(oc::ZeroBlock);
+		PRNG prng(oc::ZeroBlock);
+
+		std::vector<block> recvSet(n), sendSet(n);
+		prng.get<block>(recvSet);
+		prng.get<block>(sendSet);
+
+		std::set<block> set_X;
+		std::set<block> set_Y;
+
+		for(auto &iter : sendSet){
+			u64* data = (u64*)&iter;
+			data[0] = data[0] % 16777216;
+			data[1] = 0;
+
+			if(data[0] == 0)
+				data[0] = 1;
+
+			while (set_X.count(iter) == true){
+				data[0]++;
+			}
+			set_X.insert(iter);
+			
+		}
+
+		for(auto &iter : recvSet){
+			u64* data = (u64*)&iter;
+			data[0] = data[0] % 16777216;
+			data[1] = 0;
+
+			if(data[0] == 0)
+				data[0] = 1;
+
+			while (set_Y.count(iter) == true){
+				data[0]++;
+			}
+			set_Y.insert(iter);
+		}
+		// 1000000
+		// 16777216
+		// 268435456
+
+		// for (auto &m : sendSet){
+			
+		// 	if (m == oc::ZeroBlock)
+		// 		m = oc::OneBlock;
+
+		// }
+			
+
+		AltModPsuSender send;
+		AltModPsuReceiver recv;
+
+		timer.setTimePoint("start");
+
+		for (u64 i = 0; i < 1; ++i)
+			{	
+
+				auto p0 = send.run_correctness(sendSet, prng, socket[0], socket_gmw[0]);
+				auto p1 = recv.run_correctness(recvSet, prng, socket[1], socket_gmw[1]);
+				
+				auto r = macoro::sync_wait(macoro::when_all_ready(std::move(p0), std::move(p1)));
+				std::get<0>(r).result();
+				std::get<1>(r).result();
+				
+				//ev.eval(p0, p1);
+			}
+		timer.setTimePoint("end");
+		
+		if (cmd.isSet("v"))
+		{
+			std::cout << timer << "\nr"<< std::endl;
+			std::cout << "comm " << socket[0].bytesSent() << " + " << socket[1].bytesSent()
+				<< " = " << (socket[0].bytesSent() + socket[1].bytesSent())
+				<< std::endl;
+
+		}
+	}
+
+	void AltModPsu_run_gmw_test_benchmark(const oc::CLP& cmd)
+	{
+		// std::cout << "start AltPsu debug version\n";
+
+		u64 n = cmd.getOr("n", 1ull << cmd.getOr("nn", 10));
+		
+		auto socket = coproto::LocalAsyncSocket::makePair(); 
+		auto socket_gmw = coproto::LocalAsyncSocket::makePair(); 
+		oc::Timer timer;
+
+		PRNG prng0(oc::ZeroBlock);
+		PRNG prng(oc::ZeroBlock);
+
+		std::vector<block> recvSet(n), sendSet(n);
+		prng.get<block>(recvSet);
+		prng.get<block>(sendSet);
+
+		std::set<block> set_X;
+		std::set<block> set_Y;
+
+		for(auto &iter : sendSet){
+			u64* data = (u64*)&iter;
+			data[0] = data[0] % 16777216;
+			data[1] = 0;
+
+			if(data[0] == 0)
+				data[0] = 1;
+
+			while (set_X.count(iter) == true){
+				data[0]++;
+			}
+			set_X.insert(iter);
+			
+		}
+
+		for(auto &iter : recvSet){
+			u64* data = (u64*)&iter;
+			data[0] = data[0] % 16777216;
+			data[1] = 0;
+
+			if(data[0] == 0)
+				data[0] = 1;
+
+			while (set_Y.count(iter) == true){
+				data[0]++;
+			}
+			set_Y.insert(iter);
+		}
+		// 1000000
+		// 16777216
+		// 268435456
+
+		// for (auto &m : sendSet){
+			
+		// 	if (m == oc::ZeroBlock)
+		// 		m = oc::OneBlock;
+
+		// }
+			
+		AltModPsuSender send;
+		AltModPsuReceiver recv;
+
+		timer.setTimePoint("start");
+		for (u64 i = 0; i < 1; ++i)
+			{	
+				std::cout << "invoke gmw test\n";
+
+				auto p0 = send.run_gmw_test(sendSet, prng, socket[0]);
+				auto p1 = recv.run_gmw_test(recvSet, prng, socket[1]);
+				
+				auto r = macoro::sync_wait(macoro::when_all_ready(std::move(p0), std::move(p1)));
+				std::get<0>(r).result();
+				std::get<1>(r).result();
+				
+				//ev.eval(p0, p1);
+			}
+		timer.setTimePoint("end");
+		
+		if (cmd.isSet("v"))
+		{
+			std::cout << timer << "\nr"<< std::endl;
+			std::cout << "comm " << socket[0].bytesSent() << " + " << socket[1].bytesSent()
+				<< " = " << (socket[0].bytesSent() + socket[1].bytesSent())
+				<< std::endl;
+
+		}
+	}
+
 	void CorGen_benchmark(const oc::CLP& cmd)
 	{
 		// request size
@@ -91,7 +367,7 @@ namespace secJoin
 				//std::cout << "\ni = "<<i<<" \n\n" << std::endl;
 
 				std::vector<macoro::eager_task<>> tasks;
-				timer.setTimePoint("start batches " + std::to_string(i) + " ... " + std::to_string(i + chunk));
+				// timer.setTimePoint("start batches " + std::to_string(i) + " ... " + std::to_string(i + chunk));
 
 				for (u64 b = 0; b < chunk; ++b, ++i)
 				{
@@ -142,7 +418,7 @@ namespace secJoin
 						}
 					}
 				}
-				timer.setTimePoint("done batches " + std::to_string(i) + " ... " + std::to_string(i + chunk));
+				// timer.setTimePoint("done batches " + std::to_string(i) + " ... " + std::to_string(i + chunk));
 
 			}
 
@@ -345,8 +621,11 @@ namespace secJoin
 		u64 trials = cmd.getOr("trials", 1);
 		bool nt = cmd.getOr("nt", 1);
 		auto useOle = cmd.isSet("ole");
+		
+		// std::cout << "useole is " << cmd.isSet("ole") << '\n';
 
 		oc::Timer timer;
+		oc::Timer timer2;
 
 		AltModWPrfSender sender;
 		AltModWPrfReceiver recver;
@@ -387,6 +666,7 @@ namespace secJoin
 		ole0.init(sock2[0].fork(), prng0, 0, nt, 1 << 18, cmd.getOr("mock", 1));
 		ole1.init(sock2[1].fork(), prng1, 1, nt, 1 << 18, cmd.getOr("mock", 1));
 
+		ole0.mGenState->setTimer(timer2);
 
 		prng0.get(x.data(), x.size());
 		std::vector<oc::block> rk(AltModPrf::KeySize);
@@ -427,7 +707,7 @@ namespace secJoin
 		auto end = timer.setTimePoint("end");
 
 		auto ntr = n * trials;
-
+		std::cout << "correlation generation time\n" << timer2 << std::endl;
 		std::cout << "AltModWPrf n:" << n << ", " <<
 			std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count() / double(ntr) << "ns/eval " <<
 			sock[0].bytesSent() / double(ntr) << "+" << sock[0].bytesReceived() / double(ntr) << "=" <<
