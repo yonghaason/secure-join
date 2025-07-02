@@ -178,6 +178,7 @@ namespace secJoin
                 outView = oc::MatrixView<u8>{},
                 ot_choice = oc::BitVector{},
                 temp = block{},
+                communicaton_cost = double{},
 
                 finalOtReceiver = std::make_unique<oc::SilentOtExtReceiver>(),
                 finalOtMsgs = std::vector<block>{}
@@ -268,11 +269,14 @@ namespace secJoin
             exit(0);
         }
 
-
-
+        std::cout << "before start communication is " << (chl.bytesSent() + chl.bytesReceived()) / 1024 / 1024 << "MB\n";
+        communicaton_cost = (chl.bytesSent() + chl.bytesReceived());
         // send okvs encoding
         MC_AWAIT(chl.send(okvs_encoding));
 
+        std::cout << "okvs communication is " << ((chl.bytesSent() + chl.bytesReceived()) - communicaton_cost) / 1024 / 1024 << "MB\n";
+        communicaton_cost = (chl.bytesSent() + chl.bytesReceived());
+        
 
 
         // 2party wprf part
@@ -299,6 +303,9 @@ namespace secJoin
 
         MC_AWAIT(when_all_ready(tOle, tEvalR));
 
+        std::cout << "wprf communication is " << ((chl.bytesSent() + chl.bytesReceived()) - communicaton_cost) / 1024 / 1024 << "MB\n";
+        communicaton_cost = (chl.bytesSent() + chl.bytesReceived());
+
         std::cout << "correlation generation time\n" << timer2 << std::endl;
 
         timer.setTimePoint("2party wprf");
@@ -323,6 +330,9 @@ namespace secJoin
         tgmw = cmp->run(chl);
         tgmw_ole = ole_gmw.start();
         MC_AWAIT(when_all_ready(tgmw, tgmw_ole));
+
+        std::cout << "gmw communication is " << ((chl.bytesSent() + chl.bytesReceived()) - communicaton_cost) / 1024 / 1024 << "MB\n";
+        communicaton_cost = (chl.bytesSent() + chl.bytesReceived());
         
         outView = cmp->getOutputView(0);
 
@@ -338,6 +348,9 @@ namespace secJoin
         finalOtReceiver->configure(ot_choice.size(), 2, 1);
         
         MC_AWAIT(finalOtReceiver->receiveChosen(ot_choice, finalOtMsgs, prng, chl));
+
+        std::cout << "ot communication is " << ((chl.bytesSent() + chl.bytesReceived()) - communicaton_cost) / 1024 / 1024 << "MB\n";
+        communicaton_cost = (chl.bytesSent() + chl.bytesReceived());
         
         timer.setTimePoint("ot");
 
