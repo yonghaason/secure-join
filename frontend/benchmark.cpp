@@ -47,7 +47,7 @@ namespace secJoin
 		{
 			std::cout << timer << "\nr"<< std::endl;
 			std::cout << "comm " << socket[0].bytesSent() << " + " << socket[1].bytesSent()
-				<< " = " << (socket[0].bytesSent() + socket[1].bytesSent())
+				<< " = " << (socket[0].bytesSent() + socket[1].bytesSent()) / 1024 / 1024 << "MB"
 				<< std::endl;
 
 		}
@@ -188,7 +188,7 @@ namespace secJoin
 		{
 			std::cout << timer << "\nr"<< std::endl;
 			std::cout << "comm " << socket[0].bytesSent() << " + " << socket[1].bytesSent()
-				<< " = " << (socket[0].bytesSent() + socket[1].bytesSent())
+				<< " = " << (socket[0].bytesSent() + socket[1].bytesSent()) / 1024 / 1024 << "MB"
 				<< std::endl;
 
 		}
@@ -629,6 +629,11 @@ namespace secJoin
 
 		AltModWPrfSender sender;
 		AltModWPrfReceiver recver;
+		
+		// sender.mKeyMode == AltModPrfKeyMode::SenderOnly;
+		// sender.mInputMode == AltModPrfInputMode::ReceiverOnly;
+		// recver.mKeyMode == AltModPrfKeyMode::SenderOnly;
+		// recver.mInputMode == AltModPrfInputMode::ReceiverOnly;
 
 		sender.mUseMod2F4Ot = !useOle;
 		recver.mUseMod2F4Ot = !useOle;
@@ -708,21 +713,20 @@ namespace secJoin
 
 		auto ntr = n * trials;
 		std::cout << "correlation generation time\n" << timer2 << std::endl;
-		std::cout << "AltModWPrf n:" << n << ", " <<
-			std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count() / double(ntr) << "ns/eval " <<
-			sock[0].bytesSent() / double(ntr) << "+" << sock[0].bytesReceived() / double(ntr) << "=" <<
-			(sock[0].bytesSent() + sock[0].bytesReceived()) / double(ntr) << " bytes/eval ";
+		// std::cout << "AltModWPrf n:" << n << ", " <<
+		// 	std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count() / double(ntr) << "ns/eval " <<
+		// 	'\n' << (sock2[0].bytesSent() + sock2[1].bytesSent()) / 1024 / 1024 << "MB\n";
 
-		std::cout << numOle / double(ntr) << " ole/eval ";
-		std::cout << numF4BitOt / double(ntr) << " f4/eval ";
-		std::cout << numOt / double(ntr) << " ot/eval ";
+		// std::cout << numOle / double(ntr) << " ole/eval ";
+		// std::cout << numF4BitOt / double(ntr) << " f4/eval ";
+		// std::cout << numOt / double(ntr) << " ot/eval ";
 
 		std::cout << std::endl;
 
 		if (cmd.isSet("v"))
 		{
 			std::cout << timer << std::endl;
-			std::cout << sock[0].bytesReceived() / 1000.0 << " " << sock[0].bytesSent() / 1000.0 << " kB " << std::endl;
+			std::cout << "communicatoin is " << (sock[0].bytesSent() + sock[1].bytesSent()) / 1024 / 1024 << "MB\n";
 		}
 	}
 
