@@ -49,6 +49,13 @@ set(SRCS
     "Join/Table.cpp"
     "Join/OmJoin.cpp"
     "Join/OoJoin.cpp"
+
+    "AltPsu/AltPsu.cpp"
+    "AltPsu/AltPsu_debug.cpp"
+    "AltPsu/AltPsu_correctness.cpp"
+    "AltPsu/gmw_test.cpp"
+    "AltPsu/band_okvs.cc"
+    "AltPsu/band.cc"
     )
 
 
