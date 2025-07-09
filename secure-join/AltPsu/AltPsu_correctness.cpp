@@ -73,7 +73,7 @@ namespace secJoin
         MC_AWAIT(chl.recv(receive_randomvalue));
 
         decoded.resize(Y.size());
-        decoded2.resize(okvs.Size());
+        decoded2.resize(Y.size());
         okvs.Decode(Y.data(), okvs_encoding.data(), decoded.data());
         okvs.Decode(Y.data(), okvs_encoding2.data(), decoded2.data());
 
