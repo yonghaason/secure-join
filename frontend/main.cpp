@@ -55,6 +55,10 @@ int main(int argc, char** argv)
         {
             AltMod_benchmark(clp);
         }
+        if (clp.isSet("AltModNoPool"))
+        {
+            AltMod_no_pooling_benchmark(clp);
+        }
         if (clp.isSet("AltModPerm"))
         {
             AltModPerm_benchmark(clp);
