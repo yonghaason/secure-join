@@ -4,6 +4,7 @@
 #include "secure-join/Join/OmJoin.h"
 #include "secure-join/Perm/PprfPermGen.h"
 #include "secure-join/GMW/Gmw.h"
+// #include "secure-join/GMW/backup_volepsi_gmw/Gmw.h"
 #define COPROTO_ENABLE_LOGGING
 
 namespace secJoin
@@ -19,7 +20,9 @@ namespace secJoin
                 band_length= int{},
                 okvs = band_okvs::BandOkvs{},
                 okvs_encoding = std::vector<block>{},
+                okvs_encoding2 = std::vector<block>{},
                 decoded = std::vector<block>{},
+                decoded2 = std::vector<block>{},
                 recver = AltModWPrfReceiver{},
                 ole1 = CorGenerator{},
                 ole_gmw = CorGenerator{},
@@ -37,10 +40,14 @@ namespace secJoin
                 outView = oc::MatrixView<u8>{},
                 flags = oc::BitVector{},
                 receive_randomvalue = std::vector<block>{},
+                send_wprf = std::vector<block>{},
                 // timer = oc::Timer{},
                 temp = block{},
                 temp_ = block{},
                 byte_matrix = oc::MatrixView<u8>{},
+
+
+
 
                 seed = block{},
                 finalOtSender = std::make_unique<oc::SilentOtExtSender>(),
@@ -59,44 +66,57 @@ namespace secJoin
         okvs.Init(n, m, band_length, oc::ZeroBlock);
 
         okvs_encoding.resize(okvs.Size());
+        okvs_encoding2.resize(okvs.Size());
         MC_AWAIT(chl.recv(okvs_encoding));
+        MC_AWAIT(chl.recv(okvs_encoding2));
         receive_randomvalue.resize(Y.size());
         MC_AWAIT(chl.recv(receive_randomvalue));
 
         decoded.resize(Y.size());
+        decoded2.resize(okvs.Size());
         okvs.Decode(Y.data(), okvs_encoding.data(), decoded.data());
+        okvs.Decode(Y.data(), okvs_encoding2.data(), decoded2.data());
 
 		ole1.init(chl.fork(), prng, 1, 1, 1 << 18, 1);
 
-        sk.resize(AltModPrf::KeySize);
-		for (u64 i = 0; i < 128; ++i)
-		{
-			sk[i][0] = oc::block(i, 0);
-			sk[i][1] = oc::block(i, 1);
-		}
-        recver.setKeyOts(sk);
+        // sk.resize(AltModPrf::KeySize);
+		// for (u64 i = 0; i < 128; ++i)
+		// {
+		// 	sk[i][0] = oc::block(i, 0);
+		// 	sk[i][1] = oc::block(i, 1);
+		// }
+        // recver.setKeyOts(sk);
 
         recver.init(Y.size(), ole1);
         recver.mUseMod2F4Ot = true;
         recver.setTimer(timer);
 
+        // temp = receive_randomvalue[0];
+        // receive_randomvalue[0] = receive_randomvalue[1];
+        // receive_randomvalue[1] = temp;
+
         output_2party_wprf.resize(Y.size());
         tOle   = ole1.start();
-        tEvalS = recver.evaluate(receive_randomvalue, output_2party_wprf, chl, prng);
+        tEvalS = recver.evaluate(decoded, output_2party_wprf, chl, prng);
 
         MC_AWAIT(when_all_ready(tOle, tEvalS));
 
-        cir = isZeroCircuit(80);
+        cir = isZeroCircuit(u64(80));
 
         std::cout << "Y.size() is " << Y.size() << '\n';
         // numThreads = 1;
         numThreads = static_cast<osuCrypto::u64>(std::thread::hardware_concurrency());
         
-        in.resize(Y.size(), 16);
+        // in.resize(Y.size(), 16);
+        in.resize(Y.size(), 10);
+        send_wprf.resize(Y.size());
         for (i = 0; i < Y.size(); i++){
-            temp_ = oc::block(0, i);
+
+            // temp_ = oc::block(0, i);
             // temp_ = receive_randomvalue[i];
-            std::memcpy(&in(i, 0), &temp_, 10);   
+            temp = output_2party_wprf[i]^decoded2[i];
+            send_wprf[i] = output_2party_wprf[i]^decoded2[i];
+            std::memcpy(&in(i, 0), &temp, 10);   
             // in(i, 0) = output_2party_wprf[i];
 
         }
@@ -107,16 +127,18 @@ namespace secJoin
 
         cmp->init(Y.size(), cir, ole_gmw);
 
-        cmp->implSetInput(0, in, 10);
-        cmp->mO.mDebug = true;
+        // cmp->implSetInput(0, in, 10);
+        cmp->setInput(0, in);
+        // cmp->mO.mDebug = true;
 
         cmp->preprocess();
         
-        // ole_gmw.start();
-        // MC_AWAIT(cmp->run(socket_gmw));
         tgmw = cmp->run(socket_gmw);
         tgmw_ole = ole_gmw.start();
         MC_AWAIT(when_all_ready(tgmw, tgmw_ole));
+
+        // ole_gmw.start();
+        // MC_AWAIT(cmp->run(socket_gmw));
         // MC_AWAIT(cmp->run(chl));
 
         outView = cmp->getOutputView(0);
@@ -149,7 +171,7 @@ namespace secJoin
         MC_AWAIT(finalOtSender->sendChosen(finalOtMsgs, prng, chl));
 
         MC_AWAIT(chl.send(decoded));
-        MC_AWAIT(chl.send(output_2party_wprf));
+        MC_AWAIT(chl.send(send_wprf));
 
         MC_END();
     }
@@ -164,9 +186,11 @@ namespace secJoin
                 band_length= int{},
                 okvs = band_okvs::BandOkvs{},
                 okvs_encoding = std::vector<block>{},
+                okvs_encoding2 = std::vector<block>{},
                 random_value = std::vector<block>{},
                 ole0 = CorGenerator{},
                 ole_gmw = CorGenerator{},
+                indicator_string = oc::block{},
                 secret_string = block{},
                 rk = std::vector<oc::block>{},
                 sk = std::vector<std::array<oc::block, 2>>{},
@@ -193,6 +217,7 @@ namespace secJoin
                 tgmw = macoro::task<void>{},
                 tgmw_ole = macoro::task<void>{},
                 output_2party_wprf = std::vector<block>{},
+                compute_2party_wprf = std::vector<block>{},
                 numThreads = osuCrypto::u64{},
                 cmp = std::make_unique<Gmw>(),
                 cir = BetaCircuit{},
@@ -205,6 +230,7 @@ namespace secJoin
                 set_Y_X = std::set<block>{},
                 set_random = std::set<block>{},
                 set_xor_wprf = std::set<block>{},
+                temp = block{},
                 temp_ = block{},
 
                 count_intersection = int{},
@@ -216,6 +242,12 @@ namespace secJoin
                 receive_bitvec = oc::BitVector{},
                 gmw_count = int{},
                 byte_matrix = oc::MatrixView<u8>{},
+                
+                A = oc::BetaBundle{},
+                B = oc::BetaBundle{},
+                D = oc::BetaBundle{},
+                Z = oc::BetaBundle{},
+                cir_ = oc::BetaCircuit{},
                 
 
                 finalOtReceiver = std::make_unique<oc::SilentOtExtReceiver>(),
@@ -272,6 +304,7 @@ namespace secJoin
             kk = prng0.get();
             dm.setKey(kk);
             //sender.setKey(kk);
+            indicator_string = prng0.get();
 
             ole0_virtual.init(sock2_virtual[0].fork(), prng0, 0, 1, 1 << 18, 1);
             ole1_virtual.init(sock2_virtual[1].fork(), prng1, 1, 1, 1 << 18, 1);
@@ -314,7 +347,7 @@ namespace secJoin
 
         output_1party_wprf.resize(X.size());
         for (i = 0; i < X.size(); i++){
-            output_1party_wprf[i] = y0[i]^y1[i];
+            output_1party_wprf[i] = y0[i]^y1[i]^indicator_string;
         }
 
         // make rb_okvs
@@ -333,20 +366,27 @@ namespace secJoin
             exit(0);
         }
 
+        okvs_encoding2.resize(okvs.Size());
+        if (!okvs.Encode(X.data(), output_1party_wprf.data(), okvs_encoding2.data())) {
+            std::cout << "Failed to encode!" << std::endl;
+            exit(0);
+        }
+
         // std::cout << "okvs encoding end\n";
 
         MC_AWAIT(chl.send(okvs_encoding));
+        MC_AWAIT(chl.send(okvs_encoding2));
         MC_AWAIT(chl.send(random_value));
 
         // std::cout << "init ole0\n";
 
         ole0.init(chl.fork(), prng, 0, 1, 1 << 18, 1);
         
-        for (u64 i = 0; i < AltModPrf::KeySize; ++i)
-		{
-			rk[i] = oc::block(i, *oc::BitIterator((u8*)&sender.mKeyMultRecver.mKey, i));
-		}
-        sender.setKeyOts(kk, rk);
+        // for (u64 i = 0; i < AltModPrf::KeySize; ++i)
+		// {
+		// 	rk[i] = oc::block(i, *oc::BitIterator((u8*)&sender.mKeyMultRecver.mKey, i));
+		// }
+        // sender.setKeyOts(kk, rk);
 
         sender.init(X.size(), ole0);
         sender.mUseMod2F4Ot = true;// check
@@ -362,29 +402,37 @@ namespace secJoin
 
         // std::cout << "start gmw\n";
 
-        cir = isZeroCircuit(10);
+        cir = isZeroCircuit(u64(80));
 
         numThreads = static_cast<osuCrypto::u64>(std::thread::hardware_concurrency());
-        in.resize(X.size(), 16);
+        in.resize(X.size(), 10);
         for (i = 0; i < X.size(); i++){
 
             // temp_ = output_2party_wprf[i]^output_1party_wprf[i];
-            temp_ = oc::ZeroBlock;
-            
-            std::memcpy(&in(i, 0), &temp_, 10);
+            // temp_ = oc::ZeroBlock;
+            temp = output_2party_wprf[i]^indicator_string;
 
-            set_xor_wprf.insert(output_2party_wprf[i]^output_1party_wprf[i]);
+            std::memcpy(&in(i, 0), &temp, 10);
+
+            set_xor_wprf.insert(output_2party_wprf[i]^indicator_string);
+            // set_xor_wprf.insert(output_2party_wprf[i]^output_1party_wprf[i]);
         }
-        
+ 
+        std::cout << "in.rows() is " << in.rows() << " in.cols() is " << in.cols() << '\n';
+        std::cout << "in(1, 0) is " << int(in(1, 0)) << '\n';
+        std::cout << "in(1, 1) is " << int(in(1, 1)) << '\n';
+        std::cout << "in(1, 2) is " << int(in(1, 2)) << '\n';
+
         numThreads = static_cast<osuCrypto::u64>(std::thread::hardware_concurrency());
 
         ole_gmw.init(socket_gmw.fork(), prng, 0, 1, 1 << 18, 0);
 
         cmp->init(X.size(), cir, ole_gmw);
         
-        cmp->implSetInput(0, in, 10);
+        // cmp->implSetInput(0, in, 10);
+        cmp->setInput(0, in);
 
-        cmp->mO.mDebug = true;
+        // cmp->mO.mDebug = true;
 
         cmp->preprocess();
 
