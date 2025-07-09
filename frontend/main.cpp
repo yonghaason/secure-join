@@ -107,6 +107,11 @@ int main(int argc, char** argv)
         {
             AltModPsu_run_gmw_test_benchmark(clp);
         }
+        if (clp.isSet("unbalance"))
+        {
+            AltModPsu_unbalance_benchmark(clp);
+        }
+        
         return 0;
     }
 
