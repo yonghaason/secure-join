@@ -19,6 +19,7 @@ namespace secJoin
         Proto run_debug(span<block> Y, PRNG &prng, Socket &chl, Socket &socket_gmw);
         Proto run_correctness(span<block> Y, PRNG &prng, Socket &chl, Socket &socket_gmw);
         Proto run_gmw_test(span<block> Y, PRNG &prng, Socket &chl);
+        Proto run_unbalance(span<block> Y, span<block> X, PRNG &prng, Socket &chl, Socket &socket_gmw);
 
     };
 
@@ -33,6 +34,7 @@ namespace secJoin
         Proto run_debug(span<block> X, PRNG &prng, Socket &chl, Socket &socket_gmw);
         Proto run_correctness(span<block> X, PRNG &prng, Socket &chl, Socket &socket_gmw);
         Proto run_gmw_test(span<block> X, PRNG &prng, Socket &chl);
+        Proto run_unbalance(span<block> X, span<block> Y, PRNG &prng, Socket &chl, Socket &socket_gmw);
 
     };
 
