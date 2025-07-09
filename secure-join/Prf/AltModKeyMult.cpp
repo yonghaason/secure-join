@@ -147,7 +147,7 @@ namespace secJoin
 		oc::Matrix<block>& xk0,
 		oc::Matrix<block>& xk1,
 		coproto::Socket& sock)
-	{
+	{	
 		if (xLsb.rows() != AltModPrf::KeySize)
 			throw RTE_LOC;
 
@@ -276,17 +276,16 @@ namespace secJoin
 							msbShare, lsbShare,
 							xLsb[i]);
 
-						// xk = -G(OT(i,0))
-
+						// xk = -G(OT(i,0))						
 					}
 				}
 				// ## msg = m ^ G(OT(i,1))
 				xorVector(msbMsg, mKeySendOTs[i][1]);
 				xorVector(lsbMsg, mKeySendOTs[i][1]);
 			}
+
 			co_await sock.send(std::move(msg));
 		}
-
 
 		if (mDebug)
 		{

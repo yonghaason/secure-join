@@ -11,12 +11,11 @@ namespace secJoin
 
     class AltModPsuSender : public oc::TimerAdapter
     {        
-        Gmw cmp;
         oc::Timer timer;
 
     public:
 
-        Proto run(span<block> Y, PRNG &prng, Socket &chl);
+        Proto run_co(span<block> Y, PRNG &prng, Socket &chl);
         Proto run_debug(span<block> Y, PRNG &prng, Socket &chl, Socket &socket_gmw);
         Proto run_correctness(span<block> Y, PRNG &prng, Socket &chl, Socket &socket_gmw);
         Proto run_gmw_test(span<block> Y, PRNG &prng, Socket &chl);
@@ -25,13 +24,12 @@ namespace secJoin
 
     class AltModPsuReceiver :public oc::TimerAdapter
     {
-        Gmw cmp;
         oc::Timer timer;
         oc::Timer timer2;
         oc::Timer timer3;
     public:
 
-        Proto run(span<block> X, PRNG &prng, Socket &chl);
+        Proto run_co(span<block> Y, PRNG &prng, Socket &chl);
         Proto run_debug(span<block> X, PRNG &prng, Socket &chl, Socket &socket_gmw);
         Proto run_correctness(span<block> X, PRNG &prng, Socket &chl, Socket &socket_gmw);
         Proto run_gmw_test(span<block> X, PRNG &prng, Socket &chl);

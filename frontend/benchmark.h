@@ -7,6 +7,7 @@ namespace secJoin
     void Radix_benchmark(const oc::CLP& cmd);
     void OmJoin_benchmark(const oc::CLP& cmd);
     void AltMod_benchmark(const oc::CLP& cmd);
+    void AltMod_no_pooling_benchmark(const oc::CLP& cmd);
     void OT_benchmark(const oc::CLP& cmd);
     void F4_benchmark(const oc::CLP& cmd);
     void AltModPerm_benchmark(const oc::CLP& cmd);
