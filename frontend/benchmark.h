@@ -19,6 +19,7 @@ namespace secJoin
     void AltModPsu_debug_benchmark(const oc::CLP& cmd);
     void AltModPsu_correctness_benchmark(const oc::CLP& cmd);
     void AltModPsu_run_gmw_test_benchmark(const oc::CLP& cmd);
+    void AltModPsu_unbalance_benchmark(const oc::CLP& cmd);
     
 
     void PprfPerm_benchmark(const oc::CLP& cmd);
