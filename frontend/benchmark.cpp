@@ -39,8 +39,8 @@ namespace secJoin
 
 		for (u64 i = 0; i < 1; ++i)
 		{	
-			auto p0 = send.run_co(sendSet, prng, socket[0]);
-			auto p1 = recv.run_co(recvSet, prng, socket[1]);
+			auto p0 = send.run(sendSet, prng, socket[0]);
+			auto p1 = recv.run(recvSet, prng, socket[1]);
 			
 			auto r = macoro::sync_wait(macoro::when_all_ready(
 				std::move(p0) | macoro::start_on(pool0), 

@@ -9,8 +9,7 @@ using namespace std;
 
 namespace secJoin
 {
-
-    Proto AltModPsuSender::run_co(span<block> Y, PRNG &prng, Socket &chl)
+    Proto AltModPsuSender::run(span<block> Y, PRNG& prng, Socket& chl)
     {
         // receive okvs encoding / okvs decode
 
@@ -25,27 +24,25 @@ namespace secJoin
         okvs.Init(n, m, band_length, oc::ZeroBlock);
 
         vector<block> okvs_encoding(okvs.Size());
+        vector<block> okvs_encoding2(okvs.Size());
+
         co_await chl.recv(okvs_encoding);
+        co_await chl.recv(okvs_encoding2);
 
         // prng.get(okvs_encoding.data(), okvs.Size());
-      
+
         timer.setTimePoint("Recv OKVS");
 
         vector<block> decoded(Y.size());
+        vector<block> decoded2(Y.size());
         okvs.Decode(Y.data(), okvs_encoding.data(), decoded.data());
+        okvs.Decode(Y.data(), okvs_encoding2.data(), decoded2.data());
 
         timer.setTimePoint("Decode OKVS");
 
         // 2aprty wprf
         CorGenerator ole1;
-		ole1.init(chl.fork(), prng, 1, 1, 1 << 18, 0);
-        
-        // vector<std::array<block, 2>> sk(AltModPrf::KeySize);
-        // for (size_t i = 0; i < 128; ++i)
-		// {
-		// 	sk[i][0] = oc::block(i, 0);
-		// 	sk[i][1] = oc::block(i, 1);
-		// }
+        ole1.init(chl.fork(), prng, 1, 1, 1 << 18, 0);
 
         AltModWPrfReceiver recver;
 
@@ -54,12 +51,9 @@ namespace secJoin
         recver.setTimer(timer);
 
         vector<block> sharedPRF(Y.size());
-        // auto tOle = ole1.start();
-        // auto tEvalS = recver.evaluate(decoded, sharedPRF, chl, prng);
-        // co_await macoro::when_all_ready(tOle, tEvalS);
 
         co_await macoro::when_all_ready(
-            ole1.start(), 
+            ole1.start(),
             recver.evaluate(decoded, sharedPRF, chl, prng)
         );
 
@@ -67,9 +61,10 @@ namespace secJoin
 
         // gmw part
         BetaCircuit cir = isZeroCircuit(80);
-        
+
         oc::Matrix<u8> in(Y.size(), 10);
-        for (size_t i = 0; i < Y.size(); i++){
+        for (size_t i = 0; i < Y.size(); i++) {
+            block temp = sharedPRF[i] ^ decoded2[i];
             std::memcpy(&in(i, 0), &sharedPRF[i], 10);
         }
 
@@ -94,38 +89,44 @@ namespace secJoin
         //OT phase
         std::vector<std::array<block, 2>> finalOtMsgs(Y.size());
 
-        for (u64 i = 0; i < Y.size(); i++){
-            if(flags[i] == 0){
+        for (u64 i = 0; i < Y.size(); i++) {
+            if (flags[i] == 0) {
                 finalOtMsgs[i][1] = Y[i];
                 finalOtMsgs[i][0] = osuCrypto::ZeroBlock;
             }
-            else{
+            else {
                 finalOtMsgs[i][1] = osuCrypto::ZeroBlock;
                 finalOtMsgs[i][0] = Y[i];
-            }            
+            }
         }
-        
+
         oc::SilentOtExtSender finalOtSender;
         finalOtSender.configure(Y.size(), 2, 1);
 
         co_await finalOtSender.sendChosen(finalOtMsgs, prng, chl);
 
-        std::cout << "Sender Timer" << std::endl; 
+        std::cout << "Sender Timer" << std::endl;
         std::cout << timer << '\n';
     };
 
-    Proto AltModPsuReceiver::run_co(span<block> X, PRNG &prng, Socket &chl)
+    Proto AltModPsuReceiver::run(span<block> X, PRNG& prng, Socket& chl)
     {
         timer.setTimePoint("start");
         double communication_cost;
+
+        block indicator_string = prng.get();
+
 
         // use AltModPrf only receiver
         AltModPrf dm(prng.get());
         vector<block> myPRF(X.size());
         vector<block> random_value(X.size());
-        
+
         prng.get(random_value.data(), X.size());
         dm.eval(random_value, myPRF);
+
+        for (auto& prf : myPRF)
+            prf ^= indicator_string;
 
         timer.setTimePoint("Local PRF computation");
 
@@ -143,38 +144,36 @@ namespace secJoin
             std::cout << "Failed to encode!" << std::endl;
             exit(0);
         }
-        
+        vector<block> okvs_encoding2(okvs.Size());
+        if (!okvs.Encode(X.data(), myPRF.data(), okvs_encoding2.data())) {
+            std::cout << "Failed to encode!" << std::endl;
+            exit(0);
+        }
+
         // send okvs encoding
         co_await chl.send(std::move(okvs_encoding));
+        co_await chl.send(std::move(okvs_encoding2));
         timer.setTimePoint("okvs encode");
 
         std::cout << "okvs communication is " << ((chl.bytesSent() + chl.bytesReceived()) - communication_cost) / 1024 / 1024 << "MB\n";
         communication_cost = (chl.bytesSent() + chl.bytesReceived());
-        
+
         // 2party wprf part
 
         CorGenerator ole0;
         ole0.init(chl.fork(), prng, 0, 1, 1 << 18, 0);
-        
+
         vector<block> rk(AltModPrf::KeySize);
         AltModWPrfSender sender;
-        // for (u64 i = 0; i < AltModPrf::KeySize; ++i)
-		// {
-		// 	rk[i] = oc::block(i, *oc::BitIterator((u8*)&dm.mExpandedKey, i));
-		// }
-        // sender.setKeyOts(dm.getKey(), rk);
+        // Yongha: No need to set PRF key ???
 
         sender.init(X.size(), ole0); // Should be Y size
-
-        sender.mUseMod2F4Ot = true;// check
+        sender.mUseMod2F4Ot = true;
         sender.setTimer(timer);
 
         vector<block> sharedPRF(X.size()); // Should be Y size
-        // auto tOle = ole0.start();
-        // auto tEvalR = sender.evaluate({}, sharedPRF, chl, prng);
-        // co_await macoro::when_all_ready(tOle, tEvalR);
 
-        co_await macoro::when_all_ready( 
+        co_await macoro::when_all_ready(
             ole0.start(),
             sender.evaluate({}, sharedPRF, chl, prng)
         );
@@ -188,14 +187,14 @@ namespace secJoin
         BetaCircuit cir = isZeroCircuit(80);
 
         oc::Matrix<u8> in(X.size(), 10);
-        for (size_t i = 0; i < X.size(); i++){
-            block tmp = sharedPRF[i]^myPRF[i];
+        for (size_t i = 0; i < X.size(); i++) {
+            block tmp = sharedPRF[i] ^ indicator_string;
             std::memcpy(&in(i, 0), &tmp, 10);
-
+        }
 
         CorGenerator ole_gmw;
         ole_gmw.init(chl.fork(), prng, 0, 1, 1 << 18, 0);
-        
+
         Gmw cmp;
         cmp.init(in.rows(), cir, ole_gmw);
         cmp.setInput(0, in);
@@ -206,7 +205,7 @@ namespace secJoin
 
         std::cout << "gmw communication is " << ((chl.bytesSent() + chl.bytesReceived()) - communication_cost) / 1024 / 1024 << "MB\n";
         communication_cost = (chl.bytesSent() + chl.bytesReceived());
-        
+
         auto outView = cmp.getOutputView(0);
 
         oc::BitVector ot_choice(X.size());
@@ -218,14 +217,15 @@ namespace secJoin
         vector<block> finalOtMsgs(ot_choice.size());
         oc::SilentOtExtReceiver finalOtReceiver;
         finalOtReceiver.configure(ot_choice.size(), 2, 1);
-        
+
         co_await(finalOtReceiver.receiveChosen(ot_choice, finalOtMsgs, prng, chl));
 
         std::cout << "ot communication is " << ((chl.bytesSent() + chl.bytesReceived()) - communication_cost) / 1024 / 1024 << "MB\n";
         communication_cost = (chl.bytesSent() + chl.bytesReceived());
-        
+
         timer.setTimePoint("ot");
 
         std::cout << "Receiver Timer" << std::endl;
         std::cout << timer << '\n';
     }
+}
