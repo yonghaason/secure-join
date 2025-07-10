@@ -648,10 +648,10 @@ namespace secJoin
 		std::vector<oc::block> x(n);
 		std::vector<oc::block> y0(n), y1(n);
 
-		// auto sock = coproto::LocalAsyncSocket::makePair();
-		// auto sock2 = coproto::LocalAsyncSocket::makePair();
-		auto sock = coproto::AsioSocket::makePair();
-		auto sock2 = coproto::AsioSocket::makePair();
+		auto sock = coproto::LocalAsyncSocket::makePair();
+		auto sock2 = coproto::LocalAsyncSocket::makePair();
+		// auto sock = coproto::AsioSocket::makePair();
+		// auto sock2 = coproto::AsioSocket::makePair();
 		macoro::thread_pool pool0;
 		auto e0 = pool0.make_work();
 		pool0.create_threads(nt);
