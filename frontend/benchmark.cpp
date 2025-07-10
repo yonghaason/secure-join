@@ -11,7 +11,7 @@ namespace secJoin
 {
 	void AltModPsu_benchmark(const oc::CLP& cmd)
 	{
-
+		//
 		u64 n = cmd.getOr("n", 1ull << cmd.getOr("nn", 10));
 		u64 nt = cmd.getOr("nt", 1);
 		
