@@ -53,6 +53,7 @@ set(SRCS
     "AltPsu/AltPsu.cpp"
     "AltPsu/AltPsu_debug.cpp"
     "AltPsu/AltPsu_correctness.cpp"
+    "AltPsu/AltPsu_unbalance.cpp"
     "AltPsu/gmw_test.cpp"
     "AltPsu/band_okvs.cc"
     "AltPsu/band.cc"
