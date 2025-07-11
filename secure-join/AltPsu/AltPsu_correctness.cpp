@@ -32,8 +32,6 @@ namespace secJoin
                 tgmw_ole = macoro::task<void>{},
                 sk = std::vector<std::array<oc::block, 2>>{},
                 output_2party_wprf = std::vector<block>{},
-                // gmw_inpiut = std::vector<block>{},
-                numThreads = osuCrypto::u64{},
                 cmp = std::make_unique<Gmw>(),
                 cir = BetaCircuit{},
                 in = oc::Matrix<u8>{},
@@ -45,20 +43,22 @@ namespace secJoin
                 temp = block{},
                 temp_ = block{},
                 byte_matrix = oc::MatrixView<u8>{},
-
-
-
-
                 seed = block{},
-                finalOtSender = std::make_unique<oc::SilentOtExtSender>(),
-                finalOtMsgs = std::vector<std::array<block, 2>>{}
-
                 
+                keyOtSender = std::make_unique<oc::SilentOtExtSender>(),
+                sk = std::vector<std::array<oc::block, 2>>{}, 
+
+                finalOtSender = std::make_unique<oc::SilentOtExtSender>(),
+                
+                finalOtMsgs = std::vector<std::array<block, 2>>{},
+                
+                otSend = OtSend{ }
+
         );
 
         MC_AWAIT(chl.send(Y));
 
-        epsilon = 0.2;
+        epsilon = 0.1;
         n = Y.size();
         m = static_cast<int>((1 + epsilon) * n);
         band_length = 128;
@@ -67,33 +67,25 @@ namespace secJoin
 
         okvs_encoding.resize(okvs.Size());
         okvs_encoding2.resize(okvs.Size());
+        receive_randomvalue.resize(Y.size());
         MC_AWAIT(chl.recv(okvs_encoding));
         MC_AWAIT(chl.recv(okvs_encoding2));
-        receive_randomvalue.resize(Y.size());
         MC_AWAIT(chl.recv(receive_randomvalue));
 
         decoded.resize(Y.size());
         decoded2.resize(Y.size());
         okvs.Decode(Y.data(), okvs_encoding.data(), decoded.data());
-        okvs.Decode(Y.data(), okvs_encoding2.data(), decoded2.data());
+        okvs.Decode(Y.data(), okvs_encoding2.data(), decoded2.data());		
 
-		ole1.init(chl.fork(), prng, 1, 1, 1 << 18, 1);
+        ole1.init(chl.fork(), prng, 1, 1, 1 << 18, 0);
 
-        // sk.resize(AltModPrf::KeySize);
-		// for (u64 i = 0; i < 128; ++i)
-		// {
-		// 	sk[i][0] = oc::block(i, 0);
-		// 	sk[i][1] = oc::block(i, 1);
-		// }
-        // recver.setKeyOts(sk);
+        keyOtSender->configure(AltModPrf::KeySize);
+        sk.resize(AltModPrf::KeySize);
+        MC_AWAIT(keyOtSender->send(sk, prng, chl));
 
-        recver.init(Y.size(), ole1);
+        recver.init(Y.size(), ole1, AltModPrfKeyMode::SenderOnly, AltModPrfInputMode::ReceiverOnly, {}, sk);
         recver.mUseMod2F4Ot = true;
         recver.setTimer(timer);
-
-        // temp = receive_randomvalue[0];
-        // receive_randomvalue[0] = receive_randomvalue[1];
-        // receive_randomvalue[1] = temp;
 
         output_2party_wprf.resize(Y.size());
         tOle   = ole1.start();
@@ -103,22 +95,12 @@ namespace secJoin
 
         cir = isZeroCircuit(u64(80));
 
-        std::cout << "Y.size() is " << Y.size() << '\n';
-        // numThreads = 1;
-        numThreads = static_cast<osuCrypto::u64>(std::thread::hardware_concurrency());
-        
-        // in.resize(Y.size(), 16);
         in.resize(Y.size(), 10);
         send_wprf.resize(Y.size());
         for (i = 0; i < Y.size(); i++){
-
-            // temp_ = oc::block(0, i);
-            // temp_ = receive_randomvalue[i];
             temp = output_2party_wprf[i]^decoded2[i];
             send_wprf[i] = output_2party_wprf[i]^decoded2[i];
-            std::memcpy(&in(i, 0), &temp, 10);   
-            // in(i, 0) = output_2party_wprf[i];
-
+            std::memcpy(&in(i, 0), &temp, 10);  
         }
 
         seed = prng.get<oc::block>();
@@ -127,9 +109,7 @@ namespace secJoin
 
         cmp->init(Y.size(), cir, ole_gmw);
 
-        // cmp->implSetInput(0, in, 10);
         cmp->setInput(0, in);
-        // cmp->mO.mDebug = true;
 
         cmp->preprocess();
         
@@ -191,7 +171,6 @@ namespace secJoin
                 ole0 = CorGenerator{},
                 ole_gmw = CorGenerator{},
                 indicator_string = oc::block{},
-                secret_string = block{},
                 rk = std::vector<oc::block>{},
                 sk = std::vector<std::array<oc::block, 2>>{},
                 sock_virtual = coproto::LocalAsyncSocket::makePair(),
@@ -201,11 +180,9 @@ namespace secJoin
                 sender_virtual = AltModWPrfSender{},
                 recver_virtual = AltModWPrfReceiver{},
                 output_1party_wprf = std::vector<oc::block>{},
-                prng0 = PRNG{},
-                prng1 = PRNG{},
                 y0 = std::vector<oc::block>{},
                 y1 = std::vector<oc::block>{},
-                dm = AltModPrf{},
+                y = std::vector<oc::block>{},
                 kk = AltModPrf::KeyType{},
                 // r = macoro::result<void>{},
                 e0 = macoro::thread_pool::work{},
@@ -248,10 +225,15 @@ namespace secJoin
                 D = oc::BetaBundle{},
                 Z = oc::BetaBundle{},
                 cir_ = oc::BetaCircuit{},
-                
+
+                keyOtReceiver = std::make_unique<oc::SilentOtExtReceiver>(),
+                rk = std::vector<oc::block>{},
+                kk_bv = oc::BitVector{},
 
                 finalOtReceiver = std::make_unique<oc::SilentOtExtReceiver>(),
-                finalOtMsgs = std::vector<block>{}
+                finalOtMsgs = std::vector<block>{},
+                otRecv = OtRecv{ },
+                k = AltModPrf::KeyType{}
         );
         receive_Y.resize(X.size());
         MC_AWAIT(chl.recv(receive_Y));
@@ -269,89 +251,31 @@ namespace secJoin
 
         std::cout << "count_intersection is " << count_intersection << '\n';
 
-		sender_virtual.mUseMod2F4Ot = true; // check
-		recver_virtual.mUseMod2F4Ot = true;
-
-		// ciphertext_of_wprf.resize(X.size());
-        secret_string = prng.get();
-		y0.resize(X.size());
-        y1.resize(X.size());
-        // separate function
         // use AltModPrf only receiver
-
         // std::cout << "start 1party wprf\n";
         {
-            oc::Timer timer;
-            sender_virtual.setTimer(timer);
-		    recver_virtual.setTimer(timer);
-
-            // sock_virtual = coproto::LocalAsyncSocket::makePair();
-            // sock2_virtual = coproto::LocalAsyncSocket::makePair();
-            macoro::thread_pool pool0;
-            auto e0 = pool0.make_work();
-            pool0.create_threads(1);
-            macoro::thread_pool pool1;
-            auto e1 = pool1.make_work();
-            pool1.create_threads(1);
-            sock_virtual[0].setExecutor(pool0);
-            sock_virtual[1].setExecutor(pool1);
-            sock2_virtual[0].setExecutor(pool0);
-            sock2_virtual[1].setExecutor(pool1);
-
-            prng0.SetSeed(oc::ZeroBlock);
-            prng1.SetSeed(oc::OneBlock);
-
-            kk = prng0.get();
-            dm.setKey(kk);
-            //sender.setKey(kk);
-            indicator_string = prng0.get();
-
-            ole0_virtual.init(sock2_virtual[0].fork(), prng0, 0, 1, 1 << 18, 1);
-            ole1_virtual.init(sock2_virtual[1].fork(), prng1, 1, 1, 1 << 18, 1);
-
+            AltModPrf dm(prng.get());
+            kk = dm.getKey();
+            y.resize(X.size());
             random_value.resize(X.size());
-            prng0.get(random_value.data(), X.size());
+
+            prng.get(random_value.data(), X.size());
+            dm.eval(random_value, y);
 
             for (auto & t : random_value){
                 set_random.insert(t);
             }
-            rk.resize(AltModPrf::KeySize);
-            sk.resize(AltModPrf::KeySize);
-            for (u64 i = 0; i < AltModPrf::KeySize; ++i)
-            {
-                sk[i][0] = oc::block(i, 0);
-                sk[i][1] = oc::block(i, 1);
-                rk[i] = oc::block(i, *oc::BitIterator((u8*)&sender_virtual.mKeyMultRecver.mKey, i));
-            }
-            sender_virtual.setKeyOts(kk, rk);
-            recver_virtual.setKeyOts(sk);
-            
-            for (u64 t = 0; t < 1; ++t)
-            {
-                sender_virtual.init(X.size(), ole0_virtual);
-                recver_virtual.init(X.size(), ole1_virtual);
-
-                // std::cout << "start wating wprf protocol\n";
-                auto r = coproto::sync_wait(coproto::when_all_ready(
-                    ole0_virtual.start() | macoro::start_on(pool0),
-                    ole1_virtual.start() | macoro::start_on(pool1),
-                    sender_virtual.evaluate({}, y0, sock_virtual[0], prng0) | macoro::start_on(pool0),
-                    recver_virtual.evaluate(random_value, y1, sock_virtual[1], prng1) | macoro::start_on(pool1)
-                ));
-                std::get<0>(r).result();
-                std::get<1>(r).result();
-                std::get<2>(r).result();
-                std::get<3>(r).result();
-            }
         }
+
+        indicator_string = prng.get();
 
         output_1party_wprf.resize(X.size());
         for (i = 0; i < X.size(); i++){
-            output_1party_wprf[i] = y0[i]^y1[i]^indicator_string;
+            output_1party_wprf[i] = y[i] ^ indicator_string;
         }
 
         // make rb_okvs
-        epsilon = 0.20;
+        epsilon = 0.1;
         n = X.size();
         m = static_cast<int>((1 + epsilon) * n);
         band_length = 128;
@@ -378,52 +302,38 @@ namespace secJoin
         MC_AWAIT(chl.send(okvs_encoding2));
         MC_AWAIT(chl.send(random_value));
 
-        // std::cout << "init ole0\n";
+        ole0.init(chl.fork(), prng, 0, 1, 1 << 18, 0);
 
-        ole0.init(chl.fork(), prng, 0, 1, 1 << 18, 1);
-        
-        // for (u64 i = 0; i < AltModPrf::KeySize; ++i)
-		// {
-		// 	rk[i] = oc::block(i, *oc::BitIterator((u8*)&sender.mKeyMultRecver.mKey, i));
-		// }
-        // sender.setKeyOts(kk, rk);
+        keyOtReceiver->configure(AltModPrf::KeySize);
+        rk.resize(AltModPrf::KeySize);
+        kk_bv.append((u8*)kk.data(), AltModPrf::KeySize);
 
-        sender.init(X.size(), ole0);
-        sender.mUseMod2F4Ot = true;// check
+        MC_AWAIT(keyOtReceiver->receive(kk_bv, rk, prng, chl));
+
+		sender.init(X.size(), ole0, AltModPrfKeyMode::SenderOnly, AltModPrfInputMode::ReceiverOnly, kk, rk);
+        sender.mUseMod2F4Ot = true;
         sender.setTimer(timer);
 
         output_2party_wprf.resize(X.size());
         tOle   = ole0.start();
-        tEvalR = sender.evaluate({}, output_2party_wprf, chl, prng0);
-
-        // std::cout << "start 2party wprf\n";
+        tEvalR = sender.evaluate({}, output_2party_wprf, chl, prng);
 
         MC_AWAIT(when_all_ready(tOle, tEvalR));
-
-        // std::cout << "start gmw\n";
 
         cir = isZeroCircuit(u64(80));
 
         numThreads = static_cast<osuCrypto::u64>(std::thread::hardware_concurrency());
         in.resize(X.size(), 10);
         for (i = 0; i < X.size(); i++){
-
-            // temp_ = output_2party_wprf[i]^output_1party_wprf[i];
-            // temp_ = oc::ZeroBlock;
             temp = output_2party_wprf[i]^indicator_string;
-
             std::memcpy(&in(i, 0), &temp, 10);
-
             set_xor_wprf.insert(output_2party_wprf[i]^indicator_string);
-            // set_xor_wprf.insert(output_2party_wprf[i]^output_1party_wprf[i]);
         }
  
         std::cout << "in.rows() is " << in.rows() << " in.cols() is " << in.cols() << '\n';
         std::cout << "in(1, 0) is " << int(in(1, 0)) << '\n';
         std::cout << "in(1, 1) is " << int(in(1, 1)) << '\n';
         std::cout << "in(1, 2) is " << int(in(1, 2)) << '\n';
-
-        numThreads = static_cast<osuCrypto::u64>(std::thread::hardware_concurrency());
 
         ole_gmw.init(socket_gmw.fork(), prng, 0, 1, 1 << 18, 0);
 

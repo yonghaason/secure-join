@@ -30,7 +30,7 @@ namespace secJoin
         oc::Timer timer3;
     public:
 
-        Proto run(span<block> Y, PRNG &prng, Socket &chl);
+        Proto run(span<block> X, std::vector<block>& D, PRNG &prng, Socket &chl);
         Proto run_debug(span<block> X, PRNG &prng, Socket &chl, Socket &socket_gmw);
         Proto run_correctness(span<block> X, PRNG &prng, Socket &chl, Socket &socket_gmw);
         Proto run_gmw_test(span<block> X, PRNG &prng, Socket &chl);

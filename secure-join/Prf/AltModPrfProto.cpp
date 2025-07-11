@@ -8,7 +8,6 @@
 
 namespace secJoin
 {
-
 	// initialize the protocol to perform inputSize prf evals.
 	// correlations will be obtained from ole.
 	// The caller can specify the key [share] and optionally
@@ -18,7 +17,7 @@ namespace secJoin
 		u64 inputSize,
 		CorGenerator& ole,
 		AltModPrfKeyMode keyMode,
-		AltModPrfInputMode inputMode,
+		AltModPrfInputMode inputMode, 
 		macoro::optional<AltModPrf::KeyType> key,
 		span<const block> keyRecvOts,
 		span<const std::array<block, 2>> keySendOts)
@@ -29,7 +28,7 @@ namespace secJoin
 
 		if (key.has_value() ^ (AltModPrf::KeySize == keyRecvOts.size()))
 			throw RTE_LOC;
-
+		
 		mKeyMultRecver.init(ole, key, keyRecvOts);
 		auto n128 = oc::roundUpTo(mInputSize, 128);
 
@@ -65,7 +64,6 @@ namespace secJoin
 	// perform the correlated randomness generation. 
 	void AltModWPrfSender::preprocess()
 	{
-
 		mKeyMultRecver.preprocess();
 		mKeyMultSender.preprocess();
 
