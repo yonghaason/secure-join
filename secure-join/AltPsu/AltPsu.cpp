@@ -44,9 +44,13 @@ namespace secJoin
         CorGenerator ole1;
         ole1.init(chl.fork(), prng, 1, 1, 1 << 18, 0);
 
-        AltModWPrfReceiver recver;
+        oc::SilentOtExtSender keyOtSender;
+        std::vector<std::array<oc::block, 2>> sk(AltModPrf::KeySize);
+        keyOtSender.configure(AltModPrf::KeySize);
+        co_await keyOtSender.send(sk, prng, chl);
 
-        recver.init(Y.size(), ole1);
+        AltModWPrfReceiver recver;
+        recver.init(Y.size(), ole1, AltModPrfKeyMode::SenderOnly, AltModPrfInputMode::ReceiverOnly, {}, sk);
         recver.mUseMod2F4Ot = true;
         recver.setTimer(timer);
 
@@ -63,9 +67,10 @@ namespace secJoin
         BetaCircuit cir = isZeroCircuit(80);
 
         oc::Matrix<u8> in(Y.size(), 10);
+        block temp;
         for (size_t i = 0; i < Y.size(); i++) {
-            block temp = sharedPRF[i] ^ decoded2[i];
-            std::memcpy(&in(i, 0), &sharedPRF[i], 10);
+            temp = sharedPRF[i] ^ decoded2[i];
+            std::memcpy(&in(i, 0), &temp, 10);
         }
 
         CorGenerator ole_gmw;
@@ -89,19 +94,13 @@ namespace secJoin
         //OT phase
         std::vector<std::array<block, 2>> finalOtMsgs(Y.size());
 
-        for (u64 i = 0; i < Y.size(); i++) {
-            if (flags[i] == 0) {
-                finalOtMsgs[i][1] = Y[i];
-                finalOtMsgs[i][0] = osuCrypto::ZeroBlock;
-            }
-            else {
-                finalOtMsgs[i][1] = osuCrypto::ZeroBlock;
-                finalOtMsgs[i][0] = Y[i];
-            }
+        for (u64 i = 0; i < Y.size(); i++) {    
+            finalOtMsgs[i][flags[i]] = Y[i];
+            finalOtMsgs[i][!flags[i]] = oc::ZeroBlock;
         }
 
         oc::SilentOtExtSender finalOtSender;
-        finalOtSender.configure(Y.size(), 2, 1);
+        finalOtSender.configure(Y.size());
 
         co_await finalOtSender.sendChosen(finalOtMsgs, prng, chl);
 
@@ -109,7 +108,7 @@ namespace secJoin
         std::cout << timer << '\n';
     };
 
-    Proto AltModPsuReceiver::run(span<block> X, PRNG& prng, Socket& chl)
+    Proto AltModPsuReceiver::run(span<block> X, std::vector<block>& D, PRNG& prng, Socket& chl)
     {
         timer.setTimePoint("start");
         double communication_cost;
@@ -159,15 +158,19 @@ namespace secJoin
         communication_cost = (chl.bytesSent() + chl.bytesReceived());
 
         // 2party wprf part
-
         CorGenerator ole0;
         ole0.init(chl.fork(), prng, 0, 1, 1 << 18, 0);
 
-        vector<block> rk(AltModPrf::KeySize);
-        AltModWPrfSender sender;
-        // Yongha: No need to set PRF key ???
+        oc::SilentOtExtReceiver keyOtReceiver;
+        std::vector<oc::block> rk(AltModPrf::KeySize);
+        keyOtReceiver.configure(AltModPrf::KeySize);
+        oc::BitVector kk_bv;
+        kk_bv.append((u8*)dm.getKey().data(), AltModPrf::KeySize);
 
-        sender.init(X.size(), ole0); // Should be Y size
+        co_await keyOtReceiver.receive(kk_bv, rk, prng, chl);
+
+        AltModWPrfSender sender;
+        sender.init(X.size(), ole0, AltModPrfKeyMode::SenderOnly, AltModPrfInputMode::ReceiverOnly, dm.getKey(), rk); // Should be Y size
         sender.mUseMod2F4Ot = true;
         sender.setTimer(timer);
 
@@ -216,7 +219,7 @@ namespace secJoin
         // ot part
         vector<block> finalOtMsgs(ot_choice.size());
         oc::SilentOtExtReceiver finalOtReceiver;
-        finalOtReceiver.configure(ot_choice.size(), 2, 1);
+        finalOtReceiver.configure(ot_choice.size());
 
         co_await(finalOtReceiver.receiveChosen(ot_choice, finalOtMsgs, prng, chl));
 
@@ -227,5 +230,10 @@ namespace secJoin
 
         std::cout << "Receiver Timer" << std::endl;
         std::cout << timer << '\n';
+
+        for (auto &m : finalOtMsgs){
+            if (m != oc::ZeroBlock)
+                D.push_back(m);
+        }
     }
 }
