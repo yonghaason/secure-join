@@ -7,8 +7,12 @@
 
 using namespace std;
 
+
+
 namespace secJoin
 {
+    u64 log_batch = 22;
+
     Proto AltModPsuSender::run(span<block> Y, PRNG& prng, Socket& chl)
     {
         // receive okvs encoding / okvs decode
@@ -42,7 +46,7 @@ namespace secJoin
 
         // 2aprty wprf
         CorGenerator ole1;
-        ole1.init(chl.fork(), prng, 1, 1, 1 << 18, 0);
+        ole1.init(chl.fork(), prng, 1, 1, 1 << log_batch, 0);
 
         oc::SilentOtExtSender keyOtSender;
         std::vector<std::array<oc::block, 2>> sk(AltModPrf::KeySize);
@@ -64,17 +68,18 @@ namespace secJoin
         timer.setTimePoint("Shared PRF eval");
 
         // gmw part
-        BetaCircuit cir = isZeroCircuit(80);
+        u64 prf_bitlen = 80;
+        BetaCircuit cir = isZeroCircuit(prf_bitlen);
 
-        oc::Matrix<u8> in(Y.size(), 10);
+        oc::Matrix<u8> in(Y.size(), (prf_bitlen+7)/8);
         block temp;
         for (size_t i = 0; i < Y.size(); i++) {
-            temp = sharedPRF[i] ^ decoded2[i];
-            std::memcpy(&in(i, 0), &temp, 10);
+            // temp = sharedPRF[i] ^ decoded2[i];
+            std::memcpy(&in(i, 0), &temp, (prf_bitlen+7)/8);
         }
 
         CorGenerator ole_gmw;
-        ole_gmw.init(chl.fork(), prng, 1, 1, 1 << 18, 0);
+        ole_gmw.init(chl.fork(), prng, 1, 1, 1 << log_batch, 0);
 
         Gmw cmp;
         cmp.init(in.rows(), cir, ole_gmw);
@@ -114,7 +119,6 @@ namespace secJoin
         double communication_cost;
 
         block indicator_string = prng.get();
-
 
         // use AltModPrf only receiver
         AltModPrf dm(prng.get());
@@ -159,7 +163,7 @@ namespace secJoin
 
         // 2party wprf part
         CorGenerator ole0;
-        ole0.init(chl.fork(), prng, 0, 1, 1 << 18, 0);
+        ole0.init(chl.fork(), prng, 0, 1, 1 << log_batch, 0);
 
         oc::SilentOtExtReceiver keyOtReceiver;
         std::vector<oc::block> rk(AltModPrf::KeySize);
@@ -187,16 +191,18 @@ namespace secJoin
         communication_cost = (chl.bytesSent() + chl.bytesReceived());
 
         // gmw part
-        BetaCircuit cir = isZeroCircuit(80);
+        u64 prf_bitlen = 80;
+        BetaCircuit cir = isZeroCircuit(prf_bitlen);
 
-        oc::Matrix<u8> in(X.size(), 10);
+        oc::Matrix<u8> in(X.size(), (prf_bitlen+7)/8);
+        block tmp;
         for (size_t i = 0; i < X.size(); i++) {
-            block tmp = sharedPRF[i] ^ indicator_string;
-            std::memcpy(&in(i, 0), &tmp, 10);
+            // tmp = sharedPRF[i] ^ indicator_string;
+            std::memcpy(&in(i, 0), &tmp, (prf_bitlen+7)/8);
         }
 
         CorGenerator ole_gmw;
-        ole_gmw.init(chl.fork(), prng, 0, 1, 1 << 18, 0);
+        ole_gmw.init(chl.fork(), prng, 0, 1, 1 << 22, 0);        
 
         Gmw cmp;
         cmp.init(in.rows(), cir, ole_gmw);

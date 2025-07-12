@@ -7,7 +7,6 @@ namespace secJoin
     void Radix_benchmark(const oc::CLP& cmd);
     void OmJoin_benchmark(const oc::CLP& cmd);
     void AltMod_benchmark(const oc::CLP& cmd);
-    void AltMod_no_pooling_benchmark(const oc::CLP& cmd);
     void OT_benchmark(const oc::CLP& cmd);
     void F4_benchmark(const oc::CLP& cmd);
     void AltModPerm_benchmark(const oc::CLP& cmd);
@@ -21,7 +20,6 @@ namespace secJoin
     void AltModPsu_run_gmw_test_benchmark(const oc::CLP& cmd);
     void AltModPsu_unbalance_benchmark(const oc::CLP& cmd);
     
-
     void PprfPerm_benchmark(const oc::CLP& cmd);
     void transpose_benchmark(const oc::CLP& cmd);
 

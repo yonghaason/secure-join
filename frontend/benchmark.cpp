@@ -9,7 +9,7 @@
 
 namespace secJoin {
 void AltModPsu_benchmark(const oc::CLP &cmd) {
-  //
+  
   u64 n = cmd.getOr("n", 1ull << cmd.getOr("nn", 10));
   u64 nt = cmd.getOr("nt", 1);
 
@@ -40,7 +40,6 @@ void AltModPsu_benchmark(const oc::CLP &cmd) {
   AltModPsuReceiver recv;
 
   std::vector<block> diffSet;
-
 
   for (u64 i = 0; i < 1; ++i) {
     auto p0 = send.run(sendSet, prng, socket[0]);
@@ -619,16 +618,8 @@ void AltMod_benchmark(const oc::CLP &cmd) {
   AltModWPrfSender sender;
   AltModWPrfReceiver recver;
 
-  // sender.mKeyMode == AltModPrfKeyMode::SenderOnly;
-  // sender.mInputMode == AltModPrfInputMode::ReceiverOnly;
-  // recver.mKeyMode == AltModPrfKeyMode::SenderOnly;
-  // recver.mInputMode == AltModPrfInputMode::ReceiverOnly;
-
   sender.mUseMod2F4Ot = !useOle;
   recver.mUseMod2F4Ot = !useOle;
-
-  std::cout << "sender.mUseMod2F4Ot: " << sender.mUseMod2F4Ot << '\n';
-  std::cout << "recver.mUseMod2F4Ot: " << recver.mUseMod2F4Ot << '\n';
 
   sender.setTimer(timer);
   recver.setTimer(timer2);
@@ -654,28 +645,11 @@ void AltMod_benchmark(const oc::CLP &cmd) {
   PRNG prng0(oc::ZeroBlock);
   PRNG prng1(oc::OneBlock);
 
-  AltModPrf dm;
-  AltModPrf::KeyType kk;
-  kk = prng0.get();
-  dm.setKey(kk);
-  // sender.setKey(kk);
-
   CorGenerator ole0, ole1;
-  ole0.init(sock2[0].fork(), prng0, 0, nt, 1 << 18, cmd.getOr("mock", 0));
-  ole1.init(sock2[1].fork(), prng1, 1, nt, 1 << 18, cmd.getOr("mock", 0));
+  ole0.init(sock[0].fork(), prng0, 0, nt, 1 << 22, cmd.getOr("mock", 0));
+  ole1.init(sock[1].fork(), prng1, 1, nt, 1 << 22, cmd.getOr("mock", 0));
 
   prng0.get(x.data(), x.size());
-  // std::vector<oc::block> rk(AltModPrf::KeySize);
-  // std::vector<std::array<oc::block, 2>> sk(AltModPrf::KeySize);
-  // for (u64 i = 0; i < AltModPrf::KeySize; ++i)
-  // {
-  // 	sk[i][0] = oc::block(i, 0);
-  // 	sk[i][1] = oc::block(i, 1);
-  // 	rk[i] = oc::block(i, *oc::BitIterator((u8*)&sender.mKeyMultRecver.mKey,
-  // i));
-  // }
-  // sender.setKeyOts(kk, rk);
-  // recver.setKeyOts(sk);
   u64 numOle = 0;
   u64 numF4BitOt = 0;
   u64 numOt = 0;
@@ -711,7 +685,10 @@ void AltMod_benchmark(const oc::CLP &cmd) {
                    double(ntr)
             << "ns/eval " << '\n'
             << (sock2[0].bytesSent() + sock2[1].bytesSent()) / 1024 / 1024
-            << "MB\n";
+            << "MB\n"
+            << "(OLE comm: "
+            << (sock[0].bytesSent() + sock[1].bytesSent()) / 1024 / 1024
+            << "MB)\n";
 
   std::cout << numOle / double(ntr) << " ole/eval ";
   std::cout << numF4BitOt / double(ntr) << " f4/eval ";
@@ -722,101 +699,7 @@ void AltMod_benchmark(const oc::CLP &cmd) {
   if (cmd.isSet("v")) {
     std::cout << timer << std::endl;
     std::cout << timer2 << std::endl;
-    std::cout << "communication is "
-              << (sock[0].bytesSent() + sock[1].bytesSent()) / 1024 / 1024
-              << "MB\n";
-  }
-}
-
-void AltMod_no_pooling_benchmark(const oc::CLP &cmd) {
-  u64 n = cmd.getOr("n", 1ull << cmd.getOr("nn", 10));
-  u64 trials = cmd.getOr("trials", 1);
-  bool nt = cmd.getOr("nt", 1);
-  auto useOle = cmd.isSet("ole");
-
-  oc::Timer timer;
-  oc::Timer timer2;
-
-  AltModWPrfSender sender;
-  AltModWPrfReceiver recver;
-
-  sender.mUseMod2F4Ot = !useOle;
-  recver.mUseMod2F4Ot = !useOle;
-
-  std::cout << "sender.mUseMod2F4Ot: " << sender.mUseMod2F4Ot << '\n';
-  std::cout << "recver.mUseMod2F4Ot: " << recver.mUseMod2F4Ot << '\n';
-
-  sender.setTimer(timer);
-  recver.setTimer(timer2);
-
-  std::vector<oc::block> x(n);
-  std::vector<oc::block> y0(n), y1(n);
-
-  auto sock = coproto::LocalAsyncSocket::makePair();
-  auto sock2 = coproto::LocalAsyncSocket::makePair();
-  // auto sock = coproto::AsioSocket::makePair();
-  // auto sock2 = coproto::AsioSocket::makePair();
-
-  PRNG prng0(oc::ZeroBlock);
-  PRNG prng1(oc::OneBlock);
-
-  AltModPrf dm;
-  AltModPrf::KeyType kk;
-  kk = prng0.get();
-  dm.setKey(kk);
-
-  CorGenerator ole0, ole1;
-  ole0.init(sock2[0].fork(), prng0, 0, nt, 1 << 18, cmd.getOr("mock", 0));
-  ole1.init(sock2[1].fork(), prng1, 1, nt, 1 << 18, cmd.getOr("mock", 0));
-
-  prng0.get(x.data(), x.size());
-  u64 numOle = 0;
-  u64 numF4BitOt = 0;
-  u64 numOt = 0;
-
-  auto begin = timer.setTimePoint("begin");
-  timer2.setTimePoint("begin");
-  for (u64 t = 0; t < trials; ++t) {
-    sender.init(n, ole0);
-    recver.init(n, ole1);
-
-    numOle += ole0.mGenState->mNumOle;
-    numF4BitOt += ole0.mGenState->mNumF4BitOt;
-    numOt += ole0.mGenState->mNumOt;
-
-    auto r = coproto::sync_wait(coproto::when_all_ready(
-        ole0.start(), ole1.start(), sender.evaluate({}, y0, sock2[0], prng0),
-        recver.evaluate(x, y1, sock2[1], prng1)));
-    std::get<0>(r).result();
-    std::get<1>(r).result();
-    std::get<2>(r).result();
-    std::get<3>(r).result();
-  }
-  auto end = timer.setTimePoint("end");
-  timer2.setTimePoint("end");
-
-  auto ntr = n * trials;
-  // std::cout << "correlation generation time\n" << timer2 << std::endl;
-  std::cout << "AltModWPrf n:" << n << ", "
-            << std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin)
-                       .count() /
-                   double(ntr)
-            << "ns/eval " << '\n'
-            << (sock2[0].bytesSent() + sock2[1].bytesSent()) / 1024 / 1024
-            << "MB\n";
-
-  std::cout << numOle / double(ntr) << " ole/eval ";
-  std::cout << numF4BitOt / double(ntr) << " f4/eval ";
-  std::cout << numOt / double(ntr) << " ot/eval ";
-
-  // std::cout << std::endl;
-
-  if (cmd.isSet("v")) {
-    std::cout << timer << std::endl;
-    std::cout << timer2 << std::endl;
-    std::cout << "communication is "
-              << (sock[0].bytesSent() + sock[1].bytesSent()) / 1024 / 1024
-              << "MB\n";
+    
   }
 }
 

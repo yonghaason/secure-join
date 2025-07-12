@@ -55,13 +55,25 @@ int main(int argc, char** argv)
         {
             AltMod_benchmark(clp);
         }
-        if (clp.isSet("AltModNoPool"))
-        {
-            AltMod_no_pooling_benchmark(clp);
-        }
         if (clp.isSet("AltModPerm"))
         {
             AltModPerm_benchmark(clp);
+        }        
+        if (clp.isSet("AltPsu"))
+        {
+            AltModPsu_benchmark(clp);
+        }
+        if (clp.isSet("AltPsu_debug"))
+        {
+            AltModPsu_debug_benchmark(clp);
+        }
+        if (clp.isSet("AltPsu_correctness"))
+        {
+            AltModPsu_correctness_benchmark(clp);
+        }
+        if (clp.isSet("AltPsu_gmw_test"))
+        {
+            AltModPsu_run_gmw_test_benchmark(clp);
         }
         if (clp.isSet("PprfPerm"))
         {
@@ -90,22 +102,6 @@ int main(int argc, char** argv)
         if (clp.isSet("mod3"))
         {
             AltMod_sampleMod3_benchmark(clp);
-        }
-        if (clp.isSet("altpsu"))
-        {
-            AltModPsu_benchmark(clp);
-        }
-        if (clp.isSet("altpsu_debug"))
-        {
-            AltModPsu_debug_benchmark(clp);
-        }
-        if (clp.isSet("altpsu_correctness"))
-        {
-            AltModPsu_correctness_benchmark(clp);
-        }
-        if (clp.isSet("altpsu_gmw_test"))
-        {
-            AltModPsu_run_gmw_test_benchmark(clp);
         }
         if (clp.isSet("unbalance"))
         {
