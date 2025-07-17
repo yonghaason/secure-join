@@ -31,7 +31,7 @@ void AltModPsu_benchmark(const oc::CLP &cmd) {
   prng.get<block>(recvSet);
   sendSet = recvSet;
   
-  u64 itx = 100;
+  u64 itx = 55;
   for (u64 i = 0; i < itx; i++) {
     sendSet[(i*5) % n] = prng.get();
   }
@@ -657,8 +657,26 @@ void AltMod_benchmark(const oc::CLP &cmd) {
   auto begin = timer.setTimePoint("begin");
   timer2.setTimePoint("begin");
   for (u64 t = 0; t < trials; ++t) {
-    sender.init(n, ole0);
-    recver.init(n, ole1);
+    
+    if (cmd.isSet("doKeyGen"))
+	{
+		sender.init(n, ole0);
+    	recver.init(n, ole1);
+	}
+	else {
+		AltModPrf dm(prng0.get());
+
+		std::vector<oc::block> rk(AltModPrf::KeySize);
+		std::vector<std::array<oc::block, 2>> sk(AltModPrf::KeySize);
+		for (u64 i = 0; i < AltModPrf::KeySize; ++i)
+		{
+		sk[i][0] = oc::block(i, 0);
+		sk[i][1] = oc::block(i, 1);
+		rk[i] = oc::block(i, *oc::BitIterator((u8*)&dm.mExpandedKey, i));
+		}
+		sender.init(n, ole0, AltModPrfKeyMode::SenderOnly, AltModPrfInputMode::ReceiverOnly, dm.getKey(), rk);
+		recver.init(n, ole1, AltModPrfKeyMode::SenderOnly, AltModPrfInputMode::ReceiverOnly, {}, sk);
+	}
 
     numOle += ole0.mGenState->mNumOle;
     numF4BitOt += ole0.mGenState->mNumF4BitOt;

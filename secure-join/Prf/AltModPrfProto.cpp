@@ -934,7 +934,7 @@ namespace secJoin
 			{
 
 				if (otIter[0] == otEnd)
-				{
+				{ 
 					co_await(mMod2F4Req.get(ots));
 
 					otEnd = ots.mOts[0].data() + ots.mOts[0].size();
@@ -1034,7 +1034,7 @@ namespace secJoin
 				}
 			}
 		}
-
+		
 		assert(buff.size() == 0);
 
 	}

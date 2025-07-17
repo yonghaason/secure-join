@@ -55,7 +55,8 @@ namespace secJoin
 		// Hence we need 2 * AltModWPrf::KeySize rows in xkShares
 		xk0.resize(AltModPrf::KeySize, oc::divCeil(n, 128), oc::AllocType::Uninitialized);
 		xk1.resize(AltModPrf::KeySize, oc::divCeil(n, 128), oc::AllocType::Uninitialized);
-		oc::Matrix<block> msg(StepSize, xk0.cols() * 2, oc::AllocType::Uninitialized); // y.size() * 256 * 2 bits
+		oc::Matrix<block> msg(StepSize, xk0.cols() * 2, oc::AllocType::Uninitialized); 
+		
 		for (u64 i = 0; i < AltModPrf::KeySize;)
 		{
 			co_await sock.recv(msg);

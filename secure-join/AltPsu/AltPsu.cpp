@@ -74,7 +74,7 @@ namespace secJoin
         oc::Matrix<u8> in(Y.size(), (prf_bitlen+7)/8);
         block temp;
         for (size_t i = 0; i < Y.size(); i++) {
-            // temp = sharedPRF[i] ^ decoded2[i];
+            temp = sharedPRF[i] ^ decoded2[i];
             std::memcpy(&in(i, 0), &temp, (prf_bitlen+7)/8);
         }
 
@@ -118,18 +118,14 @@ namespace secJoin
         timer.setTimePoint("start");
         double communication_cost;
 
-        block indicator_string = prng.get();
-
         // use AltModPrf only receiver
         AltModPrf dm(prng.get());
         vector<block> myPRF(X.size());
         vector<block> random_value(X.size());
 
+        // Local F_k(X)
         prng.get(random_value.data(), X.size());
         dm.eval(random_value, myPRF);
-
-        for (auto& prf : myPRF)
-            prf ^= indicator_string;
 
         timer.setTimePoint("Local PRF computation");
 
@@ -175,6 +171,8 @@ namespace secJoin
 
         AltModWPrfSender sender;
         sender.init(X.size(), ole0, AltModPrfKeyMode::SenderOnly, AltModPrfInputMode::ReceiverOnly, dm.getKey(), rk); // Should be Y size
+
+        // sender.init(X.size(), ole0);
         sender.mUseMod2F4Ot = true;
         sender.setTimer(timer);
 
@@ -197,12 +195,12 @@ namespace secJoin
         oc::Matrix<u8> in(X.size(), (prf_bitlen+7)/8);
         block tmp;
         for (size_t i = 0; i < X.size(); i++) {
-            // tmp = sharedPRF[i] ^ indicator_string;
+            tmp = sharedPRF[i];
             std::memcpy(&in(i, 0), &tmp, (prf_bitlen+7)/8);
         }
 
         CorGenerator ole_gmw;
-        ole_gmw.init(chl.fork(), prng, 0, 1, 1 << 22, 0);        
+        ole_gmw.init(chl.fork(), prng, 0, 1, 1 << log_batch, 0);        
 
         Gmw cmp;
         cmp.init(in.rows(), cir, ole_gmw);
