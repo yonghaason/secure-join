@@ -22,25 +22,19 @@ namespace secJoin
         double epsilon = 0.1;
         size_t n = Y.size();
         size_t m = static_cast<size_t>((1 + epsilon) * n);
-        size_t band_length = 128;
+        size_t band_length = 196;
 
         band_okvs::BandOkvs okvs;
         okvs.Init(n, m, band_length, oc::ZeroBlock);
 
         vector<block> okvs_encoding(okvs.Size());
-        vector<block> okvs_encoding2(okvs.Size());
 
         co_await chl.recv(okvs_encoding);
-        co_await chl.recv(okvs_encoding2);
-
-        // prng.get(okvs_encoding.data(), okvs.Size());
 
         timer.setTimePoint("Recv OKVS");
 
         vector<block> decoded(Y.size());
-        vector<block> decoded2(Y.size());
         okvs.Decode(Y.data(), okvs_encoding.data(), decoded.data());
-        okvs.Decode(Y.data(), okvs_encoding2.data(), decoded2.data());
 
         timer.setTimePoint("Decode OKVS");
 
@@ -62,19 +56,19 @@ namespace secJoin
 
         co_await macoro::when_all_ready(
             ole1.start(),
-            recver.evaluate(decoded, sharedPRF, chl, prng)
+            recver.evaluate(Y, sharedPRF, chl, prng)
         );
 
         timer.setTimePoint("Shared PRF eval");
 
         // gmw part
-        u64 prf_bitlen = 80;
+        u64 prf_bitlen = 40 + oc::log2ceil(Y.size());
         BetaCircuit cir = isZeroCircuit(prf_bitlen);
 
         oc::Matrix<u8> in(Y.size(), (prf_bitlen+7)/8);
         block temp;
         for (size_t i = 0; i < Y.size(); i++) {
-            temp = sharedPRF[i] ^ decoded2[i];
+            temp = sharedPRF[i] ^ decoded[i];
             std::memcpy(&in(i, 0), &temp, (prf_bitlen+7)/8);
         }
 
@@ -121,11 +115,9 @@ namespace secJoin
         // use AltModPrf only receiver
         AltModPrf dm(prng.get());
         vector<block> myPRF(X.size());
-        vector<block> random_value(X.size());
 
         // Local F_k(X)
-        prng.get(random_value.data(), X.size());
-        dm.eval(random_value, myPRF);
+        dm.eval(X, myPRF);
 
         timer.setTimePoint("Local PRF computation");
 
@@ -133,25 +125,19 @@ namespace secJoin
         double epsilon = 0.1;
         size_t n = X.size(); // Should be Y size
         size_t m = static_cast<int>((1 + epsilon) * n);
-        size_t band_length = 128;
+        size_t band_length = 196;
 
         band_okvs::BandOkvs okvs;
         okvs.Init(n, m, band_length, oc::ZeroBlock);
 
         vector<block> okvs_encoding(okvs.Size());
-        if (!okvs.Encode(X.data(), random_value.data(), okvs_encoding.data())) {
-            std::cout << "Failed to encode!" << std::endl;
-            exit(0);
-        }
-        vector<block> okvs_encoding2(okvs.Size());
-        if (!okvs.Encode(X.data(), myPRF.data(), okvs_encoding2.data())) {
+        if (!okvs.Encode(X.data(), myPRF.data(), okvs_encoding.data())) {
             std::cout << "Failed to encode!" << std::endl;
             exit(0);
         }
 
         // send okvs encoding
         co_await chl.send(std::move(okvs_encoding));
-        co_await chl.send(std::move(okvs_encoding2));
         timer.setTimePoint("okvs encode");
 
         std::cout << "okvs communication is " << ((chl.bytesSent() + chl.bytesReceived()) - communication_cost) / 1024 / 1024 << "MB\n";
@@ -189,7 +175,7 @@ namespace secJoin
         communication_cost = (chl.bytesSent() + chl.bytesReceived());
 
         // gmw part
-        u64 prf_bitlen = 80;
+        u64 prf_bitlen = 40 + oc::log2ceil(X.size()); // Should be Y size
         BetaCircuit cir = isZeroCircuit(prf_bitlen);
 
         oc::Matrix<u8> in(X.size(), (prf_bitlen+7)/8);

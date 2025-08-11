@@ -4,7 +4,7 @@
 # compile CXX with /usr/bin/c++
 CXX_DEFINES = -DBOOST_SYSTEM_NO_LIB -DBOOST_THREAD_NO_LIB
 
-CXX_INCLUDES = -I/usr/local/openssl/include -I/home/lab614/psu/usenix2025/balanced_ePSU/pnmcrg -I/home/lab614/psu/usenix2025/balanced_ePSU/epsu -isystem /home/lab614/psu/usenix2025/balanced_ePSU/libvolepsi/include
+CXX_INCLUDES = -I/usr/local/openssl/include -I/home/ubuntu/secure-join-yh/usenix2025/balanced_ePSU/pnmcrg -I/home/ubuntu/secure-join-yh/usenix2025/balanced_ePSU/epsu -isystem /home/ubuntu/secure-join-yh/usenix2025/balanced_ePSU/libvolepsi/include
 
 CXX_FLAGS =  -Wall -Wfatal-errors -march=native -O3  -DNDEBUG   -w -std=c++17 -lpthread -O3 -std=c++20 -mavx -maes -msse2 -msse3 -mssse3 -msse4.1 -mpclmul -mavx2 -Wno-error=switch -fopenmp
 

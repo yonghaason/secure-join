@@ -53,10 +53,10 @@ RM = /usr/local/bin/cmake -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /home/lab614/psu/usenix2025/balanced_ePSU
+CMAKE_SOURCE_DIR = /home/ubuntu/secure-join-yh/usenix2025/balanced_ePSU
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/lab614/psu/usenix2025/balanced_ePSU/build
+CMAKE_BINARY_DIR = /home/ubuntu/secure-join-yh/usenix2025/balanced_ePSU/build
 
 # Include any dependencies generated for this target.
 include CMakeFiles/test_pecrg.dir/depend.make
@@ -73,88 +73,88 @@ CMakeFiles/test_pecrg.dir/codegen:
 .PHONY : CMakeFiles/test_pecrg.dir/codegen
 
 CMakeFiles/test_pecrg.dir/test/test_pecrg.cpp.o: CMakeFiles/test_pecrg.dir/flags.make
-CMakeFiles/test_pecrg.dir/test/test_pecrg.cpp.o: /home/lab614/psu/usenix2025/balanced_ePSU/test/test_pecrg.cpp
+CMakeFiles/test_pecrg.dir/test/test_pecrg.cpp.o: /home/ubuntu/secure-join-yh/usenix2025/balanced_ePSU/test/test_pecrg.cpp
 CMakeFiles/test_pecrg.dir/test/test_pecrg.cpp.o: CMakeFiles/test_pecrg.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/lab614/psu/usenix2025/balanced_ePSU/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/test_pecrg.dir/test/test_pecrg.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/test_pecrg.dir/test/test_pecrg.cpp.o -MF CMakeFiles/test_pecrg.dir/test/test_pecrg.cpp.o.d -o CMakeFiles/test_pecrg.dir/test/test_pecrg.cpp.o -c /home/lab614/psu/usenix2025/balanced_ePSU/test/test_pecrg.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/ubuntu/secure-join-yh/usenix2025/balanced_ePSU/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/test_pecrg.dir/test/test_pecrg.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/test_pecrg.dir/test/test_pecrg.cpp.o -MF CMakeFiles/test_pecrg.dir/test/test_pecrg.cpp.o.d -o CMakeFiles/test_pecrg.dir/test/test_pecrg.cpp.o -c /home/ubuntu/secure-join-yh/usenix2025/balanced_ePSU/test/test_pecrg.cpp
 
 CMakeFiles/test_pecrg.dir/test/test_pecrg.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/test_pecrg.dir/test/test_pecrg.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/lab614/psu/usenix2025/balanced_ePSU/test/test_pecrg.cpp > CMakeFiles/test_pecrg.dir/test/test_pecrg.cpp.i
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/secure-join-yh/usenix2025/balanced_ePSU/test/test_pecrg.cpp > CMakeFiles/test_pecrg.dir/test/test_pecrg.cpp.i
 
 CMakeFiles/test_pecrg.dir/test/test_pecrg.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/test_pecrg.dir/test/test_pecrg.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/lab614/psu/usenix2025/balanced_ePSU/test/test_pecrg.cpp -o CMakeFiles/test_pecrg.dir/test/test_pecrg.cpp.s
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/secure-join-yh/usenix2025/balanced_ePSU/test/test_pecrg.cpp -o CMakeFiles/test_pecrg.dir/test/test_pecrg.cpp.s
 
 CMakeFiles/test_pecrg.dir/epsu/balanced_epsu.cpp.o: CMakeFiles/test_pecrg.dir/flags.make
-CMakeFiles/test_pecrg.dir/epsu/balanced_epsu.cpp.o: /home/lab614/psu/usenix2025/balanced_ePSU/epsu/balanced_epsu.cpp
+CMakeFiles/test_pecrg.dir/epsu/balanced_epsu.cpp.o: /home/ubuntu/secure-join-yh/usenix2025/balanced_ePSU/epsu/balanced_epsu.cpp
 CMakeFiles/test_pecrg.dir/epsu/balanced_epsu.cpp.o: CMakeFiles/test_pecrg.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/lab614/psu/usenix2025/balanced_ePSU/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/test_pecrg.dir/epsu/balanced_epsu.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/test_pecrg.dir/epsu/balanced_epsu.cpp.o -MF CMakeFiles/test_pecrg.dir/epsu/balanced_epsu.cpp.o.d -o CMakeFiles/test_pecrg.dir/epsu/balanced_epsu.cpp.o -c /home/lab614/psu/usenix2025/balanced_ePSU/epsu/balanced_epsu.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/ubuntu/secure-join-yh/usenix2025/balanced_ePSU/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/test_pecrg.dir/epsu/balanced_epsu.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/test_pecrg.dir/epsu/balanced_epsu.cpp.o -MF CMakeFiles/test_pecrg.dir/epsu/balanced_epsu.cpp.o.d -o CMakeFiles/test_pecrg.dir/epsu/balanced_epsu.cpp.o -c /home/ubuntu/secure-join-yh/usenix2025/balanced_ePSU/epsu/balanced_epsu.cpp
 
 CMakeFiles/test_pecrg.dir/epsu/balanced_epsu.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/test_pecrg.dir/epsu/balanced_epsu.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/lab614/psu/usenix2025/balanced_ePSU/epsu/balanced_epsu.cpp > CMakeFiles/test_pecrg.dir/epsu/balanced_epsu.cpp.i
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/secure-join-yh/usenix2025/balanced_ePSU/epsu/balanced_epsu.cpp > CMakeFiles/test_pecrg.dir/epsu/balanced_epsu.cpp.i
 
 CMakeFiles/test_pecrg.dir/epsu/balanced_epsu.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/test_pecrg.dir/epsu/balanced_epsu.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/lab614/psu/usenix2025/balanced_ePSU/epsu/balanced_epsu.cpp -o CMakeFiles/test_pecrg.dir/epsu/balanced_epsu.cpp.s
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/secure-join-yh/usenix2025/balanced_ePSU/epsu/balanced_epsu.cpp -o CMakeFiles/test_pecrg.dir/epsu/balanced_epsu.cpp.s
 
 CMakeFiles/test_pecrg.dir/pnmcrg/curve25519.cpp.o: CMakeFiles/test_pecrg.dir/flags.make
-CMakeFiles/test_pecrg.dir/pnmcrg/curve25519.cpp.o: /home/lab614/psu/usenix2025/balanced_ePSU/pnmcrg/curve25519.cpp
+CMakeFiles/test_pecrg.dir/pnmcrg/curve25519.cpp.o: /home/ubuntu/secure-join-yh/usenix2025/balanced_ePSU/pnmcrg/curve25519.cpp
 CMakeFiles/test_pecrg.dir/pnmcrg/curve25519.cpp.o: CMakeFiles/test_pecrg.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/lab614/psu/usenix2025/balanced_ePSU/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object CMakeFiles/test_pecrg.dir/pnmcrg/curve25519.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/test_pecrg.dir/pnmcrg/curve25519.cpp.o -MF CMakeFiles/test_pecrg.dir/pnmcrg/curve25519.cpp.o.d -o CMakeFiles/test_pecrg.dir/pnmcrg/curve25519.cpp.o -c /home/lab614/psu/usenix2025/balanced_ePSU/pnmcrg/curve25519.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/ubuntu/secure-join-yh/usenix2025/balanced_ePSU/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object CMakeFiles/test_pecrg.dir/pnmcrg/curve25519.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/test_pecrg.dir/pnmcrg/curve25519.cpp.o -MF CMakeFiles/test_pecrg.dir/pnmcrg/curve25519.cpp.o.d -o CMakeFiles/test_pecrg.dir/pnmcrg/curve25519.cpp.o -c /home/ubuntu/secure-join-yh/usenix2025/balanced_ePSU/pnmcrg/curve25519.cpp
 
 CMakeFiles/test_pecrg.dir/pnmcrg/curve25519.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/test_pecrg.dir/pnmcrg/curve25519.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/lab614/psu/usenix2025/balanced_ePSU/pnmcrg/curve25519.cpp > CMakeFiles/test_pecrg.dir/pnmcrg/curve25519.cpp.i
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/secure-join-yh/usenix2025/balanced_ePSU/pnmcrg/curve25519.cpp > CMakeFiles/test_pecrg.dir/pnmcrg/curve25519.cpp.i
 
 CMakeFiles/test_pecrg.dir/pnmcrg/curve25519.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/test_pecrg.dir/pnmcrg/curve25519.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/lab614/psu/usenix2025/balanced_ePSU/pnmcrg/curve25519.cpp -o CMakeFiles/test_pecrg.dir/pnmcrg/curve25519.cpp.s
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/secure-join-yh/usenix2025/balanced_ePSU/pnmcrg/curve25519.cpp -o CMakeFiles/test_pecrg.dir/pnmcrg/curve25519.cpp.s
 
 CMakeFiles/test_pecrg.dir/pnmcrg/pnMCRG.cpp.o: CMakeFiles/test_pecrg.dir/flags.make
-CMakeFiles/test_pecrg.dir/pnmcrg/pnMCRG.cpp.o: /home/lab614/psu/usenix2025/balanced_ePSU/pnmcrg/pnMCRG.cpp
+CMakeFiles/test_pecrg.dir/pnmcrg/pnMCRG.cpp.o: /home/ubuntu/secure-join-yh/usenix2025/balanced_ePSU/pnmcrg/pnMCRG.cpp
 CMakeFiles/test_pecrg.dir/pnmcrg/pnMCRG.cpp.o: CMakeFiles/test_pecrg.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/lab614/psu/usenix2025/balanced_ePSU/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Building CXX object CMakeFiles/test_pecrg.dir/pnmcrg/pnMCRG.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/test_pecrg.dir/pnmcrg/pnMCRG.cpp.o -MF CMakeFiles/test_pecrg.dir/pnmcrg/pnMCRG.cpp.o.d -o CMakeFiles/test_pecrg.dir/pnmcrg/pnMCRG.cpp.o -c /home/lab614/psu/usenix2025/balanced_ePSU/pnmcrg/pnMCRG.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/ubuntu/secure-join-yh/usenix2025/balanced_ePSU/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Building CXX object CMakeFiles/test_pecrg.dir/pnmcrg/pnMCRG.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/test_pecrg.dir/pnmcrg/pnMCRG.cpp.o -MF CMakeFiles/test_pecrg.dir/pnmcrg/pnMCRG.cpp.o.d -o CMakeFiles/test_pecrg.dir/pnmcrg/pnMCRG.cpp.o -c /home/ubuntu/secure-join-yh/usenix2025/balanced_ePSU/pnmcrg/pnMCRG.cpp
 
 CMakeFiles/test_pecrg.dir/pnmcrg/pnMCRG.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/test_pecrg.dir/pnmcrg/pnMCRG.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/lab614/psu/usenix2025/balanced_ePSU/pnmcrg/pnMCRG.cpp > CMakeFiles/test_pecrg.dir/pnmcrg/pnMCRG.cpp.i
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/secure-join-yh/usenix2025/balanced_ePSU/pnmcrg/pnMCRG.cpp > CMakeFiles/test_pecrg.dir/pnmcrg/pnMCRG.cpp.i
 
 CMakeFiles/test_pecrg.dir/pnmcrg/pnMCRG.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/test_pecrg.dir/pnmcrg/pnMCRG.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/lab614/psu/usenix2025/balanced_ePSU/pnmcrg/pnMCRG.cpp -o CMakeFiles/test_pecrg.dir/pnmcrg/pnMCRG.cpp.s
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/secure-join-yh/usenix2025/balanced_ePSU/pnmcrg/pnMCRG.cpp -o CMakeFiles/test_pecrg.dir/pnmcrg/pnMCRG.cpp.s
 
 CMakeFiles/test_pecrg.dir/pnmcrg/ssPEQT.cpp.o: CMakeFiles/test_pecrg.dir/flags.make
-CMakeFiles/test_pecrg.dir/pnmcrg/ssPEQT.cpp.o: /home/lab614/psu/usenix2025/balanced_ePSU/pnmcrg/ssPEQT.cpp
+CMakeFiles/test_pecrg.dir/pnmcrg/ssPEQT.cpp.o: /home/ubuntu/secure-join-yh/usenix2025/balanced_ePSU/pnmcrg/ssPEQT.cpp
 CMakeFiles/test_pecrg.dir/pnmcrg/ssPEQT.cpp.o: CMakeFiles/test_pecrg.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/lab614/psu/usenix2025/balanced_ePSU/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Building CXX object CMakeFiles/test_pecrg.dir/pnmcrg/ssPEQT.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/test_pecrg.dir/pnmcrg/ssPEQT.cpp.o -MF CMakeFiles/test_pecrg.dir/pnmcrg/ssPEQT.cpp.o.d -o CMakeFiles/test_pecrg.dir/pnmcrg/ssPEQT.cpp.o -c /home/lab614/psu/usenix2025/balanced_ePSU/pnmcrg/ssPEQT.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/ubuntu/secure-join-yh/usenix2025/balanced_ePSU/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Building CXX object CMakeFiles/test_pecrg.dir/pnmcrg/ssPEQT.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/test_pecrg.dir/pnmcrg/ssPEQT.cpp.o -MF CMakeFiles/test_pecrg.dir/pnmcrg/ssPEQT.cpp.o.d -o CMakeFiles/test_pecrg.dir/pnmcrg/ssPEQT.cpp.o -c /home/ubuntu/secure-join-yh/usenix2025/balanced_ePSU/pnmcrg/ssPEQT.cpp
 
 CMakeFiles/test_pecrg.dir/pnmcrg/ssPEQT.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/test_pecrg.dir/pnmcrg/ssPEQT.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/lab614/psu/usenix2025/balanced_ePSU/pnmcrg/ssPEQT.cpp > CMakeFiles/test_pecrg.dir/pnmcrg/ssPEQT.cpp.i
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/secure-join-yh/usenix2025/balanced_ePSU/pnmcrg/ssPEQT.cpp > CMakeFiles/test_pecrg.dir/pnmcrg/ssPEQT.cpp.i
 
 CMakeFiles/test_pecrg.dir/pnmcrg/ssPEQT.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/test_pecrg.dir/pnmcrg/ssPEQT.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/lab614/psu/usenix2025/balanced_ePSU/pnmcrg/ssPEQT.cpp -o CMakeFiles/test_pecrg.dir/pnmcrg/ssPEQT.cpp.s
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/secure-join-yh/usenix2025/balanced_ePSU/pnmcrg/ssPEQT.cpp -o CMakeFiles/test_pecrg.dir/pnmcrg/ssPEQT.cpp.s
 
 CMakeFiles/test_pecrg.dir/pnmcrg/ssROT.cpp.o: CMakeFiles/test_pecrg.dir/flags.make
-CMakeFiles/test_pecrg.dir/pnmcrg/ssROT.cpp.o: /home/lab614/psu/usenix2025/balanced_ePSU/pnmcrg/ssROT.cpp
+CMakeFiles/test_pecrg.dir/pnmcrg/ssROT.cpp.o: /home/ubuntu/secure-join-yh/usenix2025/balanced_ePSU/pnmcrg/ssROT.cpp
 CMakeFiles/test_pecrg.dir/pnmcrg/ssROT.cpp.o: CMakeFiles/test_pecrg.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/lab614/psu/usenix2025/balanced_ePSU/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Building CXX object CMakeFiles/test_pecrg.dir/pnmcrg/ssROT.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/test_pecrg.dir/pnmcrg/ssROT.cpp.o -MF CMakeFiles/test_pecrg.dir/pnmcrg/ssROT.cpp.o.d -o CMakeFiles/test_pecrg.dir/pnmcrg/ssROT.cpp.o -c /home/lab614/psu/usenix2025/balanced_ePSU/pnmcrg/ssROT.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/ubuntu/secure-join-yh/usenix2025/balanced_ePSU/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Building CXX object CMakeFiles/test_pecrg.dir/pnmcrg/ssROT.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/test_pecrg.dir/pnmcrg/ssROT.cpp.o -MF CMakeFiles/test_pecrg.dir/pnmcrg/ssROT.cpp.o.d -o CMakeFiles/test_pecrg.dir/pnmcrg/ssROT.cpp.o -c /home/ubuntu/secure-join-yh/usenix2025/balanced_ePSU/pnmcrg/ssROT.cpp
 
 CMakeFiles/test_pecrg.dir/pnmcrg/ssROT.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/test_pecrg.dir/pnmcrg/ssROT.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/lab614/psu/usenix2025/balanced_ePSU/pnmcrg/ssROT.cpp > CMakeFiles/test_pecrg.dir/pnmcrg/ssROT.cpp.i
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/secure-join-yh/usenix2025/balanced_ePSU/pnmcrg/ssROT.cpp > CMakeFiles/test_pecrg.dir/pnmcrg/ssROT.cpp.i
 
 CMakeFiles/test_pecrg.dir/pnmcrg/ssROT.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/test_pecrg.dir/pnmcrg/ssROT.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/lab614/psu/usenix2025/balanced_ePSU/pnmcrg/ssROT.cpp -o CMakeFiles/test_pecrg.dir/pnmcrg/ssROT.cpp.s
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/secure-join-yh/usenix2025/balanced_ePSU/pnmcrg/ssROT.cpp -o CMakeFiles/test_pecrg.dir/pnmcrg/ssROT.cpp.s
 
 # Object files for target test_pecrg
 test_pecrg_OBJECTS = \
@@ -175,21 +175,21 @@ test_pecrg: CMakeFiles/test_pecrg.dir/pnmcrg/pnMCRG.cpp.o
 test_pecrg: CMakeFiles/test_pecrg.dir/pnmcrg/ssPEQT.cpp.o
 test_pecrg: CMakeFiles/test_pecrg.dir/pnmcrg/ssROT.cpp.o
 test_pecrg: CMakeFiles/test_pecrg.dir/build.make
-test_pecrg: /home/lab614/psu/usenix2025/balanced_ePSU/libvolepsi/lib/libvolePSI.a
+test_pecrg: /home/ubuntu/secure-join-yh/usenix2025/balanced_ePSU/libvolepsi/lib/libvolePSI.a
 test_pecrg: /usr/local/openssl/lib64/libssl.a
 test_pecrg: /usr/local/openssl/lib64/libcrypto.a
-test_pecrg: /home/lab614/psu/usenix2025/balanced_ePSU/libvolepsi/lib/liblibOTe.a
-test_pecrg: /home/lab614/psu/usenix2025/balanced_ePSU/libvolepsi/lib/libcryptoTools.a
-test_pecrg: /home/lab614/psu/usenix2025/balanced_ePSU/libvolepsi/lib/libsodium.a
-test_pecrg: /home/lab614/psu/usenix2025/balanced_ePSU/libvolepsi/lib/libcoproto.a
-test_pecrg: /home/lab614/psu/usenix2025/balanced_ePSU/libvolepsi/lib/libboost_system.a
-test_pecrg: /home/lab614/psu/usenix2025/balanced_ePSU/libvolepsi/lib/libboost_thread.a
-test_pecrg: /home/lab614/psu/usenix2025/balanced_ePSU/libvolepsi/lib/libmacoro.a
-test_pecrg: /home/lab614/psu/usenix2025/balanced_ePSU/libvolepsi/lib/libbitpolymul.a
+test_pecrg: /home/ubuntu/secure-join-yh/usenix2025/balanced_ePSU/libvolepsi/lib/liblibOTe.a
+test_pecrg: /home/ubuntu/secure-join-yh/usenix2025/balanced_ePSU/libvolepsi/lib/libcryptoTools.a
+test_pecrg: /home/ubuntu/secure-join-yh/usenix2025/balanced_ePSU/libvolepsi/lib/libsodium.a
+test_pecrg: /home/ubuntu/secure-join-yh/usenix2025/balanced_ePSU/libvolepsi/lib/libcoproto.a
+test_pecrg: /home/ubuntu/secure-join-yh/usenix2025/balanced_ePSU/libvolepsi/lib/libboost_system.a
+test_pecrg: /home/ubuntu/secure-join-yh/usenix2025/balanced_ePSU/libvolepsi/lib/libboost_thread.a
+test_pecrg: /home/ubuntu/secure-join-yh/usenix2025/balanced_ePSU/libvolepsi/lib/libmacoro.a
+test_pecrg: /home/ubuntu/secure-join-yh/usenix2025/balanced_ePSU/libvolepsi/lib/libbitpolymul.a
 test_pecrg: /usr/lib/gcc/x86_64-linux-gnu/13/libgomp.so
 test_pecrg: /usr/lib/x86_64-linux-gnu/libpthread.so
 test_pecrg: CMakeFiles/test_pecrg.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/home/lab614/psu/usenix2025/balanced_ePSU/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_7) "Linking CXX executable test_pecrg"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/home/ubuntu/secure-join-yh/usenix2025/balanced_ePSU/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_7) "Linking CXX executable test_pecrg"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/test_pecrg.dir/link.txt --verbose=$(VERBOSE)
 
 # Rule to build all files generated by this target.
@@ -201,6 +201,6 @@ CMakeFiles/test_pecrg.dir/clean:
 .PHONY : CMakeFiles/test_pecrg.dir/clean
 
 CMakeFiles/test_pecrg.dir/depend:
-	cd /home/lab614/psu/usenix2025/balanced_ePSU/build && $(CMAKE_COMMAND) -E cmake_depends "Unix Makefiles" /home/lab614/psu/usenix2025/balanced_ePSU /home/lab614/psu/usenix2025/balanced_ePSU /home/lab614/psu/usenix2025/balanced_ePSU/build /home/lab614/psu/usenix2025/balanced_ePSU/build /home/lab614/psu/usenix2025/balanced_ePSU/build/CMakeFiles/test_pecrg.dir/DependInfo.cmake "--color=$(COLOR)"
+	cd /home/ubuntu/secure-join-yh/usenix2025/balanced_ePSU/build && $(CMAKE_COMMAND) -E cmake_depends "Unix Makefiles" /home/ubuntu/secure-join-yh/usenix2025/balanced_ePSU /home/ubuntu/secure-join-yh/usenix2025/balanced_ePSU /home/ubuntu/secure-join-yh/usenix2025/balanced_ePSU/build /home/ubuntu/secure-join-yh/usenix2025/balanced_ePSU/build /home/ubuntu/secure-join-yh/usenix2025/balanced_ePSU/build/CMakeFiles/test_pecrg.dir/DependInfo.cmake "--color=$(COLOR)"
 .PHONY : CMakeFiles/test_pecrg.dir/depend
 
