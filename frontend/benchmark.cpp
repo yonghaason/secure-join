@@ -20,6 +20,9 @@ void AltModPsu_benchmark(const oc::CLP &cmd) {
   auto e1 = pool1.make_work();
   pool1.create_threads(nt);
 
+  oc::Timer timer_s;
+  oc::Timer timer_r;
+
   // auto socket = coproto::AsioSocket::makePair();
   auto socket = coproto::LocalAsyncSocket::makePair();
   socket[0].setExecutor(pool0);
@@ -39,6 +42,9 @@ void AltModPsu_benchmark(const oc::CLP &cmd) {
   AltModPsuSender send;
   AltModPsuReceiver recv;
 
+  send.setTimer(timer_s);
+  recv.setTimer(timer_r);
+
   std::vector<block> diffSet;
 
   for (u64 i = 0; i < 1; ++i) {
@@ -53,273 +59,18 @@ void AltModPsu_benchmark(const oc::CLP &cmd) {
   }
 
   if (cmd.isSet("v")) {
-    std::cout << "comm " << socket[0].bytesSent() << " + "
-              << socket[1].bytesSent() << " = "
-              << (socket[0].bytesSent() + socket[1].bytesSent()) / 1024 / 1024
+
+    std::cout << timer_s << std::endl;
+
+    std::cout << timer_r << std::endl;
+
+    std::cout << "comm " << double(socket[0].bytesSent())/ 1024 / 1024 << " + "
+              << double(socket[1].bytesSent())/ 1024 / 1024 << " = "
+              << double(socket[0].bytesSent() + socket[1].bytesSent()) / 1024 / 1024
               << "MB" << std::endl;
   }
 
   std::cout << "#difference = " << diffSet.size() << " / expected = " << itx << std::endl;
-}
-
-void AltModPsu_unbalance_benchmark(const oc::CLP &cmd) {
-  std::cout << "start AltPsu debug version\n";
-
-  u64 n = cmd.getOr("n", 1ull << cmd.getOr("nn", 10));
-  u64 n2 = 1 << 10;
-  // u64 trials = cmd.getOr("trials", 1);
-  // bool nt = cmd.getOr("nt", 1);
-  // auto useOle = cmd.isSet("ole");
-
-  // auto socket = coproto::AsioSocket::makePair();
-  auto socket = coproto::LocalAsyncSocket::makePair();
-  auto socket_gmw = coproto::LocalAsyncSocket::makePair();
-  oc::Timer timer;
-
-  PRNG prng0(oc::ZeroBlock);
-  PRNG prng(oc::ZeroBlock);
-
-  std::vector<block> recvSet(n), sendSet(n2);
-  prng.get<block>(recvSet);
-  prng.get<block>(sendSet);
-
-  AltModPsuSender send;
-  AltModPsuReceiver recv;
-
-  for (u64 i = 0; i < 1; ++i) {
-    auto p0 =
-        send.run_unbalance(sendSet, recvSet, prng, socket[0], socket_gmw[0]);
-    auto p1 =
-        recv.run_unbalance(recvSet, sendSet, prng, socket[1], socket_gmw[1]);
-
-    auto r =
-        macoro::sync_wait(macoro::when_all_ready(std::move(p0), std::move(p1)));
-    std::get<0>(r).result();
-    std::get<1>(r).result();
-
-    // ev.eval(p0, p1);
-  }
-  timer.setTimePoint("end");
-
-  if (cmd.isSet("v")) {
-    std::cout << timer << "\nr" << std::endl;
-    std::cout << "comm " << socket[0].bytesSent() << " + "
-              << socket[1].bytesSent() << " = "
-              << (socket[0].bytesSent() + socket[1].bytesSent()) / 1024 / 1024
-              << "MB" << std::endl;
-  }
-}
-
-void AltModPsu_debug_benchmark(const oc::CLP &cmd) {
-  std::cout << "start AltPsu debug version\n";
-
-  u64 n = cmd.getOr("n", 1ull << cmd.getOr("nn", 10));
-  // u64 trials = cmd.getOr("trials", 1);
-  // bool nt = cmd.getOr("nt", 1);
-  // auto useOle = cmd.isSet("ole");
-
-  // auto socket = coproto::AsioSocket::makePair();
-  auto socket = coproto::LocalAsyncSocket::makePair();
-  auto socket_gmw = coproto::LocalAsyncSocket::makePair();
-  oc::Timer timer;
-
-  PRNG prng0(oc::ZeroBlock);
-  PRNG prng(oc::ZeroBlock);
-
-  std::vector<block> recvSet(n), sendSet(n);
-  prng.get<block>(recvSet);
-  prng.get<block>(sendSet);
-
-  AltModPsuSender send;
-  AltModPsuReceiver recv;
-
-  for (u64 i = 0; i < 1; ++i) {
-    auto p0 = send.run_debug(sendSet, prng, socket[0], socket_gmw[0]);
-    auto p1 = recv.run_debug(recvSet, prng, socket[1], socket_gmw[1]);
-
-    auto r =
-        macoro::sync_wait(macoro::when_all_ready(std::move(p0), std::move(p1)));
-    std::get<0>(r).result();
-    std::get<1>(r).result();
-
-    // ev.eval(p0, p1);
-  }
-  timer.setTimePoint("end");
-
-  if (cmd.isSet("v")) {
-    std::cout << timer << "\nr" << std::endl;
-    std::cout << "comm " << socket[0].bytesSent() << " + "
-              << socket[1].bytesSent() << " = "
-              << (socket[0].bytesSent() + socket[1].bytesSent()) << std::endl;
-  }
-}
-
-void AltModPsu_correctness_benchmark(const oc::CLP &cmd) {
-  // std::cout << "start AltPsu debug version\n";
-
-  u64 n = cmd.getOr("n", 1ull << cmd.getOr("nn", 10));
-  // u64 trials = cmd.getOr("trials", 1);
-  // bool nt = cmd.getOr("nt", 1);
-  // auto useOle = cmd.isSet("ole");
-
-  // auto socket = coproto::AsioSocket::makePair();
-  auto socket = coproto::LocalAsyncSocket::makePair();
-  auto socket_gmw = coproto::LocalAsyncSocket::makePair();
-  oc::Timer timer;
-
-  PRNG prng0(oc::ZeroBlock);
-  PRNG prng(oc::ZeroBlock);
-
-  std::vector<block> recvSet(n), sendSet(n);
-  prng.get<block>(recvSet);
-  prng.get<block>(sendSet);
-
-  std::set<block> set_X;
-  std::set<block> set_Y;
-
-  for (auto &iter : sendSet) {
-    u64 *data = (u64 *)&iter;
-    data[0] = data[0] % 16777216;
-    data[1] = 0;
-
-    if (data[0] == 0) data[0] = 1;
-
-    while (set_X.count(iter) == true) {
-      data[0]++;
-    }
-    set_X.insert(iter);
-  }
-
-  for (auto &iter : recvSet) {
-    u64 *data = (u64 *)&iter;
-    data[0] = data[0] % 16777216;
-    data[1] = 0;
-
-    if (data[0] == 0) data[0] = 1;
-
-    while (set_Y.count(iter) == true) {
-      data[0]++;
-    }
-    set_Y.insert(iter);
-  }
-  // 1000000
-  // 16777216
-  // 268435456
-
-  // for (auto &m : sendSet){
-
-  // 	if (m == oc::ZeroBlock)
-  // 		m = oc::OneBlock;
-
-  // }
-
-  AltModPsuSender send;
-  AltModPsuReceiver recv;
-
-  timer.setTimePoint("start");
-
-  for (u64 i = 0; i < 1; ++i) {
-    auto p0 = send.run_correctness(sendSet, prng, socket[0], socket_gmw[0]);
-    auto p1 = recv.run_correctness(recvSet, prng, socket[1], socket_gmw[1]);
-
-    auto r =
-        macoro::sync_wait(macoro::when_all_ready(std::move(p0), std::move(p1)));
-    std::get<0>(r).result();
-    std::get<1>(r).result();
-
-    // ev.eval(p0, p1);
-  }
-  timer.setTimePoint("end");
-
-  if (cmd.isSet("v")) {
-    std::cout << timer << "\nr" << std::endl;
-    std::cout << "comm " << socket[0].bytesSent() << " + "
-              << socket[1].bytesSent() << " = "
-              << (socket[0].bytesSent() + socket[1].bytesSent()) / 1024 / 1024
-              << "MB" << std::endl;
-  }
-}
-
-void AltModPsu_run_gmw_test_benchmark(const oc::CLP &cmd) {
-  // std::cout << "start AltPsu debug version\n";
-
-  u64 n = cmd.getOr("n", 1ull << cmd.getOr("nn", 10));
-
-  auto socket = coproto::LocalAsyncSocket::makePair();
-  auto socket_gmw = coproto::LocalAsyncSocket::makePair();
-  oc::Timer timer;
-
-  PRNG prng0(oc::ZeroBlock);
-  PRNG prng(oc::ZeroBlock);
-
-  std::vector<block> recvSet(n), sendSet(n);
-  prng.get<block>(recvSet);
-  prng.get<block>(sendSet);
-
-  std::set<block> set_X;
-  std::set<block> set_Y;
-
-  for (auto &iter : sendSet) {
-    u64 *data = (u64 *)&iter;
-    data[0] = data[0] % 16777216;
-    data[1] = 0;
-
-    if (data[0] == 0) data[0] = 1;
-
-    while (set_X.count(iter) == true) {
-      data[0]++;
-    }
-    set_X.insert(iter);
-  }
-
-  for (auto &iter : recvSet) {
-    u64 *data = (u64 *)&iter;
-    data[0] = data[0] % 16777216;
-    data[1] = 0;
-
-    if (data[0] == 0) data[0] = 1;
-
-    while (set_Y.count(iter) == true) {
-      data[0]++;
-    }
-    set_Y.insert(iter);
-  }
-  // 1000000
-  // 16777216
-  // 268435456
-
-  // for (auto &m : sendSet){
-
-  // 	if (m == oc::ZeroBlock)
-  // 		m = oc::OneBlock;
-
-  // }
-
-  AltModPsuSender send;
-  AltModPsuReceiver recv;
-
-  timer.setTimePoint("start");
-  for (u64 i = 0; i < 1; ++i) {
-    std::cout << "invoke gmw test\n";
-
-    auto p0 = send.run_gmw_test(sendSet, prng, socket[0]);
-    auto p1 = recv.run_gmw_test(recvSet, prng, socket[1]);
-
-    auto r =
-        macoro::sync_wait(macoro::when_all_ready(std::move(p0), std::move(p1)));
-    std::get<0>(r).result();
-    std::get<1>(r).result();
-
-    // ev.eval(p0, p1);
-  }
-  timer.setTimePoint("end");
-
-  if (cmd.isSet("v")) {
-    std::cout << timer << "\nr" << std::endl;
-    std::cout << "comm " << socket[0].bytesSent() << " + "
-              << socket[1].bytesSent() << " = "
-              << (socket[0].bytesSent() + socket[1].bytesSent()) << std::endl;
-  }
 }
 
 void CorGen_benchmark(const oc::CLP &cmd) {

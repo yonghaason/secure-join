@@ -51,12 +51,8 @@ set(SRCS
     "Join/OoJoin.cpp"
 
     "AltPsu/AltPsu.cpp"
-    "AltPsu/AltPsu_debug.cpp"
-    "AltPsu/AltPsu_correctness.cpp"
-    "AltPsu/AltPsu_unbalance.cpp"
-    "AltPsu/gmw_test.cpp"
-    "AltPsu/band_okvs.cc"
-    "AltPsu/band.cc"
+    "AltPsu/RB_OKVS/band_okvs.cc"
+    "AltPsu/RB_OKVS/band.cc"
     )
 
 

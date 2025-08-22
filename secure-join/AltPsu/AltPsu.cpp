@@ -7,8 +7,6 @@
 
 using namespace std;
 
-
-
 namespace secJoin
 {
     u64 log_batch = 22;
@@ -17,7 +15,7 @@ namespace secJoin
     {
         // receive okvs encoding / okvs decode
 
-        timer.setTimePoint("start");
+        setTimePoint("start");
 
         double epsilon = 0.1;
         size_t n = Y.size();
@@ -31,14 +29,12 @@ namespace secJoin
 
         co_await chl.recv(okvs_encoding);
 
-        timer.setTimePoint("Recv OKVS");
-
         vector<block> decoded(Y.size());
         okvs.Decode(Y.data(), okvs_encoding.data(), decoded.data());
 
-        timer.setTimePoint("Decode OKVS");
+        setTimePoint("OKVS");
 
-        // 2aprty wprf
+        // ss-PRF
         CorGenerator ole1;
         ole1.init(chl.fork(), prng, 1, 1, 1 << log_batch, 0);
 
@@ -50,7 +46,6 @@ namespace secJoin
         AltModWPrfReceiver recver;
         recver.init(Y.size(), ole1, AltModPrfKeyMode::SenderOnly, AltModPrfInputMode::ReceiverOnly, {}, sk);
         recver.mUseMod2F4Ot = true;
-        recver.setTimer(timer);
 
         vector<block> sharedPRF(Y.size());
 
@@ -58,10 +53,10 @@ namespace secJoin
             ole1.start(),
             recver.evaluate(Y, sharedPRF, chl, prng)
         );
+        
+        setTimePoint("ss-PRF");
 
-        timer.setTimePoint("Shared PRF eval");
-
-        // gmw part
+        // ss-PET part
         u64 prf_bitlen = 40 + oc::log2ceil(Y.size());
         BetaCircuit cir = isZeroCircuit(prf_bitlen);
 
@@ -88,9 +83,9 @@ namespace secJoin
         oc::BitVector flags(Y.size());
         flags = oc::BitVector(outView.data(), Y.size(), /*copyData=*/false);
 
-        timer.setTimePoint("GMW");
+        setTimePoint("ss-PET");
 
-        //OT phase
+        //eqOTe phase
         std::vector<std::array<block, 2>> finalOtMsgs(Y.size());
 
         for (u64 i = 0; i < Y.size(); i++) {    
@@ -103,14 +98,13 @@ namespace secJoin
 
         co_await finalOtSender.sendChosen(finalOtMsgs, prng, chl);
 
-        std::cout << "Sender Timer" << std::endl;
-        std::cout << timer << '\n';
+        setTimePoint("eqOTe");
     };
 
     Proto AltModPsuReceiver::run(span<block> X, std::vector<block>& D, PRNG& prng, Socket& chl)
     {
-        timer.setTimePoint("start");
-        double communication_cost;
+        setTimePoint("start");
+        // double communication_cost;
 
         // use AltModPrf only receiver
         AltModPrf dm(prng.get());
@@ -119,7 +113,7 @@ namespace secJoin
         // Local F_k(X)
         dm.eval(X, myPRF);
 
-        timer.setTimePoint("Local PRF computation");
+        setTimePoint("Local PRF computation");
 
         // make rb_okvs
         double epsilon = 0.1;
@@ -138,12 +132,9 @@ namespace secJoin
 
         // send okvs encoding
         co_await chl.send(std::move(okvs_encoding));
-        timer.setTimePoint("okvs encode");
+        setTimePoint("OKVS");
 
-        std::cout << "okvs communication is " << ((chl.bytesSent() + chl.bytesReceived()) - communication_cost) / 1024 / 1024 << "MB\n";
-        communication_cost = (chl.bytesSent() + chl.bytesReceived());
-
-        // 2party wprf part
+        // ss-PRF
         CorGenerator ole0;
         ole0.init(chl.fork(), prng, 0, 1, 1 << log_batch, 0);
 
@@ -158,9 +149,7 @@ namespace secJoin
         AltModWPrfSender sender;
         sender.init(X.size(), ole0, AltModPrfKeyMode::SenderOnly, AltModPrfInputMode::ReceiverOnly, dm.getKey(), rk); // Should be Y size
 
-        // sender.init(X.size(), ole0);
         sender.mUseMod2F4Ot = true;
-        sender.setTimer(timer);
 
         vector<block> sharedPRF(X.size()); // Should be Y size
 
@@ -169,12 +158,9 @@ namespace secJoin
             sender.evaluate({}, sharedPRF, chl, prng)
         );
 
-        timer.setTimePoint("Shared PRF eval");
+        setTimePoint("ss-PRF");
 
-        std::cout << "wprf communication is " << ((chl.bytesSent() + chl.bytesReceived()) - communication_cost) / 1024 / 1024 << "MB\n";
-        communication_cost = (chl.bytesSent() + chl.bytesReceived());
-
-        // gmw part
+        // ss-PET part
         u64 prf_bitlen = 40 + oc::log2ceil(X.size()); // Should be Y size
         BetaCircuit cir = isZeroCircuit(prf_bitlen);
 
@@ -196,30 +182,21 @@ namespace secJoin
         auto tgmw_ole = ole_gmw.start();
         co_await macoro::when_all_ready(tgmw, tgmw_ole);
 
-        std::cout << "gmw communication is " << ((chl.bytesSent() + chl.bytesReceived()) - communication_cost) / 1024 / 1024 << "MB\n";
-        communication_cost = (chl.bytesSent() + chl.bytesReceived());
-
         auto outView = cmp.getOutputView(0);
 
         oc::BitVector ot_choice(X.size());
         ot_choice = oc::BitVector(outView.data(), X.size(), /*copyData=*/false);
 
-        timer.setTimePoint("gmw");
+        setTimePoint("ss-PET");
 
-        // ot part
+        // eqOTe part
         vector<block> finalOtMsgs(ot_choice.size());
         oc::SilentOtExtReceiver finalOtReceiver;
         finalOtReceiver.configure(ot_choice.size());
 
         co_await(finalOtReceiver.receiveChosen(ot_choice, finalOtMsgs, prng, chl));
 
-        std::cout << "ot communication is " << ((chl.bytesSent() + chl.bytesReceived()) - communication_cost) / 1024 / 1024 << "MB\n";
-        communication_cost = (chl.bytesSent() + chl.bytesReceived());
-
-        timer.setTimePoint("ot");
-
-        std::cout << "Receiver Timer" << std::endl;
-        std::cout << timer << '\n';
+        setTimePoint("eqOTe");
 
         for (auto &m : finalOtMsgs){
             if (m != oc::ZeroBlock)

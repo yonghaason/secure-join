@@ -63,18 +63,6 @@ int main(int argc, char** argv)
         {
             AltModPsu_benchmark(clp);
         }
-        if (clp.isSet("AltPsu_debug"))
-        {
-            AltModPsu_debug_benchmark(clp);
-        }
-        if (clp.isSet("AltPsu_correctness"))
-        {
-            AltModPsu_correctness_benchmark(clp);
-        }
-        if (clp.isSet("AltPsu_gmw_test"))
-        {
-            AltModPsu_run_gmw_test_benchmark(clp);
-        }
         if (clp.isSet("PprfPerm"))
         {
             PprfPerm_benchmark(clp);
@@ -102,10 +90,6 @@ int main(int argc, char** argv)
         if (clp.isSet("mod3"))
         {
             AltMod_sampleMod3_benchmark(clp);
-        }
-        if (clp.isSet("unbalance"))
-        {
-            AltModPsu_unbalance_benchmark(clp);
         }
         
         return 0;
