@@ -6,7 +6,7 @@ The following build command are checked on Ubuntu 22.04.05.
 ```
 git clone https://github.com/yonghaason/PRF-PSU.git
 cd SecureJoin
-python3 build.py -DSECUREJOIN_ENABLE_BOOST=ON
+python3 build.py -DSECUREJOIN_ENABLE_BOOST=ON -DFETCH_SODIUM=ON
 # If you encounter a libsodium-related error (e.g., fetch/build failure), rerun the build using the command below.
 python3 build.py -DSECUREJOIN_ENABLE_BOOST=ON -DFETCH_SODIUM=OFF
 ```
