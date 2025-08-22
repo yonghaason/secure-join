@@ -55,7 +55,8 @@ namespace secJoin
 		// Hence we need 2 * AltModWPrf::KeySize rows in xkShares
 		xk0.resize(AltModPrf::KeySize, oc::divCeil(n, 128), oc::AllocType::Uninitialized);
 		xk1.resize(AltModPrf::KeySize, oc::divCeil(n, 128), oc::AllocType::Uninitialized);
-		oc::Matrix<block> msg(StepSize, xk0.cols() * 2, oc::AllocType::Uninitialized); // y.size() * 256 * 2 bits
+		oc::Matrix<block> msg(StepSize, xk0.cols() * 2, oc::AllocType::Uninitialized); 
+		
 		for (u64 i = 0; i < AltModPrf::KeySize;)
 		{
 			co_await sock.recv(msg);
@@ -147,7 +148,7 @@ namespace secJoin
 		oc::Matrix<block>& xk0,
 		oc::Matrix<block>& xk1,
 		coproto::Socket& sock)
-	{
+	{	
 		if (xLsb.rows() != AltModPrf::KeySize)
 			throw RTE_LOC;
 
@@ -276,17 +277,16 @@ namespace secJoin
 							msbShare, lsbShare,
 							xLsb[i]);
 
-						// xk = -G(OT(i,0))
-
+						// xk = -G(OT(i,0))						
 					}
 				}
 				// ## msg = m ^ G(OT(i,1))
 				xorVector(msbMsg, mKeySendOTs[i][1]);
 				xorVector(lsbMsg, mKeySendOTs[i][1]);
 			}
+
 			co_await sock.send(std::move(msg));
 		}
-
 
 		if (mDebug)
 		{

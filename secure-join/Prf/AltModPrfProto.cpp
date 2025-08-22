@@ -8,7 +8,6 @@
 
 namespace secJoin
 {
-
 	// initialize the protocol to perform inputSize prf evals.
 	// correlations will be obtained from ole.
 	// The caller can specify the key [share] and optionally
@@ -18,7 +17,7 @@ namespace secJoin
 		u64 inputSize,
 		CorGenerator& ole,
 		AltModPrfKeyMode keyMode,
-		AltModPrfInputMode inputMode,
+		AltModPrfInputMode inputMode, 
 		macoro::optional<AltModPrf::KeyType> key,
 		span<const block> keyRecvOts,
 		span<const std::array<block, 2>> keySendOts)
@@ -29,7 +28,7 @@ namespace secJoin
 
 		if (key.has_value() ^ (AltModPrf::KeySize == keyRecvOts.size()))
 			throw RTE_LOC;
-
+		
 		mKeyMultRecver.init(ole, key, keyRecvOts);
 		auto n128 = oc::roundUpTo(mInputSize, 128);
 
@@ -65,7 +64,6 @@ namespace secJoin
 	// perform the correlated randomness generation. 
 	void AltModWPrfSender::preprocess()
 	{
-
 		mKeyMultRecver.preprocess();
 		mKeyMultSender.preprocess();
 
@@ -117,7 +115,7 @@ namespace secJoin
 				throw std::runtime_error("do not have enough preprocessing. Call request(...) first. " LOCATION);
 		}
 
-		setTimePoint("DarkMatter.sender.begin");
+		setTimePoint("AMPRF.sender.begin");
 
 		mKeyMultRecver.mDebug = mDebug;
 		mKeyMultSender.mDebug = mDebug;
@@ -130,6 +128,7 @@ namespace secJoin
 			// multiply our key with their inputs. The result is written
 			// to ek in transposed and decomposed format.
 			co_await mKeyMultRecver.mult(y.size(), ek0, ek1, sock);
+			setTimePoint("AMPRF.sender.keyMult");
 		}
 		else
 		{
@@ -184,6 +183,8 @@ namespace secJoin
 		ek0 = {};
 		ek1 = {};
 
+		setTimePoint("AMPRF.sender.Amult");
+
 		if (mDebug)
 		{
 			mDebugU0 = u0;
@@ -193,9 +194,17 @@ namespace secJoin
 		// Compute v = u mod 2
 		auto v = oc::Matrix<block>{ AltModPrf::MidSize, u0.cols() };
 		if (mUseMod2F4Ot)
+		{
 			co_await mod2OtF4(u0, u1, v, sock);
+			setTimePoint("AMPRF.sender.mod2OtF4");
+		}
 		else
+		{
 			co_await mod2Ole(u0, u1, v, sock);
+			setTimePoint("AMPRF.sender.mod2Ole");
+		}
+
+		
 
 		if (mDebug)
 		{
@@ -205,6 +214,7 @@ namespace secJoin
 		// Compute y = B * v
 		AltModPrf::compressB(v, y);
 		mInputSize = 0;
+		setTimePoint("AMPRF.sender.Bmult");
 	}
 
 	void AltModWPrfReceiver::setKeyOts(
@@ -299,7 +309,6 @@ namespace secJoin
 		mKeyMultRecver.preprocess();
 	}
 
-
 	coproto::task<> AltModWPrfReceiver::evaluate(
 		span<const block> x,
 		span<block> y,
@@ -327,7 +336,7 @@ namespace secJoin
 				throw std::runtime_error("do not have enough preprocessing. Call request(...) first. " LOCATION);
 		}
 
-		setTimePoint("DarkMatter.recver.begin");
+		setTimePoint("AMPRF.recver.begin");
 		if (mDebug)
 			mDebugInput = std::vector<block>(x.begin(), x.end());
 
@@ -335,6 +344,8 @@ namespace secJoin
 		// compute e = G * x
 		oc::Matrix<block> e(AltModPrf::KeySize, oc::divCeil(x.size(), 128), oc::AllocType::Uninitialized);
 		AltModPrf::expandInput(x, e);
+
+		setTimePoint("AMPRF.recver.expandInput");
 
 		mKeyMultRecver.mDebug = mDebug;
 		mKeyMultSender.mDebug = mDebug;
@@ -346,6 +357,7 @@ namespace secJoin
 		{
 			// multiply our input e with with key share
 			co_await mKeyMultSender.mult(e, {}, ek0, ek1, sock);
+			setTimePoint("AMPRF.recver.keyMult");
 		}
 		else
 		{
@@ -399,6 +411,8 @@ namespace secJoin
 		ek0 = {};
 		ek1 = {};
 
+		setTimePoint("AMPRF.recver.Amult");
+
 		if (mDebug)
 		{
 			mDebugU0 = u0;
@@ -408,9 +422,15 @@ namespace secJoin
 		// Compute v = u mod 2
 		oc::Matrix<block>v(AltModPrf::MidSize, u0.cols());
 		if (mUseMod2F4Ot)
+		{
 			co_await mod2OtF4(u0, u1, v, sock);
+			setTimePoint("AMPRF.recver.mod2OtF4");
+		}
 		else
+		{
 			co_await mod2Ole(u0, u1, v, sock);
+			setTimePoint("AMPRF.recver.mod2Ole");
+		}
 
 		if (mDebug)
 		{
@@ -420,6 +440,7 @@ namespace secJoin
 		// Compute y = B * v
 		AltModPrf::compressB(v, y);
 		mInputSize = 0;
+		setTimePoint("AMPRF.recver.BMult");
 	}
 
 
@@ -906,13 +927,14 @@ namespace secJoin
 		auto buff = oc::AlignedUnVector<block>{};
 		auto derand = (block*)nullptr;
 		auto derandEnd = (block*)nullptr;
+
 		for (auto i = 0ull; i < rows; ++i)
 		{
 			for (auto j = 0ull; j < cols; )
 			{
 
 				if (otIter[0] == otEnd)
-				{
+				{ 
 					co_await(mMod2F4Req.get(ots));
 
 					otEnd = ots.mOts[0].data() + ots.mOts[0].size();
@@ -1012,7 +1034,7 @@ namespace secJoin
 				}
 			}
 		}
-
+		
 		assert(buff.size() == 0);
 
 	}

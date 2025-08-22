@@ -23,10 +23,11 @@ int main(int argc, char** argv)
 {
     oc::CLP clp(argc, argv);
 
-    if (!clp.isSet("u"))
-        clp.set("u");
+    // if (!clp.isSet("u"))
+    //     clp.set("u");
     
-
+    if (clp.isSet("u"))
+        clp.set("u");
     //buildMod3Table2();
     //buildMod3Table4();
 
@@ -57,6 +58,10 @@ int main(int argc, char** argv)
         if (clp.isSet("AltModPerm"))
         {
             AltModPerm_benchmark(clp);
+        }        
+        if (clp.isSet("AltPsu"))
+        {
+            AltModPsu_benchmark(clp);
         }
         if (clp.isSet("PprfPerm"))
         {
@@ -86,6 +91,7 @@ int main(int argc, char** argv)
         {
             AltMod_sampleMod3_benchmark(clp);
         }
+        
         return 0;
     }
 

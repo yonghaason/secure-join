@@ -300,7 +300,7 @@ namespace secJoin
 					auto& batch = *mBatches[i];
 					batch.setBase(base);
 
-					setTimePoint("GenState::batch.begin " + std::to_string(i));
+					// setTimePoint("GenState::batch.begin " + std::to_string(i));
 
 					if (mPool)
 					{
@@ -326,7 +326,7 @@ namespace secJoin
 				if (threadState[j % mNumConcurrent].mTask.handle())
 					co_await threadState[j % mNumConcurrent].mTask;
 
-				setTimePoint("GenState::batch.end " + std::to_string(j));
+				// setTimePoint("GenState::batch.end " + std::to_string(j));
 				mBatches[j] = {};
 			}
 		}

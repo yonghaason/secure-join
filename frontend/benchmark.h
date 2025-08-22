@@ -1,5 +1,5 @@
 #include "cryptoTools/Common/CLP.h"
-
+#include <chrono>
 
 namespace secJoin
 {
@@ -14,7 +14,8 @@ namespace secJoin
     void AltMod_encodeX_benchmark(const oc::CLP& cmd);
     void AltMod_expandA_benchmark(const oc::CLP& cmd);
     void AltMod_sampleMod3_benchmark(const oc::CLP& cmd);
-
+    void AltModPsu_benchmark(const oc::CLP& cmd);
+    
     void PprfPerm_benchmark(const oc::CLP& cmd);
     void transpose_benchmark(const oc::CLP& cmd);
 
