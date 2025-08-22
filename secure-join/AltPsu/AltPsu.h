@@ -11,7 +11,6 @@ namespace secJoin
 
     class AltModPsuSender : public oc::TimerAdapter
     {        
-        // oc::Timer timer;
 
     public:
 
@@ -21,7 +20,7 @@ namespace secJoin
 
     class AltModPsuReceiver :public oc::TimerAdapter
     {
-        // oc::Timer timer;
+
     public:
 
         Proto run(span<block> X, std::vector<block>& D, PRNG &prng, Socket &chl);

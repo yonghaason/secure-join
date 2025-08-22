@@ -59,7 +59,7 @@ void AltModPsu_benchmark(const oc::CLP &cmd) {
   }
 
   if (cmd.isSet("v")) {
-
+    
     std::cout << timer_s << std::endl;
 
     std::cout << timer_r << std::endl;
