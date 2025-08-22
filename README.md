@@ -2,10 +2,8 @@ An implementation of `Enhanced Private Set Union from Secret-Shared Private Memb
 
 ### Build
 
-The following build command are checked on Ubuntu 22.04.05.
+After cloning the repository, the following build command are checked on Ubuntu 22.04.05.
 ```
-git clone https://github.com/yonghaason/PRF-PSU.git
-cd SecureJoin
 python3 build.py -DSECUREJOIN_ENABLE_BOOST=ON -DFETCH_SODIUM=ON
 # If you encounter a libsodium-related error (e.g., fetch/build failure), rerun the build using the command below.
 python3 build.py -DSECUREJOIN_ENABLE_BOOST=ON -DFETCH_SODIUM=OFF
