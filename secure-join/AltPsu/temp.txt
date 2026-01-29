@@ -11,6 +11,7 @@ using namespace std;
 namespace secJoin
 {
     u64 log_batch = 22;
+    int flag = 0;
 
     Proto AltModPsuSender::run(span<block> Y, PRNG& prng, Socket& chl)
     {
@@ -197,26 +198,12 @@ namespace secJoin
 
         co_await(finalOtReceiver.receiveChosen(ot_choice, finalOtMsgs, prng, chl));
 
-        int count1 = 0;
-        int count2 = 0;
-        int count3 = 0;
-        for (int i = 0; i < ot_choice.size(); i++){
-            if (ot_choice[i] == 0)
-                count1++;
-            else
-                count2++;
-        }
-        
         setTimePoint("eqOTe");
 
         for (auto &m : finalOtMsgs){
-            if (m != oc::ZeroBlock){
-                count3++;
+            if (m != oc::ZeroBlock)
                 D.push_back(m);
-            }
         }
-
-        std::cout << " difference number is " << count3 << '\n';
     }
 
     Proto AltModPsuSender::runUPSU(span<block> Y, int Xsize, PRNG& prng, Socket& chl)
@@ -236,24 +223,21 @@ namespace secJoin
         vector<block> okvs_encoding(okvs.Size());
 
         co_await chl.recv(okvs_encoding);
+        std::cout << "Receiver receive encoding\n";
 
-        vector<block> decoded(okvs.Size());
+        vector<block> decoded(Y.size());
 
-        // epsilon = 0.1;
-        // n = Y.size();
-        // m = static_cast<size_t>((1 + epsilon) * n);
-        // band_length = 196;
+        epsilon = 0.1;
+        n = Y.size();
+        m = static_cast<size_t>((1 + epsilon) * n);
+        band_length = 196;
 
-        // band_okvs::BandOkvs okvs2;
-        // okvs2.Init(n, m, band_length, oc::ZeroBlock);
-
-        // std::cout << "size 1 is " << okvs_encoding.size() << " Y size is " << Y.size() << '\n';
-        // for(int i = 0; i < Y.size()/okvs_encoding.size(); i++)
-
-        okvs.Decode(Y.data(), okvs_encoding.data(), decoded.data());
-
-        decoded.resize(Y.size());
-        // std::cout << "OKVE end'\n";
+        band_okvs::BandOkvs okvs2;
+        okvs2.Init(n, m, band_length, oc::ZeroBlock);
+        std::cout << "Receiver try to decode, okvs_encoding size is " << okvs_encoding.size() << '\n';
+        
+        okvs2.Decode(Y.data(), okvs_encoding.data(), decoded.data());
+        std::cout << "Receiver end to decode\n";
         setTimePoint("OKVS");
 
         // ss-PRF
@@ -326,6 +310,7 @@ namespace secJoin
     Proto AltModPsuReceiver::runUPSU(span<block> X, int Ysize, std::vector<block>& D, PRNG& prng, Socket& chl)
     {
         setTimePoint("start");
+        std::cout << "UPSU satrt X size is " << X.size() << " Y size is " << Ysize << '\n';
         // double communication_cost;
 
         // use AltModPrf only receiver
@@ -335,6 +320,7 @@ namespace secJoin
         // Local F_k(X)
         dm.eval(X, myPRF);
 
+        std::cout << "Local PRF computation\n";
         setTimePoint("Local PRF computation");
 
         // make rb_okvs
@@ -345,17 +331,30 @@ namespace secJoin
 
         band_okvs::BandOkvs okvs;
         okvs.Init(n, m, band_length, oc::ZeroBlock);
+        // std::cout << "okvs end\n";
 
         vector<block> okvs_encoding(okvs.Size());
+
+        // vector<block> test(X.size());
+        // for(int i = 0; i < X.size(); i++){
+        //     test[i] = X[i];
+        // }
+        
         if (!okvs.Encode(X.data(), myPRF.data(), okvs_encoding.data())) {
             std::cout << "Failed to encode!" << std::endl;
             exit(0);
         }
-
+        std::cout << "okvs end, encoding size is " << okvs_encoding.size() << '\n';
+        
+        std::cout << "start to send Encoding\n";
+        std::cout.flush();
         // send okvs encoding
         co_await chl.send(std::move(okvs_encoding));
-        setTimePoint("OKVS");
+        
 
+        setTimePoint("OKVS");
+        std::cout << "end to Encoding\n";
+        std::cout.flush();
         // ss-PRF
         CorGenerator ole0;
         ole0.init(chl.fork(), prng, 0, 1, 1 << log_batch, 0);
@@ -365,21 +364,23 @@ namespace secJoin
         keyOtReceiver.configure(AltModPrf::KeySize);
         oc::BitVector kk_bv;
         kk_bv.append((u8*)dm.getKey().data(), AltModPrf::KeySize);
-
+        
+        std::cout << "To wait keyOtReceiver.receive\n";
         co_await keyOtReceiver.receive(kk_bv, rk, prng, chl);
-
+        
         AltModWPrfSender sender;
         sender.init(Ysize, ole0, AltModPrfKeyMode::SenderOnly, AltModPrfInputMode::ReceiverOnly, dm.getKey(), rk); // Should be Y size
 
         sender.mUseMod2F4Ot = true;
 
         vector<block> sharedPRF(Ysize); // Should be Y size
-
+        std::cout << "stat ss-PRF\n";
         co_await macoro::when_all_ready(
             ole0.start(),
             sender.evaluate({}, sharedPRF, chl, prng)
         );
-
+        std::cout << "end ss-PRF\n";
+        
         setTimePoint("ss-PRF");
 
         // ss-PET part
@@ -399,11 +400,11 @@ namespace secJoin
         Gmw cmp;
         cmp.init(in.rows(), cir, ole_gmw);
         cmp.setInput(0, in);
-
+        std::cout << "start GMW\n";
         auto tgmw = cmp.run(chl);
         auto tgmw_ole = ole_gmw.start();
         co_await macoro::when_all_ready(tgmw, tgmw_ole);
-
+        std::cout << "end GMW\n";
         auto outView = cmp.getOutputView(0);
 
         oc::BitVector ot_choice(Ysize);
@@ -415,30 +416,24 @@ namespace secJoin
         vector<block> finalOtMsgs(ot_choice.size());
         oc::SilentOtExtReceiver finalOtReceiver;
         finalOtReceiver.configure(ot_choice.size());
-
+        std::cout << "start OT\n";
         co_await(finalOtReceiver.receiveChosen(ot_choice, finalOtMsgs, prng, chl));
-
-        int count1 = 0;
-        int count2 = 0;
-        int count3 = 0;
-        for (int i = 0; i < ot_choice.size(); i++){
-            if (ot_choice[i] == 0)
-                count1++;
-            else
-                count2++;
-        }
-
+        
+        // std::cout << "end OT\n";
         setTimePoint("eqOTe");
-
+        // std::cout.flush();
+        // if (flag == 0){
+        //     flag = 1;
+        // }
+        // else{
+        //     exit(0);
+        // }
+        // std::cout.flush();
         D.clear();
         for (auto &m : finalOtMsgs){
-            if (m != oc::ZeroBlock){
-                count3++;
+            if (m != oc::ZeroBlock)
                 D.push_back(m);
-            }
         }
-
-        std::cout << " difference number is " << count3 << '\n';
     }
 
 }

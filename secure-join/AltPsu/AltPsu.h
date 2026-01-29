@@ -1,3 +1,5 @@
+#pragma once
+
 #include "cryptoTools/Common/Timer.h"
 #include "cryptoTools/Common/BitVector.h"
 #include "secure-join/GMW/Gmw.h"
@@ -15,6 +17,7 @@ namespace secJoin
     public:
 
         Proto run(span<block> Y, PRNG &prng, Socket &chl);
+        Proto runUPSU(span<block> Y, int XSize, PRNG &prng, Socket &chl);
 
     };
 
@@ -24,6 +27,7 @@ namespace secJoin
     public:
 
         Proto run(span<block> X, std::vector<block>& D, PRNG &prng, Socket &chl);
+        Proto runUPSU(span<block> X, int Ysize, std::vector<block>& D, PRNG &prng, Socket &chl);
 
     };
 

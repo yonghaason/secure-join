@@ -63,6 +63,14 @@ int main(int argc, char** argv)
         {
             AltModPsu_benchmark(clp);
         }
+        if (clp.isSet("AltUPsu"))
+        {
+            AltModUPsu_benchmark(clp);
+        }
+        if (clp.isSet("AltPID"))
+        {
+            AltModPID_benchmark(clp);
+        }
         if (clp.isSet("PprfPerm"))
         {
             PprfPerm_benchmark(clp);

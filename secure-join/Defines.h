@@ -29,6 +29,17 @@ namespace secJoin
     template<typename T> using span = oc::span<T>;
 
 
+	enum Mode {
+		Sender = 1,
+		Receiver = 2
+		//Dual = 3
+	};
+
+    struct RequiredBase
+	{
+		u64 mNumSend;
+		oc::BitVector mRecvChoiceBits;
+	};
 
 
     inline u64 divCeil(u64 x, u64 y)
@@ -80,7 +91,6 @@ namespace secJoin
 
     using block = oc::block;
     using PRNG = oc::PRNG;
-
 
 
 

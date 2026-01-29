@@ -15,7 +15,8 @@ namespace secJoin
     void AltMod_expandA_benchmark(const oc::CLP& cmd);
     void AltMod_sampleMod3_benchmark(const oc::CLP& cmd);
     void AltModPsu_benchmark(const oc::CLP& cmd);
-    
+    void AltModUPsu_benchmark(const oc::CLP& cmd);
+    void AltModPID_benchmark(const oc::CLP& cmd);
     void PprfPerm_benchmark(const oc::CLP& cmd);
     void transpose_benchmark(const oc::CLP& cmd);
 

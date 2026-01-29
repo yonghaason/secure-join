@@ -53,12 +53,48 @@ set(SRCS
     "AltPsu/AltPsu.cpp"
     "AltPsu/RB_OKVS/band_okvs.cc"
     "AltPsu/RB_OKVS/band.cc"
+
+    "PID/AltModPID.cpp"
+    "volePSI/RsOprf.cpp"
+    "volePSI/SimpleIndex.cpp"
     )
 
 
 
+# add_library(secureJoin STATIC ${SRCS})
+# target_link_libraries(secureJoin libOTe)
+
+# add Kunlun
+
+# --- Kunlun 가져오기 (이미 사용 중인 절대경로 방식 유지) ---
+add_subdirectory(${CMAKE_SOURCE_DIR}/secure-join/Kunlun ${CMAKE_BINARY_DIR}/Kunlun-build)
+
+# Kunlun 타깃 존재 확인 후 변수에 담기
+if (TARGET Kunlun::kunlun)
+  set(KUNLUN_TARGET Kunlun::kunlun)
+elseif (TARGET Kunlun)
+  set(KUNLUN_TARGET Kunlun)
+else()
+  message(FATAL_ERROR "Kunlun target not found (Kunlun::kunlun or Kunlun). Check Kunlun/CMakeLists.txt")
+endif()
+
+# (중복 안전) 종속성
+find_package(OpenMP REQUIRED)
+# OpenSSL은 Kunlun 인터페이스가 이미 정적 lib 경로를 전파하므로 굳이 다시 가져오지 않아도 됩니다.
+# 만약 secure-join 코드 자체가 OpenSSL imported target을 필요로 한다면 그때만 find_package(OpenSSL REQUIRED)
+
 add_library(secureJoin STATIC ${SRCS})
-target_link_libraries(secureJoin libOTe)
+
+target_link_libraries(secureJoin
+  PUBLIC
+    libOTe
+  PRIVATE
+    ${KUNLUN_TARGET}
+    OpenMP::OpenMP_CXX
+)
+
+# (중복 제거) 아래의 이중 탐색/이중 에러 메시지/이중 ALIAS 생성 코드는 삭제하세요.
+
 
 configure_file(config.h.in "config.h" )
 if(APPLE)

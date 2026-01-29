@@ -2,12 +2,220 @@
 
 #include "coproto/Socket/AsioSocket.h"
 #include "secure-join/AltPsu/AltPsu.h"
+#include "secure-join/PID/AltModPID.h"
 #include "secure-join/Join/OmJoin.h"
 #include "secure-join/Perm/PprfPermGen.h"
 #include "secure-join/Prf/AltModPrfProto.h"
 #include "secure-join/Sort/RadixSort.h"
 
 namespace secJoin {
+void AltModPID_benchmark(const oc::CLP &cmd) {
+  
+  u64 n = cmd.getOr("n", 1ull << cmd.getOr("nn", 10));
+  u64 nt = cmd.getOr("nt", 1);
+  u64 us = cmd.getOr("d", 1ull << cmd.getOr("us", 10));
+
+  oc::Timer timer;
+
+  timer.setTimePoint("start");
+
+  macoro::thread_pool pool0;
+  auto e0 = pool0.make_work();
+  pool0.create_threads(nt);
+  macoro::thread_pool pool1;
+  auto e1 = pool1.make_work();
+  pool1.create_threads(nt);
+
+  // auto socket = coproto::AsioSocket::makePair();
+  auto socket = coproto::LocalAsyncSocket::makePair();
+  socket[0].setExecutor(pool0);
+  socket[1].setExecutor(pool1);
+
+  PRNG prng(oc::ZeroBlock);
+
+  std::vector<block> recvSet(n), sendSet(n);
+  prng.get<block>(recvSet);
+  sendSet = recvSet;
+  
+  u64 itx = 55;
+  // for (u64 i = 0; i < itx; i++) {
+  //   sendSet[(i*5) % n] = prng.get();
+  // }
+  for (u64 i = 1; i < itx + 1; i++) {
+    sendSet[i] = block(i,i);
+  }
+
+  for (u64 i = 1; i < 3; i++) {
+    recvSet[i] = block(i,i);
+  }
+  // for (u64 i = 1; i < itx + 1; i++) {
+  //   sendSet[i] = oc::ZeroBlock;
+  // }
+  // for (u64 i = 1; i < itx + 1; i++) {
+  //   recvSet[i] = oc::OneBlock;
+  // }
+
+  // for (u64 i = 0; i < sendSet.size(); i++){}
+  
+  AltModPidSender send;
+  AltModPidReceiver recv;
+
+  // 1 is ss-PRF
+  // 2 is RR22 OPRF
+  // int OPRFflag = 1;
+  int OPRFflag = cmd.getOr("oprf", 1);
+  int Partyflag = cmd.getOr("party", 0);
+
+  runPID(send, recv, OPRFflag, sendSet, recvSet, prng, socket[0], socket[1], Partyflag);
+
+  timer.setTimePoint("End PID");
+
+  if (cmd.isSet("v")) {
+
+    std::cout << "comm " << double(socket[0].bytesSent())/ 1024 / 1024 << " + "
+              << double(socket[1].bytesSent())/ 1024 / 1024 << " = "
+              << double(socket[0].bytesSent() + socket[1].bytesSent()) / 1024 / 1024
+              << "MB" << std::endl;
+  }
+
+  if (OPRFflag == 4){
+    
+    for (int i = 0; i < cmd.getOr("u", 0); i++){
+
+      AltModPidSender send;
+      AltModPidReceiver recv;
+
+      sendSet.resize(sendSet.size() + us);
+      recvSet.resize(recvSet.size() + us);
+
+      for (u64 i = sendSet.size() - us; i < sendSet.size() + 1; i++) {
+        sendSet[i] = prng.get<block>();
+      }
+
+      for (u64 i = recvSet.size() - us; i < recvSet.size(); i++) {
+
+        if (i < recvSet.size() - 1000){
+          recvSet[i] = sendSet[i];
+        }
+        else{
+          recvSet[i] = prng.get<block>();
+        }
+      }
+
+      std::cout << "Setsize is " << sendSet.size() << '\n';
+
+      runPID(send, recv, OPRFflag, sendSet, recvSet, prng, socket[0], socket[1], Partyflag);
+      
+      timer.setTimePoint("Update End");
+    }
+
+
+  }
+  else{
+    for (int i = 0; i < cmd.getOr("u", 0); i++){
+      runUpdate(send, recv, OPRFflag, us, prng, socket[0], socket[1], Partyflag);
+      timer.setTimePoint("Update End");
+    }
+  }
+
+
+
+
+  if (cmd.isSet("v")) {
+    
+    std::cout << timer << std::endl;
+
+    std::cout << "update size is " << us << "\n";
+
+    std::cout << "comm " << double(socket[0].bytesSent())/ 1024 / 1024 << " + "
+              << double(socket[1].bytesSent())/ 1024 / 1024 << " = "
+              << double(socket[0].bytesSent() + socket[1].bytesSent()) / 1024 / 1024
+              << "MB" << std::endl;
+  }
+
+
+
+  // std::cout << "#difference = " << diffSet.size() << " / expected = " << itx << std::endl;
+}
+
+void AltModUPsu_benchmark(const oc::CLP &cmd) {
+  
+  u64 n = cmd.getOr("n", 1ull << cmd.getOr("nn", 10));
+  u64 nt = cmd.getOr("nt", 1);
+
+  u64 n1 = 1ull << 10;
+
+  // n = 1051703;
+
+  macoro::thread_pool pool0;
+  auto e0 = pool0.make_work();
+  pool0.create_threads(nt);
+  macoro::thread_pool pool1;
+  auto e1 = pool1.make_work();
+  pool1.create_threads(nt);
+
+  oc::Timer timer_s;
+  oc::Timer timer_r;
+
+  // auto socket = coproto::AsioSocket::makePair();
+  auto socket = coproto::LocalAsyncSocket::makePair();
+  socket[0].setExecutor(pool0);
+  socket[1].setExecutor(pool1);
+
+  PRNG prng(oc::ZeroBlock);
+
+  std::vector<block> recvSet(n);
+  std::vector<block> sendSet(n1);
+
+  // std::vector<block> recvSet(n1);
+  // std::vector<block> sendSet(n);
+
+  prng.get<block>(recvSet);
+  prng.get<block>(sendSet);
+  sendSet = recvSet;
+  
+  u64 itx = 55;
+  // for (u64 i = 0; i < itx; i++) {
+  //   sendSet[(i*5) % n] = prng.get();
+  // }
+  for (u64 i = 1; i < itx + 1; i++) {
+    sendSet[i] = block(i,i);
+  }
+
+  AltModPsuSender send;
+  AltModPsuReceiver recv;
+
+  send.setTimer(timer_s);
+  recv.setTimer(timer_r);
+
+  std::vector<block> diffSet;
+
+  for (u64 i = 0; i < 1; ++i) {
+    auto p0 = send.runUPSU(sendSet, recvSet.size(), prng, socket[0]);
+    auto p1 = recv.runUPSU(recvSet, sendSet.size(), diffSet, prng, socket[1]);
+
+    auto r = macoro::sync_wait(
+        macoro::when_all_ready(std::move(p0) | macoro::start_on(pool0),
+                               std::move(p1) | macoro::start_on(pool1)));
+    std::get<0>(r).result();
+    std::get<1>(r).result();
+  }
+
+  if (cmd.isSet("v")) {
+    
+    std::cout << timer_s << std::endl;
+
+    std::cout << timer_r << std::endl;
+
+    std::cout << "comm " << double(socket[0].bytesSent())/ 1024 / 1024 << " + "
+              << double(socket[1].bytesSent())/ 1024 / 1024 << " = "
+              << double(socket[0].bytesSent() + socket[1].bytesSent()) / 1024 / 1024
+              << "MB" << std::endl;
+  }
+
+  std::cout << "#difference = " << diffSet.size() << " / expected = " << itx << std::endl;
+}
+
 void AltModPsu_benchmark(const oc::CLP &cmd) {
   
   u64 n = cmd.getOr("n", 1ull << cmd.getOr("nn", 10));
