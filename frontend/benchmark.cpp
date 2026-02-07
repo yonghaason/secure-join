@@ -14,6 +14,7 @@ void AltModPID_benchmark(const oc::CLP &cmd) {
   u64 n = cmd.getOr("n", 1ull << cmd.getOr("nn", 10));
   u64 nt = cmd.getOr("nt", 1);
   u64 us = cmd.getOr("d", 1ull << cmd.getOr("us", 10));
+  u64 ustemp = n + us;
 
   oc::Timer timer;
 
@@ -112,9 +113,47 @@ void AltModPID_benchmark(const oc::CLP &cmd) {
 
   }
   else{
-    for (int i = 0; i < cmd.getOr("u", 0); i++){
-      runUpdate(send, recv, OPRFflag, us, prng, socket[0], socket[1], Partyflag);
+
+    socket = coproto::LocalAsyncSocket::makePair();
+    socket[0].setExecutor(pool0);
+    socket[1].setExecutor(pool1);
+    
+    if(1)
+    {  for (int i = 0; i < cmd.getOr("u", 0); i++){
+        runUpdate(send, recv, OPRFflag, us, prng, socket[0], socket[1], Partyflag);
+        timer.setTimePoint("Update End");
+      }
+    }
+    else{
+
+      AltModPidSender send;
+      AltModPidReceiver recv;
+
+      sendSet.resize(ustemp);
+      recvSet.resize(ustemp);
+
+      for (u64 i = sendSet.size() - us; i < sendSet.size() + 1; i++) {
+        sendSet[i] = prng.get<block>();
+      }
+
+      for (u64 i = recvSet.size() - us; i < recvSet.size(); i++) {
+
+        if (i < recvSet.size() - 1000){
+          recvSet[i] = sendSet[i];
+        }
+        else{
+          recvSet[i] = prng.get<block>();
+        }
+      }
+
+      std::cout << "Setsize is " << sendSet.size() << '\n';
+
+      runPID(send, recv, OPRFflag, sendSet, recvSet, prng, socket[0], socket[1], Partyflag);
       timer.setTimePoint("Update End");
+      std::cout << "comm " << double(socket[0].bytesSent())/ 1024 / 1024 << " + "
+          << double(socket[1].bytesSent())/ 1024 / 1024 << " = "
+          << double(socket[0].bytesSent() + socket[1].bytesSent()) / 1024 / 1024
+          << "MB" << std::endl;
     }
   }
 

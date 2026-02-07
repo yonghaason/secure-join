@@ -815,49 +815,99 @@ namespace secJoin
 
             if (OPRFflag == 4)
             {
-
-                u64 nt = 1;
-
-                macoro::thread_pool pool0;
-                auto e0 = pool0.make_work();
-                pool0.create_threads(nt);
-                macoro::thread_pool pool1;
-                auto e1 = pool1.make_work();
-                pool1.create_threads(nt);
-
-                oc::Timer timer_s;
-                oc::Timer timer_r;
-
-                AltModPsuSender send;
-                AltModPsuReceiver recv;
-
-                // send.setTimer(timer_s);
-                // recv.setTimer(timer_r);
-                timer_s.setTimePoint("start");
-
-                std::vector<block> diffSet;
-
+                // PSU 1
                 {
-                    auto p0 = send.run(Sender.OPRFTable, prng, chl1);
-                    auto p1 = recv.run(Receiver.OPRFTable, diffSet, prng, chl2);
 
-                    auto r = macoro::sync_wait(
-                        macoro::when_all_ready(std::move(p0) | macoro::start_on(pool0),
-                                            std::move(p1) | macoro::start_on(pool1)));
-                    std::get<0>(r).result();
-                    std::get<1>(r).result();
+                    u64 nt = 1;
+
+                    macoro::thread_pool pool0;
+                    auto e0 = pool0.make_work();
+                    pool0.create_threads(nt);
+                    macoro::thread_pool pool1;
+                    auto e1 = pool1.make_work();
+                    pool1.create_threads(nt);
+
+                    oc::Timer timer_s;
+                    oc::Timer timer_r;
+
+                    AltModPsuSender send;
+                    AltModPsuReceiver recv;
+
+                    // send.setTimer(timer_s);
+                    // recv.setTimer(timer_r);
+                    timer_s.setTimePoint("start");
+
+                    std::vector<block> diffSet;
+
+                    {
+                        auto p0 = send.run(Sender.OPRFTable, prng, chl1);
+                        auto p1 = recv.run(Receiver.OPRFTable, diffSet, prng, chl2);
+
+                        auto r = macoro::sync_wait(
+                            macoro::when_all_ready(std::move(p0) | macoro::start_on(pool0),
+                                                std::move(p1) | macoro::start_on(pool1)));
+                        std::get<0>(r).result();
+                        std::get<1>(r).result();
+                    }
+
+                    if (0) {
+        
+                        std::cout << timer_s << std::endl;
+
+                        // std::cout << timer_r << std::endl;
+
+                        std::cout << "comm " << double(chl1.bytesSent())/ 1024 / 1024 << " + "
+                                << double(chl2.bytesSent())/ 1024 / 1024 << " = "
+                                << double(chl1.bytesSent() + chl2.bytesSent()) / 1024 / 1024
+                                << "MB" << std::endl;
+                    }
                 }
+                // PSU 2
+                {
 
-                if (0) {
-    
-                    std::cout << timer_s << std::endl;
+                    u64 nt = 1;
 
-                    // std::cout << timer_r << std::endl;
+                    macoro::thread_pool pool0;
+                    auto e0 = pool0.make_work();
+                    pool0.create_threads(nt);
+                    macoro::thread_pool pool1;
+                    auto e1 = pool1.make_work();
+                    pool1.create_threads(nt);
 
-                    std::cout << "comm " << double(chl1.bytesSent())/ 1024 / 1024 << " + "
-                            << double(chl2.bytesSent())/ 1024 / 1024 << " = "
-                            << double(chl1.bytesSent() + chl2.bytesSent()) / 1024 / 1024
-                            << "MB" << std::endl;
+                    oc::Timer timer_s;
+                    oc::Timer timer_r;
+
+                    AltModPsuSender send;
+                    AltModPsuReceiver recv;
+
+                    // send.setTimer(timer_s);
+                    // recv.setTimer(timer_r);
+                    timer_s.setTimePoint("start");
+
+                    std::vector<block> diffSet;
+
+                    {
+                        auto p0 = send.run(Receiver.OPRFTable, prng, chl1);
+                        auto p1 = recv.run(Sender.OPRFTable, diffSet, prng, chl2);
+
+                        auto r = macoro::sync_wait(
+                            macoro::when_all_ready(std::move(p0) | macoro::start_on(pool0),
+                                                std::move(p1) | macoro::start_on(pool1)));
+                        std::get<0>(r).result();
+                        std::get<1>(r).result();
+                    }
+
+                    if (0) {
+        
+                        std::cout << timer_s << std::endl;
+
+                        // std::cout << timer_r << std::endl;
+
+                        std::cout << "comm " << double(chl1.bytesSent())/ 1024 / 1024 << " + "
+                                << double(chl2.bytesSent())/ 1024 / 1024 << " = "
+                                << double(chl1.bytesSent() + chl2.bytesSent()) / 1024 / 1024
+                                << "MB" << std::endl;
+                    }
                 }
             }
             
@@ -996,15 +1046,15 @@ namespace secJoin
 
             }
 
-            // if (OPRFflag == 2){
-            //     std::cout << "Sender.OPRFTable size is " << Sender.OPRFTable.size() << '\n';
-            //     std::cout << "\nSender:\n";
-            //     std::cout << "init OPRFSum is " << Sender.OPRFTable[1] << " Update Value is " << Sender.OPRFTable[Sender.initSetSize + 1] << "\n\n";
+            if (OPRFflag == 2){
+                std::cout << "Sender.OPRFTable size is " << Sender.OPRFTable.size() << '\n';
+                std::cout << "\nSender:\n";
+                std::cout << "init OPRFSum is " << Sender.OPRFTable[1] << " Update Value is " << Sender.OPRFTable[Sender.initSetSize + 1] << "\n\n";
 
-            //     std::cout << "\nReceiver:\n";
-            //     std::cout << "init OPRFSum is " << Receiver.OPRFTable[1] << " Update Value is " << Receiver.OPRFTable[Receiver.initSetSize + 1] << "\n\n";
+                std::cout << "\nReceiver:\n";
+                std::cout << "init OPRFSum is " << Receiver.OPRFTable[1] << " Update Value is " << Receiver.OPRFTable[Receiver.initSetSize + 1] << "\n\n";
                 
-            // }
+            }
             
         }
 }
